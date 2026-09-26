@@ -1,0 +1,8 @@
+{
+  "name": "crosscore-ops-suite",
+  "version": "8.0.0",
+  "private": true,
+  "description": "Cross Core Ops Suite — unified operations portal",
+  "scripts": { "build": "node scripts/write-config.js" },
+  "engines": { "node": ">=18" }
+}

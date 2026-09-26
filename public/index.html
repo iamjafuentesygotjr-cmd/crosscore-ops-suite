@@ -5110,6 +5110,7 @@ RENDER.employees = () => {
       <div class="card kpi"><div class="k-label">On probation</div><div class="k-val">${EMPLOYEES.filter(e=>e.status==='On Probation').length}</div><div class="hint">evaluation period</div></div>
       <div class="card kpi"><div class="k-label">With client assignments</div><div class="k-val">${EMPLOYEES.filter(e=>clientIdsFor(e.id).length).length}</div><div class="hint">scoped workspaces</div></div>
     </div>
+    ${canAdminEmp()?pmLoginsCard():''}
     <div class="card" style="margin-bottom:16px">
       <div class="card-h"><h3>Directory</h3>
         <div style="display:flex;gap:8px">
@@ -5233,13 +5234,37 @@ async function disableEmp(id){
   toast(`${e.name.split(' ')[0]} is now ${st}${off?' — portal access disabled and removed from client teams':''}`);
 }
 /* ---------- bulk logins: one click creates a portal login + temporary password for every active employee who has none ---------- */
-const bulkTargets = () => EMPLOYEES.filter(e=>['Active','On Probation'].includes(e.status) && e.email && e.email.includes('@') && !e.account && e.id!==PERSON);
+/* project managers set up as built-in profiles (Tricia, Yamille) are not in the employee list, so they get their own login row */
+const pmLeaders = () => Object.keys(LEADERS).filter(k=>LEADERS[k].role==='manager' && PEOPLE[k]);
+const leaderAcct = k => (S().leaderAccounts||{})[k];
+function setLeaderAcct(k, v){ let g = SETTINGS.find(x=>x.id==='global'); if(!g){ g={...DEFAULT_SETTINGS}; SETTINGS.push(g); } g.leaderAccounts = {...(g.leaderAccounts||{}), [k]:v}; }
+const pmAsTarget = k => ({id:k, name:PEOPLE[k].name, email:PEOPLE[k].email, leader:true});
+const bulkTargets = () => [...EMPLOYEES.filter(e=>['Active','On Probation'].includes(e.status) && e.email && e.email.includes('@') && !e.account && e.id!==PERSON),
+  ...pmLeaders().filter(k=>k!==PERSON && !leaderAcct(k) && PEOPLE[k].email).map(pmAsTarget)];
+function pmLoginsCard(){
+  const L = pmLeaders(); if(!L.length) return '';
+  return `<div class="card" style="margin-bottom:16px"><div class="card-h"><h3>Project managers — portal logins</h3><span class="sub">built-in PM profiles</span></div><div class="card-b" style="padding-top:4px">
+    ${L.map(k=>{ const a = leaderAcct(k); return `<div class="list-row">${av(P(k))}<div style="flex:1"><b style="font-size:12.5px">${esc(pname(k))}</b><div class="hint">${esc(P(k).sub||'Project manager')} · ${esc(P(k).email||'no email')} · ${clientIdsFor(k).length} clients</div></div>
+      <span class="hint">${a?(a.mustChange?'Temp password issued':'Login active'):'No login yet'}</span>
+      <button class="btn ${a?'':'primary'}" style="padding:5px 10px;font-size:12px" onclick="pmLoginPw('${k}')">${a?'Temp password':'Create login'}</button></div>`; }).join('')}
+  </div></div>`;
+}
+async function pmLoginPw(k){
+  const p = PEOPLE[k]; if(!p?.email) return toast('No email on file');
+  const had = leaderAcct(k);
+  if(!confirm(had ? `Issue a new temporary password for ${p.name}? Their current password stops working.` : `Create a portal login for ${p.name} (${p.email})?`)) return;
+  let res; try{ res = await adminCall(had || BACKEND.mode!=='live' ? (had?'reset':'create') : 'create', {email:p.email, person_key:k, role:'pm', name:p.name}); }
+  catch(err){ if(/No account exists/i.test(err.message)){ try{ res = await adminCall('create', {email:p.email, person_key:k, role:'pm', name:p.name}); }catch(e2){ return toast('Could not create: '+e2.message); } } else return toast('Could not create: '+err.message); }
+  setLeaderAcct(k, {created:had?.created||nowISO(), mustChange:true, resetAt:nowISO()});
+  audit(`Issued a portal login for ${p.email}`); recordChange(); RENDER[CURRENT]?.();
+  credentialsModal(p.name, p.email, res);
+}
 async function bulkLogins(){
   let list = bulkTargets();
   if(BACKEND.mode==='live'){ /* never touch anyone who already signed up or was added in Supabase */
     const {data} = await BACKEND.sb.from('cc_people').select('email,user_id');
     const has = new Set((data||[]).filter(r=>r.user_id).map(r=>String(r.email).toLowerCase()));
-    list.filter(e=>has.has(e.email.toLowerCase())).forEach(e=>{ e.account = {created:nowISO(), mustChange:false}; });
+    list.filter(e=>has.has(e.email.toLowerCase())).forEach(e=>{ if(e.leader) setLeaderAcct(e.id, {created:nowISO(), mustChange:false}); else e.account = {created:nowISO(), mustChange:false}; });
     list = list.filter(e=>!has.has(e.email.toLowerCase()));
     if(!list.length){ recordChange(); RENDER[CURRENT]?.(); }
   }
@@ -5249,8 +5274,8 @@ async function bulkLogins(){
   const out = [];
   for(const [i,e] of list.entries()){
     el('blProg') && (el('blProg').textContent = `${i+1} of ${list.length} — ${e.name}`);
-    try{ const r = await adminCall('create', {email:e.email, person_key:e.id, role:dirRole(portalOf(e)), name:e.name});
-      e.account = {created:nowISO(), mustChange:true}; out.push({e, pw:r.password||'', ok:true, note:r.noFunction?'Add in Supabase → Users':''}); }
+    try{ const r = await adminCall('create', {email:e.email, person_key:e.id, role:e.leader?'pm':dirRole(portalOf(e)), name:e.name});
+      if(e.leader) setLeaderAcct(e.id, {created:nowISO(), mustChange:true}); else e.account = {created:nowISO(), mustChange:true}; out.push({e, pw:r.password||'', ok:true, note:r.noFunction?'Add in Supabase → Users':''}); }
     catch(err){ out.push({e, ok:false, note:err.message}); }
   }
   audit(`Created portal logins for ${out.filter(x=>x.ok).length} employees`);

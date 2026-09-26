@@ -523,6 +523,15 @@ img.login-bg{position:absolute;inset:0;width:100vw !important;height:100vh !impo
 .btn.meet-btn{background:#1a73e8;color:#fff;border:none}.btn.meet-btn:hover{background:#1765cc}
 .call-card.meet{border-color:#1a73e8;box-shadow:0 0 0 3px rgba(26,115,232,.15)}
 .call-ring.meet{border-left-color:#1a73e8}
+/* attendance: live team board and records */
+.team-status{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+.ts-h{display:flex;gap:8px;align-items:center;margin-bottom:6px}
+.ts-row{display:flex;gap:8px;align-items:center;padding:5px 4px;border-radius:8px;cursor:pointer;font-size:12.5px}
+.ts-row:hover{background:var(--panel-2)}
+.ts-row .hint{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:190px}
+.att-tbl td{vertical-align:top;font-size:12.5px}
+@media(max-width:1100px){.team-status{grid-template-columns:1fr 1fr}}
+@media(max-width:600px){.team-status{grid-template-columns:1fr}}
 /* @tags in chat */
 .mention{background:var(--info-bg);color:var(--info);font-weight:600;border-radius:5px;padding:0 4px;cursor:pointer;white-space:nowrap}
 .mention.mine-tag{background:var(--warn-bg);color:var(--brand-2)}
@@ -833,7 +842,7 @@ CLIENTS.forEach(c=>{ if(!c.mgr) c.mgr = (c.id==='mkt') ? 'yam' : 'tricia'; });
 
 
 const LEADERS = {
-  paul:{name:'Pau', sub:'Chief Executive Officer', role:'ceo', level:'Super Administrator', email:'paul.crosscore@gmail.com', color:'#141414'},
+  paul:{name:'Pau', sub:'Chief Executive Officer', role:'ceo', level:'Super Administrator', email:'pauline.vicente14@gmail.com', color:'#141414'},
   ja:{name:'JA', sub:'Chief Operating Officer', role:'coo', level:'Executive Administrator', email:'ja.crosscore@gmail.com', color:'#2D63C8'},
   norman:{name:'Norman', sub:'Co-Founder, Creative Studio', role:'creative', level:'Creative Director', email:'norms.crosscore@gmail.com', color:'#6C3BC9'},
   tricia:{name:'Tricia S. Caber', sub:'Senior Project Manager', role:'manager', level:'Manager', email:'tricia.crosscore@gmail.com', color:'#E39312',
@@ -1182,6 +1191,10 @@ const isHead = k => HEADS.includes(k);
 /* System administrators: Administration, accounts, access and company group chats. Pau keeps full access as Super Administrator. */
 const SYS_ADMINS = ['paul','ja'];
 const isSysAdmin = (k=PERSON) => SYS_ADMINS.includes(k);
+/* Full access: Pau and JA can open every page and step in for HR-only steps (onboarding, HR documents). */
+const FULL_ACCESS = ['paul','ja'];
+const isFullAccess = (k=PERSON) => FULL_ACCESS.includes(k);
+const hrOrFull = () => ROLE==='hr' || isFullAccess();
 const canApproveNow = () => ROLE!=='employee';
 const canCreateOrgs = () => isExec() || ROLE==='hr';
 const isCore = (k=PERSON) => (S().coreTeam||[]).includes(k);
@@ -1218,7 +1231,7 @@ const NAV = [
   {id:'announce', name:'Announcements', roles:ALLR, ico:I.ann},
   {id:'chat', name:'Messages', roles:ALLR, ico:I.chat},
   {id:'mydocs', name:'My Documents', roles:['employee','manager','hr'], ico:I.doc},
-  {id:'attendance', name:'Attendance / Time Log', roles:ALLR, ico:I.clock},
+  {id:'attendance', name:'Attendance & Time Logs', roles:ALLR, ico:I.clock},
   {label:'Clients & Production'},
   {id:'clients', name:'Client Workspaces', roles:ALLR, ico:I.bld},
   {id:'orgsetup', name:'Client Setup & Briefs', roles:['hr','ceo','coo','creative'], ico:I.plus},
@@ -1247,6 +1260,7 @@ const NAV = [
 let PERSON='tricia', ROLE='manager', CURRENT='dashboard';
 const ROLE_ME = new Proxy({},{get:()=>PEOPLE[PERSON]});
 function navAllowed(n){
+  if(isFullAccess()) return !(n.id==='mydocs' && !myDocs().length);
   if(!n.roles.includes(ROLE)) return false;
   if(n.admin && !isSysAdmin()) return false;
   if(n.core && !(isCore() || isExec())) return false;
@@ -1264,7 +1278,7 @@ function setPerson(p){
   const me=PEOPLE[p];
   el('meBox').innerHTML = `${av(me)}<span><b>${esc(me.name)}</b><small>${esc(me.sub)}</small></span>`;
   const pk = me.empId ? me.portal : (me.role==='manager'?'pm':me.role);
-  el('portalTag').textContent = (PORTAL_LABEL[pk]||'') + (p==='ja'?' · System Administrator':'') + (isCore(p)?' · Core team':'') + (p==='norman'?' · Production':'');
+  el('portalTag').textContent = (PORTAL_LABEL[pk]||'') + (p==='ja'?' · Super Administrator · Full access':'') + (isCore(p)?' · Core team':'') + (p==='norman'?' · Production':'');
   el('portalTag').classList.add('on');
   buildNav();
   const allowed = NAV.find(n=>n.id===CURRENT && navAllowed(n));
@@ -3415,14 +3429,14 @@ function regView(id){
     <div style="display:flex;gap:9px;flex-wrap:wrap;margin-top:14px">
       ${r.status==='Registered'&&r.by===PERSON?`<button class="btn" onclick="delReg('${r.id}')" style="color:var(--bad)">Delete draft</button><button class="btn" onclick="regModal('${r.id}')">Edit</button><button class="btn primary" style="margin-left:auto" onclick="endorseReg('${r.id}')">Endorse to HR →</button>`:''}
       ${r.status==='Registered'&&r.by!==PERSON?`<span class="hint">Waiting for ${esc(first(r.by))} to endorse this to HR.</span>`:''}
-      ${r.status==='Endorsed'&&ROLE==='hr'?`<button class="btn primary" style="margin-left:auto" onclick="onboardReg('${r.id}')">Review team & onboard →</button>`:''}
-      ${r.status==='Endorsed'&&ROLE!=='hr'?`<span class="hint">With HR for onboarding since ${ago(r.endorsedAt||r.at)}.</span>`:''}
+      ${r.status==='Endorsed'&&hrOrFull()?`<button class="btn primary" style="margin-left:auto" onclick="onboardReg('${r.id}')">Review team & onboard →</button>`:''}
+      ${r.status==='Endorsed'&&!hrOrFull()?`<span class="hint">With HR for onboarding since ${ago(r.endorsedAt||r.at)}.</span>`:''}
       ${final&&r.clientId&&client(r.clientId)?`<button class="btn" onclick="closeModal();openClient('${r.clientId}')">Open client workspace</button><button class="btn primary" onclick="closeModal();CHAT_OPEN='${client(r.clientId).chatId}';go('chat')">💬 Open group chat</button>`:''}
     </div>`, true);
 }
 function onboardReg(id){
   const r = BRIEFS.find(x=>x.id===id); if(!r) return;
-  if(ROLE!=='hr') return toast('HR completes onboarding');
+  if(!hrOrFull()) return toast('HR completes onboarding');
   if(r.status!=='Endorsed') return regView(id);
   orgModal(null, null, id);
 }
@@ -4706,7 +4720,7 @@ RENDER.employees = () => {
   el('v-employees').innerHTML = `
     <div class="page-head">
       <div><h2>Employees & Accounts</h2><p>${canAdminEmp()?'Directory, portal access, temporary passwords, assignments, employment status, and audit log.':'Your team — contact details and assignments.'}</p></div>
-      ${canAdminEmp()?'<button class="btn primary" onclick="empModal()">+ Create employee account</button>':''}
+      ${canAdminEmp()?`<div style="display:flex;gap:8px;flex-wrap:wrap">${hrOrFull()?`<button class="btn" onclick="bulkLogins()">Create logins for everyone (${bulkTargets().length})</button>`:''}<button class="btn primary" onclick="empModal()">+ Create employee account</button></div>`:''}
     </div>
     <div class="grid cols-4" style="margin-bottom:16px">
       <div class="card kpi"><div class="k-label">Total on record</div><div class="k-val">${EMPLOYEES.length}</div><div class="hint">incl. resigned & inactive</div></div>
@@ -4836,6 +4850,41 @@ async function disableEmp(id){
   rebuildPeople(); ensureChats(); rebuildDirectoryUI(); recordChange(); closeModal(); RENDER[CURRENT]?.();
   toast(`${e.name.split(' ')[0]} is now ${st}${off?' — portal access disabled and removed from client teams':''}`);
 }
+/* ---------- bulk logins: one click creates a portal login + temporary password for every active employee who has none ---------- */
+const bulkTargets = () => EMPLOYEES.filter(e=>['Active','On Probation'].includes(e.status) && e.email && e.email.includes('@') && !e.account && e.id!==PERSON);
+async function bulkLogins(){
+  let list = bulkTargets();
+  if(BACKEND.mode==='live'){ /* never touch anyone who already signed up or was added in Supabase */
+    const {data} = await BACKEND.sb.from('cc_people').select('email,user_id');
+    const has = new Set((data||[]).filter(r=>r.user_id).map(r=>String(r.email).toLowerCase()));
+    list.filter(e=>has.has(e.email.toLowerCase())).forEach(e=>{ e.account = {created:nowISO(), mustChange:false}; });
+    list = list.filter(e=>!has.has(e.email.toLowerCase()));
+    if(!list.length){ recordChange(); RENDER[CURRENT]?.(); }
+  }
+  if(!list.length) return toast('Everyone active already has a login');
+  if(!confirm(`Create portal logins for ${list.length} employees?\n\nEach gets a temporary password and is asked to set their own on first login. People who already have a login are skipped.`)) return;
+  openModal('Creating logins…', `<div id="blProg" class="hint">Starting…</div>`);
+  const out = [];
+  for(const [i,e] of list.entries()){
+    el('blProg') && (el('blProg').textContent = `${i+1} of ${list.length} — ${e.name}`);
+    try{ const r = await adminCall('create', {email:e.email, person_key:e.id, role:dirRole(portalOf(e)), name:e.name});
+      e.account = {created:nowISO(), mustChange:true}; out.push({e, pw:r.password||'', ok:true, note:r.noFunction?'Add in Supabase → Users':''}); }
+    catch(err){ out.push({e, ok:false, note:err.message}); }
+  }
+  audit(`Created portal logins for ${out.filter(x=>x.ok).length} employees`);
+  recordChange(); RENDER[CURRENT]?.();
+  BULK_OUT = out; const url = location.origin+location.pathname;
+  closeModal();
+  openModal(`Logins created — ${out.filter(x=>x.ok).length} of ${out.length}`, `
+    <div class="hint" style="background:var(--warn-bg);color:var(--warn);padding:10px 12px;border-radius:9px;font-size:12.5px;margin-bottom:10px">Download or copy this now — temporary passwords are shown only once. Send each person their own line privately (DM or email). Everyone sets a new password on first login.</div>
+    <div style="display:flex;gap:8px;margin-bottom:10px"><button class="btn primary" onclick="bulkCSV()">↓ Download CSV</button><button class="btn" onclick="navigator.clipboard?.writeText(BULK_OUT.filter(x=>x.ok).map(x=>x.e.name+' — '+x.e.email+' — '+x.pw).join('\\n'));toast('Copied')">Copy all</button></div>
+    <div style="max-height:360px;overflow:auto"><table class="tbl"><thead><tr><th>Name</th><th>Email</th><th>Temporary password</th></tr></thead><tbody>
+    ${out.map(x=>`<tr><td>${esc(x.e.name)}</td><td style="font-size:12px">${esc(x.e.email)}</td><td>${x.ok?(x.pw?`<b style="font-family:ui-monospace,monospace">${esc(x.pw)}</b>`:`<span class="hint">${esc(x.note)}</span>`):`<span style="color:var(--bad)">${esc(x.note)}</span>`}</td></tr>`).join('')}
+    </tbody></table></div><div class="hint" style="margin-top:8px">Portal link: ${esc(url)}</div>`, true);
+}
+let BULK_OUT = [];
+function bulkCSV(){ const q=v=>'"'+String(v??'').replace(/"/g,'""')+'"';
+  dlCSV(['Name,Email,Temporary password,Portal link', ...BULK_OUT.filter(x=>x.ok).map(x=>[x.e.name,x.e.email,x.pw,location.origin+location.pathname].map(q).join(','))].join('\n'), 'logins'); }
 async function resetPw(id){
   const e = emp(id);
   if(!confirm(`Issue a new temporary password for ${e.name}? Their current password stops working.`)) return;
@@ -4882,8 +4931,8 @@ function attAct(kind){
     const prev = ATTLOG.filter(x=>x.person===PERSON && x.date<d && x.in && !x.out).sort((a,b)=>b.date.localeCompare(a.date))[0];
     r = {id:attId(PERSON,d), person:PERSON, date:d, in:now, out:null, breaks:[], client:cl, project:pj, events:[{t:now, kind:'Time in', client:cl, project:pj}]};
     ATTLOG.push(r);
+    notify(clockInRecipients(PERSON), 'attendance', `🟢 <b>${me}</b> clocked in at ${clock(now)}${isLate(r)?' <b>(late)</b>':''}${cl?' · '+esc(cname(cl)):''}`, {view:'attendance'});
     if(isLate(r)) attNotifyOversight(`⏰ ${me} timed in late at ${clock(now)}${cl?' · '+esc(cname(cl)):''}`);
-    else notify(attWatchersFor(PERSON), 'attendance', `${me} timed in at ${clock(now)}${cl?' · '+esc(cname(cl)):''}`, {view:'attendance'});
     if(prev) notify(HR_KEYS(), 'attendance', `${me} has no time out recorded for ${prev.date} — please review`, {view:'attendance'});
     toast('Timed in at '+clock(now));
   }
@@ -4900,9 +4949,23 @@ function attAct(kind){
   recordChange(); RENDER[CURRENT]?.();
 }
 function clockIn(){ attAct('in'); } function clockOut(){ attAct('out'); }
-const canMonitorAtt = () => isExec() || ROLE==='manager' || ROLE==='hr';
+/* who sees what: Core Team, company heads and HR see every employee (HR staff included); PMs see their team;
+   everyone sees who is working or on break right now. HR and Finance download records for payroll. */
+const allStaff = () => EMPLOYEES.filter(e=>['Active','On Probation'].includes(e.status)).map(e=>e.id).filter(k=>PEOPLE[k]);
+const attFullAccess = () => isExec() || ROLE==='hr' || isCoreOrHead();
+const attRoster = () => attFullAccess() ? allStaff() : overseenBy(PERSON).filter(k=>PEOPLE[k]);
+const financeTeam = () => uniq([...(CHATS.find(c=>c.id==='chat-finance')?.members||['charisse']), ...HEADS]);
+const canExportAtt = () => ROLE==='hr' || isSysAdmin() || financeTeam().includes(PERSON);
+const canMonitorAtt = () => attFullAccess() || ROLE==='manager';
+/* clock-in alerts go to the Core Team, company heads, HR and the person's PMs (each can switch them off) */
+function clockInRecipients(k){
+  const off = S().clockNotifyOff||[];
+  const core = CHATS.find(c=>c.id==='chat-core')?.members || [];
+  const pms = activePeople().filter(p=>PEOPLE[p].role==='manager' && overseenBy(p).includes(k));
+  return uniq([...core, ...HEADS, ...HR_KEYS(), ...pms]).filter(x=>x!==k && PEOPLE[x] && !off.includes(x));
+}
 function attExceptions(date){
-  const roster = overseenBy(PERSON); const out=[]; const isToday = date===manilaDate();
+  const roster = attRoster(); const out=[]; const isToday = date===manilaDate();
   const nowM = manilaMins(nowISO());
   roster.forEach(k=>{ const r = attRec(k,date);
     if(r?.in && isLate(r)) out.push({k, kind:'Late time in', text:`in at ${showT(r.in)}`, sev:'warn'});
@@ -4922,13 +4985,13 @@ RENDER.attendance = () => {
   const clientOpts = `<option value="">— Internal / general —</option>${visClients().filter(c=>c.status==='Active').map(c=>`<option value="${c.id}" ${mine?.client===c.id?'selected':''}>${esc(c.name)}</option>`).join('')}`;
   let oversight = '';
   if(canMonitorAtt()){
-    const roster = overseenBy(PERSON).filter(k=>PEOPLE[k]);
+    const roster = attRoster();
     const recs = roster.map(k=>({k, r:attRec(k, attDate)}));
     const exc = attExceptions(attDate);
     const watching = (S().attWatch||[]).includes(PERSON);
     oversight = `
     <div class="grid cols-4" style="margin:16px 0">
-      <div class="card kpi"><div class="k-label">${ROLE==='manager'?'Your team':'Active roster'}</div><div class="k-val">${roster.length}</div><div class="hint">expected ${attDate===today?'today':attDate}</div></div>
+      <div class="card kpi"><div class="k-label">${attFullAccess()?'All employees':'Your team'}</div><div class="k-val">${roster.length}</div><div class="hint">expected ${attDate===today?'today':attDate}</div></div>
       <div class="card kpi"><div class="k-label">Working now</div><div class="k-val" style="color:var(--ok)">${recs.filter(x=>attState(x.r)[0]==='Working').length}</div><div class="hint">${recs.filter(x=>attState(x.r)[0]==='On break').length} on break · ${recs.filter(x=>x.r?.out).length} timed out</div></div>
       <div class="card kpi"><div class="k-label">Late (after ${esc(S().lateAfter||'9:15 AM')})</div><div class="k-val" style="color:${recs.filter(x=>isLate(x.r)).length?'var(--warn)':'var(--ink)'}">${recs.filter(x=>isLate(x.r)).length}</div><div class="hint">flagged for review</div></div>
       <div class="card kpi"><div class="k-label">Exceptions</div><div class="k-val" style="color:${exc.length?'var(--bad)':'var(--ink)'}">${exc.length}</div><div class="hint">missed entries, long breaks</div></div>
@@ -4937,11 +5000,11 @@ RENDER.attendance = () => {
       ${exc.map(x=>`<div class="list-row">${av(P(x.k))}<div style="flex:1"><b style="font-size:12.5px">${esc(pname(x.k))}</b> <span class="badge ${x.sev==='bad'?'b-missed':'b-scheduled'}">${x.kind}</span><div class="hint">${esc(x.text)}</div></div><button class="btn" style="padding:5px 10px;font-size:12px" onclick="startDM('${x.k}')">Message</button></div>`).join('')}</div></div>`:''}
     <div class="card"><div class="card-h"><h3>Attendance monitor</h3>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-        <label style="display:flex;gap:6px;align-items:center;font-size:12px" title="Off by default so dashboards stay useful"><input type="checkbox" style="width:auto" ${watching?'checked':''} onchange="toggleAttWatch(this.checked)">Notify me of every time in/out</label>
+        <label style="display:flex;gap:6px;align-items:center;font-size:12px"><input type="checkbox" style="width:auto" ${!(S().clockNotifyOff||[]).includes(PERSON)?'checked':''} onchange="toggleClockNotify(this.checked)">Notify me when someone clocks in</label>
+        <label style="display:flex;gap:6px;align-items:center;font-size:12px"><input type="checkbox" style="width:auto" ${watching?'checked':''} onchange="toggleAttWatch(this.checked)">…and clocks out</label>
         <button class="btn" style="padding:5px 10px;font-size:12px" onclick="attDate=shiftDate(attDate,-1);RENDER.attendance()">← Prev day</button>
         <b style="font-size:12.5px">${attDate}</b>
         <button class="btn" style="padding:5px 10px;font-size:12px" ${attDate>=today?'disabled':''} onclick="attDate=shiftDate(attDate,1);RENDER.attendance()">Next day →</button>
-        <button class="btn" style="padding:5px 10px;font-size:12px" onclick="exportAtt()">↓ Export (CSV)</button>
       </div></div>
       <table class="tbl"><thead><tr><th>Employee</th><th>Status</th><th>Time in</th><th>Breaks</th><th>Time out</th><th>Hours</th><th>Working on</th></tr></thead><tbody>
       ${recs.map(({k,r})=>{ const [s,c]=attState(r); return `<tr>
@@ -4953,7 +5016,7 @@ RENDER.attendance = () => {
   }
   el('v-attendance').innerHTML = `
     <div class="page-head">
-      <div><h2>Attendance / Time Log</h2><p>${canMonitorAtt()?'Your own time log plus live attendance for the people you oversee.':'Time in when you start, take breaks, and time out when you finish. Your PM and HR see your status in real time.'}</p></div>
+      <div><h2>Attendance & Time Logs</h2><p>${attFullAccess()?'Your own time log, who is working right now, and attendance records for every employee — updated live.':canMonitorAtt()?'Your own time log plus live attendance for the people you oversee.':'Time in when you start, take breaks, and time out when you finish. Your coworkers see your status live.'}</p></div>
     </div>
     <div class="card"><div class="card-b">
       <div class="status-card" style="margin-bottom:14px">
@@ -4974,12 +5037,77 @@ RENDER.attendance = () => {
       </div>
       ${mine?.events?.length?`<div class="timeline" style="margin-top:14px">${mine.events.slice().reverse().map(ev=>`<div class="ti"><b>${esc(ev.kind)}</b> · ${clock(ev.t)}${ev.client?' · '+esc(cname(ev.client)):''}${ev.project?' · '+esc(ev.project):''}</div>`).join('')}</div>`:''}
     </div></div>
+    ${teamStatusCard()}
     ${oversight}
+    ${canMonitorAtt()?attRecordsCard():''}
     <div class="card" style="margin-top:16px"><div class="card-h"><h3>Your recent records</h3></div>
       <table class="tbl"><thead><tr><th>Date</th><th>Time in</th><th>Breaks</th><th>Time out</th><th>Hours</th><th>Status</th></tr></thead><tbody>
       ${myHist.map(r=>{ const [s,c]=attState(r); return `<tr><td><b>${r.date}</b></td><td>${showT(r.in)}${isLate(r)?' <span class="badge b-scheduled">Late</span>':''}</td><td>${r.breaks?.length?Math.round(breakMins(r))+' min':'—'}</td><td>${showT(r.out)}</td><td>${hm(workedMins(r))}</td><td><span class="badge ${c}">${r.date<today&&r.in&&!r.out?'Missing time out':s}</span></td></tr>`; }).join('') || '<tr><td colspan="6" class="empty">No records yet — press Time In to start your first log.</td></tr>'}
       </tbody></table></div>`;
 };
+function toggleClockNotify(on){ let s=SETTINGS.find(x=>x.id==='global'); if(!s){ s={...DEFAULT_SETTINGS}; SETTINGS.push(s); } s.clockNotifyOff = on ? (s.clockNotifyOff||[]).filter(k=>k!==PERSON) : uniq([...(s.clockNotifyOff||[]), PERSON]); recordChange(); toast(on?'You will be notified when someone clocks in':'Clock-in notifications are off for you'); }
+/* live "who's working" board, visible to everyone */
+function teamStatusCard(){
+  const today = manilaDate();
+  const ids = uniq([...allStaff(), ...Object.keys(LEADERS).filter(k=>attRec(k,today))]).filter(k=>PEOPLE[k]);
+  const since = (r,st) => st==='On break' ? 'since '+showT((r.breaks||[]).find(b=>!b.e)?.s) : st==='Working' ? 'since '+showT(r.in) : st==='Timed out' ? showT(r.in)+' – '+showT(r.out) : '';
+  const groups = [['Working','b-working'],['On break','b-onbreak'],['Timed out','b-timedout'],['Not in','b-notin']].map(([g,c])=>({g, c, list: ids.filter(k=>attState(attRec(k,today))[0]===g)}));
+  return `<div class="card" style="margin-top:16px"><div class="card-h"><h3>Team status right now</h3><span class="sub">Updates live as people clock in, take breaks and clock out</span></div>
+    <div class="card-b"><div class="team-status">${groups.map(({g,c,list})=>`<div class="ts-col"><div class="ts-h"><span class="badge ${c}">${g==='Not in'?'Not in yet':g}</span> <b>${list.length}</b></div>
+      ${list.slice(0, g==='Not in'?40:80).map(k=>{ const r=attRec(k,today); return `<div class="ts-row" ${k!==PERSON?`onclick="startDM('${k}')" title="Message ${esc(first(k))}"`:''}>${av(P(k))}<div style="min-width:0"><b>${esc(pname(k))}${k===PERSON?' (you)':''}</b><div class="hint">${esc(P(k).sub||'')}${r?' · '+since(r,g):''}${r?.client&&g!=='Timed out'?' · '+esc(cname(r.client)):''}</div></div></div>`; }).join('')||'<div class="hint" style="padding:6px 0">No one</div>'}</div>`).join('')}</div></div></div>`;
+}
+/* attendance records for payroll: filter by employee and date range, download */
+let ATTF = null;
+function attRange(preset){
+  const t = manilaDate(), d = new Date(t+'T00:00:00Z');
+  if(preset==='today') return [t,t];
+  if(preset==='week'){ const dow=(d.getUTCDay()+6)%7; return [shiftDate(t,-dow), t]; }
+  if(preset==='lastmonth'){ const f=new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth()-1, 1)), l=new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 0)); return [f.toISOString().slice(0,10), l.toISOString().slice(0,10)]; }
+  if(preset==='cutoff1') return [t.slice(0,8)+'01', t.slice(0,8)+'15'];
+  if(preset==='cutoff2'){ const l=new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth()+1, 0)); return [t.slice(0,8)+'16', l.toISOString().slice(0,10)]; }
+  return [t.slice(0,8)+'01', t];
+}
+function attRecords(){
+  const roster = new Set(attRoster());
+  const f = ATTF || (ATTF = {who:'all', preset:'month', from:attRange('month')[0], to:attRange('month')[1]});
+  return ATTLOG.filter(r=>r.in && roster.has(r.person) && (f.who==='all'||r.person===f.who) && r.date>=f.from && r.date<=f.to)
+    .sort((a,b)=>b.date.localeCompare(a.date) || pname(a.person).localeCompare(pname(b.person)));
+}
+function attRecordsCard(){
+  const f = ATTF || (ATTF = {who:'all', preset:'month', from:attRange('month')[0], to:attRange('month')[1]});
+  const R = attRecords(); const total = R.reduce((a,r)=>a+workedMins(r),0);
+  const brk = r => (r.breaks||[]).map(b=>({s:showT(b.s), e:b.e?showT(b.e):(r.out?'—':'on break')}));
+  return `<div class="card" style="margin-top:16px"><div class="card-h"><h3>Attendance records</h3><span class="sub">${R.length} record${R.length===1?'':'s'} · ${hm(total)} worked</span></div>
+    <div class="card-b" style="padding-bottom:6px"><div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">
+      <div class="field" style="margin:0;min-width:200px"><label>Employee</label><select id="afWho" onchange="ATTF.who=this.value;RENDER.attendance()"><option value="all">All employees (${attRoster().length})</option>${attRoster().slice().sort((a,b)=>pname(a).localeCompare(pname(b))).map(k=>`<option value="${k}" ${f.who===k?'selected':''}>${esc(pname(k))} — ${esc(P(k).sub||'')}</option>`).join('')}</select></div>
+      <div class="field" style="margin:0"><label>Period</label><select onchange="ATTF.preset=this.value;if(this.value!=='custom'){const r=attRange(this.value);ATTF.from=r[0];ATTF.to=r[1];}RENDER.attendance()">${[['today','Today'],['week','This week'],['month','This month'],['lastmonth','Last month'],['cutoff1','Payroll 1st–15th'],['cutoff2','Payroll 16th–end'],['custom','Custom dates']].map(([k,l])=>`<option value="${k}" ${f.preset===k?'selected':''}>${l}</option>`).join('')}</select></div>
+      <div class="field" style="margin:0"><label>From</label><input type="date" id="afFrom" value="${f.from}" onchange="ATTF.from=this.value;ATTF.preset='custom';RENDER.attendance()"></div>
+      <div class="field" style="margin:0"><label>To</label><input type="date" id="afTo" value="${f.to}" onchange="ATTF.to=this.value;ATTF.preset='custom';RENDER.attendance()"></div>
+      ${canExportAtt()?`<div style="display:flex;gap:6px;margin-left:auto"><button class="btn" onclick="downloadAtt('csv')">↓ CSV</button><button class="btn primary" onclick="downloadAtt('xlsx')">↓ Excel for payroll</button></div>`:''}
+    </div></div>
+    <div style="max-height:520px;overflow:auto"><table class="tbl att-tbl"><thead><tr><th>Employee</th><th>Role</th><th>Date</th><th>Time in</th><th>Break start</th><th>Break end</th><th>Time out</th><th style="text-align:right">Total hours</th></tr></thead><tbody>
+    ${R.slice(0,600).map(r=>{ const b=brk(r); const [st,c]=attState(r); return `<tr><td>${av(P(r.person))} <b>${esc(pname(r.person))}</b></td><td class="hint">${esc(P(r.person)?.sub||'')}</td><td>${r.date}</td>
+      <td>${showT(r.in)}${isLate(r)?' <span class="badge b-scheduled">Late</span>':''}</td><td>${b.map(x=>x.s).join('<br>')||'—'}</td><td>${b.map(x=>x.e).join('<br>')||'—'}</td>
+      <td>${r.out?showT(r.out):r.date<manilaDate()?'<span class="badge b-missed">Missing</span>':`<span class="badge ${c}">${st}</span>`}</td><td style="text-align:right"><b>${(workedMins(r)/60).toFixed(2)}</b> <span class="hint">${hm(workedMins(r))}</span></td></tr>`; }).join('') || '<tr><td colspan="8" class="empty">No attendance records for this filter.</td></tr>'}
+    </tbody></table></div>${R.length>600?`<div class="hint" style="padding:8px 16px">Showing 600 of ${R.length} — download to see everything.</div>`:''}</div>`;
+}
+async function downloadAtt(kind){
+  if(!canExportAtt()) return toast('Only HR and Finance can download attendance records');
+  const R = attRecords(); if(!R.length) return toast('No records to download');
+  const f = ATTF; const label = `${f.from}_to_${f.to}${f.who!=='all'?'_'+pname(f.who).replace(/\W+/g,'-'):''}`;
+  const tm = v => v ? showT(v) : '';
+  const rows = R.map(r=>({Employee:pname(r.person), Role:P(r.person)?.sub||'', Email:P(r.person)?.email||'', Date:r.date, 'Time in':tm(r.in),
+    'Break start':(r.breaks||[]).map(b=>tm(b.s)).join('; '), 'Break end':(r.breaks||[]).map(b=>tm(b.e)).join('; '), 'Break minutes':Math.round(breakMins(r)),
+    'Time out':tm(r.out)||(r.date<manilaDate()?'MISSING':''), 'Total hours':+(workedMins(r)/60).toFixed(2), Late:isLate(r)?'Yes':'', Client:r.client?cname(r.client):'', Project:r.project||''}));
+  audit(`Downloaded attendance records ${f.from} to ${f.to}${f.who!=='all'?' for '+pname(f.who):''} (${R.length} rows)`); recordChange();
+  if(kind==='csv'){ const h=Object.keys(rows[0]); dlCSV(h.join(',')+'\n'+rows.map(r=>h.map(k=>csvCell(r[k])).join(',')).join('\n'), 'attendance-'+label); return toast(`${rows.length} records downloaded`); }
+  await loadScript(XLSX_SRC);
+  const sum = {}; R.forEach(r=>{ const k=r.person; const x = sum[k] || (sum[k]={Employee:pname(k), Role:P(k)?.sub||'', 'Days worked':0, 'Total hours':0, 'Late days':0, 'Missing time outs':0}); x['Days worked']++; x['Total hours']=+(x['Total hours']+workedMins(r)/60).toFixed(2); if(isLate(r)) x['Late days']++; if(!r.out && r.date<manilaDate()) x['Missing time outs']++; });
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(Object.values(sum).sort((a,b)=>a.Employee.localeCompare(b.Employee))), 'Payroll summary');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), 'Daily records');
+  XLSX.writeFile(wb, `crosscore-attendance-${label}.xlsx`); toast(`${rows.length} records downloaded with a payroll summary`);
+}
 function toggleAttWatch(on){ const s=S(); if(!SETTINGS.find(x=>x.id==='global')) SETTINGS.push(s); s.attWatch = on ? uniq([...(s.attWatch||[]), PERSON]) : (s.attWatch||[]).filter(k=>k!==PERSON); recordChange(); toast(on?'You will be notified of every time in and time out for your team':'Routine time in/out alerts are off — you still get exceptions'); }
 function exportAtt(){
   const rows = overseenBy(PERSON).map(k=>{ const r=attRec(k,attDate); const [s]=attState(r); return [attDate,pname(k),showT(r?.in),r?.breaks?.length?Math.round(breakMins(r)):'',showT(r?.out),hm(workedMins(r)),s,isLate(r)?'Late':'',r?.client?cname(r.client):'',r?.project||'']; });
@@ -5272,7 +5400,7 @@ RENDER.hrdocs = () => {
   const rows = by(cur[2]);
   el('v-hrdocs').innerHTML = `
     <div class="page-head"><div><h2>HR Documents</h2><p>Draft announcements, notices, memos, letters, new contracts and renewals. Items that need COO approval go to JA first; once approved you choose who receives them.</p></div>
-      ${ROLE==='hr'?'<button class="btn primary" onclick="hrDocModal()">+ New document</button>':''}</div>
+      ${hrOrFull()?'<button class="btn primary" onclick="hrDocModal()">+ New document</button>':''}</div>
     <div class="grid cols-4" style="margin-bottom:16px">
       <div class="card kpi"><div class="k-label">Drafts</div><div class="k-val">${by(['Draft']).length}</div><div class="hint">${by(['Revisions Needed']).length} need revisions</div></div>
       <div class="card kpi"><div class="k-label">Waiting for JA</div><div class="k-val" style="color:var(--violet)">${by(['Submitted']).length}</div><div class="hint">submitted for COO approval</div></div>
@@ -5324,7 +5452,7 @@ function saveHrDoc(id, submit){
 }
 function openHrDoc(id){
   const d = HRDOCS.find(x=>x.id===id); if(!d) return toast('This document is not available to you');
-  const isHR = ROLE==='hr' || (isExec() && ROLE!=='coo' && d.by===PERSON);
+  const isHR = ROLE==='hr' || (isExec() && (ROLE!=='coo' || isFullAccess()) && d.by===PERSON);
   const isJA = (ROLE==='coo' || ROLE==='ceo') && d.status==='Submitted';
   const recipient = (d.sentTo||[]).includes(PERSON) && !isHR;
   if(recipient){
@@ -6035,7 +6163,7 @@ async function handleGoogleReturn(tries=0){
 RENDER.settings = () => {
   if(!isSysAdmin()){ el('v-settings').innerHTML='<div class="empty">Administration is available to system administrators (Pau and JA).</div>'; return; }
   const s = S(); const live = BACKEND.mode==='live';
-  const leaders = [['paul','Super Administrator — every area of the system'],['ja','System Administrator & COO — administration, accounts and access, company group chats, operations, client organizations, reports and COO approvals'],['norman','Company head + core team editor/director — leadership and production'],
+  const leaders = [['paul','Super Administrator — full access to every area of the system'],['ja','Super Administrator & COO — full access to every area: administration, accounts and access, group chats, HR documents, onboarding, operations, clients, reports and COO approvals'],['norman','Company head + core team editor/director — leadership and production'],
     ...activePeople().filter(k=>PEOPLE[k].role==='manager').map(k=>[k,`Project manager — ${clientIdsFor(k).length} client organizations`]), ...HR_KEYS().map(k=>[k,'HR — accounts, client setup, documents, attendance, evaluations'])];
   el('v-settings').innerHTML = `
     <div class="page-head"><div><h2>Administration</h2><p>Company-level configuration, access, rules, and the live database.</p></div></div>

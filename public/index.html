@@ -543,6 +543,45 @@ img.login-bg{position:absolute;inset:0;width:100vw !important;height:100vh !impo
 .mention-box button.on,.mention-box button:hover{background:var(--warn-bg)}
 .mention-box button span{display:flex;flex-direction:column;min-width:0}
 .mention-box button small{font-size:11px;color:var(--ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* ---------- Client contract ended ---------- */
+.end-card{margin-bottom:12px}
+.end-flow{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:12px;color:var(--ink-3)}
+.end-flow span{background:var(--panel-2);border:1px solid var(--line);border-radius:99px;padding:4px 10px;color:var(--ink-2);font-weight:600}
+.end-steps{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:12px}
+.end-step{display:flex;flex-direction:column;gap:2px;padding:9px 10px;border:1px solid var(--line);border-radius:10px;background:var(--panel-2);font-size:12px;min-width:0}
+.end-step span{width:20px;height:20px;border-radius:99px;display:grid;place-items:center;background:var(--line);color:var(--ink-2);font-size:11px;font-weight:700}
+.end-step.done{border-color:var(--ok);background:var(--ok-bg)} .end-step.done span{background:var(--ok);color:#fff}
+.end-step.next{border-color:var(--brand-2)} .end-step.next span{background:var(--brand-2);color:#fff}
+.end-step small{color:var(--ink-3);font-size:10.5px}
+@media (max-width:720px){.end-steps{grid-template-columns:1fr 1fr}}
+.end-banner{margin:0 0 12px;padding:10px 13px;border-radius:10px;background:var(--warn-bg);color:var(--warn);font-size:12.5px;line-height:1.5}
+.chat-pane .end-banner{margin:0;border-radius:0;border-bottom:1px solid var(--line)}
+.end-banner.urgent{background:var(--bad-bg);color:var(--bad)}
+.chat-input.ended-ro{justify-content:center;color:var(--ink-3);font-size:12.5px;text-align:center}
+.msg.sys-msg{justify-content:center}
+.sys-card{max-width:560px;margin:4px auto;padding:13px 15px;border-radius:12px;background:var(--bad-bg);border:1px solid var(--bad);color:var(--ink);font-size:12.5px;line-height:1.55}
+.sys-card b{display:block;color:var(--bad);font-size:13.5px;margin-bottom:4px}
+.sys-card p{margin:6px 0 0}
+.sys-card small{display:block;margin-top:8px;color:var(--ink-3);font-size:11px}
+.sys-card.remind{background:var(--warn-bg);border-color:var(--warn)} .sys-card.remind b{color:var(--warn)}
+/* ---------- Finance ---------- */
+.fin-box{border:1px dashed var(--ok);background:var(--ok-bg);border-radius:12px;padding:12px 14px;margin:6px 0 12px}
+.fin-rate{display:flex;flex-direction:column;align-items:flex-end;text-align:right;min-width:170px}
+.fin-rate b{font-size:17px} .fin-rate small{color:var(--ink-3);font-size:11px;max-width:220px}
+/* ---------- SOP & client links ---------- */
+.ck{width:18px;height:18px;border-radius:5px;border:1.5px solid var(--line);display:grid;place-items:center;font-size:11px;font-weight:800;flex:none}
+.ck.on{background:var(--ok);border-color:var(--ok);color:#fff}
+.sop-link{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px}
+.sop-link select{width:140px} .sop-link input{flex:1;min-width:160px}
+.sop-resp{display:flex;gap:12px;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--line-2);flex-wrap:wrap}
+.sop-resp textarea{flex:1;min-width:240px;font-size:12.5px}
+.client-links{display:flex;gap:7px;flex-wrap:wrap;align-items:center;margin:0 0 12px}
+.cl-link{display:inline-flex;gap:7px;align-items:center;padding:6px 11px 6px 6px;border-radius:99px;border:1px solid var(--line);background:var(--panel);color:var(--ink);font-size:12.5px;font-weight:600;text-decoration:none}
+.cl-link:hover{border-color:var(--brand-2)}
+.cl-link b{width:22px;height:22px;border-radius:99px;display:grid;place-items:center;background:var(--line-2);font-size:11px}
+.cl-link small{font-weight:500;color:var(--ink-3)}
+.cl-linkedin b{background:#0A66C2;color:#fff} .cl-facebook b{background:#1877F2;color:#fff} .cl-instagram b{background:#DD2A7B;color:#fff}
+.cl-tiktok b{background:#111;color:#fff} .cl-x b{background:#111;color:#fff} .cl-youtube b{background:#FF0000;color:#fff}
 </style>
 </head>
 <body>
@@ -668,6 +707,8 @@ img.login-bg{position:absolute;inset:0;width:100vw !important;height:100vh !impo
     <div id="v-employees" class="view"></div>
     <div id="v-chat" class="view"></div>
     <div id="v-settings" class="view"></div>
+    <div id="v-finance" class="view"></div>
+    <div id="v-sop" class="view"></div>
     <div class="footer-note" id="footNote">Cross Core Ops Suite v8</div>
   </main>
 </div>
@@ -1008,7 +1049,8 @@ const TARGET_DEFS = [['opened','Profiles opened'],['request','Connection request
 
 /* New collections (start empty; seeded below for demo mode) */
 let ANNREADS = [], ATTLOG = [], NOTIFS2 = [], CHATS = [], MESSAGES = [], HRDOCS = [], DOCREADS = [],
-    BRIEFS = [], REPORTS = [], QREPORTS = [], LEADJOBS = [], LEADEVENTS = [], PREFS = [], SETTINGS = [], LEADCFG = [];
+    BRIEFS = [], REPORTS = [], QREPORTS = [], LEADJOBS = [], LEADEVENTS = [], PREFS = [], SETTINGS = [], LEADCFG = [], ENDINGS = [],
+    FINCLIENTS = [], PAYPROFILES = [], PAYRUNS = [], PAYSLIPS = [], SOPS = [];
 
 const DEFAULT_SETTINGS = {id:'global', lateAfter:'9:15 AM', notInBy:'10:00 AM', breakLimit:60, attWatch:[],
   coreTeam:['kiara','norman'], targets:{opened:30, request:20, accepted:8, reply:3, followup:10, meeting:1},
@@ -1078,14 +1120,15 @@ const HR_KEYS = () => EMPLOYEES.filter(e=>portalOf(e)==='hr' && ['Active','On Pr
 const uniq = a => [...new Set(a.filter(Boolean))];
 const COLL = {
   employees:   {get:()=>EMPLOYEES,     set:v=>EMPLOYEES=v},
-  clients:     {get:()=>CLIENTS,       set:v=>CLIENTS=v},
-  tasks:       {get:()=>TASKS,         set:v=>TASKS=v, dates:['due']},
-  posts:       {get:()=>POSTS,         set:v=>POSTS=v, dates:['when']},
-  leads:       {get:()=>LEADS,         set:v=>LEADS=v, dates:['follow']},
-  icps:        {get:()=>ICPS,          set:v=>ICPS=v},
+  /* an ended client and everything filed under it is visible only to HR and the client's previous PM(s) */
+  clients:     {get:()=>CLIENTS,       set:v=>CLIENTS=v, aud:c=>isEnded(c) ? endedAud(c) : null},
+  tasks:       {get:()=>TASKS,         set:v=>TASKS=v, dates:['due'], aud:o=>endAudFor(o.client)},
+  posts:       {get:()=>POSTS,         set:v=>POSTS=v, dates:['when'], aud:o=>endAudFor(o.client)},
+  leads:       {get:()=>LEADS,         set:v=>LEADS=v, dates:['follow'], aud:o=>endAudFor(o.client)},
+  icps:        {get:()=>ICPS,          set:v=>ICPS=v, aud:o=>endAudFor(o.client)},
   creators:    {get:()=>CREATORS,      set:v=>CREATORS=v},
-  engage:      {get:()=>ENGAGE,        set:v=>ENGAGE=v},
-  assets:      {get:()=>ASSETS,        set:v=>{ ASSETS.length=0; ASSETS.push(...v); }},
+  engage:      {get:()=>ENGAGE,        set:v=>ENGAGE=v, aud:o=>endAudFor(o.client)},
+  assets:      {get:()=>ASSETS,        set:v=>{ ASSETS.length=0; ASSETS.push(...v); }, aud:o=>endAudFor(o.client)},
   audit:       {get:()=>EMP_LOG,       set:v=>EMP_LOG=v},
   announcements:{get:()=>ANNOUNCEMENTS,set:v=>ANNOUNCEMENTS=v,
                  aud:a=>a.target?.type==='people' ? uniq([...(a.target.people||[]), a.by, ...HR_KEYS(), ...HEADS]) : null},
@@ -1101,9 +1144,16 @@ const COLL = {
   briefs:      {get:()=>BRIEFS,        set:v=>BRIEFS=v, aud:b=>b.kind==='registration'&&b.status==='Registered' ? uniq([b.by, ...HEADS]) : uniq([b.by, ...HR_KEYS(), ...HEADS])},
   reports:     {get:()=>REPORTS,       set:v=>REPORTS=v, aud:r=>uniq([r.by, ...HR_KEYS(), ...HEADS])},
   qreports:    {get:()=>QREPORTS,      set:v=>QREPORTS=v, aud:()=>uniq([...HR_KEYS(), ...HEADS])},
-  leadjobs:    {get:()=>LEADJOBS,      set:v=>LEADJOBS=v},
-  leadevents:  {get:()=>LEADEVENTS,    set:v=>LEADEVENTS=v},
-  leadcfg:     {get:()=>LEADCFG,       set:v=>LEADCFG=v},
+  leadjobs:    {get:()=>LEADJOBS,      set:v=>LEADJOBS=v, aud:o=>endAudFor(o.client)},
+  leadevents:  {get:()=>LEADEVENTS,    set:v=>LEADEVENTS=v, aud:o=>endAudFor(o.client)},
+  leadcfg:     {get:()=>LEADCFG,       set:v=>LEADCFG=v, aud:o=>endAudFor(o.id)},
+  endings:     {get:()=>ENDINGS,       set:v=>ENDINGS=v, aud:e=>uniq([...HEADS, ...HR_KEYS(), ...(e.pms||[])])},
+  /* Finance: package rates and pay — Finance + company heads only (a draft registration: heads only; a delivered payslip: + that employee) */
+  finclients:  {get:()=>FINCLIENTS,    set:v=>FINCLIENTS=v, aud:f=>f.status==='Draft' ? uniq([...HEADS]) : finAud()},
+  payprofiles: {get:()=>PAYPROFILES,   set:v=>PAYPROFILES=v, aud:()=>finAud()},
+  payruns:     {get:()=>PAYRUNS,       set:v=>PAYRUNS=v, aud:()=>finAud()},
+  payslips:    {get:()=>PAYSLIPS,      set:v=>PAYSLIPS=v, aud:s=>/Sent/.test(s.delivery?.status||'') ? uniq([...finAud(), s.emp]) : finAud()},
+  sops:        {get:()=>SOPS,          set:v=>SOPS=v, aud:s=>uniq([...(s.pms||[]), ...pmsOf(s.client), ...HR_KEYS(), ...HEADS])},
   prefs:       {get:()=>PREFS,         set:v=>PREFS=v, aud:p=>[p.id]},
   settings:    {get:()=>SETTINGS,      set:v=>SETTINGS=v},
 };
@@ -1180,9 +1230,10 @@ function rebuildPeople(){
 }
 function clientIdsFor(k){
   const p = PEOPLE[k]; if(!p) return [];
-  if(['ceo','coo','creative','hr'].includes(p.role)) return CLIENTS.map(c=>c.id);
-  if(p.role==='manager') return CLIENTS.filter(c=>(c.pms||[]).includes(k) || c.mgr===k).map(c=>c.id);
-  return CLIENTS.filter(c=>(c.team||[]).includes(k)).map(c=>c.id);
+  const CL = CLIENTS.filter(c=>!isEnded(c));   /* ended contracts leave everyone's assignments */
+  if(['ceo','coo','creative','hr'].includes(p.role)) return CL.map(c=>c.id);
+  if(p.role==='manager') return CL.filter(c=>(c.pms||[]).includes(k) || c.mgr===k).map(c=>c.id);
+  return CL.filter(c=>(c.team||[]).includes(k)).map(c=>c.id);
 }
 const activePeople = () => Object.keys(PEOPLE).filter(k=>{ const p=PEOPLE[k]; return !p.empId || ['Active','On Probation'].includes(p.status); });
 function personByEmail(mail){ mail=(mail||'').trim().toLowerCase(); return Object.keys(PEOPLE).find(k=>PEOPLE[k].email&&PEOPLE[k].email.toLowerCase()===mail); }
@@ -1200,14 +1251,14 @@ const canCreateOrgs = () => isExec() || ROLE==='hr';
 const isCore = (k=PERSON) => (S().coreTeam||[]).includes(k);
 const scoped = () => ROLE==='employee' || ROLE==='manager';
 const vis = arr => scoped() ? arr.filter(x=>(PEOPLE[PERSON]?.clients||[]).includes(x.client ?? x.id)) : arr;
-const visClients = () => scoped() ? CLIENTS.filter(c=>(PEOPLE[PERSON]?.clients||[]).includes(c.id)) : CLIENTS;
+const visClients = () => (scoped() ? CLIENTS.filter(c=>(PEOPLE[PERSON]?.clients||[]).includes(c.id)) : CLIENTS).filter(c=>!isEnded(c));
 const client = id => CLIENTS.find(c=>c.id===id);
 const cname = id => client(id)?.name || '—';
 const pmsOf = cid => { const c=client(cid); return c ? uniq([...(c.pms||[]), c.mgr]) : []; };
 /* which employees does this PM oversee? */
 const overseenBy = k => { const p=PEOPLE[k]; if(!p) return [];
   if(['ceo','coo','creative','hr'].includes(p.role)) return EMPLOYEES.filter(e=>['Active','On Probation'].includes(e.status)).map(e=>e.id);
-  if(p.role==='manager') return uniq(CLIENTS.filter(c=>(c.pms||[]).includes(k)||c.mgr===k).flatMap(c=>c.team||[]));
+  if(p.role==='manager') return uniq(CLIENTS.filter(c=>!isEnded(c)&&((c.pms||[]).includes(k)||c.mgr===k)).flatMap(c=>c.team||[]));
   return []; };
 
 /* ================= NAVIGATION ================= */
@@ -1224,7 +1275,7 @@ const I = {
   sched:'M12 8v4l3 3M21 12a9 9 0 1 1-9-9 9 9 0 0 1 9 9Z', users:'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75',
   inbox:'M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10Z', bars:'M18 20V10M12 20V4M6 20v-6', check:'M9 11l3 3 8-8M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6Z',
   gear:'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm7.4-3a7.4 7.4 0 0 0-.1-1.2l2-1.6-2-3.4-2.4 1a7.6 7.6 0 0 0-2-1.2L14.5 3h-5l-.4 2.6a7.6 7.6 0 0 0-2 1.2l-2.4-1-2 3.4 2 1.6a7.4 7.4 0 0 0 0 2.4l-2 1.6 2 3.4 2.4-1a7.6 7.6 0 0 0 2 1.2l.4 2.6h5l.4-2.6a7.6 7.6 0 0 0 2-1.2l2.4 1 2-3.4-2-1.6c.1-.4.1-.8.1-1.2Z',
-  stamp:'M5 21h14M7 17h10l1-4H6l1 4ZM9 13V9a3 3 0 1 1 6 0v4', film:'M4 4h16v16H4zM4 9h16M4 15h16M9 4v16M15 4v16'};
+  stamp:'M5 21h14M7 17h10l1-4H6l1 4ZM9 13V9a3 3 0 1 1 6 0v4', wallet:'M3 7h18v12H3zM6 7l2-3h8l2 3M16 13h2', sop:'M9 4h6l4 4v12H5V4h4M9 12h6M9 16h4', film:'M4 4h16v16H4zM4 9h16M4 15h16M9 4v16M15 4v16'};
 const NAV = [
   {label:'Workspace'},
   {id:'dashboard', name:'Dashboard', roles:ALLR, ico:I.dash},
@@ -1235,6 +1286,7 @@ const NAV = [
   {label:'Clients & Production'},
   {id:'clients', name:'Client Workspaces', roles:ALLR, ico:I.bld},
   {id:'orgsetup', name:'Client Setup & Briefs', roles:['hr','ceo','coo','creative'], ico:I.plus},
+  {id:'sop', name:'Client Setup & SOP', roles:['manager','ceo','coo','creative','hr'], ico:I.sop},
   {id:'core', name:'Core Studio', roles:ALLR, core:true, ico:I.film},
   {id:'approvals', name:'Approvals', roles:LEAD, ico:I.shield},
   {id:'tasks', name:'Content Board', roles:['employee','manager','ceo','coo','creative'], ico:I.task},
@@ -1255,12 +1307,14 @@ const NAV = [
   {id:'pmreports', name:'PM Reports', roles:['manager','hr','ceo','coo','creative'], ico:I.doc},
   {id:'team', name:'Team Performance', roles:LEAD, ico:I.bars},
   {id:'reports', name:'Reports', roles:[...LEAD,'hr'], ico:I.doc},
+  {id:'finance', name:'Finance & Payroll', roles:ALLR, fin:true, ico:I.wallet},
   {id:'settings', name:'Administration', roles:ALLR, admin:true, ico:I.gear},
 ];
 let PERSON='tricia', ROLE='manager', CURRENT='dashboard';
 const ROLE_ME = new Proxy({},{get:()=>PEOPLE[PERSON]});
 function navAllowed(n){
-  if(isFullAccess()) return !(n.id==='mydocs' && !myDocs().length);
+  if(isFullAccess()) return !(n.id==='mydocs' && !myDocs().length && !myPayslips().length);
+  if(n.fin) return finAuth();
   if(!n.roles.includes(ROLE)) return false;
   if(n.admin && !isSysAdmin()) return false;
   if(n.core && !(isCore() || isExec())) return false;
@@ -1402,6 +1456,9 @@ function followLink(link){
   if(!link) return renderNotifs();
   closeOverlays();
   if(link.view==='client'){ openClient(link.arg); if(link.tab){ WS.tab=link.tab; RENDER.clientws(); } return; }
+  if(link.view==='ended'){ cliF.type='ended'; go('clients'); return; }
+  if(link.view==='finance'){ if(link.tab) FIN.tab=link.tab; go('finance'); if(link.slip) setTimeout(()=>openSlip(link.slip), 80); return; }
+  if(link.view==='sop'){ if(link.arg){ openSop(link.arg); return; } SOPW.client=null; }
   if(link.view==='chat'){ CHAT_OPEN = link.arg; go('chat'); return; }
   if(link.view==='orgsetup' && link.tab) OSTAB = link.tab;
   go(link.view);
@@ -2328,6 +2385,7 @@ RENDER.tasks = () => {
         <button class="btn primary" onclick="newTaskModal()">+ New content item</button>
       </div>
     </div>
+    ${TF.client&&TF.client!=='all'?clientLinksHTML(TF.client, {label:cname(TF.client)+' accounts'}):''}
     <div class="kanban">
       ${STATUSES.map(s=>`
         <div class="kcol" data-status="${s}" ondragover="event.preventDefault();this.classList.add('dragover')" ondragleave="this.classList.remove('dragover')" ondrop="dropTask(event,'${s}')">
@@ -2457,7 +2515,7 @@ function openTask(id){
   if(t.core && t.stage==='brief' && (mine||isExec())) actions.push(`<button class="btn primary" onclick="coreHandoff('${t.id}')">Hand off to ${esc(first(coreVisualOwner()))} →</button>`);
   if(t.core && t.stage==='visual' && (t.assignee===PERSON||isExec()) && t.handoffFrom) actions.push(`<button class="btn" onclick="coreReturn('${t.id}')">↩ Return to ${esc(first(t.handoffFrom))}</button>`);
   const pms = taskApprovers(t);
-  openModal(t.title, `
+  openModal(t.title, `${t.client?clientLinksHTML(t.client, {label:'Open the client account'}):''}
   <div class="split">
     <div>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px">${badge(t.status)} ${platTag(t.plat)}
@@ -2655,9 +2713,9 @@ RENDER.captions = () => {
         <div class="card-b">
           <div class="field"><label>Title</label><input id="capTitle" placeholder="e.g. Weekend promo — IG carousel"></div>
           <div class="field"><label>Client & platform</label>
-            <div style="display:flex;gap:9px"><select id="capClient" style="flex:1" onchange="el('capTone').textContent='Voice: '+(client(this.value)?.tone||'—')">${visClients().map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('')}</select>
+            <div style="display:flex;gap:9px"><select id="capClient" style="flex:1" onchange="el('capTone').textContent='Voice: '+(client(this.value)?.tone||'—');el('capLinks').innerHTML=clientLinksHTML(this.value)">${visClients().map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('')}</select>
             <select id="capPlat">${Object.entries(PLATS).map(([k,v])=>`<option value="${k}">${v}</option>`).join('')}</select></div>
-            <div class="hint" id="capTone" style="margin-top:4px">Voice: ${esc(visClients()[0]?.tone||'—')}</div></div>
+            <div class="hint" id="capTone" style="margin-top:4px">Voice: ${esc(visClients()[0]?.tone||'—')}</div><div id="capLinks">${visClients()[0]?clientLinksHTML(visClients()[0].id):''}</div></div>
           <div class="field"><label>Caption</label><textarea id="capText" rows="7" placeholder="Start writing, pick a template, or ask for a suggestion…" oninput="el('capCount').textContent=this.value.length+' / 2,200'"></textarea></div>
           <div style="display:flex;gap:9px;flex-wrap:wrap">
             <button class="btn primary" onclick="aiCaption()">✦ Suggest with AI</button>
@@ -2879,6 +2937,7 @@ function ensureChats(){
     const m = t.members.filter(k=>PEOPLE[k]); if(m.length<2) return;
     CHATS.push({id:t.id, kind:'group', custom:true, name:t.name, members:[...new Set(m)].sort(), by:PERSON, at:nowISO()}); });
   CLIENTS.forEach(c=>{
+    if(isEnded(c)) return;   /* ended contract: its group chat is frozen in Ended Contracts until HR + PM approve deletion */
     const id = c.chatId || ('chat-'+c.id); c.chatId = id;
     let ch = CHATS.find(x=>x.id===id);
     if(!ch){ if(!canCreate || c.status!=='Active') return; ch={id, kind:'client', client:c.id, name:c.name, members:[]}; CHATS.push(ch); }
@@ -2887,6 +2946,7 @@ function ensureChats(){
   });
 }
 RENDER.clients = () => {
+  if(cliF.type==='ended') return renderEndedClients();
   let C = visClients();
   if(cliF.type!=='all') C = C.filter(c=>c.type===cliF.type);
   el('v-clients').innerHTML = `
@@ -2897,6 +2957,7 @@ RENDER.clients = () => {
           <button class="${cliF.type==='all'?'on':''}" onclick="cliF.type='all';RENDER.clients()">All (${visClients().length})</button>
           <button class="${cliF.type==='International'?'on':''}" onclick="cliF.type='International';RENDER.clients()">International</button>
           <button class="${cliF.type==='Local'?'on':''}" onclick="cliF.type='Local';RENDER.clients()">Local</button>
+          ${endedSegButton()}
         </div>
         ${canCreateOrgs()?'<button class="btn primary" onclick="orgModal()">+ New client organization</button>':''}
         ${isExec()&&ROLE!=='hr'?'<button class="btn" onclick="briefModal()">Submit brief to HR</button>':''}
@@ -2938,6 +2999,7 @@ function archiveClient(id){
 }
 function openClient(id){
   if(!client(id)) return toast('That client is not available to you');
+  if(isEnded(client(id)) && !canSeeEnded(client(id))) return toast('This client’s contract has ended — its records are kept for HR and the previous PM only');
   WS.client=id; WS.tab='overview'; CURRENT='clientws';
   document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
   el('v-clientws').classList.add('active');
@@ -2947,7 +3009,7 @@ function openClient(id){
   buildNav(); RENDER.clientws();
 }
 const WS_TABS = [
-  ['overview','Overview'],['content','Content planning'],['design','Designs'],['captions','Captions'],
+  ['overview','Overview'],['sop','SOP'],['content','Content planning'],['design','Designs'],['captions','Captions'],
   ['publishing','Publishing'],['leadsw','Leads & ICP'],['creatorsw','Creators'],['engagew','Engagement'],['files','Files & brand kit'],
 ];
 RENDER.clientws = () => {
@@ -2955,8 +3017,10 @@ RENDER.clientws = () => {
   const team = (c.team||[]).filter(id=>PEOPLE[id]);
   const edit = canEditOrg(c.id);
   const tabBody = {
+    ended(){ return endedWsTab(c); },
+    sop(){ return sopTabHTML(c); },
     overview(){
-      return `<div class="grid cols-3" style="margin-bottom:16px">
+      return `${clientLinksHTML(c.id, {label:'Client accounts — open directly'})}<div class="grid cols-3" style="margin-bottom:16px">
         <div class="card span-2"><div class="card-h"><h3>About ${esc(c.name)}</h3>${edit?`<button class="btn ghost" onclick="orgModal('${c.id}')">Edit organization</button>`:''}</div>
           <div class="card-b">
             <p style="font-size:13px;margin-bottom:12px;white-space:pre-wrap">${esc(c.summary||'—')}</p>
@@ -2965,7 +3029,7 @@ RENDER.clientws = () => {
               <div class="info-item"><span class="hint">Brand colors</span><span style="display:flex;gap:6px;margin-top:4px">${c.colors.map(x=>`<span class="swatch" style="background:${x}" title="${x}"></span>`).join('')}</span></div>
               <div class="info-item"><span class="hint">Fonts</span>${esc(c.fonts)}</div>
               ${c.contact?`<div class="info-item"><span class="hint">Client contact</span>${esc(c.contact)}</div>`:''}
-              ${c.package?`<div class="info-item"><span class="hint">Package</span>${esc(c.package)}${(isExec()||ROLE==='hr')&&c.regId&&BRIEFS.find(x=>x.id===c.regId)?.rate?' · '+esc(BRIEFS.find(x=>x.id===c.regId).rate):''}</div>`:''}
+              ${c.package?`<div class="info-item"><span class="hint">Package</span>${esc(c.package)}${finAuth()&&finFor(c.id)?.packageRate?.amount!=null?` · <span title="Finance & company heads only">🔒 ${money(finFor(c.id).packageRate.amount, finFor(c.id).packageRate.currency)} ${esc(finFor(c.id).packageRate.basis||'')}</span>`:''}</div>`:''}
               <div class="info-item"><span class="hint">Industry / category</span>${esc(c.industry)} · ${esc(c.category||'—')}</div>
               <div class="info-item"><span class="hint">Tone of voice</span>${esc(c.tone)}</div>
               <div class="info-item"><span class="hint">Target audience</span>${esc(c.audience)}</div>
@@ -3049,11 +3113,13 @@ RENDER.clientws = () => {
         ${c.logo?`<img data-logo-of="${c.id}" alt="" style="width:50px;height:50px;border-radius:12px;object-fit:contain;background:#fff;padding:4px">`:`<span class="avatar" style="background:rgba(255,255,255,.22);width:46px;height:46px;font-size:17px;backdrop-filter:blur(4px)">${esc(c.name[0])}</span>`}
         <div style="flex:1;min-width:200px"><h2 style="font-size:20px">${esc(c.name)}</h2><p style="opacity:.85;font-size:12.5px">${esc(c.industry)} · ${esc(c.type)} client · ${c.plan} posts per week · PM ${pmsOf(c.id).map(k=>esc(pname(k))).join(', ')||'—'}</p></div>
         <button class="btn" style="background:rgba(255,255,255,.9);color:#141414" onclick="go('clients')">← All clients</button>
-        <button class="btn" style="background:rgba(255,255,255,.9);color:#141414" onclick="CHAT_OPEN='${c.chatId}';go('chat')">💬 Group chat</button>
-        ${canCreateOrgs()?`<button class="btn" style="background:rgba(255,255,255,.9);color:#141414" onclick="archiveClient('${c.id}')">${c.status==='Active'?'Archive':'Restore'}</button>`:''}
+        ${CHATS.some(x=>x.id===c.chatId)?`<button class="btn" style="background:rgba(255,255,255,.9);color:#141414" onclick="CHAT_OPEN='${c.chatId}';go('chat')">💬 Group chat</button>`:''}
+        ${canCreateOrgs()&&!isEnded(c)?`<button class="btn" style="background:rgba(255,255,255,.9);color:#141414" onclick="archiveClient('${c.id}')">${c.status==='Active'?'Archive':'Restore'}</button>`:''}
+        ${canEndContracts()&&!isEnded(c)?`<button class="btn" style="background:#141414;color:#fff" onclick="endContractModal('${c.id}')">End contract</button>`:''}
       </div>
     </div>
-    <div class="tabs">${WS_TABS.map(([k,label])=>`<button class="tab ${WS.tab===k?'on':''}" onclick="WS.tab='${k}';RENDER.clientws()">${label}</button>`).join('')}</div>
+    ${isEnded(c)?endedWsBanner(c):''}
+    <div class="tabs">${(isEnded(c)?[['ended','Ended contract'],...WS_TABS]:WS_TABS).map(([k,label])=>`<button class="tab ${WS.tab===k?'on':''}" onclick="WS.tab='${k}';RENDER.clientws()">${label}</button>`).join('')}</div>
     ${tabBody[WS.tab]()}`;
   hydrateLogos(el('v-clientws'));
 };
@@ -3113,7 +3179,7 @@ function orgModal(cid, focus, fromBrief){
       <div class="card" style="margin-bottom:14px;background:var(--panel-2)"><div class="card-b">
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px"><b>Registered by ${esc(pname(b.by))}</b><span class="hint">${b.id} · endorsed ${ago(b.endorsedAt||b.at)}</span><button class="btn ghost" style="margin-left:auto;padding:4px 9px;font-size:12px" onclick="regView('${b.id}')">View full registration</button></div>
         <div class="kv"><span class="k">Client contact</span><span>${esc(b.contact||'—')}${b.contactEmail?' · '+esc(b.contactEmail):''}${b.contactPhone?' · '+esc(b.contactPhone):''}</span>
-          <span class="k">Package · rate</span><span>${esc(b.package||'—')} · ${esc(b.rate||'—')}</span>
+          <span class="k">Package · start</span><span>${esc(b.package||'—')} · ${b.startDate?dLong(b.startDate):'—'}</span>
           <span class="k">Proposed PM</span><span>${(b.pms||[]).map(k=>esc(pname(k))).join(', ')||'—'}</span>
           <span class="k">Proposed team</span><span>${(b.team||[]).map(k=>esc(pname(k))+' — '+esc(b.resp?.[k]||'')).join('<br>')||'—'}</span></div>
         <div class="hint" style="margin-top:8px">Review and change the project manager, VAs and roles below, then complete onboarding. The group chat is created and your welcome message tags the final team.</div>
@@ -3209,7 +3275,18 @@ function saveOrg(cid){
   EMPLOYEES.forEach(e=>{ const on = team.includes(e.id); const has=(e.clients||[]).includes(c.id); if(on&&!has) e.clients=[...(e.clients||[]),c.id]; if(!on&&has) e.clients=e.clients.filter(x=>x!==c.id); });
   const added = team.filter(k=>!prevTeam.includes(k)), addedPms = pms.filter(k=>!prevPms.includes(k));
   const removed = prevTeam.filter(k=>!team.includes(k));
+  const removedPms = prevPms.filter(k=>!pms.includes(k));
+  /* assignment log (no rates) — Finance uses it to date each change; the SOP setup task goes to new PMs */
+  if(reg || added.length || removed.length || addedPms.length || removedPms.length){
+    c.assignLog = [...(c.assignLog||[]).slice(-40), {at:nowISO(), by:PERSON, onboarding:!!reg, added, removed, pmsAdded:addedPms, pmsRemoved:removedPms}];
+    const chg = reg ? [...pms.filter(k=>!(reg.pms||[]).includes(k)).map(k=>'+'+first(k)+' (PM)'), ...team.filter(k=>!(reg.team||[]).includes(k)).map(k=>'+'+first(k)), ...(reg.pms||[]).filter(k=>!pms.includes(k)).map(k=>'−'+first(k)+' (PM)'), ...(reg.team||[]).filter(k=>!team.includes(k)).map(k=>'−'+first(k))]
+                    : [...addedPms.map(k=>'+'+first(k)+' (PM)'), ...added.map(k=>'+'+first(k)), ...removedPms.map(k=>'−'+first(k)+' (PM)'), ...removed.map(k=>'−'+first(k))];
+    if(!reg || chg.length) notify(financeKeys(), 'hr', `${esc(first(PERSON))} ${reg?'changed the proposed assignments while onboarding':'changed the assignments for'} <b>${esc(name)}</b>: ${esc(chg.join(', '))}. Review the agreed rates in Finance.`, finLink('clients'));
+    else notify(financeKeys(), 'hr', `${esc(first(PERSON))} completed onboarding for <b>${esc(name)}</b> with the assignments as proposed.`, finLink('clients'));
+  }
   rebuildPeople(); ensureChats();
+  if(reg) ensureSopTask(c, pms, reg.files||[]);
+  else if(addedPms.length) ensureSopTask(c, pms);
   const link = {view:'client', arg:c.id};
   notify(reg?HEADS.filter(k=>k!==reg.by):HEADS, 'assignment', `${esc(first(PERSON))} ${existing?'updated':reg?'onboarded':'created'} the client organization <b>${esc(c.name)}</b>${added.length?` · assigned ${added.map(first).join(', ')}`:''}`, link);
   if(reg){ postOnboardingWelcome(c, pms, team, resp); }
@@ -3247,7 +3324,7 @@ RENDER.orgsetup = () => {
     </div>
     <div class="tabs"><button class="tab ${OSTAB==='orgs'?'on':''}" onclick="OSTAB='orgs';RENDER.orgsetup()">Organizations</button><button class="tab ${OSTAB==='reg'?'on':''}" onclick="OSTAB='reg';RENDER.orgsetup()">Registrations & onboarding ${regQ.length?`<span class="badge b-new">${regQ.length}</span>`:''}</button><button class="tab ${OSTAB==='briefs'?'on':''}" onclick="OSTAB='briefs';RENDER.orgsetup()">Client briefs ${newB.length?`<span class="badge b-new">${newB.length}</span>`:''}</button></div>
     ${OSTAB==='orgs'?`<div class="card"><table class="tbl"><thead><tr><th>Organization</th><th>Services</th><th>PM</th><th>Team</th><th>Brand kit</th><th></th></tr></thead><tbody>
-      ${CLIENTS.map(c=>`<tr style="${c.status!=='Active'?'opacity:.55':''}"><td><b>${esc(c.name)}</b><div class="hint">${esc(c.category||c.industry)} · ${esc(c.type)}</div></td>
+      ${CLIENTS.filter(c=>!isEnded(c)).map(c=>`<tr style="${c.status!=='Active'?'opacity:.55':''}"><td><b>${esc(c.name)}</b><div class="hint">${esc(c.category||c.industry)} · ${esc(c.type)}</div></td>
         <td style="max-width:220px">${(c.services||[]).slice(0,3).map(s=>`<span class="chip" style="margin:0 4px 4px 0;display:inline-block">${esc(s)}</span>`).join('')}</td>
         <td>${pmsOf(c.id).map(first).join(', ')||'<span class="hint">—</span>'}</td>
         <td><div class="avstack">${(c.team||[]).slice(0,5).map(k=>av(P(k))).join('')}</div></td>
@@ -3325,22 +3402,25 @@ function regModal(id){
       <input id="rgSvcOther" value="${esc(extraSvc.join(', '))}" placeholder="Other services, separated by commas" style="width:100%;margin-top:8px"></div>
     <div class="grid cols-2">
       <div class="field"><label>Package *</label><input id="rgPkg" list="rgPkgList" value="${esc(REG.package||'')}" placeholder="e.g. Growth — 5 posts/week + lead gen"><datalist id="rgPkgList">${REG_PACKAGES.map(p=>`<option>${p}</option>`).join('')}</datalist></div>
-      <div class="field"><label>Rate *</label><input id="rgRate" value="${esc(REG.rate||'')}" placeholder="e.g. USD 1,500 / month"></div>
+      <div class="field"><label>Start / effective date *</label><input id="rgStart" type="date" value="${esc(REG.startDate||'')}"></div>
     </div>
+    ${regFinFields(r)}
     <div class="nav-label" style="padding:10px 0 6px">Proposed account team</div>
-    <div class="field"><label>Project manager *</label><select id="rgPm"><option value="">— Choose a project manager —</option>${pms.map(k=>`<option value="${k}" ${(REG.pms||[])[0]===k?'selected':''}>${esc(pname(k))}</option>`).join('')}</select></div>
+    <div class="field"><label>Project manager *</label><div style="display:flex;gap:8px"><select id="rgPm" style="flex:1"><option value="">— Choose a project manager —</option>${pms.map(k=>`<option value="${k}" ${(REG.pms||[])[0]===k?'selected':''}>${esc(pname(k))}</option>`).join('')}</select>
+      <input id="rgPmRate" type="number" min="0" step="0.01" value="${esc(REG.fin.rates[(REG.pms||[])[0]]??'')}" placeholder="PM agreed ₱/mo" title="PM's agreed monthly rate — Finance and company heads only" style="width:150px"></div></div>
     <div class="field"><label>Proposed VAs — tick each person and give their role or position on this account</label>
       <input placeholder="Filter by name or role…" oninput="document.querySelectorAll('#rgTeam .list-row').forEach(r=>r.style.display=r.textContent.toLowerCase().includes(this.value.toLowerCase())?'':'none')" style="width:100%;margin-bottom:6px">
       <div id="rgTeam" style="max-height:250px;overflow-y:auto;border:1px solid var(--line);border-radius:10px;padding:4px 10px">
       ${emps.map(e=>`<div class="list-row">${av(e)}<div style="flex:1;min-width:120px"><b style="font-size:12.5px">${esc(e.name)}</b><div class="hint">${esc(e.role)}</div></div>
         <input class="rgResp" data-id="${e.id}" value="${esc(REG.resp?.[e.id]||'')}" placeholder="Role, e.g. Lead generation VA" style="width:200px;font-size:12px;padding:6px 8px">
+        ${regRateInput(e.id, REG.fin.rates[e.id])}
         <input type="checkbox" class="rgMem" value="${e.id}" style="width:auto" ${(REG.team||[]).includes(e.id)?'checked':''}></div>`).join('')}
       </div></div>
     <div class="nav-label" style="padding:10px 0 6px">Attachments</div>
     <div class="dropzone" onclick="pickFiles({multiple:true}).then(f=>{REG.files.push(...f);regDrawFiles()})"><h4>Attach files</h4><div class="hint">Excel, Word, PDF, images and videos — contracts, onboarding forms, brand books, sample content. Up to ${BACKEND?.mode==='live'?'50 MB':'1.5 MB in demo mode (50 MB live)'} per file.</div></div>
     <div style="display:flex;gap:8px;margin-top:8px"><input id="rgLink" placeholder="Or paste a link to a large video or shared folder (Google Drive, Dropbox, YouTube…)" style="flex:1"><button class="btn" onclick="regAddLink()">+ Add link</button></div>
     <div id="rgFiles" style="margin:8px 0"></div>
-    <div class="field"><label>Notes for HR</label><textarea id="rgNotes" rows="2" placeholder="Start date, client preferences, anything HR should know">${esc(REG.notes||'')}</textarea></div>
+    <div class="field"><label>Notes for HR</label><textarea id="rgNotes" rows="2" placeholder="Client preferences, anything HR should know (don't put rates here — HR can read this)">${esc(REG.notes||'')}</textarea></div>
     <div style="display:flex;gap:9px;flex-wrap:wrap">
       <button class="btn" style="flex:1;justify-content:center" onclick="saveReg(false)">Save registration</button>
       <button class="btn primary" style="flex:1;justify-content:center" onclick="saveReg(true)">Save & endorse to HR</button>
@@ -3357,19 +3437,24 @@ function regAddLink(){
 }
 function saveReg(endorse){
   const v = id => el(id)?.value?.trim() ?? '';
-  const need = [['rgName','Company name'],['rgContact','Client contact name'],['rgInd','Industry'],['rgBg','Company background'],['rgPkg','Package'],['rgRate','Rate']].filter(([id])=>!v(id));
+  const need = [['rgName','Company name'],['rgContact','Client contact name'],['rgInd','Industry'],['rgBg','Company background'],['rgPkg','Package'],['rgRateAmt','Package rate']].filter(([id])=>!v(id));
   if(need.length) return toast(need.map(x=>x[1]).join(', ')+(need.length>1?' are':' is')+' required');
   const team = [...document.querySelectorAll('.rgMem:checked')].map(x=>x.value);
   const resp = {}; document.querySelectorAll('.rgResp').forEach(i=>{ if(team.includes(i.dataset.id)) resp[i.dataset.id] = i.value.trim() || P(i.dataset.id)?.sub || 'Team member'; });
   const pm = v('rgPm');
   if(endorse && !pm) return toast('Choose a project manager before endorsing to HR');
   if(endorse && !team.length) return toast('Propose at least one VA before endorsing to HR');
+  if(endorse && !v('rgStart')) return toast('Add the start / effective date before endorsing to HR');
+  if(endorse && team.some(k=>!document.querySelector(`.rgRate[data-id="${k}"]`)?.value)) return toast('Enter the agreed rate for each proposed VA before endorsing (Finance only)');
   const services = uniq([...document.querySelectorAll('#rgSvc input:checked')].map(x=>x.value).concat(v('rgSvcOther').split(',').map(s=>s.trim()).filter(Boolean)));
   const data = {clientName:v('rgName'), contact:v('rgContact'), contactEmail:v('rgEmail'), contactPhone:v('rgPhone'), industry:v('rgInd'), summary:v('rgBg'),
-    services, package:v('rgPkg'), rate:v('rgRate'), pms:pm?[pm]:[], team, resp, files:REG.files, notes:v('rgNotes')};
+    services, package:v('rgPkg'), startDate:v('rgStart'), pms:pm?[pm]:[], team, resp, files:REG.files, notes:v('rgNotes')};
+
   let r = REG.id ? BRIEFS.find(x=>x.id===REG.id) : null;
-  if(r){ Object.assign(r, data); regHist(r, 'Edited'); }
+  if(r){ Object.assign(r, data); delete r.rate; regHist(r, 'Edited'); }
   else { r = {id:uid('REG'), kind:'registration', by:PERSON, status:'Registered', at:nowISO(), history:[], ...data}; regHist(r, 'Registered'); BRIEFS.unshift(r); }
+  /* package and agreed rates go to a separate Finance record (Finance + heads), never into this HR-visible record */
+  regSaveFinance(r);
   if(endorse) return endorseReg(r.id);
   recordChange(); closeModal(); OSTAB='reg'; RENDER[CURRENT]?.();
   toast(`${r.clientName} saved as a draft — click Endorse to HR when it's ready`);
@@ -3379,6 +3464,7 @@ function endorseReg(id){
   if(r.by!==PERSON) return toast('Only the person who registered this client can endorse it');
   if(!(r.pms||[]).length || !(r.team||[]).length) return toast('Add a project manager and at least one VA first'), regModal(id);
   r.status='Endorsed'; r.endorsedAt=nowISO(); regHist(r, 'Endorsed to HR');
+  finOnEndorse(r);   /* parallel handoff: New Client record in Finance */
   notify(HR_KEYS(), 'assignment', `${esc(first(PERSON))} endorsed a new client for onboarding: <b>${esc(r.clientName)}</b> — review the team and complete onboarding`, {view:'orgsetup', tab:'reg', reg:r.id});
   notify(HEADS, 'assignment', `${esc(first(PERSON))} endorsed <b>${esc(r.clientName)}</b> to HR for onboarding`, {view:'orgsetup', tab:'reg', reg:r.id});
   audit(`Registered ${r.clientName} and endorsed it to HR for onboarding`);
@@ -3406,7 +3492,8 @@ function regView(id){
           <span class="k">Client contact</span><span>${esc(r.contact||'—')}${r.contactEmail?' · '+esc(r.contactEmail):''}${r.contactPhone?' · '+esc(r.contactPhone):''}</span>
           <span class="k">Industry</span><span>${esc(r.industry||'—')}</span>
           <span class="k">Package</span><span>${esc(r.package||'—')}</span>
-          <span class="k">Rate</span><span>${esc(r.rate||'—')}</span>
+          <span class="k">Start date</span><span>${r.startDate?dLong(r.startDate):'—'}</span>
+          ${finAuth()&&FINCLIENTS.find(f=>f.reg===r.id)?`<span class="k">🔒 Package rate</span><span>${(p=>p?.amount!=null?money(p.amount,p.currency)+' '+esc(p.basis||''):esc(p?.note||'—'))(FINCLIENTS.find(f=>f.reg===r.id).packageRate)} <span class="hint">Finance & heads only</span></span>`:''}
         </div>
         <div class="nav-label" style="padding:0 0 4px">Company background</div>
         <p style="font-size:13px;white-space:pre-wrap;margin-bottom:12px">${esc(r.summary||'—')}</p>
@@ -3448,7 +3535,7 @@ function regRow(r, compact){
   const team = (r.status==='Onboarded'?r.finalTeam:r.team)||[], pm = ((r.status==='Onboarded'?r.finalPms:r.pms)||[])[0];
   return `<div class="list-row" style="cursor:pointer;flex-wrap:wrap;${compact?'':'padding:12px 6px'}" onclick="regView('${r.id}')">${av(P(r.by))}
     <div style="flex:1;min-width:200px"><b style="font-size:13px">${esc(r.clientName)}</b> ${compact?'':regBadge(r.status)}
-      <div class="hint">${compact?'':r.id+' · '}by ${esc(first(r.by))} · ${ago(r.status==='Endorsed'?r.endorsedAt||r.at:r.at)} · PM ${pm?esc(first(pm)):'—'} · ${team.length} VA${team.length===1?'':'s'}${compact?'':' · '+esc(r.package||'')}</div>
+      <div class="hint">${compact?'':r.id+' · '}by ${esc(first(r.by))} · ${ago(r.status==='Endorsed'?r.endorsedAt||r.at:r.at)} · PM ${pm?esc(first(pm)):'—'} · ${team.length} VA${team.length===1?'':'s'}${compact?'':' · '+esc(r.package||'')}${r.startDate?' · starts '+dShort(r.startDate):''}</div>
       ${compact?'':`<div class="pill-row" style="margin-top:5px">${(r.services||[]).slice(0,5).map(s=>`<span class="chip">${esc(s)}</span>`).join('')}${(r.files||[]).length?`<span class="chip dash">📎 ${r.files.length} file${r.files.length===1?'':'s'}</span>`:''}</div>`}</div>
     ${act}</div>`;
 }
@@ -3483,6 +3570,300 @@ function postOnboardingWelcome(c, pms, team, resp){
   pms.forEach(k=>notify(k, 'message', `${esc(first(PERSON))} tagged you in the new <b>${esc(c.name)}</b> group chat — you are the Project Manager for this client 🎉`, {view:'chat', arg:c.chatId}));
   team.filter(k=>!pms.includes(k)).forEach(k=>notify(k, 'message', `${esc(first(PERSON))} tagged you in the new <b>${esc(c.name)}</b> group chat — ${esc(resp[k]||'team member')} 🎉`, {view:'chat', arg:c.chatId}));
   return m;
+}
+
+/* ===== 10c_ended.js ===== */
+/* ================= CLIENT CONTRACT ENDED =================
+   CEO/COO → End contract → HR notified → HR "Proceed to Archive/Delete" → PM "Accept / Confirm"
+   → final notice in the group chat → 24-hour countdown (reminder before the deadline) → group chat deleted.
+   Only the group chat is ever deleted. The client's information, files, documents, reports and records stay under
+   Clients → Ended Contracts → [client], visible only to HR and the client's previously assigned PM(s).
+   Files shared in the group chat are copied into that archive before the chat is removed. */
+const ENDED = 'Ended Contract';
+const GC_GRACE_MS = () => window.CC_TEST_GRACE_MS || 24*3600*1000;      /* the 24-hour notice */
+const GC_REMIND_MS = () => window.CC_TEST_REMIND_MS || 2*3600*1000;     /* reminder this long before deletion */
+const isEnded = c => !!c && c.status===ENDED;
+const endedAud = c => uniq([...HR_KEYS(), ...(c.endedPMs||[])]);
+const endAudFor = cid => { const c = CLIENTS.find(x=>x.id===cid); return isEnded(c) ? endedAud(c) : null; };
+const canEndContracts = () => ['ceo','coo'].includes(ROLE);
+const canSeeEnded = c => ROLE==='hr' || (c?.endedPMs||[]).includes(PERSON);
+const endingFor = cid => ENDINGS.filter(e=>e.client===cid).sort((a,b)=>(b.endedAt||'').localeCompare(a.endedAt||''))[0];
+const endingOfChat = chatId => ENDINGS.find(e=>e.chatId===chatId && !['reopened','deleted'].includes(e.stage));
+const canPostEnded = c => { const e = endingOfChat(c.id); return ROLE==='hr' || (e?.pms||[]).includes(PERSON); };
+const isEndPM = e => (e.pms||[]).includes(PERSON);
+const myEndings = () => ENDINGS.filter(e=>isHead(PERSON) || ROLE==='hr' || isEndPM(e))
+  .sort((a,b)=>(b.endedAt||'').localeCompare(a.endedAt||''));
+const END_STAGES = [['ended','Contract ended'],['hr_ok','HR approved'],['countdown','PM confirmed · 24-hour notice'],['deleted','Group chat deleted']];
+const endStageLabel = e => ({ended:'Waiting for HR review', hr_ok:'Waiting for PM confirmation', countdown:'Group chat deletes '+untilText(e.deleteAt), deleted:'Group chat deleted — records archived', reopened:'Contract reopened'})[e.stage] || e.stage;
+function untilText(iso){
+  const ms = new Date(iso) - Date.now(); if(ms<=0) return 'now';
+  const tm = Math.ceil(ms/60000), h = Math.floor(tm/60), m = tm%60;
+  return 'in '+(h?`${h}h${m?' '+m+'m':''}`:`${m} min`);
+}
+const endLink = () => ({view:'ended'});
+function endHist(e, act, note){ (e.history=e.history||[]).push({at:nowISO(), by:PERSON, act, note:note||''}); }
+
+/* ---------- live database helpers: some steps run as one server-side action so nobody can bypass them ---------- */
+const isLive = () => BACKEND?.mode==='live';
+function acceptLocal(coll, id){ const o=(COLL[coll].get()||[]).find(x=>String(x.id)===String(id)); if(o){ SYNC.last[coll]=SYNC.last[coll]||new Map(); SYNC.last[coll].set(String(id), JSON.stringify(o)); } SYNC.pending.delete(SYNC.key(coll,String(id))); }
+function forgetLocal(coll, pred){ /* drop records this person may no longer see — without deleting them on the server */
+  const c = COLL[coll]; const arr = c.get()||[]; const gone = arr.filter(pred); if(!gone.length) return;
+  c.set(arr.filter(o=>!pred(o))); gone.forEach(o=>{ SYNC.last[coll]?.delete(String(o.id)); SYNC.pending.delete(SYNC.key(coll,String(o.id))); });
+}
+const CLIENT_COLLS = ['tasks','posts','leads','icps','engage','assets','leadjobs','leadevents'];
+function forgetClientLocal(cid){
+  if(!isLive()) return;   /* the demo keeps one shared copy in this browser — screens hide it instead */
+  CLIENT_COLLS.forEach(k=>forgetLocal(k, o=>o.client===cid));
+  forgetLocal('leadcfg', o=>o.id===cid); forgetLocal('clients', o=>o.id===cid);
+  rebuildPeople();
+}
+
+/* ---------- 1. CEO / COO ends the contract ---------- */
+function endContractModal(cid){
+  const c = client(cid); if(!c || !canEndContracts()) return;
+  const pms = pmsOf(cid), hr = HR_KEYS();
+  openModal('End client contract — '+c.name, `
+    <p style="font-size:13px;margin-bottom:10px">This marks <b>${esc(c.name)}</b> as <b>Ended Contract</b>. What happens next:</p>
+    <ol style="font-size:12.5px;line-height:1.7;margin:0 0 12px 18px">
+      <li>The client moves to <b>Clients → Ended Contracts</b> and the group chat is archived (read-only) — nothing is deleted yet.</li>
+      <li>HR (${hr.map(first).join(', ')||'no HR account yet'}) and the assigned PM (${pms.map(first).join(', ')||'none'}) are notified.</li>
+      <li>Client information, files, documents and records become visible <b>only to HR and ${pms.length?pms.map(first).join(', '):'the previous PM'}</b>. Everyone else loses access.</li>
+      <li>The group chat is deleted only after HR approves, the PM confirms, and a 24-hour notice in the chat.</li>
+    </ol>
+    <div class="field"><label>Reason / note for HR and the PM (optional)</label><textarea id="ecReason" rows="3" placeholder="e.g. Client did not renew after the September cycle"></textarea></div>
+    <label style="display:flex;gap:8px;align-items:center;font-size:12.5px;margin:4px 0 12px"><input type="checkbox" id="ecOk" style="width:auto"> I confirm this client's contract has ended</label>
+    <button class="btn primary" style="width:100%;justify-content:center" onclick="endContract('${cid}')">End contract</button>`);
+}
+async function endContract(cid){
+  const c = client(cid); if(!c || !canEndContracts()) return;
+  if(!el('ecOk')?.checked) return toast('Tick the confirmation box first');
+  const reason = (el('ecReason')?.value||'').trim();
+  const pms = pmsOf(cid), hr = HR_KEYS(), at = nowISO();
+  const patch = {status:ENDED, prevStatus:c.status, endedAt:at, endedBy:PERSON, endedPMs:pms, endReason:reason};
+  if(isLive()){
+    const {error} = await BACKEND.sb.rpc('cc_end_contract', {p_client:cid, p_patch:patch, p_audience:uniq([...hr, ...pms])});
+    if(error) return toast('Could not end the contract: '+(/function|schema cache/i.test(error.message)?'run the latest supabase-setup.sql first':error.message));
+  }
+  Object.assign(c, patch);
+  if(isLive()) acceptLocal('clients', cid);   /* saved by the server action above */
+  const chatId = c.chatId || ('chat-'+cid);
+  const ch = CHATS.find(x=>x.id===chatId);
+  if(ch){ ch.archived = true; ch.endedAt = at; ch.client = cid; ch.members = uniq([...(ch.members||[]), ...hr, ...pms]).sort(); }
+  const e = {id:uid('END'), client:cid, clientName:c.name, chatId:ch?ch.id:null, pms, stage:'ended', prevStatus:patch.prevStatus,
+    endedBy:PERSON, endedAt:at, reason, history:[]};
+  endHist(e, 'Contract ended', reason); ENDINGS.unshift(e);
+  notify(hr, 'hr', `📁 <b>${esc(c.name)}</b>'s contract was ended by ${esc(first(PERSON))}. Review the client and group chat, then click <b>Proceed to Archive/Delete</b>.`, endLink());
+  notify(pms, 'assignment', `📁 <b>${esc(c.name)}</b>'s contract has ended. The group chat is archived; HR reviews first, then you'll be asked to confirm deletion.`, endLink());
+  audit(`Ended the contract of ${c.name}${reason?' ('+reason+')':''}`);
+  finOnContractEnded(cid, c.name);
+  if(!canSeeEnded(c)) forgetClientLocal(cid);
+  closeModal(); recordChange(); cliF.type='ended'; go('clients');
+  toast(`${c.name} moved to Ended Contracts — HR and the PM were notified`);
+}
+
+/* ---------- 2. HR reviews and proceeds ---------- */
+function hrProceed(eid){
+  const e = ENDINGS.find(x=>x.id===eid); if(!e || e.stage!=='ended' || ROLE!=='hr') return;
+  if(!confirm(`Proceed to archive/delete the ${e.clientName} group chat?\n\nThe assigned PM must confirm next. The chat is only deleted 24 hours after the PM confirms. Client files and records are kept.`)) return;
+  e.stage='hr_ok'; e.hrBy=PERSON; e.hrAt=nowISO(); endHist(e, 'HR approved archive/delete');
+  if(e.pms.length) notify(e.pms, 'approval', `✅ HR approved archiving <b>${esc(e.clientName)}</b>. Please <b>Accept / Confirm</b> that the group chat can be deleted.`, endLink());
+  else startCountdown(e);   /* no PM on record: HR's approval is the final one */
+  recordChange(); RENDER[CURRENT]?.(); toast(e.pms.length?'Sent to the PM for confirmation':'24-hour notice started');
+}
+
+/* ---------- 3. PM confirms ---------- */
+function pmConfirm(eid){
+  const e = ENDINGS.find(x=>x.id===eid); if(!e || e.stage!=='hr_ok' || !isEndPM(e)) return;
+  if(!confirm(`Confirm you are ready for the ${e.clientName} group chat to be deleted?\n\nA final notice is posted in the chat now, and the chat is deleted automatically in 24 hours. Client files and records stay in Ended Contracts.`)) return;
+  e.pmBy=PERSON; e.pmAt=nowISO(); endHist(e, 'PM confirmed deletion');
+  startCountdown(e);
+  recordChange(); RENDER[CURRENT]?.(); toast('Final notice posted — the group chat will be deleted in 24 hours');
+}
+
+/* ---------- 4 + 5. final notice, 24-hour countdown, reminder, deletion ---------- */
+const FINAL_NOTICE = name => `Client Contract Ended\n\nThis is to inform everyone that ${name}'s contract with us has ended. Thank you for all your hard work and support throughout the engagement.\n\nThe group chat will be deleted in 24 hours.\n\nPlease make sure to save any important documents, files, information, or conversations that you need before the deletion takes place.\n\nThank you again for your hard work and contributions.`;
+function startCountdown(e){
+  e.stage='countdown'; e.deleteAt = new Date(Date.now()+GC_GRACE_MS()).toISOString(); endHist(e, '24-hour notice posted in the group chat');
+  const ch = CHATS.find(x=>x.id===e.chatId);
+  if(ch){
+    MESSAGES.push({id:uid('M'), chat:ch.id, by:PERSON, sys:'ended', text:FINAL_NOTICE(e.clientName), at:nowISO(), files:[]});
+    notify((ch.members||[]), 'system', `📢 <b>${esc(e.clientName)}</b> contract ended — the group chat will be deleted in 24 hours. Save anything important before then.`, {view:'chat', arg:ch.id});
+  }
+  notify(uniq([...HEADS, ...HR_KEYS(), ...e.pms]), 'system', `⏳ <b>${esc(e.clientName)}</b>: HR and the PM approved. The group chat will be deleted ${untilText(e.deleteAt)}.`, endLink());
+}
+const DELETING = new Set();
+async function endedSweep(){
+  if(!SYNC.ready || !PEOPLE[PERSON]) return;
+  for(const e of ENDINGS.filter(x=>x.stage==='countdown')){
+    const mine = ROLE==='hr' || isEndPM(e);   /* HR and the PM's own sessions carry out the timed steps */
+    if(!mine) continue;
+    const left = new Date(e.deleteAt) - Date.now();
+    if(left<=0){ await deleteEndedChat(e); continue; }
+    if(left<=GC_REMIND_MS() && !e.reminded){
+      e.reminded = nowISO();
+      const ch = CHATS.find(x=>x.id===e.chatId);
+      if(ch){ MESSAGES.push({id:uid('M'), chat:ch.id, by:PERSON, sys:'reminder', text:`Reminder: this group chat will be deleted ${untilText(e.deleteAt)}. Please save any documents, files or conversations you still need.`, at:nowISO(), files:[]});
+        notify(ch.members||[], 'system', `⏰ Reminder: the <b>${esc(e.clientName)}</b> group chat will be deleted ${untilText(e.deleteAt)}.`, {view:'chat', arg:ch.id}); }
+      endHist(e, 'Deletion reminder sent'); recordChange();
+    }
+  }
+}
+setInterval(()=>{ endedSweep(); if(CURRENT==='clients' && cliF.type==='ended') tickEndedTimers(); }, 20000);
+async function deleteEndedChat(e){
+  if(DELETING.has(e.id) || e.stage!=='countdown') return; DELETING.add(e.id);
+  try{
+    const c = client(e.client);
+    /* safeguard: files shared in the chat are kept in the client's Ended Contracts archive */
+    /* read the whole chat from the database: HR may have joined it only when the contract ended */
+    let msgs = MESSAGES.filter(m=>m.chat===e.chatId);
+    if(isLive() && e.chatId){ const {data, error} = await BACKEND.sb.from('cc_records').select('data').eq('collection','messages').eq('scope',e.chatId);
+      if(error) throw error; const seen=new Set(msgs.map(m=>m.id)); (data||[]).forEach(r=>{ if(!seen.has(r.data.id)) msgs.push(r.data); }); }
+    const files = msgs.flatMap(m=>(m.files||[]).map(f=>({...f, sharedBy:m.by, sharedAt:m.at, from:'Group chat'})));
+    if(c){ const have = new Set((c.archivedFiles||[]).map(f=>(f.path||f.name)+'|'+f.sharedAt));
+      c.archivedFiles = [...(c.archivedFiles||[]), ...files.filter(f=>!have.has((f.path||f.name)+'|'+f.sharedAt))]; }
+    if(e.chatId){
+      if(isLive()){
+        const {error} = await BACKEND.sb.rpc('cc_delete_chat', {p_chat:e.chatId});
+        if(error && !/not found|already/i.test(error.message)) throw error;
+        forgetLocal('messages', m=>m.chat===e.chatId); forgetLocal('chats', x=>x.id===e.chatId);
+      } else { MESSAGES = MESSAGES.filter(m=>m.chat!==e.chatId); CHATS = CHATS.filter(x=>x.id!==e.chatId); }
+    }
+    e.stage='deleted'; e.deletedAt=nowISO(); e.deletedBy=PERSON; e.filesKept=files.length; endHist(e, 'Group chat deleted', `${files.length} shared file${files.length===1?'':'s'} kept in the archive`);
+    notify(uniq([...HEADS, ...HR_KEYS(), ...e.pms]), 'system', `🗑 The <b>${esc(e.clientName)}</b> group chat was deleted after the 24-hour notice. Client records${files.length?` and ${files.length} shared file${files.length===1?'':'s'}`:''} are kept in Clients → Ended Contracts.`, endLink());
+    audit(`Deleted the group chat of ${e.clientName} (contract ended)`);
+    if(CHAT_OPEN===e.chatId) CHAT_OPEN=null;
+    recordChange(); scheduleRender();
+  }catch(err){ console.warn('Group chat deletion will retry', err); }
+  finally{ DELETING.delete(e.id); }
+}
+
+/* ---------- CEO / COO can reopen a contract ended by mistake ---------- */
+async function reopenContract(eid){
+  const e = ENDINGS.find(x=>x.id===eid); if(!e || !canEndContracts() || ['reopened'].includes(e.stage)) return;
+  if(!confirm(`Reopen ${e.clientName}'s contract?\n\nThe client returns to Client Workspaces for everyone assigned to it${e.stage==='deleted'?' and a new group chat is created':''}.`)) return;
+  const patch = {status:e.prevStatus && e.prevStatus!==ENDED ? e.prevStatus : 'Active', reopenedAt:nowISO(), reopenedBy:PERSON};
+  if(isLive()){
+    const {error} = await BACKEND.sb.rpc('cc_end_contract', {p_client:e.client, p_patch:patch, p_audience:null});
+    if(error) return toast('Could not reopen: '+error.message);
+  }
+  const c = client(e.client); if(c){ Object.assign(c, patch); if(isLive()) acceptLocal('clients', e.client); }
+  const ch = CHATS.find(x=>x.id===e.chatId); if(ch){ ch.archived=false; delete ch.endedAt; }
+  if(e.stage==='countdown'){ MESSAGES = MESSAGES.filter(m=>!(m.chat===e.chatId && m.sys)); }
+  e.stage='reopened'; endHist(e, 'Contract reopened');
+  notify(uniq([...HR_KEYS(), ...e.pms]), 'system', `↩️ <b>${esc(e.clientName)}</b>'s contract was reopened by ${esc(first(PERSON))}. Any pending group chat deletion was cancelled.`, {view:'client', arg:e.client});
+  audit(`Reopened the contract of ${e.clientName}`);
+  recordChange(); if(isLive()) setTimeout(()=>SYNC.resync(), 900);
+  RENDER[CURRENT]?.(); toast(`${e.clientName} reopened`);
+}
+
+/* ---------- people who lose access: hide the client as soon as the archived chat reaches them ---------- */
+{ const _ore = onRemoteEvent;
+  onRemoteEvent = function(ev){ _ore(ev);
+    if(ev.coll==='chats' && !ev.deleted && ev.obj?.archived && ev.obj.client){
+      const c = client(ev.obj.client);
+      if(c && !isEnded(c) && ROLE!=='hr' && !pmsOf(c.id).includes(PERSON)) forgetClientLocal(c.id);
+    }
+  };
+}
+
+/* ================= SCREENS ================= */
+function endedSegButton(){
+  const n = myEndings().filter(e=>e.stage!=='reopened').length;
+  if(!n && !(isHead(PERSON) || ROLE==='hr' || ROLE==='manager')) return '';
+  return `<button class="${cliF.type==='ended'?'on':''}" onclick="cliF.type='ended';RENDER.clients()">Ended Contracts${n?` (${n})`:''}</button>`;
+}
+function endedSteps(e){
+  const order = END_STAGES.map(s=>s[0]); const at = e.stage==='reopened' ? -1 : order.indexOf(e.stage);
+  const when = {ended:e.endedAt, hr_ok:e.hrAt, countdown:e.pmAt||e.hrAt, deleted:e.deletedAt};
+  return `<div class="end-steps">${END_STAGES.map(([k,l],i)=>`<div class="end-step ${i<=at?'done':''} ${i===at+1&&e.stage!=='reopened'?'next':''}"><span>${i<=at?'✓':i+1}</span><b>${l}</b>${i<=at&&when[k]?`<small>${esc(dtstr(when[k]))}</small>`:''}</div>`).join('')}</div>`;
+}
+function endedCard(e){
+  const c = client(e.client); const ch = CHATS.find(x=>x.id===e.chatId);
+  const viewer = ROLE==='hr' || isEndPM(e);
+  const btns = [];
+  if(e.stage==='ended' && ROLE==='hr') btns.push(`<button class="btn primary" onclick="hrProceed('${e.id}')">Proceed to Archive/Delete</button>`);
+  if(e.stage==='ended' && ROLE!=='hr') btns.push(`<span class="hint">Waiting for HR to review</span>`);
+  if(e.stage==='hr_ok' && isEndPM(e)) btns.push(`<button class="btn primary" onclick="pmConfirm('${e.id}')">Accept / Confirm deletion</button>`);
+  if(e.stage==='hr_ok' && !isEndPM(e)) btns.push(`<span class="hint">Waiting for ${e.pms.map(first).join(' or ')} to confirm</span>`);
+  if(viewer && c) btns.push(`<button class="btn" onclick="openClient('${e.client}');WS.tab='ended';RENDER.clientws()">Open archive</button>`);
+  if(ch && (ch.members||[]).includes(PERSON)) btns.push(`<button class="btn" onclick="CHAT_OPEN='${ch.id}';go('chat')">Open group chat</button>`);
+  if(ch && viewer && e.stage!=='deleted') btns.push(`<button class="btn ghost" onclick="downloadChatHistory('${ch.id}')">↓ Chat history</button>`);
+  if(canEndContracts() && e.stage!=='reopened') btns.push(`<button class="btn ghost" onclick="reopenContract('${e.id}')">Reopen contract</button>`);
+  return `<div class="card end-card"><div class="card-b">
+    <div style="display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap">
+      <div style="flex:1;min-width:220px"><b style="font-size:14.5px">${esc(e.clientName)}</b> <span class="badge ${e.stage==='reopened'?'b-approved':'b-missed'}">${e.stage==='reopened'?'Reopened':ENDED}</span>
+        <div class="hint">Ended ${esc(dtstr(e.endedAt))} by ${esc(pname(e.endedBy))} · PM ${e.pms.map(k=>esc(pname(k))).join(', ')||'—'}</div>
+        ${e.reason?`<div style="font-size:12.5px;margin-top:6px">“${esc(e.reason)}”</div>`:''}</div>
+      <div style="text-align:right"><b class="end-status" data-end="${e.id}" style="font-size:12.5px;color:${e.stage==='countdown'?'var(--bad)':'var(--ink-2)'}">${esc(endStageLabel(e))}</b>
+        ${e.stage==='countdown'?`<div class="hint">Deletes ${esc(dtstr(e.deleteAt))}</div>`:''}</div>
+    </div>
+    ${e.stage==='reopened'?'':endedSteps(e)}
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:12px">${btns.join('')}</div>
+    ${!viewer?`<div class="hint" style="margin-top:8px">🔒 Client files and records are visible only to HR and the previous PM.</div>`:''}
+  </div></div>`;
+}
+function renderEndedClients(){
+  const L = myEndings();
+  el('v-clients').innerHTML = `
+    <div class="page-head">
+      <div><h2>Client Workspaces</h2><p>Ended Contracts — client information, files, documents and records are kept here, visible only to HR and each client's previous PM. Only the group chat is deleted, after HR and the PM approve and a 24-hour notice.</p></div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <div class="seg">
+          <button onclick="cliF.type='all';RENDER.clients()">All (${visClients().length})</button>
+          <button onclick="cliF.type='International';RENDER.clients()">International</button>
+          <button onclick="cliF.type='Local';RENDER.clients()">Local</button>
+          ${endedSegButton()}
+        </div></div>
+    </div>
+    <div class="card" style="margin-bottom:14px"><div class="card-b end-flow">
+      <span>CEO/COO ends contract</span>→<span>HR notified</span>→<span>HR approves</span>→<span>PM confirms</span>→<span>24-hour notice in the chat</span>→<span>Group chat deleted</span>
+    </div></div>
+    ${L.map(endedCard).join('') || `<div class="empty">No ended contracts.${canEndContracts()?' To end one, open the client and click <b>End contract</b>.':''}</div>`}`;
+}
+function tickEndedTimers(){ document.querySelectorAll('.end-status[data-end]').forEach(n=>{ const e=ENDINGS.find(x=>x.id===n.dataset.end); if(e) n.textContent=endStageLabel(e); }); }
+
+/* client workspace (HR / previous PM only) */
+function endedWsBanner(c){
+  const e = endingFor(c.id);
+  return `<div class="end-banner">📁 <b>Ended Contract</b> — ended ${esc(dtstr(c.endedAt))} by ${esc(pname(c.endedBy))}. This archive is visible only to HR and ${(c.endedPMs||[]).map(k=>esc(first(k))).join(', ')||'the previous PM'}. ${e?'Status: '+esc(endStageLabel(e))+'.':''}</div>`;
+}
+function endedWsTab(c){
+  const e = endingFor(c.id);
+  const files = c.archivedFiles||[];
+  return `<div class="grid cols-2" style="margin-bottom:16px">
+    <div class="card"><div class="card-h"><h3>Contract ended</h3></div><div class="card-b" style="font-size:13px">
+      <div class="list-row"><span class="hint" style="width:130px">Ended</span><b>${esc(dtstr(c.endedAt))}</b></div>
+      <div class="list-row"><span class="hint" style="width:130px">Ended by</span><b>${esc(pname(c.endedBy))}</b></div>
+      <div class="list-row"><span class="hint" style="width:130px">Previous PM</span><b>${(c.endedPMs||[]).map(k=>esc(pname(k))).join(', ')||'—'}</b></div>
+      <div class="list-row"><span class="hint" style="width:130px">Reason</span><span>${esc(c.endReason||'—')}</span></div>
+      <div class="list-row"><span class="hint" style="width:130px">Access</span><span>HR and the previous PM only</span></div>
+      ${e?`<div style="margin-top:10px">${endedSteps(e)}</div>`:''}
+    </div></div>
+    <div class="card"><div class="card-h"><h3>Files kept from the group chat</h3><span class="sub">${files.length}</span></div><div class="card-b">
+      ${files.length?fileChips(files):`<div class="empty">${e&&e.stage!=='deleted'?'Files shared in the group chat are copied here automatically when the chat is deleted.':'No files were shared in the group chat.'}</div>`}
+      <div class="hint" style="margin-top:10px">Brand kit, uploaded files, content, designs, leads and reports stay in the other tabs of this workspace.</div>
+    </div></div></div>
+    ${e?`<div class="card"><div class="card-h"><h3>History</h3></div><div class="card-b">${(e.history||[]).map(h=>`<div class="list-row"><div style="flex:1"><b style="font-size:12.5px">${esc(h.act)}</b>${h.note?` <span class="hint">— ${esc(h.note)}</span>`:''}</div><span class="hint">${esc(pname(h.by))} · ${esc(dtstr(h.at))}</span></div>`).join('')}</div></div>`:''}`;
+}
+
+/* archived group chat */
+function endedChatTag(c){ const e = endingOfChat(c.id); return e ? (e.stage==='countdown' ? 'Deletes '+untilText(e.deleteAt) : e.stage==='hr_ok' ? 'Waiting for PM' : 'Archived — HR review') : 'Archived'; }
+function endedChatBanner(c){
+  const e = endingOfChat(c.id);
+  if(!e) return `<div class="end-banner">🗄 This client group chat is archived.</div>`;
+  return `<div class="end-banner ${e.stage==='countdown'?'urgent':''}">📁 <b>Contract ended</b> — this group chat is archived${canPostEnded(c)?'':' (read-only)'}. ${e.stage==='countdown'
+    ? `<b>It will be deleted ${esc(untilText(e.deleteAt))}</b> (${esc(dtstr(e.deleteAt))}). Save any documents, files or conversations you need.`
+    : esc(endStageLabel(e))+'.'} <button class="btn ghost" style="padding:3px 9px;font-size:11.5px" onclick="downloadChatHistory('${c.id}')">↓ Download chat history</button></div>`;
+}
+function sysMsgHTML(m){
+  const [title, ...rest] = String(m.text||'').split('\n\n');
+  return `<div class="sys-card ${m.sys==='reminder'?'remind':''}"><b>${m.sys==='reminder'?'⏰ ':'📢 '}${esc(m.sys==='reminder'?'Deletion reminder':title)}</b>${(m.sys==='reminder'?[m.text]:rest).map(p=>`<p>${esc(p)}</p>`).join('')}<small>${esc(pname(m.by))} · ${clock(m.at)}</small></div>`;
+}
+function downloadChatHistory(chatId){
+  const ch = CHATS.find(x=>x.id===chatId); if(!ch) return;
+  const lines = chatMsgs(chatId).map(m=>`[${dtstr(m.at)}] ${pname(m.by)}: ${m.text||''}${(m.files||[]).length?'  (files: '+m.files.map(f=>f.name).join(', ')+')':''}`);
+  const blob = new Blob([`${chatTitle(ch)} — group chat history\nExported ${dtstr(nowISO())}\n\n`+lines.join('\n')], {type:'text/plain'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `${chatTitle(ch).replace(/[^\w]+/g,'-')}-chat-history.txt`; a.click();
 }
 
 /* ===== 11_leads.js ===== */
@@ -4378,7 +4759,8 @@ function lgWsHeader(cid){
   return `<div class="card" style="margin-bottom:14px"><div class="card-b" style="padding-bottom:0">
     <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
       <div style="flex:1;min-width:220px"><h3 style="font-size:16px">${esc(cname(cid))} — lead generation</h3>
-        <div class="pill-row" style="margin-top:5px">${chips.map(x=>`<span class="chip">${esc(x)}</span>`).join('')||'<span class="hint">No search criteria yet</span>'}</div></div>
+        <div class="pill-row" style="margin-top:5px">${chips.map(x=>`<span class="chip">${esc(x)}</span>`).join('')||'<span class="hint">No search criteria yet</span>'}</div>
+        ${clientLinksHTML(cid, {label:'Work from', empty:'No approved client profile links yet — the PM adds them when publishing the SOP.'})}</div>
       <button class="btn primary" onclick="autoSearchModal('${cid}')">🔍 Search Automatic Leads</button>
       <button class="btn" onclick="linksModal('${cid}')">↑ Upload LinkedIn links</button>
     </div>
@@ -5009,7 +5391,7 @@ RENDER.attendance = () => {
       <table class="tbl"><thead><tr><th>Employee</th><th>Status</th><th>Time in</th><th>Breaks</th><th>Time out</th><th>Hours</th><th>Working on</th></tr></thead><tbody>
       ${recs.map(({k,r})=>{ const [s,c]=attState(r); return `<tr>
         <td>${av(P(k))} <b>${esc(pname(k))}</b><div class="hint">${esc(P(k).sub||'')}</div></td>
-        <td><span class="badge ${c}">${s}</span>${isLate(r)?' <span class="badge b-scheduled">Late</span>':''}</td>
+        <td><span class="badge ${c}">${s}</span>${isLate(r)?' <span class="badge b-scheduled">Late</span>':''}${r?.corrected?' <span class="hint" title="'+esc(r.corrected.reason)+'">corrected</span>':''}${canCorrectAtt()&&attDate<today?` <button class="btn ghost" style="padding:2px 7px;font-size:11px" onclick="correctLogModal('${k}','${attDate}')">Correct log</button>`:''}</td>
         <td>${showT(r?.in)}</td><td>${(r?.breaks||[]).length?`${r.breaks.length} · ${Math.round(breakMins(r))} min`:'—'}</td><td>${showT(r?.out)}</td><td>${hm(workedMins(r))}</td>
         <td>${r?.client?esc(cname(r.client)):''}${r?.project?' · '+esc(r.project):''}</td></tr>`; }).join('') || '<tr><td colspan="7" class="empty">No one to show.</td></tr>'}
       </tbody></table></div>`;
@@ -5513,7 +5895,8 @@ function ackDoc(id){ let r=docRead(id); if(!r){ r={id:id+'|'+PERSON, doc:id, per
 RENDER.mydocs = () => {
   const D = myDocs();
   el('v-mydocs').innerHTML = `
-    <div class="page-head"><div><h2>My Documents</h2><p>Letters, memos, notices, and contracts HR has sent you. Open each one and acknowledge receipt.</p></div></div>
+    <div class="page-head"><div><h2>My Documents</h2><p>Letters, memos, notices, and contracts HR has sent you, and your payslips from Finance.</p></div></div>
+    ${myPayslipsCard()}
     <div class="card"><div class="card-b" style="padding-top:4px">
       ${D.map(d=>{ const r=docRead(d.id); return `<div class="list-row" style="padding:12px 6px;${r?.ackAt?'':'background:var(--panel-2);border-radius:10px'}"><span class="badge b-draft" style="min-width:92px;justify-content:center">${esc(d.kind)}</span>
         <div style="flex:1"><b style="font-size:13px;cursor:pointer" onclick="openHrDoc('${d.id}')">${esc(d.title)}</b>${r?.ackAt?'':' <span class="badge b-new">New</span>'}<div class="hint">From HR · ${dtstr(d.sentAt)}${r?.ackAt?' · acknowledged '+dtstr(r.ackAt):''}</div></div>
@@ -5584,15 +5967,17 @@ function msgPreview(m){
 }
 function chatListHTML(){
   const pins = myPins();
-  const C = myChats().filter(c=>!pins.includes(c.id));
+  const C = myChats().filter(c=>!pins.includes(c.id) && !c.archived);
   const lastAt = c => chatMsgs(c.id).map(m=>m.at).sort().pop()||c.at||'';
   const item = c => { const last = chatMsgs(c.id).slice(-1)[0]; const u = unreadIn(c.id); const live = liveCall(c.id);
     return `<button class="chat-item ${CHAT_OPEN===c.id?'on':''}" onclick="CHAT_OPEN='${c.id}';RENDER.chat(true)">${chatAvatar(c)}
       <div style="min-width:0;flex:1"><div class="nm">${esc(chatTitle(c))}${live?` <span class="call-dot" title="Video call in progress">● ${live.status==='meet'?'On Google Meet':'Live call'}</span>`:''}</div><div class="pv">${last?esc((last.by===PERSON?'You':first(last.by))+': '+msgPreview(last)):c.kind==='client'?'Client group':'No messages yet'}</div></div>${u?`<span class="un">${u}</span>`:''}</button>`; };
   const grp = (label, list) => list.length ? `<div class="grp">${label}</div>${list.sort((a,b)=>lastAt(b).localeCompare(lastAt(a))).map(item).join('')}` : '';
-  const P_ = pins.map(id=>myChats().find(c=>c.id===id)).filter(Boolean);
+  const P_ = pins.map(id=>myChats().find(c=>c.id===id)).filter(c=>c && !c.archived);
+  const A_ = myChats().filter(c=>c.archived);
   return (P_.length?`<div class="grp">📌 Pinned</div>${P_.map(item).join('')}`:'') + grp('Team', C.filter(c=>c.kind==='group')) + grp('Client groups', C.filter(c=>c.kind==='client')) + grp('Direct messages', C.filter(c=>c.kind==='dm'))
-    + (C.length||P_.length?'':'<div class="empty">No conversations yet.</div>');
+    + (A_.length?`<div class="grp">🗄 Ended Contracts</div>${A_.map(c=>item(c).replace('</div></div>', `</div><div class="pv" style="color:var(--bad)">${esc(endedChatTag(c))}</div></div>`)).join('')}`:'')
+    + (C.length||P_.length||A_.length?'':'<div class="empty">No conversations yet.</div>');
 }
 /* ---- attachments: images and videos play inline, other files as chips ---- */
 const isImg = f => /^image\//.test(f.type||'') || /\.(png|jpe?g|gif|webp|heic|bmp)$/i.test(f.name||'');
@@ -5621,6 +6006,7 @@ function viewMedia(img){ const f = JSON.parse(img.dataset.f);
 function msgBlock(m, prev){
   const mine = m.by===PERSON; const day = dstr(m.at); const sep = !prev || dstr(prev.at)!==day ? `<div class="hint" style="text-align:center;margin:6px 0">${day}</div>` : '';
   if(m.kind==='call') return `${sep}<div class="msg call-msg">${callCard(m)}</div>`;
+  if(m.sys) return `${sep}<div class="msg sys-msg">${sysMsgHTML(m)}</div>`;
   return `${sep}<div class="msg ${mine?'mine':''}">${mine?'':av(P(m.by))}<div style="min-width:0"><div class="who">${mine?'You':esc(pname(m.by))}</div><div class="bubble">${m.text?msgText(m):''}${attachHTML(m.files)}</div><div class="when" style="${mine?'text-align:right':''}">${clock(m.at)}</div></div></div>`;
 }
 const msgSig = (m, prev) => JSON.stringify([m.text, m.status, m.joined, m.endedAt, m.meetUrl, (m.files||[]).length, !prev||dstr(prev.at)!==dstr(m.at), m.by===PERSON]);
@@ -5646,7 +6032,7 @@ function updateMessages(c){
 function chatHeadHTML(c){
   return `<div style="display:flex;gap:10px;align-items:center;min-width:0">${chatAvatar(c)}<div style="min-width:0"><h3>${esc(chatTitle(c))}</h3><span class="sub">${c.kind==='dm'?'Private conversation':c.kind==='client'?`Client group · ${c.members.length} members`:`${c.members.length} members`}</span></div></div>
     <span style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">
-      ${callHeadButton(c)}
+      ${c.archived?'':callHeadButton(c)}
       <button class="btn ghost" onclick="togglePin('${c.id}')" title="Pin to the top of Messages and your sidebar">${myPins().includes(c.id)?'📌 Unpin':'📌 Pin'}</button>${c.kind==='client'?`<button class="btn ghost" onclick="openClient('${c.client}')">Client workspace →</button>`:''}<button class="btn ghost" onclick="chatMembersModal('${c.id}')">Members</button></span>`;
 }
 RENDER.chat = (force) => {
@@ -5658,6 +6044,7 @@ RENDER.chat = (force) => {
   if(!force && c && sc0 && sc0.dataset.chat===c.id && el('v-chat').contains(sc0)){
     const atBottom = sc0.scrollHeight - sc0.scrollTop - sc0.clientHeight < 80;
     el('chatHead').innerHTML = chatHeadHTML(c); el('chatList').innerHTML = chatListHTML(); updateMessages(c);
+    if(el('endedBanner')) el('endedBanner').innerHTML = endedChatBanner(c);
     if(atBottom) sc0.scrollTop = sc0.scrollHeight; markChatRead(c.id); buildNav(); return;
   }
   if(force!==undefined && sc0 && sc0.dataset.chat!==c?.id) CHAT_FILES = CHAT_FILES.filter(f=>f.uploading);
@@ -5668,14 +6055,15 @@ RENDER.chat = (force) => {
       <div class="chat-list" id="chatList">${chatListHTML()}</div>
       <div class="chat-pane" id="chatPane">${c?`
         <div class="card-h" id="chatHead">${chatHeadHTML(c)}</div>
+        ${c.archived?`<div id="endedBanner">${endedChatBanner(c)}</div>`:''}
         <div class="chat-scroll" id="chatScroll" data-chat="${c.id}" data-stick="1" onscroll="this.dataset.stick=(this.scrollHeight-this.scrollTop-this.clientHeight<80)?'1':'0'">${messagesHTML(c)}</div>
         <div id="chatFiles" class="pending-files"></div>
-        <div class="chat-input">
+        ${c.archived && !canPostEnded(c) ? `<div class="chat-input ended-ro">🔒 This client group chat is archived because the contract ended — it is read-only. Save anything you need before it is deleted.</div>` : `<div class="chat-input">
           <button class="btn" title="Attach photos, screenshots, videos or files" onclick="chatPick()">📎</button>
           <div class="mention-box" id="mentionBox"></div>
           <input id="chatMsg" autocomplete="off" placeholder="Message ${esc(chatTitle(c))}…${c.kind!=='dm'?' Type @ to tag someone':''} (paste a screenshot with Ctrl/⌘+V)" oninput="mentionSuggest()" onkeydown="chatKey(event)" onblur="setTimeout(()=>mentionClose(),150)" onpaste="chatPaste(event)">
           <button class="btn primary" id="chatSend" onclick="sendChat()">Send</button>
-        </div>
+        </div>`}
         <div class="drop-hint" id="dropHint">Drop files to attach</div>`:'<div class="empty" style="margin:auto">Pick a conversation or start a private message.</div>'}
       </div></div></div>`;
   drawPending();
@@ -5714,6 +6102,7 @@ function chatRmFile(i){ CHAT_FILES.splice(i,1); drawPending(); }
 async function sendChat(){
   const inp = el('chatMsg'); const t = inp.value.trim(); if(!t && !CHAT_FILES.length) return;
   const c = CHATS.find(x=>x.id===CHAT_OPEN); if(!c) return;
+  if(c.archived && !canPostEnded(c)) return toast('This chat is archived — read-only');
   if(CHAT_FILES.some(f=>f.uploading)){ toast('Waiting for the upload to finish…'); for(let n=0;n<600 && CHAT_FILES.some(f=>f.uploading);n++) await new Promise(r=>setTimeout(r,200)); }
   const files = CHAT_FILES.filter(f=>!f.uploading).map(({_local,_id,uploading,...f})=>f);
   if(!t && !files.length) return;
@@ -6120,7 +6509,7 @@ function ringTone(){ try{ const a = new (window.AudioContext||window.webkitAudio
 /* ---- Administration: video calls + Google Meet backup ---- */
 function callsAdminCard(){
   const s = S(); const redirect = location.origin + location.pathname;
-  return `<div class="card"><div class="card-h"><h3>Video calls</h3></div><div class="card-b">
+  return `<div class="card"><div class="card-h"><h3>Video calls & payslip email</h3></div><div class="card-b">
     <div class="hint" style="margin-bottom:10px">Calls run inside the portal. They move to Google Meet automatically when they reach the time limit, when more people join than the limit below, or when the connection can't continue reliably.</div>
     <div class="grid cols-2">
       <div class="field"><label>Built-in call time limit (minutes)</label><input id="setCallLimit" type="number" min="5" value="${esc(s.callLimitMin||60)}"></div>
@@ -6203,6 +6592,7 @@ RENDER.settings = () => {
     </div>
     <div class="grid cols-2" style="margin-bottom:16px">
       ${callsAdminCard()}
+      ${financeAdminCard()}
     </div>
     <div class="grid cols-2" style="margin-bottom:16px">
       <div class="card"><div class="card-h"><h3>Live database</h3></div><div class="card-b">
@@ -6232,6 +6622,7 @@ function saveSettings(part){
   if(part==='calls'){ s.callLimitMin = Math.max(5, +el('setCallLimit').value||60); s.callMaxPeople = Math.min(12, Math.max(2, +el('setCallMax').value||6));
     const links = el('setMeetLinks').value.split(/\s+/).map(x=>x.trim()).filter(Boolean); const bad = links.filter(u=>!/^https:\/\/meet\.google\.com\/[a-z]{3}-[a-z]{4}-[a-z]{3}/i.test(u)); if(bad.length) return toast('Not a Google Meet link: '+bad[0]);
     s.meetLinks = links.map(u=>u.split('?')[0]); const tu = el('setTurnUrls').value.trim(); s.callTurn = tu ? {urls:tu, username:el('setTurnUser').value.trim(), credential:el('setTurnPass').value.trim()} : null; }
+  if(part==='finance'){ const k=[...document.querySelectorAll('#setFin input:checked')].map(x=>x.value); if(!k.length) return toast('Choose at least one Finance person'); s.financeKeys = k; }
   if(part==='source'){ const u=el('setSrcUrl').value.trim(); if(u && !/^https:\/\//.test(u)) return toast('Use an https:// endpoint'); s.leadSource={name:el('setSrcName').value.trim(), url:u}; }
   audit(`Updated settings — ${part}`);
   recordChange(); buildNav(); toast('Saved — applies to everyone right away');
@@ -6254,6 +6645,931 @@ async function downloadConfigured(){
   const out = src.replace(/\/\*CC_CONFIG_START\*\/[\s\S]*?\/\*CC_CONFIG_END\*\//, cfg);
   const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([out],{type:'text/html'})); a.download='index.html'; a.click();
   toast('Downloaded index.html — upload it to your hosting to go live');
+}
+
+/* ===== 17_finance.js ===== */
+/* ================= FINANCE (Cha) — new client handoff, agreed rates, payroll & payslips =================
+   Endorse to HR also creates a New Client record here (package rate, each employee's agreed rate, effective date,
+   financial documents). Package rates and pay are visible only to Finance and the company heads — never in HR's
+   portal, notifications, search, exports or HR documents. The live database enforces this with record audiences.
+   Payroll: 1st–15th → payout on the 20th · 16th–end of month → payout on the 5th of the next month. Pay is fixed:
+   a missing time-in never reduces pay by itself — it holds that payslip until the log is corrected or Pau, JA and
+   Norman approve proceeding. Deductions/additions need a reason and a company head's approval. */
+const FIN_DEFAULT = ['charisse'];
+const financeKeys = () => uniq(S().financeKeys || FIN_DEFAULT);
+const isFinance = (k=PERSON) => financeKeys().includes(k);
+const finAuth = (k=PERSON) => isFinance(k) || isHead(k);
+const finAud = () => uniq([...financeKeys(), ...HEADS]);
+const CURRENCIES = ['PHP','USD','AUD','GBP','EUR','CAD','SGD','NZD'];
+const money = (n, cur='PHP') => { try{ return new Intl.NumberFormat('en-US',{style:'currency', currency:cur||'PHP'}).format(+n||0); }catch(e){ return (cur||'')+' '+(+n||0).toFixed(2); } };
+const moneyPlain = (n, cur='PHP') => (cur||'PHP')+' '+(+n||0).toLocaleString('en-US',{minimumFractionDigits:2, maximumFractionDigits:2});
+const dShort = d => d ? new Date(d+'T00:00:00Z').toLocaleDateString('en-US',{month:'short', day:'numeric', timeZone:'UTC'}) : '—';
+const dLong = d => d ? new Date(d+'T00:00:00Z').toLocaleDateString('en-US',{month:'short', day:'numeric', year:'numeric', timeZone:'UTC'}) : '—';
+const WEEKDAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+function finHist(o, act, note){ (o.history=o.history||[]).push({at:nowISO(), by:PERSON, act, note:note||''}); }
+const finLink = (tab, extra) => ({view:'finance', tab, ...(extra||{})});
+
+/* ---------- pay periods ---------- */
+function payPeriod(id){
+  const [y,m,h] = id.split('-'); const Y=+y, M=+m; const pad=n=>String(n).padStart(2,'0');
+  const last = new Date(Date.UTC(Y,M,0)).getUTCDate();
+  if(h==='A') return {id, start:`${y}-${m}-01`, end:`${y}-${m}-15`, payout:`${y}-${m}-20`};
+  const nY = M===12?Y+1:Y, nM = M===12?1:M+1;
+  return {id, start:`${y}-${m}-16`, end:`${y}-${m}-${pad(last)}`, payout:`${nY}-${pad(nM)}-05`};
+}
+const periodIdFor = d => d.slice(0,7)+'-'+(+d.slice(8,10)<=15?'A':'B');
+function shiftPeriod(id, n){ let [y,m,h]=id.split('-'); let idx = (+y*12 + (+m-1))*2 + (h==='B'?1:0) + n; const hh = idx%2?'B':'A'; idx=Math.floor(idx/2); return `${Math.floor(idx/12)}-${String(idx%12+1).padStart(2,'0')}-${hh}`; }
+const periodLabel = p => { const a=new Date(p.start+'T00:00:00Z'), b=new Date(p.end+'T00:00:00Z'); return `${a.toLocaleDateString('en-US',{month:'short',timeZone:'UTC'})} ${a.getUTCDate()}–${b.getUTCDate()}, ${b.getUTCFullYear()}`; };
+function datesBetween(a, b){ const out=[]; for(let d=a; d<=b; d=shiftDate(d,1)) out.push(d); return out; }
+const dow = d => new Date(d+'T00:00:00Z').getUTCDay();
+/* the period Finance is working on: the one that just ended until its payout date, otherwise the current one */
+function defaultPayPeriod(){ const t = manilaDate(), day = +t.slice(8,10), cur = periodIdFor(t);
+  return (day>=16 && day<=20) || day<=5 ? shiftPeriod(cur,-1) : cur; }
+
+/* ---------- employees, pay profiles and agreed rates ---------- */
+/* everyone who is paid: active employees and PMs (company heads are not on payroll) */
+const payEmployees = () => activePeople().filter(k=>!HEADS.includes(k) && PEOPLE[k]).map(payPerson).sort((a,b)=>a.name.localeCompare(b.name));
+function payPerson(k){ const p = PEOPLE[k]||{}; const e = EMPLOYEES.find(x=>x.id===k); return {id:k, name:e?.name||p.name||k, role:e?.role||p.sub||'', email:(e?.email||p.email||'').trim(), color:p.color, initials:p.initials}; }
+const payProfile = emp => PAYPROFILES.find(p=>p.id===emp);
+function ensureProfile(emp){ let p = payProfile(emp); if(!p){ p={id:emp, workdays:[1,2,3,4,5], rates:[], history:[]}; PAYPROFILES.push(p); } return p; }
+const workdaysOf = emp => payProfile(emp)?.workdays || [1,2,3,4,5];
+const finFor = cid => FINCLIENTS.find(f=>f.client===cid) || FINCLIENTS.find(f=>f.reg && client(cid)?.regId===f.reg);
+const activeAssign = f => (f.assignments||[]).filter(a=>!a.removed && (!a.to || a.to>=manilaDate()));
+function rateLines(emp, start, end){
+  const lines = [];
+  FINCLIENTS.filter(f=>f.status!=='Draft').forEach(f=>(f.assignments||[]).forEach(a=>{
+    if(a.emp!==emp || a.removed) return; const from = a.from||f.effective||start;
+    if(from>end || (a.to && a.to<start) || (a.to && a.to<from)) return;
+    lines.push({label:`${f.clientName} — ${a.role||'Team member'}`, monthly:a.rate==null?null:+a.rate, cur:f.payCurrency||'PHP', from, to:a.to||null, src:'client', fc:f.id, aid:a.id});
+  }));
+  (payProfile(emp)?.rates||[]).forEach(r=>{ if(r.from>end || (r.to && r.to<start)) return;
+    lines.push({label:r.label||'Base rate', monthly:+r.monthly, cur:r.cur||'PHP', from:r.from, to:r.to||null, src:'profile', rid:r.id}); });
+  return lines;
+}
+
+/* ---------- 1. new client handoff: registration fields that only Finance and the heads can see ---------- */
+function regFinFields(r){
+  const f = r?.id ? FINCLIENTS.find(x=>x.reg===r.id) : null;
+  REG.fin = f ? JSON.parse(JSON.stringify({pkg:f.packageRate||{}, payCurrency:f.payCurrency||'PHP', rates:Object.fromEntries((f.assignments||[]).map(a=>[a.emp, a.rate])), files:f.files||[]}))
+              : {pkg:{currency:'USD', basis:'per month'}, payCurrency:'PHP', rates:{}, files:[]};
+  if(r?.rate && !REG.fin.pkg.note) REG.fin.pkg.note = r.rate;   /* older registrations kept the rate as text */
+  return `<div class="fin-box">
+    <div class="nav-label" style="padding:0 0 6px">🔒 Finance — visible only to Finance (${financeKeys().map(first).join(', ')}) and the company heads. HR never sees these.</div>
+    <div class="grid cols-3">
+      <div class="field"><label>Package rate *</label><input id="rgRateAmt" type="number" min="0" step="0.01" value="${esc(REG.fin.pkg.amount??'')}" placeholder="e.g. 1500"></div>
+      <div class="field"><label>Currency</label><select id="rgRateCur">${CURRENCIES.map(c=>`<option ${REG.fin.pkg.currency===c?'selected':''}>${c}</option>`).join('')}</select></div>
+      <div class="field"><label>Billing</label><select id="rgRateBasis">${['per month','per week','per project','per hour'].map(c=>`<option ${REG.fin.pkg.basis===c?'selected':''}>${c}</option>`).join('')}</select></div>
+    </div>
+    <div class="field"><label>Rate notes (optional)</label><input id="rgRateNote" value="${esc(REG.fin.pkg.note||'')}" placeholder="e.g. 3-month minimum, invoiced on the 1st"></div>
+    <div class="field"><label>Employee pay currency</label><select id="rgPayCur">${CURRENCIES.map(c=>`<option ${REG.fin.payCurrency===c?'selected':''}>${c}</option>`).join('')}</select>
+      <div class="hint">Enter each proposed person's agreed monthly rate in the team list below (Finance only).</div></div>
+    <div class="nav-label" style="padding:6px 0 6px">Financial documents (contract, quotation, invoice terms)</div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button class="btn" onclick="pickFiles({multiple:true}).then(f=>{REG.fin.files.push(...f);el('rgFinFiles').innerHTML=fileChips(REG.fin.files,'regRmFinFile')})">📎 Attach financial documents</button><span id="rgFinFiles">${fileChips(REG.fin.files,'regRmFinFile')}</span></div>
+  </div>`;
+}
+function regRmFinFile(i){ REG.fin.files.splice(i,1); el('rgFinFiles').innerHTML = fileChips(REG.fin.files,'regRmFinFile'); }
+const regRateInput = (k, rate) => `<input class="rgRate" data-id="${k}" type="number" min="0" step="0.01" value="${esc(rate??'')}" placeholder="Agreed ₱/mo" title="Agreed monthly rate — Finance and company heads only" style="width:118px;font-size:12px;padding:6px 8px">`;
+function regSaveFinance(r){
+  const amt = el('rgRateAmt')?.value;
+  const rates = {}; document.querySelectorAll('.rgRate').forEach(i=>{ if(i.value!=='') rates[i.dataset.id] = +i.value; });
+  const pmR = el('rgPmRate')?.value; if(pmR && (r.pms||[])[0]) rates[r.pms[0]] = +pmR;
+  const people = uniq([...(r.pms||[]), ...(r.team||[])]);
+  let f = FINCLIENTS.find(x=>x.reg===r.id);
+  const was = f ? JSON.stringify([f.packageRate, f.assignments.map(a=>[a.emp,a.rate,a.role])]) : '';
+  if(!f){ f = {id:'FC-'+r.id, reg:r.id, client:null, status:'Draft', assignments:[], files:[], history:[]}; FINCLIENTS.unshift(f); finHist(f, 'Registered', `by ${pname(PERSON)}`); }
+  Object.assign(f, {clientName:r.clientName, services:r.services||[], effective:r.startDate||'', payCurrency:el('rgPayCur')?.value||'PHP', files:REG.fin?.files||[],
+    packageRate:{amount:amt===''?null:+amt, currency:el('rgRateCur')?.value||'USD', basis:el('rgRateBasis')?.value||'per month', note:(el('rgRateNote')?.value||'').trim()}});
+  f.assignments = people.map(k=>{ const old = f.assignments.find(a=>a.emp===k);
+    return {id:old?.id||uid('AS'), emp:k, role:(r.pms||[]).includes(k)?'Project manager':(r.resp?.[k]||P(k)?.sub||'Team member'), isPm:(r.pms||[]).includes(k), rate:rates[k]??null, from:r.startDate||'', to:null}; });
+  if(was && was!==JSON.stringify([f.packageRate, f.assignments.map(a=>[a.emp,a.rate,a.role])])) finHist(f, 'Registration edited', 'package rate / proposed rates updated');
+  return f;
+}
+function finOnEndorse(r){
+  const f = FINCLIENTS.find(x=>x.reg===r.id); if(!f) return;
+  f.status='New'; f.endorsedAt=nowISO(); f.endorsedBy=PERSON; finHist(f, 'Endorsed to HR — new client handed to Finance');
+  notify(financeKeys(), 'hr', `💼 New client for Finance: <b>${esc(r.clientName)}</b> was endorsed by ${esc(first(PERSON))}. Review the package and agreed rates in Finance → New clients.`, finLink('clients'));
+}
+/* heads carry old registrations' rate text out of the HR-visible record */
+function finMigrate(){
+  if(!isHead(PERSON)) return;
+  let n=0;
+  BRIEFS.filter(b=>isReg(b) && b.rate).forEach(b=>{
+    let f = FINCLIENTS.find(x=>x.reg===b.id);
+    if(!f){ f = {id:'FC-'+b.id, reg:b.id, client:b.clientId||null, clientName:b.clientName, services:b.services||[], status:b.status==='Registered'?'Draft':'New', effective:b.startDate||'', payCurrency:'PHP',
+      packageRate:{amount:null, currency:'USD', basis:'per month', note:b.rate}, files:[], history:[],
+      assignments:uniq([...(b.finalPms||b.pms||[]), ...(b.finalTeam||b.team||[])]).map(k=>({id:uid('AS'), emp:k, role:(b.finalPms||b.pms||[]).includes(k)?'Project manager':((b.finalResp||b.resp||{})[k]||'Team member'), isPm:(b.finalPms||b.pms||[]).includes(k), rate:null, from:b.startDate||'', to:null}))};
+      finHist(f, 'Moved from the registration record', 'rate kept for Finance only'); FINCLIENTS.unshift(f); }
+    else if(!f.packageRate?.note) f.packageRate = {...(f.packageRate||{}), note:b.rate};
+    delete b.rate; n++;
+  });
+  if(n) recordChange();
+}
+
+/* ---------- assignments changed by HR (onboarding or later) → Finance record + history ---------- */
+function finReconcile(){
+  if(!finAuth() || !SYNC.ready) return;
+  let changed = false;
+  FINCLIENTS.filter(f=>f.status!=='Draft').forEach(f=>{
+    const c = f.client ? client(f.client) : CLIENTS.find(x=>x.regId && x.regId===f.reg);
+    if(!c || isEnded(c)) return;
+    if(!f.client){ f.client = c.id; finHist(f, 'HR completed onboarding', `client organization ${c.name} created`); changed = true; }
+    if(f.clientName!==c.name){ f.clientName=c.name; changed=true; }
+    const today = manilaDate(); const onboarding = !f.onboardedAt; if(onboarding){ f.onboardedAt = c.createdAt||nowISO(); }
+    /* HR's onboarding decides the team from the effective date; later changes apply from today */
+    const log = (c.assignLog||[]).slice(-1)[0]; const who = log?.by ? pname(log.by) : 'HR';
+    const want = uniq([...pmsOf(c.id), ...(c.team||[])]);
+    const act = activeAssign(f);
+    const start = onboarding ? (f.effective||today) : (f.effective && f.effective>today ? f.effective : today);
+    act.filter(a=>!want.includes(a.emp)).forEach(a=>{
+      if(a.from && start<=a.from){ a.removed = true; a.to = shiftDate(a.from,-1); }   /* never started: no pay */
+      else a.to = shiftDate(start,-1);
+      finHist(f, `${pname(a.emp)} removed`, `${onboarding?'during onboarding ':''}by ${who} · last day ${dLong(a.to)}`); changed = true; });
+    want.filter(k=>!act.some(a=>a.emp===k)).forEach(k=>{
+      const prev = (f.assignments||[]).filter(a=>a.emp===k && a.rate!=null).slice(-1)[0];
+      const role = pmsOf(c.id).includes(k) ? 'Project manager' : (c.resp?.[k]||P(k)?.sub||'Team member');
+      f.assignments.push({id:uid('AS'), emp:k, role, isPm:pmsOf(c.id).includes(k), rate:prev?prev.rate:null, from:start, to:null});
+      finHist(f, `${pname(k)} added as ${role}`, `${onboarding?'during onboarding ':''}by ${who} · from ${dLong(start)}${prev?' · previous agreed rate carried over — confirm':' · agreed rate needed'}`); changed = true; });
+    act.filter(a=>want.includes(a.emp)).forEach(a=>{ const role = pmsOf(c.id).includes(a.emp)?'Project manager':(c.resp?.[a.emp]||a.role);
+      if(role && role!==a.role){ finHist(f, `${pname(a.emp)}'s role changed`, `${a.role} → ${role}`); a.role=role; changed=true; } });
+    if(changed && f.status==='Reviewed') f.status='Changed';
+  });
+  if(changed) recordChange();
+}
+function finOnContractEnded(cid, name){   /* called by the CEO/COO's End contract action */
+  const f = FINCLIENTS.find(x=>x.client===cid); if(!f) return;
+  const last = manilaDate(); activeAssign(f).forEach(a=>{ a.to = a.from && a.from>last ? a.from : last; });
+  f.status='Ended'; finHist(f, 'Client contract ended', `all assignments end ${dLong(last)}`);
+  notify(financeKeys(), 'system', `📁 <b>${esc(name)}</b>'s contract ended — its assignments were closed in Finance as of ${dLong(last)}.`, finLink('clients'));
+}
+
+/* ================= FINANCE PAGE ================= */
+let FIN = {tab:'clients', period:null, q:''};
+RENDER.finance = () => {
+  if(!finAuth()){ el('v-finance').innerHTML = '<div class="empty">Finance is available to the Finance team and company heads.</div>'; return; }
+  finReconcile();
+  FIN.period = FIN.period || defaultPayPeriod();
+  const needHead = isHead(PERSON) ? headQueue() : [];
+  const nNew = FINCLIENTS.filter(f=>['New','Changed'].includes(f.status)).length;
+  const tabs = [['clients',`New clients${nNew?` <span class="badge b-new">${nNew}</span>`:''}`],['payroll','Payroll & payslips'],['profiles','Pay profiles & rates']];
+  el('v-finance').innerHTML = `
+    <div class="page-head"><div><h2>Finance & Payroll</h2><p>New client handoffs, agreed rates, payroll and payslips. 🔒 Visible only to Finance (${financeKeys().map(k=>esc(first(k))).join(', ')}) and the company heads.</p></div></div>
+    ${needHead.length?`<div class="card" style="margin-bottom:14px;border-left:4px solid var(--bad)"><div class="card-h"><h3>Needs your decision <span class="badge b-missed">${needHead.length}</span></h3>${needHead.filter(x=>/on hold/.test(x.what)).length>1?`<button class="btn" onclick="approveAllHolds()">Approve all holds…</button>`:''}</div><div class="card-b" style="padding-top:4px">${needHead.map(x=>`<div class="list-row" style="cursor:pointer" onclick="openSlip('${x.slip.id}')"><div style="flex:1"><b style="font-size:12.5px">${esc(x.slip.empName)}</b> · ${esc(x.what)}<div class="hint">${esc(periodLabel(x.slip.period))}</div></div><button class="btn primary" style="padding:5px 11px;font-size:12px">Review</button></div>`).join('')}</div></div>`:''}
+    <div class="tabs">${tabs.map(([k,l])=>`<button class="tab ${FIN.tab===k?'on':''}" onclick="FIN.tab='${k}';RENDER.finance()">${l}</button>`).join('')}</div>
+    <div id="finBody">${FIN.tab==='payroll'?payrollHTML():FIN.tab==='profiles'?profilesHTML():finClientsHTML()}</div>`;
+};
+
+/* ---- New clients ---- */
+function finClientsHTML(){
+  const L = FINCLIENTS.filter(f=>f.status!=='Draft' || isHead(PERSON)).sort((a,b)=>({New:0,Changed:1}[a.status]??2)-({New:0,Changed:1}[b.status]??2) || (b.endorsedAt||'').localeCompare(a.endorsedAt||''));
+  const legacy = CLIENTS.filter(c=>c.status==='Active' && !isEnded(c) && !finFor(c.id));
+  return `${legacy.length?`<div class="card" style="margin-bottom:12px"><div class="card-b" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><span style="flex:1;font-size:12.5px">${legacy.length} existing client${legacy.length===1?'':'s'} were set up before Finance records existed. Add them to record each employee's agreed rate for payroll.</span><button class="btn" onclick="finImportLegacy()">Add existing clients to Finance</button></div></div>`:''}
+    ${L.map(finClientCard).join('') || '<div class="empty">No new clients yet. When a company head endorses a registered client to HR, it appears here with its package and agreed rates.</div>'}`;
+}
+function finClientCard(f){
+  const cur = f.payCurrency||'PHP'; const pk = f.packageRate||{};
+  const act = activeAssign(f), past = (f.assignments||[]).filter(a=>a.to && a.to<manilaDate() && !a.removed);
+  const missing = act.filter(a=>a.rate==null).length;
+  const row = a => `<tr style="${a.to&&a.to<manilaDate()?'opacity:.55':''}"><td>${av(P(a.emp))} <b>${esc(pname(a.emp))}</b></td><td>${esc(a.role||'')}</td>
+    <td>${a.rate==null?'<span class="badge b-missed">Rate needed</span>':`<b>${money(a.rate,cur)}</b><span class="hint"> /mo</span>`}</td><td>${dShort(a.from)}${a.to?' – '+dShort(a.to):' → present'}</td>
+    <td style="text-align:right">${!a.to||a.to>=manilaDate()?`<button class="btn" style="padding:4px 9px;font-size:12px" onclick="rateModal('${f.id}','${a.id}')">${a.rate==null?'Set rate':'Change rate'}</button>`:''}</td></tr>`;
+  return `<div class="card fin-card" style="margin-bottom:12px"><div class="card-b">
+    <div style="display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap">
+      <div style="flex:1;min-width:220px"><b style="font-size:14.5px">${esc(f.clientName)}</b> <span class="badge ${f.status==='New'?'b-new':f.status==='Changed'?'b-scheduled':f.status==='Ended'?'b-missed':f.status==='Draft'?'b-draft':'b-approved'}">${f.status==='Changed'?'Assignments changed':f.status==='Draft'?'Draft — not endorsed yet':f.status}</span>
+        <div class="hint">${f.endorsedAt?'Endorsed '+esc(dtstr(f.endorsedAt))+' by '+esc(pname(f.endorsedBy)):''}${f.client?' · onboarded':' · waiting for HR onboarding'} · effective ${dLong(f.effective)}</div>
+        <div class="pill-row" style="margin-top:6px">${(f.services||[]).map(s=>`<span class="chip">${esc(s)}</span>`).join('')}</div></div>
+      <div class="fin-rate"><span class="hint">Package rate</span><b>${pk.amount!=null?money(pk.amount, pk.currency):'—'}</b><small>${esc(pk.basis||'')}${pk.note?' · '+esc(pk.note):''}</small>
+        <button class="btn ghost" style="padding:3px 8px;font-size:11.5px;margin-top:4px" onclick="pkgModal('${f.id}')">Edit</button></div>
+    </div>
+    <table class="tbl" style="margin-top:10px"><thead><tr><th>Employee</th><th>Role</th><th>Agreed rate</th><th>Effective</th><th></th></tr></thead><tbody>${[...act, ...past].map(row).join('')||'<tr><td colspan="5" class="empty">No assignments yet.</td></tr>'}</tbody></table>
+    ${missing?`<div class="hint" style="color:var(--bad);margin-top:6px">${missing} assignment${missing===1?' needs an':'s need'} agreed rate before payroll.</div>`:''}
+    ${(f.files||[]).length?`<div style="margin-top:10px"><span class="hint">Financial documents</span><div>${fileChips(f.files)}</div></div>`:''}
+    <details style="margin-top:10px"><summary class="hint" style="cursor:pointer">History of assignment and rate changes (${(f.history||[]).length})</summary>
+      <div class="timeline" style="margin-top:6px">${[...(f.history||[])].reverse().map(h=>`<div class="ti"><b>${esc(h.act)}</b> · ${esc(first(h.by))}<div class="hint">${dtstr(h.at)}</div>${h.note?`<div>${esc(h.note)}</div>`:''}</div>`).join('')}</div></details>
+    <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+      ${['New','Changed'].includes(f.status)?`<button class="btn primary" onclick="finMarkReviewed('${f.id}')">Mark reviewed</button>`:''}
+      <button class="btn" onclick="rateModal('${f.id}')">+ Add employee rate</button>
+    </div></div></div>`;
+}
+function finMarkReviewed(id){ const f=FINCLIENTS.find(x=>x.id===id); if(!f) return;
+  if(activeAssign(f).some(a=>a.rate==null) && !confirm('Some assignments have no agreed rate yet. Mark reviewed anyway?')) return;
+  f.status='Reviewed'; f.reviewedAt=nowISO(); f.reviewedBy=PERSON; finHist(f, 'Reviewed by Finance'); recordChange(); RENDER.finance(); toast('Marked reviewed'); }
+function pkgModal(id){ const f=FINCLIENTS.find(x=>x.id===id); if(!f) return; const pk=f.packageRate||{};
+  openModal('Package rate — '+f.clientName, `<div class="grid cols-3"><div class="field"><label>Package rate</label><input id="pkAmt" type="number" min="0" step="0.01" value="${esc(pk.amount??'')}"></div>
+    <div class="field"><label>Currency</label><select id="pkCur">${CURRENCIES.map(c=>`<option ${pk.currency===c?'selected':''}>${c}</option>`).join('')}</select></div>
+    <div class="field"><label>Billing</label><select id="pkBasis">${['per month','per week','per project','per hour'].map(c=>`<option ${pk.basis===c?'selected':''}>${c}</option>`).join('')}</select></div></div>
+    <div class="field"><label>Notes</label><input id="pkNote" value="${esc(pk.note||'')}"></div>
+    <div class="field"><label>Effective date</label><input id="pkEff" type="date" value="${esc(f.effective||'')}"></div>
+    <div class="field"><label>Employee pay currency</label><select id="pkPay">${CURRENCIES.map(c=>`<option ${(f.payCurrency||'PHP')===c?'selected':''}>${c}</option>`).join('')}</select></div>
+    <button class="btn primary" style="width:100%" onclick="savePkg('${id}')">Save</button>`); }
+function savePkg(id){ const f=FINCLIENTS.find(x=>x.id===id); const before = JSON.stringify(f.packageRate);
+  f.packageRate = {amount:el('pkAmt').value===''?null:+el('pkAmt').value, currency:el('pkCur').value, basis:el('pkBasis').value, note:el('pkNote').value.trim()};
+  if(el('pkEff').value && el('pkEff').value!==f.effective){ finHist(f, 'Effective date changed', `${dLong(f.effective)} → ${dLong(el('pkEff').value)}`); f.effective=el('pkEff').value; }
+  f.payCurrency = el('pkPay').value;
+  if(before!==JSON.stringify(f.packageRate)) finHist(f, 'Package rate updated', `${money(f.packageRate.amount, f.packageRate.currency)} ${f.packageRate.basis}`);
+  recordChange(); closeModal(); RENDER.finance(); toast('Saved'); }
+/* set or change an agreed rate with an effective date — earlier periods keep the earlier rate */
+function rateModal(fid, aid){
+  const f = FINCLIENTS.find(x=>x.id===fid); const a = aid ? f.assignments.find(x=>x.id===aid) : null;
+  const emps = payEmployees();
+  openModal((a?(a.rate==null?'Set':'Change')+' agreed rate — ':'Add employee rate — ')+f.clientName, `
+    ${a?`<div class="list-row">${av(P(a.emp))}<div><b>${esc(pname(a.emp))}</b><div class="hint">${esc(a.role||'')}${a.rate!=null?' · current '+money(a.rate, f.payCurrency):''}</div></div></div>`
+      :`<div class="field"><label>Employee</label><select id="rmEmp">${emps.map(e=>`<option value="${e.id}">${esc(e.name)} — ${esc(e.role)}</option>`).join('')}</select></div>
+        <div class="field"><label>Role on this client</label><input id="rmRole" placeholder="e.g. Lead generation VA"></div>`}
+    <div class="grid cols-2"><div class="field"><label>Agreed monthly rate (${esc(f.payCurrency||'PHP')})</label><input id="rmRate" type="number" min="0" step="0.01" value="${esc(a?.rate??'')}"></div>
+      <div class="field"><label>Effective from</label><input id="rmFrom" type="date" value="${a&&a.rate==null?(a.from||manilaDate()):manilaDate()}"></div></div>
+    <div class="field"><label>Reason / note</label><input id="rmNote" placeholder="e.g. salary review, client upgrade"></div>
+    <button class="btn primary" style="width:100%" onclick="saveRate('${fid}','${aid||''}')">Save rate</button>
+    <div class="hint" style="margin-top:8px">Changing a rate closes the old one the day before the new effective date, so each pay period uses the correct rate. Both stay in the history.</div>`);
+}
+function saveRate(fid, aid){
+  const f = FINCLIENTS.find(x=>x.id===fid); const rate = el('rmRate').value; const from = el('rmFrom').value || manilaDate(); const note = el('rmNote').value.trim();
+  if(rate==='') return toast('Enter the agreed rate');
+  if(aid){ const a = f.assignments.find(x=>x.id===aid); const old = a.rate;
+    if(old==null){ a.rate=+rate; a.from=from; finHist(f, `${pname(a.emp)}: agreed rate set`, `${money(+rate, f.payCurrency)}/mo from ${dLong(from)}${note?' — '+note:''}`); }
+    else if(!a.from || from<=a.from){ a.rate=+rate; if(!a.from) a.from=from; finHist(f, `${pname(a.emp)}: agreed rate corrected`, `${money(old, f.payCurrency)} → ${money(+rate, f.payCurrency)}/mo from ${dLong(a.from)}${note?' — '+note:''}`); }
+    else { a.to = shiftDate(from,-1); f.assignments.push({id:uid('AS'), emp:a.emp, role:a.role, isPm:a.isPm, rate:+rate, from, to:null});
+      finHist(f, `${pname(a.emp)}: agreed rate changed`, `${money(old, f.payCurrency)} → ${money(+rate, f.payCurrency)}/mo from ${dLong(from)} (earlier periods keep the old rate)${note?' — '+note:''}`); }
+  } else { const k = el('rmEmp').value; f.assignments.push({id:uid('AS'), emp:k, role:el('rmRole').value.trim()||P(k)?.sub||'Team member', rate:+rate, from, to:null});
+    finHist(f, `${pname(k)} added by Finance`, `${money(+rate, f.payCurrency)}/mo from ${dLong(from)}${note?' — '+note:''}`); }
+  recordChange(); closeModal(); RENDER.finance(); toast('Rate saved');
+}
+function finImportLegacy(){
+  const L = CLIENTS.filter(c=>c.status==='Active' && !isEnded(c) && !finFor(c.id)); if(!L.length) return;
+  if(!confirm(`Add ${L.length} existing client${L.length===1?'':'s'} to Finance? Their current assignments are copied; you then set each employee's agreed rate.`)) return;
+  L.forEach(c=>{ const f={id:'FC-'+c.id, reg:c.regId||null, client:c.id, clientName:c.name, services:c.services||[], status:'New', effective:'', payCurrency:'PHP', packageRate:{amount:null, currency:'USD', basis:'per month', note:''}, files:[], history:[], onboardedAt:c.createdAt||nowISO(),
+    assignments:uniq([...pmsOf(c.id), ...(c.team||[])]).map(k=>({id:uid('AS'), emp:k, role:pmsOf(c.id).includes(k)?'Project manager':(c.resp?.[k]||P(k)?.sub||'Team member'), isPm:pmsOf(c.id).includes(k), rate:null, from:'', to:null}))};
+    finHist(f, 'Added to Finance from the existing client list'); FINCLIENTS.push(f); });
+  recordChange(); RENDER.finance(); toast(`${L.length} clients added — set the agreed rates next`);
+}
+
+/* ---- Pay profiles ---- */
+function profilesHTML(){
+  const pid = FIN.period; const p = payPeriod(pid);
+  return `<div class="card"><div class="card-h"><h3>Employees — work schedule and agreed rates</h3><input placeholder="Search…" value="${esc(FIN.q)}" oninput="FIN.q=this.value;el('finBody').innerHTML=profilesHTML();this.focus()" style="padding:6px 9px"></div>
+    <table class="tbl"><thead><tr><th>Employee</th><th>Scheduled workdays</th><th>Agreed rates (current)</th><th>Monthly total</th><th></th></tr></thead><tbody>
+    ${payEmployees().filter(e=>!FIN.q || (e.name+' '+e.role).toLowerCase().includes(FIN.q.toLowerCase())).map(e=>{ const L = rateLines(e.id, manilaDate(), manilaDate());
+      const tot = L.reduce((s,l)=>s+(l.monthly||0),0);
+      return `<tr><td>${av(e)} <b>${esc(e.name)}</b><div class="hint">${esc(e.role)}</div></td><td>${workdaysOf(e.id).map(d=>WEEKDAYS[d]).join(', ')}</td>
+        <td style="font-size:12px">${L.map(l=>`${esc(l.label)} · ${l.monthly==null?'<span class="badge b-missed">rate needed</span>':money(l.monthly,l.cur)}`).join('<br>')||'<span class="hint">No agreed rate</span>'}</td>
+        <td><b>${tot?money(tot, L[0]?.cur||'PHP'):'—'}</b></td><td style="text-align:right"><button class="btn" style="padding:4px 9px;font-size:12px" onclick="profileModal('${e.id}')">Edit</button></td></tr>`; }).join('')}
+    </tbody></table></div>`;
+}
+function profileModal(emp){
+  const pp = payProfile(emp) || {workdays:[1,2,3,4,5], rates:[]};
+  openModal('Pay profile — '+pname(emp), `
+    <div class="field"><label>Scheduled workdays</label><div class="chipsel" id="ppDays">${WEEKDAYS.map((d,i)=>`<label><input type="checkbox" value="${i}" ${(pp.workdays||[]).includes(i)?'checked':''}>${d}</label>`).join('')}</div></div>
+    <div class="nav-label" style="padding:8px 0 4px">Rates from client assignments</div>
+    ${rateLines(emp, '0000-01-01', '9999-12-31').filter(l=>l.src==='client').map(l=>`<div class="list-row"><div style="flex:1"><b style="font-size:12.5px">${esc(l.label)}</b><div class="hint">${dShort(l.from)}${l.to?' – '+dShort(l.to):' → present'}</div></div><b>${l.monthly==null?'—':money(l.monthly,l.cur)}</b></div>`).join('')||'<div class="hint">None — set them in New clients.</div>'}
+    <div class="nav-label" style="padding:10px 0 4px">Other rates (base pay, internal roles)</div>
+    ${(pp.rates||[]).map(r=>`<div class="list-row"><div style="flex:1"><b style="font-size:12.5px">${esc(r.label)}</b><div class="hint">${dShort(r.from)}${r.to?' – '+dShort(r.to):' → present'}</div></div><b>${money(r.monthly, r.cur)}</b>${!r.to?`<button class="btn ghost" style="padding:3px 8px;font-size:11.5px" onclick="endProfileRate('${emp}','${r.id}')">End</button>`:''}</div>`).join('')||'<div class="hint">None</div>'}
+    <div class="grid cols-3" style="margin-top:8px"><div class="field"><label>Label</label><input id="ppLabel" placeholder="e.g. Core team base pay"></div>
+      <div class="field"><label>Monthly rate</label><input id="ppAmt" type="number" min="0" step="0.01"></div><div class="field"><label>From</label><input id="ppFrom" type="date" value="${manilaDate()}"></div></div>
+    <select id="ppCur" style="margin-bottom:10px">${CURRENCIES.map(c=>`<option>${c}</option>`).join('')}</select>
+    <button class="btn primary" style="width:100%" onclick="saveProfile('${emp}')">Save pay profile</button>`);
+}
+function saveProfile(emp){
+  const pp = ensureProfile(emp);
+  const days = [...document.querySelectorAll('#ppDays input:checked')].map(x=>+x.value);
+  if(!days.length) return toast('Choose at least one workday');
+  if(JSON.stringify(days)!==JSON.stringify(pp.workdays)){ finHist(pp, 'Workdays changed', days.map(d=>WEEKDAYS[d]).join(', ')); pp.workdays=days; }
+  if(el('ppAmt').value!==''){ const r={id:uid('PR'), label:el('ppLabel').value.trim()||'Base pay', monthly:+el('ppAmt').value, cur:el('ppCur').value, from:el('ppFrom').value||manilaDate(), to:null};
+    pp.rates.push(r); finHist(pp, 'Rate added', `${r.label}: ${money(r.monthly, r.cur)}/mo from ${dLong(r.from)}`); }
+  recordChange(); closeModal(); RENDER.finance(); toast('Pay profile saved');
+}
+function endProfileRate(emp, rid){ const pp=payProfile(emp); const r=pp.rates.find(x=>x.id===rid); const d=prompt('Last day of this rate (YYYY-MM-DD)', manilaDate()); if(!d) return;
+  r.to=d; finHist(pp, 'Rate ended', `${r.label} ends ${dLong(d)}`); recordChange(); profileModal(emp); }
+
+/* ================= PAYROLL ================= */
+const payrun = pid => PAYRUNS.find(r=>r.id===pid);
+const slipsOf = pid => PAYSLIPS.filter(s=>s.run===pid);
+const slipId = (pid, emp) => pid+'|'+emp;
+function computeSlip(pid, emp, prev){
+  const p = payPeriod(pid); const e = payPerson(emp);
+  const excluded = prev?.excluded||[];
+  const wd = workdaysOf(emp);
+  const days = datesBetween(p.start, p.end).filter(d=>wd.includes(dow(d)) && !excluded.some(x=>x.date===d));
+  const today = manilaDate();
+  const logs = days.map(d=>{ const r = attRec(emp, d); return {date:d, in:r?.in||null, out:r?.out||null, corrected:!!r?.corrected, past:d<today}; });
+  const from = S().payAttFrom || '';   /* days before the team started timing in on the portal are not checked */
+  const flags = logs.filter(l=>l.past && !l.in && (!from || l.date>=from)).map(l=>({date:l.date, kind:'Missing time-in'}));
+  const lines = rateLines(emp, p.start, p.end).map(l=>{ const inLine = days.filter(d=>d>=l.from && (!l.to || d<=l.to)).length;
+    const amount = l.monthly==null ? null : Math.round((l.monthly/2) * (days.length ? inLine/days.length : 0) * 100)/100;
+    return {...l, days:inLine, amount}; });
+  const cur = lines.find(l=>l.cur)?.cur || 'PHP';
+  const base = lines.reduce((s,l)=>s+(l.amount||0),0);
+  const adj = (prev?.adjustments||[]).filter(a=>a.status==='Approved').reduce((s,a)=>s+(a.kind==='deduction'?-a.amount:+a.amount),0);
+  return {id:slipId(pid,emp), run:pid, emp, empName:e?.name||pname(emp), empRole:e?.role||'', empEmail:e?.email||'', period:p, workdays:wd, scheduled:days, logs, flags,
+    lines, cur, base:Math.round(base*100)/100, final:Math.round((base+adj)*100)/100, missingRate:lines.some(l=>l.monthly==null) || !lines.length};
+}
+function slipState(s){
+  if(s.generated) return 'Generated';
+  if(s.flags?.length && !holdCleared(s)) return 'Held';
+  if(s.missingRate) return 'Needs rate';
+  if((s.adjustments||[]).some(a=>a.status==='Pending')) return 'Waiting approval';
+  return 'Ready';
+}
+const holdCleared = s => HEADS.every(k=>s.hold?.[k]?.decision==='approve');
+const STATE_BADGE = {Held:'b-missed', 'Needs rate':'b-missed', 'Waiting approval':'b-scheduled', Ready:'b-pending', Generated:'b-approved'};
+function refreshSlip(s){ if(s.generated) return s; const c = computeSlip(s.run, s.emp, s); Object.assign(s, c); s.status = slipState(s); return s; }
+function preparePayroll(){
+  const pid = FIN.period; const p = payPeriod(pid);
+  let r = payrun(pid); if(!r){ r={id:pid, ...p, status:'Open', createdBy:PERSON, createdAt:nowISO()}; PAYRUNS.push(r); }
+  let held = 0;
+  payEmployees().forEach(e=>{
+    let s = PAYSLIPS.find(x=>x.id===slipId(pid,e.id));
+    if(!s){ s = {id:slipId(pid,e.id), adjustments:[], excluded:[], hold:{}, delivery:{status:'Not sent'}, payout:{status:'Unpaid'}, history:[]}; PAYSLIPS.push(s); Object.assign(s, computeSlip(pid, e.id, s)); finHist(s, 'Draft payslip prepared'); }
+    refreshSlip(s);
+    if(s.status==='Held' && !s.heldNotified){ s.heldNotified = nowISO(); held++;
+      notify(uniq([...financeKeys(), ...HEADS]), 'approval', `⚠️ <b>${esc(s.empName)}</b>'s payslip for ${esc(periodLabel(p))} is on hold — missing time-in on ${s.flags.map(f=>dShort(f.date)).join(', ')}. Correct the log or approve proceeding.`, finLink('payroll', {slip:s.id})); }
+  });
+  recordChange(); RENDER.finance();
+  toast(`Draft payslips ready for ${periodLabel(p)}${held?` — ${held} on hold (company heads notified)`:''}`);
+}
+function payrollHTML(){
+  const pid = FIN.period; const p = payPeriod(pid); const r = payrun(pid);
+  const S_ = slipsOf(pid).map(refreshSlip).sort((a,b)=>a.empName.localeCompare(b.empName));
+  const cnt = st => S_.filter(s=>s.status===st).length;
+  const sent = S_.filter(s=>['Sent','Sent manually'].includes(s.delivery?.status)).length, paid = S_.filter(s=>s.payout?.status==='Paid').length;
+  const ended = p.end < manilaDate();
+  return `<div class="card" style="margin-bottom:14px"><div class="card-b" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <button class="btn" onclick="FIN.period=shiftPeriod(FIN.period,-1);RENDER.finance()">←</button>
+      <div style="min-width:220px"><b style="font-size:15px">${esc(periodLabel(p))}</b><div class="hint">Work period ${dLong(p.start)} – ${dLong(p.end)} · payout <b>${dLong(p.payout)}</b>${ended?'':' · period still running'}</div></div>
+      <button class="btn" onclick="FIN.period=shiftPeriod(FIN.period,1);RENDER.finance()">→</button>
+      <label class="hint" style="display:flex;gap:6px;align-items:center" title="Days before this date are not checked for missing time-ins (e.g. before the team started using the portal)">Check time-ins from <input type="date" value="${esc(S().payAttFrom||'')}" onchange="setPayAttFrom(this.value)" style="padding:4px 6px"></label>
+      <span style="flex:1"></span>
+      <button class="btn primary" onclick="preparePayroll()">${r?'Refresh draft payslips':'Prepare draft payslips'}</button>
+      ${S_.length?`<button class="btn" onclick="sendAllModal()">✉ Email generated payslips</button><button class="btn" onclick="markAllPaid()">Mark sent as paid</button><button class="btn" onclick="exportPayroll()">↓ Export</button>`:''}
+      ${sent?`<button class="btn ${r?.announcedAt?'':'primary'}" onclick="announcePayslips()">${r?.announcedAt?'✓ Release announced':'📢 Announce Payslip Release'}</button>`:''}
+    </div></div>
+    ${S_.length?`<div class="grid cols-4" style="margin-bottom:14px">
+      <div class="card kpi"><div class="k-label">On hold</div><div class="k-val" style="color:${cnt('Held')?'var(--bad)':'var(--ink)'}">${cnt('Held')}</div><div class="hint">missing time-in — needs correction or heads' approval</div></div>
+      <div class="card kpi"><div class="k-label">Ready to review</div><div class="k-val">${cnt('Ready')}</div><div class="hint">${cnt('Needs rate')} need a rate · ${cnt('Waiting approval')} adjustments pending</div></div>
+      <div class="card kpi"><div class="k-label">Payslips delivered</div><div class="k-val" style="color:var(--ok)">${sent}/${S_.length}</div><div class="hint">${cnt('Generated')} generated</div></div>
+      <div class="card kpi"><div class="k-label">Payout</div><div class="k-val">${paid}/${S_.length}</div><div class="hint">marked paid · due ${dShort(p.payout)}</div></div></div>`:''}
+    <div class="card"><table class="tbl"><thead><tr><th>Employee</th><th>Scheduled</th><th>Logged</th><th>Flags</th><th>Pay</th><th>Payslip</th><th>Delivery</th><th>Payout</th><th></th></tr></thead><tbody>
+    ${S_.map(s=>`<tr style="cursor:pointer" onclick="openSlip('${s.id}')"><td><b>${esc(s.empName)}</b><div class="hint">${esc(s.empRole)}</div></td>
+      <td>${s.scheduled.length} days</td><td>${s.logs.filter(l=>l.in).length}</td>
+      <td>${s.flags.length?`<span class="badge b-missed">${s.flags.length} missing time-in</span>`:'—'}</td>
+      <td><b>${money(s.final, s.cur)}</b>${(s.adjustments||[]).some(a=>a.status==='Approved')?'<div class="hint">incl. adjustments</div>':''}</td>
+      <td><span class="badge ${STATE_BADGE[s.status]||''}">${s.status}</span></td>
+      <td><span class="badge ${s.delivery?.status==='Failed'?'b-missed':/Sent/.test(s.delivery?.status)?'b-approved':'b-draft'}">${esc(s.delivery?.status||'Not sent')}</span></td>
+      <td><span class="badge ${s.payout?.status==='Paid'?'b-approved':'b-draft'}">${s.payout?.status==='Paid'?'Paid '+dShort(s.payout.at):'Unpaid'}</span></td>
+      <td><button class="btn" style="padding:4px 9px;font-size:12px">Open</button></td></tr>`).join('') || `<tr><td colspan="9" class="empty">No payslips for this period yet — click <b>Prepare draft payslips</b>.</td></tr>`}
+    </tbody></table></div>`;
+}
+function headQueue(){
+  const out = [];
+  PAYSLIPS.filter(s=>!s.generated).forEach(s=>{ refreshSlip(s);
+    if(s.status==='Held' && s.hold?.[PERSON]?.decision!=='approve') out.push({slip:s, what:`on hold — missing time-in ${s.flags.map(f=>dShort(f.date)).join(', ')}`});
+    (s.adjustments||[]).filter(a=>a.status==='Pending').forEach(a=>out.push({slip:s, what:`${a.kind} approval: ${a.reason}`})); });
+  return out;
+}
+
+/* ---- one payslip ---- */
+function openSlip(id){
+  const s = PAYSLIPS.find(x=>x.id===id); if(!s) return toast('That payslip is not available');
+  refreshSlip(s); const p = s.period; const head = isHead(PERSON); const fin = finAuth();
+  const logRow = l => { const flag = s.flags.some(f=>f.date===l.date);
+    return `<tr><td>${WEEKDAYS[dow(l.date)]} ${dShort(l.date)}</td><td>${l.in?showT(l.in):flag?'<span class="badge b-missed">Missing time-in</span>':l.past?'—':'<span class="hint">upcoming</span>'}${l.corrected?' <span class="hint">(corrected)</span>':''}</td><td>${showT(l.out)}</td>
+      <td style="text-align:right">${flag&&!s.generated?`<button class="btn" style="padding:3px 8px;font-size:11.5px" onclick="correctLogModal('${s.emp}','${l.date}','${s.id}')">Correct log</button> <button class="btn ghost" style="padding:3px 8px;font-size:11.5px" onclick="excludeDay('${s.id}','${l.date}')">Not a workday</button>`:''}</td></tr>`; };
+  const decisions = HEADS.map(k=>{ const d=s.hold?.[k]; return `<div class="list-row">${av(P(k))}<div style="flex:1"><b style="font-size:12.5px">${esc(pname(k))}</b><div class="hint">${d?`${d.decision==='approve'?'✅ Approved proceeding':'⏸ Keep on hold'} · ${esc(dtstr(d.at))}${d.comment?' — “'+esc(d.comment)+'”':''}`:'No decision yet'}</div></div></div>`; }).join('');
+  openModal(`Payslip — ${s.empName}`, `
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px"><span class="badge ${STATE_BADGE[s.status]||''}">${s.status}</span>
+      <span class="hint">${esc(periodLabel(p))} · payout ${dLong(p.payout)} · delivery: ${esc(s.delivery?.status||'Not sent')} · payout: ${esc(s.payout?.status||'Unpaid')}</span></div>
+    ${s.status==='Held'?`<div class="end-banner urgent">⏸ <b>On hold.</b> Scheduled workday${s.flags.length===1?'':'s'} with no time-in: ${s.flags.map(f=>dShort(f.date)).join(', ')}. Pay is fixed and is not reduced — this payslip waits until the log is corrected or Pau, JA and Norman approve proceeding.</div>`:''}
+    <div class="split">
+      <div>
+        <div class="nav-label" style="padding:0 0 4px">Pay</div>
+        <table class="tbl"><tbody>${s.lines.map(l=>`<tr><td>${esc(l.label)}<div class="hint">${l.monthly==null?'agreed rate needed':money(l.monthly,l.cur)+'/mo ÷ 2'}${l.days!==s.scheduled.length?` · ${l.days}/${s.scheduled.length} scheduled days`:''}</div></td><td style="text-align:right">${l.amount==null?'<span class="badge b-missed">Rate needed</span>':money(l.amount, l.cur)}</td></tr>`).join('')||'<tr><td class="empty">No agreed rate for this employee — add it in New clients or Pay profiles.</td></tr>'}
+          ${(s.adjustments||[]).map(a=>`<tr><td>${a.kind==='deduction'?'Deduction':'Addition'}: ${esc(a.reason)}<div class="hint">${esc(pname(a.by))} · ${a.status}${a.decidedBy?' by '+esc(first(a.decidedBy))+(a.comment?' — “'+esc(a.comment)+'”':''):''}</div>
+            ${a.status==='Pending'&&head&&!s.generated?`<div style="margin-top:4px"><button class="btn primary" style="padding:3px 8px;font-size:11.5px" onclick="decideAdj('${s.id}','${a.id}','Approved')">Approve</button> <button class="btn" style="padding:3px 8px;font-size:11.5px" onclick="decideAdj('${s.id}','${a.id}','Rejected')">Reject</button></div>`:''}</td>
+            <td style="text-align:right;${a.status!=='Approved'?'opacity:.5;text-decoration:line-through':''}">${a.kind==='deduction'?'−':'+'}${money(a.amount, s.cur)}</td></tr>`).join('')}
+          <tr><td><b>Final amount</b></td><td style="text-align:right"><b style="font-size:15px">${money(s.final, s.cur)}</b></td></tr></tbody></table>
+        ${fin&&!s.generated?`<details style="margin-top:8px"><summary class="hint" style="cursor:pointer">+ Add a deduction or other adjustment</summary>
+          <div class="grid cols-2" style="margin-top:6px"><div class="field"><label>Type</label><select id="adKind"><option value="deduction">Deduction</option><option value="addition">Addition / bonus</option></select></div><div class="field"><label>Amount (${esc(s.cur)})</label><input id="adAmt" type="number" min="0" step="0.01"></div></div>
+          <div class="field"><label>Reason (required)</label><input id="adWhy" placeholder="e.g. unpaid leave on Sep 3 agreed with the employee"></div>
+          <button class="btn" onclick="addAdj('${s.id}')">Submit for a company head's approval</button></details>`:''}
+        <div class="nav-label" style="padding:12px 0 4px">Scheduled workdays vs attendance (${s.scheduled.length} scheduled · ${s.logs.filter(l=>l.in).length} logged)</div>
+        <table class="tbl"><thead><tr><th>Day</th><th>Time in</th><th>Time out</th><th></th></tr></thead><tbody>${s.logs.map(logRow).join('')}</tbody></table>
+        ${(s.excluded||[]).length?`<div class="hint" style="margin-top:6px">Not counted as workdays: ${s.excluded.map(x=>`${dShort(x.date)} (${esc(x.reason)})`).join(', ')}</div>`:''}
+      </div>
+      <div class="brand-panel">
+        <div class="nav-label" style="padding:0 0 4px">Company heads' decisions${s.flags.length?'':' (only needed when a log is missing)'}</div>
+        ${decisions}
+        ${head&&s.status==='Held'?`<div class="field" style="margin-top:8px"><label>Your comment</label><input id="hdCmt" placeholder="e.g. Confirmed she worked — forgot to time in"></div>
+          <div style="display:flex;gap:6px"><button class="btn primary" onclick="headDecide('${s.id}','approve')">Approve proceeding</button><button class="btn" onclick="headDecide('${s.id}','hold')">Keep on hold</button></div>`:''}
+        <div class="nav-label" style="padding:12px 0 4px">History</div>
+        <div class="timeline">${[...(s.history||[])].reverse().map(h=>`<div class="ti"><b>${esc(h.act)}</b> · ${esc(first(h.by))}<div class="hint">${dtstr(h.at)}</div>${h.note?`<div>${esc(h.note)}</div>`:''}</div>`).join('')}</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px">
+      ${fin&&!s.generated?`<button class="btn primary" ${s.status==='Ready'?'':'disabled title="Resolve the items above first"'} onclick="generateSlip('${s.id}')">Review done — generate payslip</button>`:''}
+      ${s.generated?`<button class="btn" onclick="downloadSlipPDF('${s.id}')">↓ Payslip PDF</button>`:''}
+      ${fin&&s.generated?`<button class="btn primary" onclick="emailSlipModal('${s.id}')">✉ ${/Sent/.test(s.delivery?.status)?'Resend':'Email payslip'}</button>`:''}
+      ${fin&&s.generated&&s.payout?.status!=='Paid'?`<button class="btn" onclick="markPaid('${s.id}')">Mark paid</button>`:''}
+      ${fin&&s.generated&&!/Sent/.test(s.delivery?.status)?`<button class="btn ghost" onclick="unGenerate('${s.id}')">Reopen draft</button>`:''}
+    </div>`, true);
+}
+function addAdj(id){ const s=PAYSLIPS.find(x=>x.id===id); const amt=+el('adAmt').value, why=el('adWhy').value.trim();
+  if(!(amt>0)) return toast('Enter an amount'); if(!why) return toast('A reason is required');
+  const a={id:uid('AJ'), kind:el('adKind').value, amount:amt, reason:why, by:PERSON, at:nowISO(), status:'Pending'};
+  (s.adjustments=s.adjustments||[]).push(a); finHist(s, `${a.kind==='deduction'?'Deduction':'Addition'} requested`, why);
+  notify(HEADS, 'approval', `Approval needed: a payroll ${a.kind} on <b>${esc(s.empName)}</b>'s payslip (${esc(periodLabel(s.period))}) — ${esc(why)}`, finLink('payroll', {slip:s.id}));
+  refreshSlip(s); recordChange(); openSlip(id); toast('Sent to the company heads for approval'); }
+function decideAdj(id, aid, st){ const s=PAYSLIPS.find(x=>x.id===id); const a=s.adjustments.find(x=>x.id===aid); if(!isHead(PERSON)) return;
+  const cm = prompt(st==='Approved'?'Comment (optional)':'Reason for rejecting', '') ?? ''; a.status=st; a.decidedBy=PERSON; a.decidedAt=nowISO(); a.comment=cm;
+  finHist(s, `${a.kind} ${st.toLowerCase()}`, `${a.reason}${cm?' — '+cm:''}`);
+  notify(financeKeys(), 'approval', `${esc(first(PERSON))} ${st.toLowerCase()} the ${a.kind} on <b>${esc(s.empName)}</b>'s payslip`, finLink('payroll', {slip:s.id}));
+  refreshSlip(s); recordChange(); openSlip(id); }
+function headDecide(id, decision){ const s=PAYSLIPS.find(x=>x.id===id); if(!isHead(PERSON)) return;
+  const comment = el('hdCmt')?.value.trim()||''; if(decision==='hold' && !comment) return toast('Add a comment explaining why');
+  s.hold = {...(s.hold||{}), [PERSON]:{decision, comment, at:nowISO()}};
+  finHist(s, decision==='approve'?'Approved proceeding despite missing time-in':'Kept on hold', comment);
+  refreshSlip(s);
+  const left = HEADS.filter(k=>s.hold?.[k]?.decision!=='approve');
+  notify(uniq([...financeKeys(), ...HEADS]), 'approval', `${esc(first(PERSON))} ${decision==='approve'?'approved proceeding with':'kept on hold'} <b>${esc(s.empName)}</b>'s payslip${decision==='approve'&&left.length?` — waiting for ${left.map(first).join(', ')}`:decision==='approve'?' — cleared for Finance':''}`, finLink('payroll', {slip:s.id}));
+  recordChange(); openSlip(id); }
+function excludeDay(id, date){ const s=PAYSLIPS.find(x=>x.id===id); const why = prompt(`Why is ${dLong(date)} not a scheduled workday for ${s.empName}? (e.g. holiday, approved leave, rest day swap)`); if(!why) return;
+  (s.excluded=s.excluded||[]).push({date, reason:why, by:PERSON, at:nowISO()}); finHist(s, `${dLong(date)} marked not a workday`, why); refreshSlip(s); recordChange(); openSlip(id); }
+function generateSlip(id){ const s=PAYSLIPS.find(x=>x.id===id); refreshSlip(s); if(s.status!=='Ready') return toast('Resolve the flagged items first');
+  s.generated = {at:nowISO(), by:PERSON}; s.status='Generated'; finHist(s, 'Reviewed and payslip generated', money(s.final, s.cur));
+  s.email = s.email || defaultSlipEmail(s); recordChange(); openSlip(id); toast('Payslip generated — you can email it now'); }
+function unGenerate(id){ const s=PAYSLIPS.find(x=>x.id===id); delete s.generated; finHist(s, 'Payslip reopened as a draft'); refreshSlip(s); recordChange(); openSlip(id); }
+function markPaid(id){ const s=PAYSLIPS.find(x=>x.id===id); const ref = prompt(`Mark ${s.empName} as paid. Payout reference (optional, e.g. bank transfer no.):`, ''); if(ref===null) return;
+  s.payout={status:'Paid', at:manilaDate(), ref, by:PERSON}; finHist(s, 'Payout marked paid', ref); recordChange(); openSlip(id); }
+function markAllPaid(){ const L = slipsOf(FIN.period).filter(s=>/Sent/.test(s.delivery?.status) && s.payout?.status!=='Paid'); if(!L.length) return toast('No delivered payslips waiting for payout');
+  const ref = prompt(`Mark ${L.length} delivered payslip${L.length===1?'':'s'} as paid on ${dLong(manilaDate())}. Reference (optional):`, ''); if(ref===null) return;
+  L.forEach(s=>{ s.payout={status:'Paid', at:manilaDate(), ref, by:PERSON}; finHist(s, 'Payout marked paid', ref); }); recordChange(); RENDER.finance(); toast(`${L.length} marked paid`); }
+
+/* attendance correction (HR, Finance, system administrators) — releases the hold automatically */
+const canCorrectAtt = () => ROLE==='hr' || isFinance() || isSysAdmin();
+function correctLogModal(emp, date, slip){
+  const r = attRec(emp, date);
+  openModal(`Correct time log — ${pname(emp)} · ${dLong(date)}`, `
+    <div class="grid cols-2"><div class="field"><label>Time in *</label><input id="clIn" type="time" value="${r?.in&&/^\d{4}-/.test(r.in)?new Date(new Date(r.in).getTime()+8*3600e3).toISOString().slice(11,16):'09:00'}"></div>
+    <div class="field"><label>Time out</label><input id="clOut" type="time" value="${r?.out&&/^\d{4}-/.test(r.out)?new Date(new Date(r.out).getTime()+8*3600e3).toISOString().slice(11,16):''}"></div></div>
+    <div class="field"><label>Reason *</label><input id="clWhy" placeholder="e.g. Worked on site, confirmed by PM — forgot to time in"></div>
+    <button class="btn primary" style="width:100%" onclick="saveLogFix('${emp}','${date}','${slip||''}')">Save correction</button>
+    <div class="hint" style="margin-top:8px">Times are Philippine time. The correction is recorded with your name and reason.</div>`);
+}
+function saveLogFix(emp, date, slip){
+  const why = el('clWhy').value.trim(), tin = el('clIn').value, tout = el('clOut').value;
+  if(!tin || !why) return toast('Time in and a reason are required');
+  const iso = t => new Date(`${date}T${t}:00+08:00`).toISOString();
+  let r = attRec(emp, date);
+  if(!r){ r = {id:attId(emp,date), person:emp, date, in:null, out:null, breaks:[], client:'', project:'', events:[]}; ATTLOG.push(r); }
+  r.in = iso(tin); if(tout) r.out = iso(tout);
+  r.corrected = {by:PERSON, at:nowISO(), reason:why}; (r.events=r.events||[]).push({t:nowISO(), kind:'Log corrected', by:PERSON, note:why});
+  notify(emp, 'attendance', `Your time log for ${dLong(date)} was corrected by ${esc(first(PERSON))}: ${esc(why)}`, {view:'attendance'});
+  PAYSLIPS.filter(s=>s.emp===emp && !s.generated && s.period?.start<=date && s.period?.end>=date).forEach(s=>{ finHist(s, `Time log for ${dLong(date)} corrected`, why); refreshSlip(s); });
+  recordChange(); closeModal(); if(slip) openSlip(slip); else RENDER[CURRENT]?.(); toast('Log corrected');
+}
+
+/* ---- payslip PDF + email ---- */
+const JSPDF_SRC = 'https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js';
+async function slipPDF(s){
+  await loadScript(JSPDF_SRC);
+  const doc = new window.jspdf.jsPDF({unit:'pt', format:'a4'}); const W = 595; let y = 56;
+  const line = (l, r, bold, size) => { doc.setFont('helvetica', bold?'bold':'normal'); doc.setFontSize(size||10.5); doc.text(String(l), 48, y); if(r!=null) doc.text(String(r), W-48, y, {align:'right'}); y += (size||10.5)+7; };
+  doc.setFillColor(242,180,64); doc.rect(0,0,W,8,'F');
+  line('The Cross Core', 'PAYSLIP', true, 16); y+=2;
+  line(s.empName, periodLabel(s.period), true, 12);
+  line(s.empRole||'', 'Payout: '+dLong(s.period.payout)); y+=6;
+  doc.setDrawColor(220); doc.line(48,y,W-48,y); y+=18;
+  line('Earnings', null, true);
+  s.lines.forEach(l=>line(`${l.label} (${moneyPlain(l.monthly,l.cur)}/month ÷ 2${l.days!==s.scheduled.length?`, ${l.days}/${s.scheduled.length} days`:''})`, moneyPlain(l.amount, l.cur)));
+  const adj = (s.adjustments||[]).filter(a=>a.status==='Approved');
+  if(adj.length){ y+=4; line('Adjustments', null, true); adj.forEach(a=>line(`${a.kind==='deduction'?'Deduction':'Addition'}: ${a.reason}`, (a.kind==='deduction'?'- ':'+ ')+moneyPlain(a.amount, s.cur))); }
+  y+=4; doc.line(48,y,W-48,y); y+=18;
+  line('Net pay', moneyPlain(s.final, s.cur), true, 13); y+=10;
+  line('Attendance', null, true);
+  line(`Scheduled workdays: ${s.scheduled.length}   ·   Days with time logs: ${s.logs.filter(l=>l.in).length}`);
+  doc.setFontSize(9); doc.setTextColor(110);
+  doc.text(doc.splitTextToSize('Pay is fixed for each period. A missing time-in does not reduce pay unless an approved adjustment is listed above.', W-96), 48, y); y+=28;
+  doc.text(`Generated ${dtstr(s.generated?.at||nowISO())} by ${pname(s.generated?.by||PERSON)} · Finance, The Cross Core · Confidential — for ${s.empName} only`, 48, 800);
+  return doc;
+}
+const slipFile = s => `Payslip-${s.empName.replace(/[^\w]+/g,'-')}-${s.period.id}.pdf`;
+async function downloadSlipPDF(id){ const s = PAYSLIPS.find(x=>x.id===id); if(!s?.generated) return; (await slipPDF(s)).save(slipFile(s)); }
+function defaultSlipEmail(s){ return {subject:`Your payslip — ${periodLabel(s.period)} (payout ${dLong(s.period.payout)})`,
+  body:`Hi ${s.empName.split(' ')[0]},\n\nAttached is your payslip for the ${periodLabel(s.period)} pay period. Payout is scheduled for ${dLong(s.period.payout)}.\n\nPlease review it and message Finance in the portal if you have any questions.\n\nThank you,\n${pname(PERSON)}\nFinance — The Cross Core`}; }
+function emailSlipModal(id){
+  const s = PAYSLIPS.find(x=>x.id===id); if(!s?.generated) return; const m = s.email || defaultSlipEmail(s);
+  openModal('Email payslip — '+s.empName, `
+    <div class="field"><label>To</label><input value="${esc(s.empEmail||'')}" disabled><div class="hint">Payslips go only to the employee's own email on file.</div></div>
+    <div class="field"><label>Subject</label><input id="emSub" value="${esc(m.subject)}"></div>
+    <div class="field"><label>Message</label><textarea id="emBody" rows="9">${esc(m.body)}</textarea></div>
+    <div class="list-row">📎 <b style="font-size:12.5px">${esc(slipFile(s))}</b><button class="btn ghost" style="margin-left:auto;padding:3px 8px;font-size:11.5px" onclick="downloadSlipPDF('${id}')">Preview</button></div>
+    <div style="display:flex;gap:8px;margin-top:10px"><button class="btn primary" style="flex:1;justify-content:center" onclick="sendSlip('${id}')">Send</button><button class="btn" onclick="markSentManually('${id}')">I sent it another way</button></div>`);
+}
+async function sendSlip(id, silent){
+  const s = PAYSLIPS.find(x=>x.id===id); if(!s?.generated) return false;
+  if(!silent){ s.email = {subject:el('emSub').value, body:el('emBody').value}; }
+  if(!s.email) s.email = defaultSlipEmail(s);
+  const to = (payPerson(s.emp).email||s.empEmail||'').trim();
+  if(!to){ s.delivery={status:'Failed', at:nowISO(), error:'No email on file'}; recordChange(); if(!silent) toast('No email on file for this employee'); return false; }
+  if(!silent) toast('Sending…');
+  try{
+    if(BACKEND.mode==='live'){
+      const pdf = (await slipPDF(s)).output('datauristring').split(',')[1];
+      const {data, error} = await BACKEND.sb.functions.invoke('cc-admin', {body:{action:'send_payslip', payslipId:s.id, to, subject:s.email.subject, text:s.email.body, pdf, filename:slipFile(s)}});
+      let msg = error?.message; if(error){ try{ const t = await error.context?.json?.(); if(t?.error) msg=t.error; }catch(_){} }
+      if(error || data?.error) throw new Error(data?.error || msg);
+      s.delivery = {status:'Sent', at:nowISO(), to, messageId:data.id, by:PERSON};
+    } else s.delivery = {status:'Sent', at:nowISO(), to, by:PERSON, demo:true};
+    finHist(s, 'Payslip emailed', to+(s.delivery.demo?' (demo mode — no real email)':''));
+    recordChange(); if(!silent){ closeModal(); openSlip(id); toast('Payslip sent to '+to); } return true;
+  }catch(e){ s.delivery = {status:'Failed', at:nowISO(), to, error:e.message}; finHist(s, 'Email failed', e.message); recordChange();
+    if(!silent){ closeModal(); openSlip(id); toast('Could not send: '+e.message); } return false; }
+}
+function markSentManually(id){ const s=PAYSLIPS.find(x=>x.id===id); s.delivery={status:'Sent manually', at:nowISO(), by:PERSON}; finHist(s, 'Marked as sent manually'); recordChange(); closeModal(); openSlip(id); }
+function sendAllModal(){
+  const L = slipsOf(FIN.period).filter(s=>s.generated && !/Sent/.test(s.delivery?.status));
+  if(!L.length) return toast('No generated payslips waiting to be sent — generate them first');
+  openModal(`Email ${L.length} payslip${L.length===1?'':'s'}`, `
+    <div class="hint" style="margin-bottom:8px">Each employee receives only their own payslip. <b>{first_name}</b>, <b>{period}</b> and <b>{payout}</b> are filled in for each person.</div>
+    <div class="field"><label>Subject</label><input id="baSub" value="Your payslip — {period} (payout {payout})"></div>
+    <div class="field"><label>Message</label><textarea id="baBody" rows="8">Hi {first_name},\n\nAttached is your payslip for the {period} pay period. Payout is scheduled for {payout}.\n\nPlease review it and message Finance in the portal if you have any questions.\n\nThank you,\n${esc(pname(PERSON))}\nFinance — The Cross Core</textarea></div>
+    <div style="max-height:160px;overflow:auto;margin-bottom:10px">${L.map(s=>`<div class="list-row" style="font-size:12.5px"><b style="flex:1">${esc(s.empName)}</b><span class="hint">${esc(s.empEmail||'no email')}</span></div>`).join('')}</div>
+    <button class="btn primary" style="width:100%" onclick="sendAll()">Send ${L.length} payslip${L.length===1?'':'s'}</button>`);
+}
+async function sendAll(){
+  const L = slipsOf(FIN.period).filter(s=>s.generated && !/Sent/.test(s.delivery?.status));
+  const sub = el('baSub').value, body = el('baBody').value; closeModal(); let ok=0;
+  for(const s of L){ const f = t => t.replace(/\{first_name\}/g, s.empName.split(' ')[0]).replace(/\{period\}/g, periodLabel(s.period)).replace(/\{payout\}/g, dLong(s.period.payout));
+    s.email = {subject:f(sub), body:f(body)}; if(await sendSlip(s.id, true)) ok++; toast(`Sending… ${ok}/${L.length}`); }
+  RENDER.finance(); toast(`${ok} of ${L.length} payslips sent${ok<L.length?' — check the failed ones':''}`);
+}
+function announcePayslips(){
+  const r = payrun(FIN.period) || {id:FIN.period, ...payPeriod(FIN.period)}; const p = payPeriod(FIN.period);
+  if(r.announcedAt && !confirm('The release was already announced. Announce again?')) return;
+  if(!r.announcedAt && !confirm(`Publish an important announcement to every employee that payslips for ${periodLabel(p)} have been released? No pay details are shown.`)) return;
+  publishAnnouncement({title:`Payslips released — ${periodLabel(p)}`, body:`Payslips for the ${periodLabel(p)} pay period have been released. Please check your email for your payslip — it is also in My Documents → Payslips.\n\nPayout is scheduled for ${dLong(p.payout)}. If anything looks wrong, message Finance in the portal.`, priority:'High', target:{type:'all'}});
+  if(!payrun(FIN.period)) PAYRUNS.push(r); r.announcedAt=nowISO(); r.announcedBy=PERSON;
+  recordChange(); RENDER.finance(); toast('Payslip release announced to all employees');
+}
+async function exportPayroll(){
+  const L = slipsOf(FIN.period).map(refreshSlip);
+  const rows = L.map(s=>({Employee:s.empName, Role:s.empRole, Period:periodLabel(s.period), Payout:s.period.payout, 'Scheduled days':s.scheduled.length, 'Logged days':s.logs.filter(l=>l.in).length,
+    'Missing time-in':s.flags.map(f=>f.date).join(' '), Base:s.base, Adjustments:Math.round((s.final-s.base)*100)/100, 'Final amount':s.final, Currency:s.cur, Payslip:s.status, Delivery:s.delivery?.status||'', 'Payout status':s.payout?.status||'', 'Paid on':s.payout?.at||''}));
+  await loadScript(XLSX_SRC); const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), 'Payroll'); XLSX.writeFile(wb, `crosscore-payroll-${FIN.period}.xlsx`);
+}
+
+/* ---- the employee's own payslips (My Documents) ---- */
+const myPayslips = () => PAYSLIPS.filter(s=>s.emp===PERSON && /Sent/.test(s.delivery?.status)).sort((a,b)=>b.run.localeCompare(a.run));
+function myPayslipsCard(){
+  const L = myPayslips(); if(!L.length) return '';
+  return `<div class="card" style="margin-bottom:16px"><div class="card-h"><h3>My payslips</h3><span class="sub">only you and Finance can see these</span></div><div class="card-b" style="padding-top:4px">
+    ${L.map(s=>`<div class="list-row"><div style="flex:1"><b style="font-size:12.5px">${esc(periodLabel(s.period))}</b><div class="hint">Payout ${dLong(s.period.payout)} · ${s.payout?.status==='Paid'?'Paid '+dShort(s.payout.at):'Payout pending'}</div></div><button class="btn" style="padding:5px 10px;font-size:12px" onclick="downloadSlipPDF('${s.id}')">↓ PDF</button></div>`).join('')}</div></div>`;
+}
+
+/* ---- dashboard cards ---- */
+function financeDashCard(){
+  if(!finAuth()) return '';
+  const nNew = FINCLIENTS.filter(f=>['New','Changed'].includes(f.status)).length;
+  const pid = periodIdFor(manilaDate()); const prev = shiftPeriod(pid,-1);
+  const held = PAYSLIPS.filter(s=>[pid,prev].includes(s.run) && !s.generated && refreshSlip(s).status==='Held').length;
+  const hq = isHead(PERSON) ? headQueue().length : 0;
+  if(!isFinance() && !hq && !nNew) return '';
+  return `<div class="card" style="margin-bottom:16px;border-left:4px solid var(--ok)"><div class="card-h"><h3>Finance</h3><button class="btn ghost" onclick="go('finance')">Open Finance →</button></div>
+    <div class="card-b" style="display:flex;gap:18px;flex-wrap:wrap;font-size:12.5px;padding-top:4px">
+      <span><b style="font-size:18px">${nNew}</b> new client${nNew===1?'':'s'} to review</span>
+      <span><b style="font-size:18px;color:${held?'var(--bad)':'inherit'}">${held}</b> payslip${held===1?'':'s'} on hold</span>
+      ${isHead(PERSON)?`<span><b style="font-size:18px;color:${hq?'var(--bad)':'inherit'}">${hq}</b> waiting for your decision</span>`:''}
+      <span class="hint">Next payout: ${dLong(payPeriod(pid).payout)} for ${esc(periodLabel(payPeriod(pid)))}</span></div></div>`;
+}
+
+/* ---- Administration: who is Finance, and the optional SOP assistant ---- */
+function financeAdminCard(){
+  const live = BACKEND.mode==='live'; const cur = financeKeys();
+  setTimeout(refreshAiAdmin, 50);
+  return `<div class="card"><div class="card-h"><h3>Finance & SOP assistant</h3></div><div class="card-b">
+    <div class="field"><label>Finance team — can see package rates, agreed rates and payroll (company heads always can)</label>
+      <div class="chipsel" id="setFin">${payEmployees().map(e=>`<label><input type="checkbox" value="${e.id}" ${cur.includes(e.id)?'checked':''}>${esc(e.name.split(' ')[0])}</label>`).join('')}</div></div>
+    <button class="btn primary" onclick="saveSettings('finance')">Save Finance team</button>
+    <div class="hint" style="margin:10px 0">Payslip emails are sent from the company Google account connected under Video calls. After updating, click <b>Connect Google account</b> once more so it can also send email.</div>
+    <div class="nav-label" style="padding:10px 0 6px">SOP assistant (optional)</div>
+    <div id="aiStatus" class="info-item" style="margin-bottom:8px"><span class="hint">Status</span>${live?'<span class="spinner" style="display:inline-block"></span>':'Built-in drafts (live database needed for an AI provider)'}</div>
+    ${live?`<div class="grid cols-2"><div class="field"><label>Provider</label><select id="aiProv"><option value="gemini">Google Gemini — free tier</option><option value="anthropic">Anthropic Claude</option><option value="openai">OpenAI</option></select></div>
+      <div class="field"><label>Model (optional)</label><input id="aiModel" placeholder="default"></div></div>
+      <div class="field"><label>API key</label><input id="aiKey" type="password" placeholder="Paste the key — stored on the server only"></div>
+      <button class="btn" onclick="saveAiKey()">Save assistant</button>
+      <div class="hint" style="margin-top:6px">Free option: create a Gemini API key at aistudio.google.com. Without a key, PMs still get a built-in draft from the client information and their files.</div>`:''}
+  </div></div>`;
+}
+async function refreshAiAdmin(){ const b=el('aiStatus'); if(!b || BACKEND.mode!=='live') return;
+  try{ const {data} = await BACKEND.sb.functions.invoke('cc-admin', {body:{action:'ai_status'}});
+    b.innerHTML = `<span class="hint">Status</span>${data?.configured?`<span class="badge b-approved">Connected</span> ${esc(data.provider)}${data.model?' · '+esc(data.model):''}`:'<span class="badge b-draft">Built-in drafts only</span>'}`;
+    if(el('aiProv') && data?.provider) el('aiProv').value = data.provider; if(el('aiModel') && data?.model) el('aiModel').value = data.model; }
+  catch(e){ b.innerHTML = '<span class="hint">Status</span>Account helper not deployed yet'; } }
+async function saveAiKey(){
+  const body = {action:'ai_config', provider:el('aiProv').value, model:el('aiModel').value.trim()}; const k = el('aiKey').value.trim(); if(k) body.key = k;
+  const {data, error} = await BACKEND.sb.functions.invoke('cc-admin', {body}); if(error || data?.error) return toast('Could not save: '+(data?.error||error.message));
+  el('aiKey').value=''; toast(data.configured?'SOP assistant connected':'Saved'); refreshAiAdmin();
+}
+
+function setPayAttFrom(d){ let g = SETTINGS.find(x=>x.id==='global'); if(!g){ g={...DEFAULT_SETTINGS}; SETTINGS.push(g); } g.payAttFrom = d||null;
+  audit(`Payroll: time-ins checked from ${d||'the start of each period'}`); recordChange(); RENDER.finance(); toast(d?`Missing time-ins are checked from ${dLong(d)}`:'Checking every scheduled day'); }
+function approveAllHolds(){
+  if(!isHead(PERSON)) return;
+  const L = PAYSLIPS.filter(s=>!s.generated && refreshSlip(s).status==='Held' && s.hold?.[PERSON]?.decision!=='approve');
+  if(!L.length) return toast('Nothing on hold waiting for you');
+  const comment = prompt(`Approve proceeding for ${L.length} payslip${L.length===1?'':'s'} on hold (${L.map(s=>s.empName.split(' ')[0]).slice(0,6).join(', ')}${L.length>6?'…':''})?\n\nComment recorded on each:`, '');
+  if(comment===null) return; if(!comment.trim()) return toast('Add a comment explaining the decision');
+  L.forEach(s=>{ s.hold = {...(s.hold||{}), [PERSON]:{decision:'approve', comment, at:nowISO()}}; finHist(s, 'Approved proceeding despite missing time-in', comment); refreshSlip(s); });
+  notify(uniq([...financeKeys(), ...HEADS]), 'approval', `${esc(first(PERSON))} approved proceeding with ${L.length} held payslip${L.length===1?'':'s'}: “${esc(comment)}”`, finLink('payroll'));
+  recordChange(); RENDER.finance(); toast(`Approved ${L.length} — each still needs the other heads' approval`);
+}
+
+/* ===== 18_sop.js ===== */
+/* ================= PM CLIENT SETUP + SOP WORKSPACE + ONE-CLICK CLIENT LINKS =================
+   HR completes onboarding (or assigns a new PM) → the PM gets a client setup task.
+   The PM reviews the brief, services, team and reference files, drafts the SOP (AI assistant or built-in draft),
+   edits and approves it. Publishing needs at least one direct client profile/page link (LinkedIn, Facebook, …).
+   Publish SOP posts the SOP, attachments, client links and tagged responsibilities in the client group chat and keeps
+   the latest approved version on the client organization page. Approved links appear in Lead Generation, Content
+   Creation and the client page so VAs open the right account in one click. */
+const LINK_PLATFORMS = [['linkedin','LinkedIn'],['facebook','Facebook'],['instagram','Instagram'],['tiktok','TikTok'],['x','X / Twitter'],['youtube','YouTube'],['website','Website'],['other','Other']];
+const PLAT_HOSTS = {linkedin:/(^|\.)linkedin\.com$/, facebook:/(^|\.)(facebook\.com|fb\.com|fb\.me)$/, instagram:/(^|\.)instagram\.com$/, tiktok:/(^|\.)tiktok\.com$/, x:/(^|\.)(x\.com|twitter\.com)$/, youtube:/(^|\.)(youtube\.com|youtu\.be)$/};
+const platName = k => (LINK_PLATFORMS.find(p=>p[0]===k)||[,k])[1];
+const PLAT_ICON = {linkedin:'in', facebook:'f', instagram:'◎', tiktok:'♪', x:'𝕏', youtube:'▶', website:'🌐', other:'🔗'};
+function guessPlatform(url){ try{ const h = new URL(url).hostname.replace(/^www\./,''); return Object.keys(PLAT_HOSTS).find(k=>PLAT_HOSTS[k].test(h)) || 'website'; }catch(e){ return 'other'; } }
+/* a direct profile or page link, not just a home page or a search/login page */
+function linkProblem(l){
+  let u; try{ u = new URL(l.url); }catch(e){ return 'is not a full link (start with https://)'; }
+  if(!/^https?:$/.test(u.protocol)) return 'must start with https://';
+  const h = u.hostname.replace(/^www\./,''), path = u.pathname.replace(/\/+$/,'');
+  const pk = l.platform==='website'||l.platform==='other' ? null : l.platform;
+  if(pk && PLAT_HOSTS[pk] && !PLAT_HOSTS[pk].test(h)) return `is not a ${platName(pk)} address`;
+  if(pk && !path) return `goes to the ${platName(pk)} home page — paste the client's own profile or page link`;
+  if(pk==='linkedin' && !/^\/(in|company|showcase|school)\/[^/]+/i.test(path)) return 'should be a LinkedIn profile (/in/…) or company page (/company/…)';
+  if(pk && /^\/(login|search|sharer|share|home|feed|explore)(\/|$)/i.test(path)) return 'is a login/search/feed page, not the client’s profile';
+  return '';
+}
+const DIRECT_PLATS = ['linkedin','facebook','instagram','tiktok','x','youtube'];
+const validDirectLinks = links => (links||[]).filter(l=>DIRECT_PLATS.includes(l.platform) && !linkProblem(l));
+const sopFor = cid => SOPS.find(s=>s.client===cid);
+const SOP_SECTIONS = [['overview','Client overview & goals'],['workflow','Daily workflow'],['deliverables','Deliverables'],['reporting','Reporting process'],['instructions','Important client instructions']];
+function sopHist(s, act, note){ (s.history=s.history||[]).push({at:nowISO(), by:PERSON, act, note:note||''}); }
+const canEditSop = s => !!s && ((s.pms||[]).includes(PERSON) || pmsOf(s.client).includes(PERSON) || isHead(PERSON) || ROLE==='hr');
+
+/* ---------- setup task: created when HR completes onboarding / a PM is newly assigned ---------- */
+function ensureSopTask(c, pms, refs){
+  if(!c || !pms?.length) return null;
+  let s = sopFor(c.id);
+  if(!s){ s = {id:'SOP-'+c.id, client:c.id, clientName:c.name, pms:[...pms], status:'Setup', createdAt:nowISO(), createdBy:PERSON,
+      sections:{}, resp:{}, tagged:null, links:(c.links||[]).map(l=>({...l})), files:[], refs:refs||[], extracts:{}, versions:[], history:[]};
+    sopHist(s, 'Client setup task created', `for ${pms.map(pname).join(', ')}`); SOPS.push(s); }
+  else { const add = pms.filter(k=>!(s.pms||[]).includes(k)); s.pms = uniq([...(s.pms||[]), ...pms]); if(refs?.length) s.refs = uniq([...(s.refs||[]), ...refs]); if(!add.length) return s; }
+  notify(pms, 'assignment', `📋 Client setup task: <b>${esc(c.name)}</b> — review the brief, services and team, then draft and publish the client SOP.`, {view:'sop', arg:c.id});
+  return s;
+}
+
+/* ================= CLIENT SETUP & SOP PAGE ================= */
+let SOPW = {client:null};
+RENDER.sop = () => {
+  if(SOPW.client && client(SOPW.client) && canEditSop(sopFor(SOPW.client)||{client:SOPW.client, pms:pmsOf(SOPW.client)})) return renderSopWorkspace();
+  SOPW.client = null;
+  const mine = ROLE==='manager' ? visClients().filter(c=>pmsOf(c.id).includes(PERSON)) : visClients().filter(c=>c.status==='Active');
+  const rows = mine.map(c=>({c, s:sopFor(c.id)})).sort((a,b)=>sopRank(a.s)-sopRank(b.s) || a.c.name.localeCompare(b.c.name));
+  const setup = rows.filter(r=>r.s && r.s.status!=='Published');
+  el('v-sop').innerHTML = `
+    <div class="page-head"><div><h2>Client Setup & SOP</h2><p>${ROLE==='manager'?'Your client setup tasks and SOPs.':'Client setup tasks and SOPs across the company.'} Review the brief, draft the SOP with the assistant, add the client's profile links, then publish it to the client group chat.</p></div></div>
+    ${setup.length?`<div class="card" style="margin-bottom:14px;border-left:4px solid var(--brand-2)"><div class="card-h"><h3>Setup tasks <span class="badge b-new">${setup.length}</span></h3></div><div class="card-b" style="padding-top:4px">${setup.map(({c,s})=>sopRow(c,s)).join('')}</div></div>`:''}
+    <div class="card"><div class="card-h"><h3>All ${ROLE==='manager'?'my ':''}clients</h3></div><div class="card-b" style="padding-top:4px">${rows.map(({c,s})=>sopRow(c,s)).join('')||'<div class="empty">No clients assigned yet.</div>'}</div></div>`;
+};
+const sopRank = s => !s ? 3 : ({Setup:0, Draft:1, Approved:1, Published:2}[s.status]??2);
+const sopBadge = s => !s ? '<span class="badge b-draft">No SOP</span>' : `<span class="badge ${s.status==='Published'?'b-approved':s.status==='Approved'?'b-pending':s.status==='Setup'?'b-new':'b-scheduled'}">${s.status==='Setup'?'Setup task':s.status==='Published'?'Published v'+s.versions.length:s.status}</span>`;
+function sopRow(c, s){
+  return `<div class="list-row" style="cursor:pointer" onclick="openSop('${c.id}')"><div style="flex:1;min-width:0"><b style="font-size:13px">${esc(c.name)}</b> ${sopBadge(s)}
+    <div class="hint">PM ${pmsOf(c.id).map(first).join(', ')||'—'} · ${(c.team||[]).length} team members${s?.publishedAt?' · published '+ago(s.publishedAt):''}${s&&s.status!=='Published'&&!validDirectLinks(s.links).length?' · needs a client profile link':''}</div></div>
+    <button class="btn ${s&&s.status!=='Published'?'primary':''}" style="padding:5px 11px;font-size:12px">${!s?'Start SOP':s.status==='Published'?'Open / update':'Continue'}</button></div>`;
+}
+function openSop(cid){
+  const c = client(cid); if(!c) return toast('That client is not available');
+  let s = sopFor(cid);
+  if(!s){ if(!(pmsOf(cid).includes(PERSON) || isHead(PERSON) || ROLE==='hr')) return toast('Only the client’s PM can start the SOP');
+    s = ensureSopTask(c, pmsOf(cid).length?pmsOf(cid):[PERSON]); recordChange(); }
+  SOPW.client = cid; if(CURRENT!=='sop') go('sop'); else RENDER.sop();
+}
+
+function sopChecklist(s, c){
+  const text = SOP_SECTIONS.some(([k])=>(s.sections?.[k]||'').trim().length>20);
+  const team = (c.team||[]).filter(k=>PEOPLE[k]);
+  return [
+    ['Review the client brief, services and team', !!s.reviewedBrief],
+    ['Upload reference materials (optional)', (s.files||[]).length>0, true],
+    ['Draft the SOP (assistant or manual)', text],
+    ['Add each VA’s responsibilities', team.length ? team.every(k=>(s.resp?.[k]||'').trim()) : true],
+    ['Add at least one direct client profile or page link', validDirectLinks(s.links).length>0],
+    ['Approve the SOP', ['Approved','Published'].includes(s.status) && s.approvedSig===sopSig(s)],
+    ['Publish to the client group chat', s.status==='Published' && s.publishedSig===sopSig(s)],
+  ];
+}
+const sopSig = s => JSON.stringify([s.sections, s.resp, s.tagged, s.links, (s.files||[]).map(f=>f.path||f.name)]);
+function renderSopWorkspace(){
+  const c = client(SOPW.client); const s = sopFor(c.id); const team = uniq([...(c.team||[])]).filter(k=>PEOPLE[k]);
+  const edit = canEditSop(s); const ck = sopChecklist(s, c);
+  const probs = (s.links||[]).map(l=>linkProblem(l));
+  const canPub = ck[4][1] && ck[5][1];
+  el('v-sop').innerHTML = `
+    <div class="page-head"><div><h2>${esc(c.name)} — client SOP</h2><p>PM ${pmsOf(c.id).map(k=>esc(pname(k))).join(', ')||'—'} · ${sopBadge(s)} ${s.approvedSig&&s.approvedSig!==sopSig(s)&&s.status!=='Setup'?'<span class="hint">· edited since approval — approve again before publishing</span>':''}</p></div>
+      <div style="display:flex;gap:8px"><button class="btn" onclick="SOPW.client=null;RENDER.sop()">← All clients</button><button class="btn" onclick="openClient('${c.id}')">Client workspace</button></div></div>
+    <div class="grid cols-3" style="align-items:start">
+      <div>
+        <div class="card" style="margin-bottom:14px"><div class="card-h"><h3>Setup checklist</h3></div><div class="card-b" style="padding-top:4px">
+          ${ck.map(([t,ok,opt])=>`<div class="list-row" style="font-size:12.5px"><span class="ck ${ok?'on':''}">${ok?'✓':''}</span><span style="flex:1">${esc(t)}${opt?' <span class="hint">(optional)</span>':''}</span></div>`).join('')}
+          ${edit&&!s.reviewedBrief?`<button class="btn" style="width:100%;margin-top:8px;justify-content:center" onclick="sopMark('${c.id}','reviewedBrief')">✓ I reviewed the brief</button>`:''}</div></div>
+        <div class="card"><div class="card-h"><h3>Client brief</h3></div><div class="card-b" style="font-size:12.5px">
+          <p style="white-space:pre-wrap;margin-bottom:10px">${esc(c.summary||'No background recorded.')}</p>
+          <div class="kv" style="margin-bottom:10px"><span class="k">Industry</span><span>${esc(c.industry||'—')}</span><span class="k">Contact</span><span>${esc(c.contact||'—')}</span><span class="k">Plan</span><span>${c.plan} posts/week · ${esc(c.deliverables||'')}</span><span class="k">Tone</span><span>${esc(c.tone||'—')}</span><span class="k">Audience</span><span>${esc(c.audience||'—')}</span></div>
+          <div class="pill-row" style="margin-bottom:10px">${(c.services||[]).map(x=>`<span class="chip fill">${esc(x)}</span>`).join('')}</div>
+          <div class="nav-label" style="padding:4px 0">Team</div>${team.map(k=>`<div class="list-row">${av(P(k))}<div><b>${esc(pname(k))}</b><div class="hint">${esc(c.resp?.[k]||P(k).sub||'')}</div></div></div>`).join('')||'<div class="hint">No team yet</div>'}
+          ${c.guidelines?`<div class="nav-label" style="padding:8px 0 4px">Guidelines</div><p style="white-space:pre-wrap">${esc(c.guidelines)}</p>`:''}
+          <div class="nav-label" style="padding:8px 0 4px">Reference materials</div><div>${fileChips([...(c.docs||[]), ...(s.refs||[])])||'<span class="hint">None from onboarding</span>'}</div>
+        </div></div>
+      </div>
+      <div class="span-2">
+        <div class="card" style="margin-bottom:14px"><div class="card-h"><h3>SOP attachments</h3><span class="sub">Excel, Word, PDF, images and any other files</span></div><div class="card-b">
+          ${edit?`<div class="dropzone" onclick="sopPickFiles('${c.id}')"><h4>Upload files for the SOP</h4><div class="hint">The assistant reads Excel, CSV, Word (.docx), PDF and text files. Images and other files are attached to the SOP.</div></div>`:''}
+          <div id="sopFiles" style="margin-top:8px">${fileChips(s.files, edit?'sopRmFile':null)||'<span class="hint">No attachments yet</span>'}</div>
+          ${edit?`<button class="btn primary" style="margin-top:10px" onclick="sopDraft('${c.id}')">✨ Draft SOP with the assistant</button> <span class="hint" id="sopAiNote">${esc(SOP_AI.note||'')}</span>`:''}
+        </div></div>
+        <div class="card" style="margin-bottom:14px"><div class="card-h"><h3>Client profile & page links</h3><span class="sub">at least one direct profile or page is required to publish</span></div><div class="card-b">
+          <div id="sopLinks">${(s.links||[]).map((l,i)=>`<div class="sop-link"><select ${edit?'':'disabled'} onchange="sopLinkSet(${i},'platform',this.value)">${LINK_PLATFORMS.map(([k,n])=>`<option value="${k}" ${l.platform===k?'selected':''}>${n}</option>`).join('')}</select>
+            <input ${edit?'':'disabled'} value="${esc(l.purpose||'')}" placeholder="Purpose, e.g. Lead generation outreach" onchange="sopLinkSet(${i},'purpose',this.value)">
+            <input ${edit?'':'disabled'} value="${esc(l.url||'')}" placeholder="https://www.linkedin.com/company/…" onchange="sopLinkSet(${i},'url',this.value)" style="flex:2">
+            ${edit?`<button class="btn ghost" onclick="sopLinkRm(${i})">✕</button>`:''}${probs[i]?`<div class="hint" style="color:var(--bad);width:100%">This link ${esc(probs[i])}.</div>`:''}</div>`).join('')||'<div class="hint">No links yet.</div>'}</div>
+          ${edit?`<button class="btn" style="margin-top:8px" onclick="sopLinkAdd()">+ Add link</button>`:''}
+        </div></div>
+        <div class="card" style="margin-bottom:14px"><div class="card-h"><h3>Team responsibilities</h3><span class="sub">tick to tag them when the SOP is published</span></div><div class="card-b">
+          ${team.map(k=>`<div class="sop-resp"><label style="display:flex;gap:8px;align-items:center;min-width:200px"><input type="checkbox" style="width:auto" ${edit?'':'disabled'} ${(s.tagged||team).includes(k)?'checked':''} onchange="sopTag('${k}',this.checked)">${av(P(k))}<span><b style="font-size:12.5px">${esc(pname(k))}</b><div class="hint">${esc(c.resp?.[k]||P(k).sub||'')}</div></span></label>
+            <textarea ${edit?'':'disabled'} rows="3" placeholder="What ${esc(first(k))} does on this account — tasks, tools, quality bar" onchange="sopSet('resp','${k}',this.value)">${esc(s.resp?.[k]||'')}</textarea></div>`).join('')||'<div class="hint">Assign the team in the client workspace first.</div>'}
+        </div></div>
+        ${SOP_SECTIONS.map(([k,l])=>`<div class="card" style="margin-bottom:14px"><div class="card-h"><h3>${l}</h3></div><div class="card-b"><textarea ${edit?'':'disabled'} rows="${k==='overview'?4:6}" style="width:100%" onchange="sopSet('sections','${k}',this.value)">${esc(s.sections?.[k]||'')}</textarea></div></div>`).join('')}
+        ${edit?`<div class="card"><div class="card-b" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+          <button class="btn" onclick="sopSave('${c.id}')">Save draft</button>
+          <button class="btn" onclick="sopApprove('${c.id}')">✓ Approve SOP</button>
+          <button class="btn primary" onclick="sopPublish('${c.id}')" ${canPub?'':'title="Add a client link and approve first"'}>📣 Publish SOP</button>
+          ${canPub?'':`<span class="hint" style="color:var(--bad)">${!ck[4][1]?'Add at least one direct client profile or page link (e.g. the client’s LinkedIn or Facebook page). ':''}${!ck[5][1]?'Approve the SOP after your final edits.':''}</span>`}
+        </div></div>`:''}
+        ${(s.versions||[]).length?`<div class="card" style="margin-top:14px"><div class="card-h"><h3>Published versions</h3></div><div class="card-b">${[...s.versions].reverse().map(v=>`<div class="list-row"><b style="flex:1;font-size:12.5px">Version ${v.version}</b><span class="hint">${esc(pname(v.by))} · ${esc(dtstr(v.at))}</span></div>`).join('')}</div></div>`:''}
+      </div></div>`;
+}
+const curSop = () => sopFor(SOPW.client);
+function sopTouch(s){ if(s.status==='Setup') s.status='Draft'; else if(['Approved','Published'].includes(s.status) && s.approvedSig!==sopSig(s)) s.status='Draft'; }
+function sopSet(group, key, val){ const s=curSop(); s[group]=s[group]||{}; s[group][key]=val; sopTouch(s); recordChange(); }
+function sopTag(k, on){ const s=curSop(); const team=(client(s.client).team||[]); s.tagged = on ? uniq([...(s.tagged||team), k]) : (s.tagged||team).filter(x=>x!==k); sopTouch(s); recordChange(); }
+function sopLinkAdd(){ const s=curSop(); (s.links=s.links||[]).push({platform:'linkedin', purpose:'', url:''}); recordChange(); renderSopWorkspace(); }
+function sopLinkRm(i){ const s=curSop(); s.links.splice(i,1); sopTouch(s); recordChange(); renderSopWorkspace(); }
+function sopLinkSet(i, f, v){ const s=curSop(); const l=s.links[i]; l[f]=v.trim(); if(f==='url' && v && (!l.platform || l.platform==='linkedin') && guessPlatform(v)!=='linkedin') l.platform=guessPlatform(v); sopTouch(s); recordChange(); renderSopWorkspace(); }
+function sopMark(cid, k){ const s=sopFor(cid); s[k]=nowISO(); sopHist(s, 'Reviewed the client brief'); recordChange(); renderSopWorkspace(); }
+function sopRmFile(i){ const s=curSop(); const f=s.files.splice(i,1)[0]; if(f) delete (s.extracts||{})[f.path||f.name]; sopTouch(s); recordChange(); renderSopWorkspace(); }
+function sopSave(){ const s=curSop(); sopTouch(s); sopHist(s, 'Draft saved'); recordChange(); renderSopWorkspace(); toast('SOP draft saved'); }
+function sopApprove(cid){
+  const s=sopFor(cid); const c=client(cid);
+  if(!SOP_SECTIONS.some(([k])=>(s.sections?.[k]||'').trim())) return toast('Write or draft the SOP first');
+  s.status='Approved'; s.approvedSig=sopSig(s); s.approvedAt=nowISO(); s.approvedBy=PERSON; sopHist(s, 'SOP approved');
+  recordChange(); renderSopWorkspace(); toast(validDirectLinks(s.links).length?'Approved — ready to publish':'Approved — add a client profile or page link before publishing');
+}
+async function sopPickFiles(cid){
+  const inp=document.createElement('input'); inp.type='file'; inp.multiple=true;
+  inp.onchange = async()=>{ const s=sopFor(cid); s.extracts=s.extracts||{};
+    for(const f of inp.files){ const ref = await storeFile(f); if(!ref) continue; s.files.push(ref);
+      const t = await fileText(f).catch(()=>''); if(t) s.extracts[ref.path||ref.name] = t.slice(0,15000); }
+    sopTouch(s); sopHist(s, 'Attachments added', [...inp.files].map(f=>f.name).join(', ')); recordChange(); renderSopWorkspace(); };
+  inp.click();
+}
+/* text from Excel / CSV / Word / PDF / text files, for the assistant */
+async function fileText(f){
+  const ext = (f.name.split('.').pop()||'').toLowerCase();
+  if(['csv','xlsx','xls'].includes(ext)){ await loadScript(XLSX_SRC); const wb = XLSX.read(await f.arrayBuffer(), {type:'array'});
+    return wb.SheetNames.map(n=>`[${n}]\n`+XLSX.utils.sheet_to_csv(wb.Sheets[n])).join('\n'); }
+  if(ext==='docx'){ await loadScript(MAMMOTH_SRC); return (await mammoth.extractRawText({arrayBuffer: await f.arrayBuffer()})).value; }
+  if(ext==='pdf'){ await loadScript(PDFJS_SRC); pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_WORKER;
+    const pdf = await pdfjsLib.getDocument({data: await f.arrayBuffer()}).promise; let t='';
+    for(let p=1;p<=Math.min(pdf.numPages,40);p++){ const tc = await (await pdf.getPage(p)).getTextContent(); t += tc.items.map(i=>i.str).join(' ')+'\n'; } return t; }
+  if(['txt','md','json','html','htm'].includes(ext) || /^text\//.test(f.type)) return await f.text();
+  return '';
+}
+
+/* ---------- the assistant ---------- */
+const SOP_AI = {note:''};
+async function sopDraft(cid){
+  const s=sopFor(cid), c=client(cid);
+  if(SOP_SECTIONS.some(([k])=>(s.sections?.[k]||'').trim()) && !confirm('Replace the current SOP text with a new draft? Your links and attachments stay.')) return;
+  const team = (c.team||[]).filter(k=>PEOPLE[k]);
+  const ctx = [`Client: ${c.name}`, `Industry: ${c.industry||''}`, `Background: ${c.summary||''}`, `Services: ${(c.services||[]).join(', ')}`, `Plan: ${c.plan} posts per week; deliverables: ${c.deliverables||''}`,
+    `Tone: ${c.tone||''}; audience: ${c.audience||''}`, `Guidelines: ${c.guidelines||''}`, `Notes: ${c.notes||''}`,
+    `Client links: ${(s.links||[]).map(l=>`${platName(l.platform)} (${l.purpose||'general'}): ${l.url}`).join('; ')||'none yet'}`,
+    `Team:\n${team.map(k=>`- ${pname(k)}: ${c.resp?.[k]||P(k).sub||'team member'}`).join('\n')}`, `PM: ${pmsOf(cid).map(pname).join(', ')}`,
+    ...Object.entries(s.extracts||{}).map(([k,t])=>`--- Uploaded file ${k.split('/').pop()} ---\n${t}`)].join('\n').slice(0,58000);
+  el('sopAiNote') && (el('sopAiNote').innerHTML = '<span class="spinner" style="display:inline-block;vertical-align:middle"></span> Drafting…');
+  let draft = null, used = 'built-in';
+  if(BACKEND.mode==='live'){
+    try{ const {data, error} = await BACKEND.sb.functions.invoke('cc-admin', {body:{action:'ai_draft', system:SOP_SYSTEM, prompt:ctx}});
+      if(!error && data?.configured && data.text){ draft = parseSopAI(data.text, team); used = 'AI assistant'; } }
+    catch(e){ console.warn('AI draft failed, using the built-in draft', e); }
+  }
+  if(!draft) draft = builtInSop(c, s, team);
+  s.sections = {...draft.sections}; s.resp = {...(s.resp||{}), ...draft.resp}; if(!s.tagged?.length) s.tagged = [...team];
+  sopTouch(s); sopHist(s, 'SOP drafted', used); SOP_AI.note = used==='AI assistant' ? 'Drafted by the AI assistant — review and edit before approving.' : 'Built-in draft from the client information'+(Object.keys(s.extracts||{}).length?' and your files':'')+' — review and edit before approving. (A company head can connect an AI assistant in Administration.)';
+  recordChange(); renderSopWorkspace(); toast('SOP draft ready — review and edit it');
+}
+const SOP_SYSTEM = 'You write clear, practical standard operating procedures (SOPs) for a Philippine virtual-assistant agency. Use only the client information and files provided; do not invent facts, names or numbers — write "[confirm with client]" where information is missing. Reply with JSON only: {"overview":"","workflow":"","deliverables":"","reporting":"","instructions":"","responsibilities":{"<exact team member name>":""}}. Use short numbered or bulleted lines inside each string.';
+function parseSopAI(text, team){
+  try{ const j = JSON.parse(String(text).replace(/^[^{]*/,'').replace(/[^}]*$/,''));
+    const resp = {}; team.forEach(k=>{ const v = j.responsibilities?.[pname(k)] || Object.entries(j.responsibilities||{}).find(([n])=>n.toLowerCase().includes(first(k).toLowerCase()))?.[1]; if(v) resp[k]=String(v); });
+    return {sections:Object.fromEntries(SOP_SECTIONS.map(([k])=>[k, String(j[k]||'')])), resp}; }
+  catch(e){ return {sections:{overview:String(text)}, resp:{}}; }
+}
+function builtInSop(c, s, team){
+  const svc = (c.services||[]).map(x=>x.toLowerCase()).join(' ');
+  const rules = Object.values(s.extracts||{}).join('\n').split(/\n|(?<=\.)\s/).map(x=>x.trim()).filter(x=>x.length>12 && x.length<220 && /\b(must|always|never|do not|don't|avoid|required|please|only|deadline|approval|brand)\b/i.test(x)).slice(0,12);
+  const roleTasks = role => { const r = (role||'').toLowerCase(); const t = [];
+    if(/lead|prospect|outreach|sdr/.test(r)) t.push('Find and qualify leads that match the client’s ICP','Send connection requests and follow-ups using the approved connection note','Log every lead and reply in Lead Generation the same day');
+    if(/content|caption|copy|writer|plan/.test(r)) t.push('Plan posts in the Content Calendar based on the client’s plan','Write captions in the client’s tone and submit them for PM approval');
+    if(/graphic|design|video|edit/.test(r)) t.push('Create designs/videos from the brief and brand kit','Upload drafts to Design Studio for PM review before publishing');
+    if(/engage|community|social|inbox/.test(r)) t.push('Reply to comments and messages within the agreed response time','Escalate complaints or sales questions to the PM');
+    if(/admin|assistant|support|va/.test(r) && !t.length) t.push('Handle the daily tasks assigned by the PM in the client group chat','Keep files and trackers up to date');
+    if(!t.length) t.push('Complete the tasks assigned by the PM for this account','Follow the brand guidelines and client instructions below');
+    return t.map((x,i)=>`${i+1}. ${x}`).join('\n'); };
+  const links = (s.links||[]).filter(l=>l.url).map(l=>`• ${platName(l.platform)} — ${l.purpose||'client account'}: ${l.url}`).join('\n');
+  return {
+    sections:{
+      overview:`${c.name} — ${c.industry||'[industry]'}\n${c.summary||'[Add the client background]'}\nServices: ${(c.services||[]).join(', ')||'[confirm with client]'}\nAudience: ${c.audience||'[confirm with client]'} · Tone: ${c.tone||'[confirm with client]'}${links?`\nClient accounts:\n${links}`:''}`,
+      workflow:`1. Time in on the portal and check the ${c.name} group chat for PM updates.\n2. Open the client’s approved profile/page links from the client page before starting.\n3. Work on today’s assigned tasks (Content Board / Lead Generation).\n4. Submit work for PM approval in the portal — nothing is posted without approval.\n5. Post a short end-of-day update in the group chat, then time out.`,
+      deliverables:`${c.deliverables||((c.plan||3)*4)+' posts / month'}\n${/lead/.test(svc)?'Lead generation: qualified leads logged daily with notes and connection status.\n':''}${/engage/.test(svc)?'Engagement: comments and messages answered within the agreed response time.\n':''}Weekly: summary of results for the PM.`,
+      reporting:`• Daily: end-of-day update in the ${c.name} group chat (done, in progress, blockers).\n• Weekly: PM compiles the client report (content published, leads, engagement).\n• Issues or client requests: tag the PM in the group chat right away.`,
+      instructions:(rules.length?rules.map(x=>'• '+x).join('\n')+'\n':'')+(c.guidelines?c.guidelines+'\n':'')+(c.notes?'Notes: '+c.notes:'')||'[Add important client instructions]',
+    },
+    resp:Object.fromEntries(team.map(k=>[k, roleTasks(c.resp?.[k]||P(k).sub)])),
+  };
+}
+
+/* ---------- publish ---------- */
+function sopPublish(cid){
+  const s=sopFor(cid), c=client(cid); const ck = sopChecklist(s, c);
+  if(!validDirectLinks(s.links).length){ s.status = s.status==='Setup'?'Draft':s.status; recordChange(); renderSopWorkspace();
+    return toast('The SOP stays in draft — add at least one direct client profile or page link (e.g. LinkedIn or Facebook) first'); }
+  if(!ck[5][1]) return toast('Approve the SOP after your last edit, then publish');
+  if(!confirm(`Publish the ${c.name} SOP to the client group chat now?`)) return;
+  const team = (c.team||[]).filter(k=>PEOPLE[k]); const tagged = (s.tagged==null ? team : s.tagged).filter(k=>team.includes(k));
+  const version = (s.versions||[]).length + 1;
+  const links = (s.links||[]).filter(l=>l.url && !linkProblem(l)).map(l=>({platform:l.platform, purpose:l.purpose||'', url:l.url}));
+  const snap = {version, at:nowISO(), by:PERSON, sections:{...s.sections}, resp:{...s.resp}, tagged, links, files:[...(s.files||[])]};
+  (s.versions=s.versions||[]).push(snap); s.status='Published'; s.publishedAt=snap.at; s.publishedSig=sopSig(s); sopHist(s, `Published version ${version} to the group chat`);
+  c.sop = snap; c.links = links;
+  const text = `📘 ${c.name} — SOP${version>1?' (updated, version '+version+')':''}\n\n`
+    + `CLIENT LINKS\n${links.map(l=>`• ${platName(l.platform)}${l.purpose?' — '+l.purpose:''}: ${l.url}`).join('\n')}\n\n`
+    + `TEAM RESPONSIBILITIES\n${tagged.map(k=>`@${pname(k)} — ${c.resp?.[k]||P(k).sub||''}\n${s.resp?.[k]||''}`).join('\n\n')}\n\n`
+    + SOP_SECTIONS.map(([k,l])=>s.sections?.[k]?`${l.toUpperCase()}\n${s.sections[k]}`:'').filter(Boolean).join('\n\n')
+    + `\n\nThe latest approved SOP is always on the client page → SOP tab.`;
+  if(CHATS.some(x=>x.id===c.chatId)) MESSAGES.push({id:uid('M'), chat:c.chatId, by:PERSON, text, mentions:tagged, at:nowISO(), files:[...(s.files||[])], kind:'sop'});
+  notify(tagged, 'assignment', `📘 ${esc(first(PERSON))} published the <b>${esc(c.name)}</b> SOP — your responsibilities are tagged in the group chat.`, {view:'chat', arg:c.chatId});
+  notify(uniq([...HR_KEYS(), ...HEADS]), 'system', `📘 <b>${esc(c.name)}</b> SOP ${version>1?'updated (v'+version+')':'published'} by ${esc(first(PERSON))}.`, {view:'client', arg:c.id, tab:'sop'});
+  audit(`Published the ${c.name} SOP v${version}`);
+  recordChange(); renderSopWorkspace(); toast('SOP published to the group chat');
+}
+
+/* ---------- client page SOP tab + one-click links everywhere ---------- */
+function clientLinksHTML(cid, opts={}){
+  const c = client(cid); const L = (c?.links||[]).filter(l=>l.url);
+  if(!L.length) return opts.empty ? `<div class="hint">${opts.empty}</div>` : '';
+  return `<div class="client-links">${opts.label===false?'':`<span class="hint">${esc(opts.label||'Client accounts')}:</span>`}${L.map(l=>`<a class="cl-link cl-${esc(l.platform)}" href="${esc(l.url)}" target="_blank" rel="noopener" title="${esc(platName(l.platform))}${l.purpose?' — '+esc(l.purpose):''}\n${esc(l.url)}"><b>${PLAT_ICON[l.platform]||'🔗'}</b>${esc(platName(l.platform))}${l.purpose?` <small>${esc(l.purpose)}</small>`:''}</a>`).join('')}</div>`;
+}
+function sopTabHTML(c){
+  const v = c.sop; const s = sopFor(c.id);
+  const canOpen = pmsOf(c.id).includes(PERSON) || isHead(PERSON) || ROLE==='hr';
+  if(!v) return `<div class="card"><div class="card-b"><div class="empty">No SOP published yet.${canOpen?` <button class="btn primary" onclick="openSop('${c.id}')">${s?'Continue the SOP':'Start the SOP'}</button>`:' The PM publishes it after onboarding.'}</div></div></div>`;
+  return `<div class="card" style="margin-bottom:14px"><div class="card-h"><h3>SOP — version ${v.version}</h3><span style="display:flex;gap:8px;align-items:center"><span class="hint">Approved & published by ${esc(pname(v.by))} · ${esc(dtstr(v.at))}</span>${canOpen?`<button class="btn" onclick="openSop('${c.id}')">Update SOP</button>`:''}</span></div>
+    <div class="card-b">${clientLinksHTML(c.id)}
+      <div class="nav-label" style="padding:10px 0 4px">Team responsibilities</div>
+      ${(v.tagged||[]).map(k=>`<div class="list-row" style="align-items:flex-start">${av(P(k))}<div style="flex:1"><b style="font-size:12.5px">${esc(pname(k))}</b> <span class="hint">${esc(c.resp?.[k]||'')}</span><div style="white-space:pre-wrap;font-size:12.5px;margin-top:3px">${esc(v.resp?.[k]||'')}</div></div></div>`).join('')}
+      ${SOP_SECTIONS.map(([k,l])=>v.sections?.[k]?`<div class="nav-label" style="padding:12px 0 4px">${l}</div><div style="white-space:pre-wrap;font-size:13px">${esc(v.sections[k])}</div>`:'').join('')}
+      ${(v.files||[]).length?`<div class="nav-label" style="padding:12px 0 4px">Attachments</div>${fileChips(v.files)}`:''}
+    </div></div>`;
+}
+
+/* dashboards: PMs see their setup tasks */
+function sopDashCard(){
+  if(!['manager'].includes(ROLE) && !isHead(PERSON)) return '';
+  const L = SOPS.filter(s=>s.status!=='Published' && (ROLE==='manager' ? (s.pms||[]).includes(PERSON) : true) && client(s.client) && !isEnded(client(s.client)));
+  if(!L.length) return '';
+  return `<div class="card" style="margin-bottom:16px;border-left:4px solid var(--brand-2)"><div class="card-h"><h3>Client setup tasks <span class="badge b-new">${L.length}</span></h3><button class="btn ghost" onclick="SOPW.client=null;go('sop')">All →</button></div>
+    <div class="card-b" style="padding-top:4px">${L.slice(0,5).map(s=>sopRow(client(s.client), s)).join('')}</div></div>`;
+}
+
+/* ---------- wiring: dashboard cards, Finance record upkeep ---------- */
+{ const _dash = RENDER.dashboard;
+  RENDER.dashboard = () => { _dash(); const v = el('v-dashboard'); const head = v.querySelector('.page-head');
+    const extra = financeDashCard() + sopDashCard(); if(!extra) return;
+    const box = document.createElement('div'); box.innerHTML = extra; head ? head.after(...box.children) : v.prepend(...box.children); };
+}
+function finBoot(){ try{ finMigrate(); finReconcile(); }catch(e){ console.warn(e); } }
+{ const _sp = setPerson; setPerson = function(p){ _sp(p); setTimeout(finBoot, 700); }; }
+{ let t=null; const _ore = onRemoteEvent;
+  onRemoteEvent = function(ev){ _ore(ev); if(['clients','finclients','briefs'].includes(ev.coll) && finAuth()){ clearTimeout(t); t=setTimeout(finBoot, 800); } };
 }
 
 CC_BOOT();

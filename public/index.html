@@ -862,6 +862,53 @@ body.es-open{overflow:hidden}
 .js-warn{background:var(--bad-bg);border:1px solid color-mix(in srgb,var(--bad) 30%,transparent);border-radius:10px;padding:9px 12px;margin-bottom:12px;font-size:13px}
 .js-note{background:var(--panel-2);border-radius:10px;padding:9px 12px;margin-bottom:10px;font-size:13px;font-style:italic}
 </style>
+<style>
+/* ---------- Training Hub ---------- */
+.b-trnew{background:var(--warn-bg);color:var(--warn)}
+.tr-filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.tr-filters input{flex:1 1 240px;min-width:0;padding:9px 12px;border:1px solid var(--line);border-radius:10px;background:var(--panel);color:var(--ink);font:inherit}
+.tr-filters select{padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--panel);color:var(--ink);font:inherit;font-size:12.5px}
+.tr-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px}
+.tr-card{border:1px solid var(--line);border-radius:14px;overflow:hidden;background:var(--panel);cursor:pointer;display:flex;flex-direction:column;transition:box-shadow .15s,transform .15s}
+.tr-card:hover{box-shadow:var(--shadow);transform:translateY(-1px)}
+.tr-thumb{position:relative;aspect-ratio:16/9;background:var(--panel-2);display:flex;align-items:center;justify-content:center;overflow:hidden;max-width:100%}
+.tr-thumb img{width:100%;height:100%;object-fit:cover}
+.tr-thumb .tr-ico{font-size:40px}
+.tr-thumb.big{border-radius:12px;border:1px solid var(--line)}
+.tr-thumb .tr-play{position:absolute;inset:auto;width:44px;height:44px;border-radius:50%;background:rgba(0,0,0,.55);color:#fff;display:flex;align-items:center;justify-content:center;font-style:normal;font-size:16px;padding-left:3px}
+.tr-thumb .tr-kind{position:absolute;left:8px;top:8px;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;background:rgba(20,16,8,.72);color:#fff;padding:2px 7px;border-radius:99px}
+.tr-k-pdf{background:#FBE7E7}.tr-k-doc{background:#E7EEFB}.tr-k-sheet{background:#E4F5EB}.tr-k-slides{background:#FCF0DA}.tr-k-video{background:#1B1712}.tr-k-link{background:#EFE8FB}
+[data-theme="dark"] .tr-k-pdf,[data-theme="dark"] .tr-k-doc,[data-theme="dark"] .tr-k-sheet,[data-theme="dark"] .tr-k-slides,[data-theme="dark"] .tr-k-link{background:var(--panel-2)}
+.tr-body{padding:11px 13px 13px;display:flex;flex-direction:column;gap:5px;flex:1}
+.tr-top{display:flex;gap:6px;flex-wrap:wrap}
+.tr-title{font-size:13.5px;line-height:1.35}
+.tr-desc{margin:0;font-size:12px;color:var(--ink-2);line-height:1.45}
+.tr-meta{display:flex;align-items:center;gap:7px;font-size:11.5px;color:var(--ink-3);margin-top:auto}
+.tr-meta .av{width:22px;height:22px;font-size:9px}
+.tr-aud{font-size:11.5px;color:var(--ink-2)}
+.tr-bar{height:6px;border-radius:99px;background:var(--line-2);overflow:hidden;margin-bottom:3px;min-width:70px}
+.tr-bar i{display:block;height:100%;background:var(--ok)}
+.tr-drop{border:1.5px dashed var(--line);border-radius:12px;padding:14px;display:flex;align-items:center;justify-content:center;gap:12px;cursor:pointer;background:var(--panel-2);min-height:78px;flex-wrap:wrap;text-align:center}
+.tr-drop.on{border-color:var(--brand-2);background:var(--warn-bg)}
+.tr-drop img{width:96px;height:54px;object-fit:cover;border-radius:8px}
+.tr-drop-ico{font-size:26px}
+.tr-drop b{font-size:13px;word-break:break-all}
+.tr-vals{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:12px;max-height:210px;overflow-y:auto}
+.tr-vsearch{width:100%;padding:7px 10px;border:1px solid var(--line);border-radius:8px;margin-bottom:8px;background:var(--panel);color:var(--ink);font:inherit;font-size:12.5px}
+.tr-view-meta{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.tr-view-desc{font-size:13.5px;line-height:1.6;margin:0 0 12px;white-space:pre-wrap}
+.tr-stage video,.tr-stage .tr-img{width:100%;max-height:62vh;border-radius:12px;background:#000;display:block}
+.tr-stage .tr-img{background:none;object-fit:contain}
+.tr-pdf{width:100%;height:62vh;border:1px solid var(--line);border-radius:12px;background:#fff}
+.tr-embed{position:relative;aspect-ratio:16/9;max-width:100%}.tr-embed iframe{position:absolute;inset:0;width:100%;height:100%;border:0;border-radius:12px}
+.tr-view-acts{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+.tr-view-acts a.btn{text-decoration:none}
+.tr-ann{display:flex;gap:14px;border:1px solid var(--line);border-radius:12px;padding:10px;margin-bottom:14px;cursor:pointer;background:var(--panel-2);align-items:flex-start;text-align:left}
+.tr-ann .tr-thumb{width:200px;flex-shrink:0;border-radius:10px}
+.tr-ann-b{display:flex;flex-direction:column;gap:4px;min-width:0;align-items:flex-start}
+.tr-ann-b b{font-size:14px}.tr-ann-b p{margin:0;font-size:12.5px;color:var(--ink-2)}
+@media (max-width:640px){.tr-ann{flex-direction:column}.tr-ann .tr-thumb{width:100%}.tr-grid{grid-template-columns:1fr}}
+</style>
 </head>
 <body>
 <div class="login" id="login">
@@ -994,6 +1041,7 @@ body.es-open{overflow:hidden}
     <div id="v-marcus" class="view"></div>
     <div id="v-pa" class="view"></div>
     <div id="v-knowledge" class="view"></div>
+    <div id="v-training" class="view"></div>
     <div id="v-cportal" class="view"></div>
     <div id="v-cprospects" class="view"></div>
     <div id="v-cactivity" class="view"></div>
@@ -1664,6 +1712,7 @@ function buildNav(){
     if(n.id==='orgsetup') pill = ROLE==='hr' ? BRIEFS.filter(b=>b.status==='New'||(isReg(b)&&b.status==='Endorsed')).length : isExec() ? BRIEFS.filter(b=>isReg(b)&&b.status==='Registered'&&b.by===PERSON).length : 0;
     if(n.id==='evals' && ROLE==='hr') pill = EVALS.filter(v=>v.kind==='monthly'&&v.status==='Submitted').length;
     if(n.id==='core') pill = TASKS.filter(t=>t.core && t.handoffTo===PERSON && !t.handoffSeen).length;
+    if(n.id==='training') pill = typeof trUnreadCount==='function' ? trUnreadCount() : 0;
     if(n.id==='pa') pill = typeof paReviewCount==='function' ? paReviewCount() : 0;
     return `<button class="nav-item ${n.id===CURRENT?'active':''} ${n.ai?'nav-ai':''}" onclick="go('${n.id}')">
       ${n.img?`<span class="nav-ava"><img src="${navAssistantImg(n)}" alt=""><i></i></span>`:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="${n.ico}"/></svg>`}
@@ -1774,6 +1823,7 @@ function followLink(link){
   if(link.task) setTimeout(()=>openTask(link.task), 60);
   if(link.doc) setTimeout(()=>openHrDoc(link.doc), 60);
   if(link.ann) setTimeout(()=>openAnn(link.ann), 60);
+  if(link.training) setTimeout(()=>trView(link.training), 60);
   if(link.eval) setTimeout(()=>openEval(link.eval), 60);
 }
 function markAllNotifs(){ myNotifs().forEach(n=>n.read=true); recordChange(); renderNotifs(); }
@@ -1878,8 +1928,8 @@ const LiveBackend = {
         if(['CHANNEL_ERROR','TIMED_OUT','CLOSED'].includes(status)){ this.online=false; SYNC.needResync=true; syncUI(); }
       });
   },
-  async upload(f){
-    const path = `${PERSON}/${Date.now().toString(36)}-${f.name.replace(/[^\w.\-]+/g,'_')}`;
+  async upload(f, dir){
+    const path = `${dir || PERSON}/${Date.now().toString(36)}-${f.name.replace(/[^\w.\-]+/g,'_')}`;
     const {error} = await this.sb.storage.from('cc-files').upload(path, f, {contentType:f.type||'application/octet-stream'});
     if(error) throw error;
     return {name:f.name, type:f.type, size:f.size, path};
@@ -2245,7 +2295,7 @@ function setAnnRead(id, ack){
   if(!r.readAt) r.readAt = at;
   if(ack && !r.ackAt) r.ackAt = at;
 }
-const targetLabel = a => a.target.type==='all'?'Everyone':a.target.type==='core'?'Core team':a.target.type==='dept'?(a.target.depts||[]).join(', '):'Selected people';
+const targetLabel = a => a.target.label ? a.target.label : a.target.type==='all'?'Everyone':a.target.type==='core'?'Core team':a.target.type==='dept'?(a.target.depts||[]).join(', '):'Selected people';
 function annStrip(){
   const u = annUnread();
   if(!u.length) return '';
@@ -2306,7 +2356,7 @@ function openAnn(id){
     <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap">
       <span class="badge prio-${a.priority.toLowerCase()}">${a.priority}</span>
       <span class="hint">${a.id} · Posted by ${esc(pname(a.by))} · ${esc(a.date)}${a.expires?' · Expires '+esc(a.expires):''}</span></div>
-    <p style="font-size:13.5px;line-height:1.65;margin-bottom:14px;white-space:pre-wrap">${linkify(a.body)}</p>
+    ${a.training && typeof trAnnCard==='function' ? trAnnCard(a) : `<p style="font-size:13.5px;line-height:1.65;margin-bottom:14px;white-space:pre-wrap">${linkify(a.body)}</p>`}
     ${a.link?`<div class="info-item" style="margin-bottom:12px"><span class="hint">Attachment / link</span><span style="color:var(--info);font-weight:600">${linkify(a.link)}</span></div>`:''}
     ${a.files?.length?`<div style="margin-bottom:12px">${fileChips(a.files)}</div>`:''}
     ${wantsAck?`<button class="btn primary" style="width:100%" onclick="ackAnn('${a.id}')">✓ Acknowledge — I have read this announcement</button>
@@ -2360,16 +2410,16 @@ function annModal(){
     <button class="btn primary" style="width:100%" onclick="saveAnn()">Publish & notify recipients</button>
     <div class="hint" style="text-align:center;margin-top:8px">Recipients get a real-time alert and an unread badge. High and Urgent posts appear as a centered pop-up they must acknowledge.</div>`);
 }
-function publishAnnouncement({title, body, priority, link, expiresDays, target, files, fromDoc}){
+function publishAnnouncement({title, body, priority, link, expiresDays, target, files, fromDoc, training, note}){
   const n = ANNOUNCEMENTS.reduce((m,a)=>Math.max(m, +String(a.id).replace(/\D/g,'')||0), 0) + 1;
   const a = {id:'AN-'+String(n).padStart(3,'0')+(BACKEND.mode==='live'?'-'+Date.now().toString(36).slice(-3):''), title, body, by:PERSON, at:nowISO(),
     date:new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}),
     priority, link:link||'', files:files||[], fromDoc:fromDoc||null,
-    expires: +expiresDays ? fmt(addD(+expiresDays)) : null, target, archived:false};
+    expires: +expiresDays ? fmt(addD(+expiresDays)) : null, target, archived:false, training:training||null};
   ANNOUNCEMENTS.unshift(a);
   setAnnRead(a.id, true);
   const aud = annAudience(a);
-  notify(aud, 'announcement', `<b>${priority==='Urgent'?'URGENT — ':''}New announcement</b> from ${esc(pname(PERSON))}: “${esc(title)}”`, {view:'announce', ann:a.id});
+  notify(aud, 'announcement', note?.text || `<b>${priority==='Urgent'?'URGENT — ':''}New announcement</b> from ${esc(pname(PERSON))}: “${esc(title)}”`, note?.link || {view:'announce', ann:a.id});
   audit(`Posted ${priority} announcement ${a.id} — “${title}” to ${aud.length} recipients`);
   return {a, count:aud.length};
 }
@@ -2419,6 +2469,7 @@ function checkUrgentAnns(){ if(ROLE==='client') return;
     <div class="hint" style="margin-bottom:12px">Posted by: ${esc(pname(urg.by))} · ${esc(urg.date)} · Status: ${annRead(urg.id)?.readAt?'Read, not yet acknowledged':'Unread'}</div>
     <p style="font-size:13.5px;line-height:1.65;margin-bottom:18px;white-space:pre-wrap">${linkify(urg.body)}</p>
     ${urg.files?.length?`<div style="margin-bottom:12px">${fileChips(urg.files)}</div>`:''}
+    ${urg.training && typeof trAnnCard==='function' ? trAnnCard(urg).replace(/closeModal\(\);/g, "document.getElementById('annGate')?.remove();") : ''}
     <div style="display:flex;gap:9px">
       <button class="btn" style="flex:1;justify-content:center" onclick="document.getElementById('annGate').remove();go('announce');openAnn('${urg.id}')">View announcement</button>
       <button class="btn primary" style="flex:1;justify-content:center" onclick="ackAnn('${urg.id}')">✓ I have read this</button>
@@ -7068,6 +7119,7 @@ RENDER.settings = () => {
         <div class="grid cols-3">${TARGET_DEFS.map(([k,l])=>`<div class="field"><label>${l}</label><input id="setT_${k}" type="number" min="0" value="${s.targets?.[k]??0}"></div>`).join('')}</div>
         <button class="btn primary" onclick="saveSettings('targets')">Save targets</button></div></div>
     </div>
+    <div class="grid cols-2" style="margin-bottom:16px">${typeof trAdminCard==='function'?trAdminCard():''}</div>
     <div class="grid cols-2" style="margin-bottom:16px">
       ${searchAdminCard()}
       <div class="card"><div class="card-h"><h3>Custom lead data source (advanced, optional)</h3></div><div class="card-b">
@@ -7111,6 +7163,7 @@ function saveSettings(part){
     const links = el('setMeetLinks').value.split(/\s+/).map(x=>x.trim()).filter(Boolean); const bad = links.filter(u=>!/^https:\/\/meet\.google\.com\/[a-z]{3}-[a-z]{4}-[a-z]{3}/i.test(u)); if(bad.length) return toast('Not a Google Meet link: '+bad[0]);
     s.meetLinks = links.map(u=>u.split('?')[0]); const tu = el('setTurnUrls').value.trim(); s.callTurn = tu ? {urls:tu, username:el('setTurnUser').value.trim(), credential:el('setTurnPass').value.trim()} : null; }
   if(part==='finance'){ const k=[...document.querySelectorAll('#setFin input:checked')].map(x=>x.value); if(!k.length) return toast('Choose at least one Finance person'); s.financeKeys = k; }
+  if(part==='training'){ s.trainUploaders = [...document.querySelectorAll('#setTrain input:checked')].map(x=>x.value); }
   if(part==='source'){ const u=el('setSrcUrl').value.trim(); if(u && !/^https:\/\//.test(u)) return toast('Use an https:// endpoint'); s.leadSource={name:el('setSrcName').value.trim(), url:u}; }
   audit(`Updated settings — ${part}`);
   recordChange(); buildNav(); toast('Saved — applies to everyone right away');
@@ -10943,6 +10996,323 @@ function esMyDocRow(d){
       <div class="hint">From HR · ${dtstr(d.sentAt)}${(d.version||1)>1?' · version '+d.version:''}${r?' · signed '+dtstr(r.signedAt):''}</div></div>
     ${r?`<button class="btn" style="padding:5px 11px;font-size:12px" onclick="esViewSigned('${r.id}')">View</button><button class="btn" style="padding:5px 11px;font-size:12px" onclick="esDownload('${r.id}')">⬇ Signed PDF</button>`
       : d.supersededBy ? `<button class="btn" style="padding:5px 11px;font-size:12px" onclick="openHrDoc('${d.id}')">View</button>` : `<button class="btn primary" style="padding:5px 11px;font-size:12px" onclick="esStart('${d.id}')">Review & sign</button>`}</div>`;
+}
+
+/* ===== 30_training.js ===== */
+/* ================= TRAINING HUB — one place for training videos, decks and documents =================
+   Who can upload: company heads, HR, project managers, and people granted upload rights in Administration
+   (Kiara, marketing head, by default). Everyone else can only view what is shared with them.
+   Each training is shared with an audience: all employees, departments, teams/groups, portals, roles or selected
+   people. Only that audience (plus the uploader and company heads) receives the record — the live database
+   enforces the same rule, including for the stored file itself.
+   Publishing a training posts an announcement and a notification to exactly that audience, with a preview and a
+   “View training” button. Progress (opened / completed) is kept per person. */
+let TRAININGS = [], TRAINPROG = [];
+COLL.trainings = {get:()=>TRAININGS, set:v=>TRAININGS=v, aud:t=>t.target?.type==='all' ? null : uniq([...(t.recipients||[]), t.by, ...HEADS])};
+COLL.trainprog = {get:()=>TRAINPROG, set:v=>TRAINPROG=v, aud:p=>{ const t = TRAININGS.find(x=>x.id===p.training); return uniq([p.person, t?.by, ...HEADS]); }};
+
+{ const at = NAV.findIndex(n=>n.id==='knowledge'); NAV.splice(at+1, 0, {id:'training', name:'Training Hub', roles:ALLR, ico:I.film}); }
+
+const TR = {tab:'foryou', q:'', kind:'', status:'', by:'', aud:'', t:null, files:[], thumb:'', link:''};
+const TR_KINDS = {video:['Video','🎬'], pdf:['PDF','📕'], doc:['Word','📘'], sheet:['Excel','📗'], slides:['PowerPoint','📙'], image:['Image','🖼️'], audio:['Audio','🎧'], link:['Link','🔗'], other:['File','📄']};
+const TR_TYPES = {all:'All employees', dept:'Department', group:'Team / group', portal:'Portal', role:'Role', people:'Selected people'};
+const TR_PORTALS = [['va','VA portal'],['specialist','Specialist / marketing portal'],['graphics','Graphics editor portal'],['pm','Project manager portal'],['hr','HR portal'],['heads','Company heads']];
+const TR_ACCEPT = '.mp4,.mov,.m4v,.webm,.avi,.mkv,.mp3,.m4a,.wav,.pdf,.doc,.docx,.rtf,.odt,.txt,.md,.xls,.xlsx,.csv,.ods,.ppt,.pptx,.pps,.ppsx,.key,.odp,.png,.jpg,.jpeg,.gif,.webp,.zip';
+
+/* ---------- who may upload ---------- */
+const trUploaderList = () => S().trainUploaders ?? ['kiara'];
+function trCanUpload(k=PERSON){ const p = PEOPLE[k]; if(!p || p.role==='client') return false;
+  return isHead(k) || ['ceo','coo','creative','hr','manager'].includes(p.role) || (k===PERSON && isFullAccess()) || trUploaderList().includes(k); }
+const trCanManage = t => t && (t.by===PERSON || isHead(PERSON) || ROLE==='hr' || isFullAccess());
+
+/* ---------- audience ---------- */
+const trEmp = k => { const p = PEOPLE[k]; return p?.empId ? emp(p.empId) : null; };
+const trStaff = () => activePeople().filter(k=>PEOPLE[k]?.role!=='client');
+function trOptions(type){
+  const E = EMPLOYEES.filter(e=>['Active','On Probation'].includes(e.status));
+  if(type==='dept') return uniq(E.map(e=>e.dept)).sort().map(d=>[d,d]);
+  if(type==='group') return uniq(['Core Team', ...E.map(e=>e.group)]).filter(Boolean).map(g=>[g,g]);
+  if(type==='portal') return TR_PORTALS;
+  if(type==='role') return [['Company head','Company heads'],['Project manager','Project managers'], ...uniq(E.map(e=>e.role)).filter(Boolean).sort().map(r=>[r,r])];
+  if(type==='people') return trStaff().map(k=>[k, pname(k)]).sort((a,b)=>a[1].localeCompare(b[1]));
+  return [];
+}
+function trMatches(k, tg){
+  const p = PEOPLE[k]; if(!p || p.role==='client') return false; const e = trEmp(k); const v = tg.values||[];
+  if(tg.type==='all') return true;
+  if(tg.type==='dept') return !!e && v.includes(e.dept);
+  if(tg.type==='group') return (!!e && v.includes(e.group)) || (v.includes('Core Team') && typeof isCore==='function' && isCore(k));
+  if(tg.type==='portal') return v.includes(e ? portalOf(e) : p.role==='manager' ? 'pm' : 'heads');
+  if(tg.type==='role') return (!!e && v.includes(e.role)) || (v.includes('Project manager') && p.role==='manager') || (v.includes('Company head') && isHead(k));
+  if(tg.type==='people') return v.includes(k);
+  return false;
+}
+const trRecipients = tg => trStaff().filter(k=>trMatches(k, tg));
+function trTargetLabel(tg){ if(!tg || tg.type==='all') return 'All employees';
+  const opts = Object.fromEntries(trOptions(tg.type)); const names = (tg.values||[]).map(v=>opts[v]||v);
+  return `${TR_TYPES[tg.type]}: ${names.slice(0,3).join(', ')}${names.length>3?` +${names.length-3} more`:''}`; }
+const trForMe = t => t.target?.type==='all' || (t.recipients||[]).includes(PERSON);
+const trVisible = () => TRAININGS.filter(t=>!t.archived && canSee('trainings', t) && (trForMe(t) || trCanManage(t) || isHead(PERSON)))
+  .sort((a,b)=>(b.at||'').localeCompare(a.at||''));
+
+/* ---------- progress ---------- */
+const trProg = (id, k=PERSON) => TRAINPROG.find(p=>p.training===id && p.person===k);
+function trStatus(t, k=PERSON){ const p = trProg(t.id, k); return p?.completedAt ? 'done' : p?.openedAt ? 'progress' : 'new'; }
+const TR_ST = {new:['New','b-trnew'], progress:['In progress','b-progress'], done:['Completed','b-approved']};
+function trTouch(id, patch){
+  let p = trProg(id);
+  if(!p){ p = {id:id+'|'+PERSON, training:id, person:PERSON, openedAt:nowISO(), completedAt:null, pct:0}; TRAINPROG.push(p); }
+  Object.assign(p, patch); recordChange(); return p;
+}
+const trUnreadCount = () => { if(!PEOPLE[PERSON] || ROLE==='client') return 0; return TRAININGS.filter(t=>!t.archived && trForMe(t) && t.by!==PERSON && !trProg(t.id)).length; };
+
+/* ---------- file kinds, thumbnails, storage ---------- */
+function trKind(f, link){
+  if(!f) return link ? (/youtu\.?be|vimeo|loom|\.mp4/i.test(link) ? 'video' : 'link') : 'other';
+  const n = (f.name||'').toLowerCase(), ty = f.type||'';
+  if(/^video\//.test(ty) || /\.(mp4|mov|m4v|webm|avi|mkv)$/.test(n)) return 'video';
+  if(/^audio\//.test(ty) || /\.(mp3|m4a|wav)$/.test(n)) return 'audio';
+  if(/pdf/.test(ty) || /\.pdf$/.test(n)) return 'pdf';
+  if(/\.(docx?|rtf|odt|txt|md)$/.test(n) || /word/.test(ty)) return 'doc';
+  if(/\.(xlsx?|csv|ods)$/.test(n) || /sheet|excel/.test(ty)) return 'sheet';
+  if(/\.(pptx?|ppsx?|key|odp)$/.test(n) || /presentation|powerpoint/.test(ty)) return 'slides';
+  if(/^image\//.test(ty) || /\.(png|jpe?g|gif|webp)$/.test(n)) return 'image';
+  return 'other';
+}
+const trSize = b => !b ? '' : b > 1048576 ? (b/1048576).toFixed(1)+' MB' : Math.max(1, Math.round(b/1024))+' KB';
+function trCanvasThumb(src, w, h){ const c = document.createElement('canvas'); const W = 480, H = Math.round(W * h / w) || 270; c.width = W; c.height = Math.min(H, 360);
+  c.getContext('2d').drawImage(src, 0, 0, c.width, c.height); return c.toDataURL('image/jpeg', 0.72); }
+async function trMakeThumb(file){
+  const kind = trKind(file); const url = URL.createObjectURL(file);
+  const within = (p, ms=7000) => Promise.race([p, new Promise(r=>setTimeout(()=>r(''), ms))]);
+  try{
+    if(kind==='image') return await within(new Promise(ok=>{ const i = new Image(); i.onload=()=>ok(trCanvasThumb(i, i.naturalWidth, i.naturalHeight)); i.onerror=()=>ok(''); i.src = url; }));
+    if(kind==='video') return await within(new Promise(ok=>{ const v = document.createElement('video'); v.muted = true; v.preload = 'metadata'; v.playsInline = true;
+      v.onloadedmetadata = () => { v.currentTime = Math.min(2, (v.duration||4)/3); };
+      v.onseeked = () => { try{ ok(trCanvasThumb(v, v.videoWidth, v.videoHeight)); }catch(e){ ok(''); } };
+      v.onerror = () => ok(''); v.src = url; }));
+    if(kind==='pdf') return await within((async()=>{ await loadScript(PDFJS_SRC); pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_WORKER;
+      const pdf = await pdfjsLib.getDocument({data: await file.arrayBuffer()}).promise; const pg = await pdf.getPage(1);
+      const vp0 = pg.getViewport({scale:1}); const vp = pg.getViewport({scale:480/vp0.width});
+      const c = document.createElement('canvas'); c.width = vp.width; c.height = Math.min(vp.height, 620);
+      await pg.render({canvasContext:c.getContext('2d'), viewport:vp}).promise; return c.toDataURL('image/jpeg', 0.7); })(), 9000);
+  }catch(e){ return ''; } finally { setTimeout(()=>URL.revokeObjectURL(url), 10000); }
+  return '';
+}
+async function trStore(f, tid){
+  const limitMB = BACKEND.mode==='live' ? 50 : 1.5;
+  if(f.size > limitMB*1024*1024){ toast(`${f.name} is ${trSize(f.size)} — the limit is ${limitMB} MB${BACKEND.mode==='demo'?' in demo mode':''}. For bigger videos, upload them to Google Drive, YouTube (unlisted) or Loom and paste the link instead.`); return null; }
+  try{ return await BACKEND.upload(f, `training/${tid}`); }catch(e){ toast('Upload failed: '+e.message); return null; }
+}
+
+/* ---------- the page ---------- */
+function trFiltered(list){
+  const q = TR.q.trim().toLowerCase();
+  return list.filter(t=>(!q || [t.title, t.desc, t.category, pname(t.by), t.targetLabel, t.file?.name].join(' ').toLowerCase().includes(q))
+    && (!TR.kind || t.kind===TR.kind) && (!TR.by || t.by===TR.by) && (!TR.status || trStatus(t)===TR.status)
+    && (!TR.aud || t.target?.type===TR.aud));
+}
+function trThumbHTML(t, cls='tr-thumb'){
+  const [label, ico] = TR_KINDS[t.kind] || TR_KINDS.other;
+  return `<div class="${cls} tr-k-${t.kind}">${t.thumb?`<img src="${t.thumb}" alt="">`:`<span class="tr-ico">${ico}</span>`}${t.kind==='video'?'<i class="tr-play">▶</i>':''}<span class="tr-kind">${label}</span></div>`;
+}
+function trCard(t){
+  const st = trStatus(t); const [sl, sc] = TR_ST[st];
+  return `<div class="tr-card" onclick="trView('${t.id}')">${trThumbHTML(t)}
+    <div class="tr-body"><div class="tr-top">${trForMe(t)?`<span class="badge ${sc}">${sl}</span>`:'<span class="badge b-draft">Not in your audience</span>'}${t.required?'<span class="badge b-scheduled">Required</span>':''}</div>
+      <b class="tr-title">${esc(t.title)}</b>${t.desc?`<p class="tr-desc">${esc(coraTrim(t.desc, 110))}</p>`:''}
+      <div class="tr-meta">${av(P(t.by))}<span>${esc(pname(t.by))} · ${dstr(t.at)}</span></div>
+      <div class="tr-aud">👥 ${esc(t.targetLabel||'All employees')}</div></div></div>`;
+}
+RENDER.training = () => {
+  const keep = el('trQ') === document.activeElement;
+  const all = trVisible(); const mine = all.filter(trForMe);
+  const fresh = mine.filter(t=>trStatus(t)==='new' && t.by!==PERSON), prog = mine.filter(t=>trStatus(t)==='progress'), done = mine.filter(t=>trStatus(t)==='done');
+  const uploads = all.filter(t=>t.by===PERSON || (trCanManage(t) && (isHead(PERSON) || ROLE==='hr')));
+  const tabs = [['foryou','For you'],['recent','Recently added'],['done',`Completed (${done.length})`],['history','Training history'], ...(trCanUpload()?[['manage',`Manage uploads (${uploads.length})`]]:[])];
+  const uploaders = uniq(all.map(t=>t.by));
+  const filters = `<div class="tr-filters"><input id="trQ" placeholder="Search trainings, topics, uploaders…" value="${esc(TR.q)}" oninput="TR.q=this.value;clearTimeout(TR.t);TR.t=setTimeout(RENDER.training,160)">
+    <select onchange="TR.kind=this.value;RENDER.training()"><option value="">All types</option>${Object.entries(TR_KINDS).map(([k,[l]])=>`<option value="${k}" ${TR.kind===k?'selected':''}>${l}</option>`).join('')}</select>
+    <select onchange="TR.status=this.value;RENDER.training()"><option value="">Any status</option>${Object.entries(TR_ST).map(([k,[l]])=>`<option value="${k}" ${TR.status===k?'selected':''}>${l}</option>`).join('')}</select>
+    <select onchange="TR.by=this.value;RENDER.training()"><option value="">Any uploader</option>${uploaders.map(k=>`<option value="${k}" ${TR.by===k?'selected':''}>${esc(pname(k))}</option>`).join('')}</select>
+    <select onchange="TR.aud=this.value;RENDER.training()"><option value="">Any audience</option>${Object.entries(TR_TYPES).map(([k,l])=>`<option value="${k}" ${TR.aud===k?'selected':''}>${l}</option>`).join('')}</select></div>`;
+  const grid = (L, empty) => L.length ? `<div class="tr-grid">${L.map(trCard).join('')}</div>` : `<div class="empty">${empty}</div>`;
+  let body = '';
+  if(TR.tab==='foryou'){
+    body = `<div class="card" style="margin-bottom:16px"><div class="card-h"><h3>New & unread</h3><span class="sub">${fresh.length} waiting for you</span></div><div class="card-b">${grid(trFiltered(fresh), 'You’re all caught up — new trainings shared with you will appear here.')}</div></div>
+      ${prog.length?`<div class="card" style="margin-bottom:16px"><div class="card-h"><h3>Continue where you left off</h3><span class="sub">${prog.length} in progress</span></div><div class="card-b">${grid(trFiltered(prog), '')}</div></div>`:''}
+      <div class="card"><div class="card-h"><h3>Recently added</h3></div><div class="card-b">${grid(trFiltered(mine).slice(0,8), 'No trainings have been shared with you yet.')}</div></div>`;
+  } else if(TR.tab==='recent') body = `<div class="card"><div class="card-h"><h3>Recently added</h3><span class="sub">newest first</span></div><div class="card-b">${grid(trFiltered(all), 'No trainings yet.')}</div></div>`;
+  else if(TR.tab==='done') body = `<div class="card"><div class="card-h"><h3>Completed trainings</h3></div><div class="card-b">${grid(trFiltered(done), 'Trainings you complete will be listed here.')}</div></div>`;
+  else if(TR.tab==='history'){
+    const L = trFiltered(mine);
+    body = `<div class="card"><div class="card-h"><h3>Your training history</h3><span class="sub">${done.length} of ${mine.length} completed</span></div><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Training</th><th>Type</th><th>Uploaded</th><th>Uploader</th><th>Audience</th><th>Opened</th><th>Completed</th><th>Status</th></tr></thead><tbody>
+      ${L.map(t=>{ const p = trProg(t.id); const [sl, sc] = TR_ST[trStatus(t)]; return `<tr style="cursor:pointer" onclick="trView('${t.id}')"><td><b>${esc(t.title)}</b></td><td>${(TR_KINDS[t.kind]||TR_KINDS.other)[0]}</td><td>${dstr(t.at)}</td><td>${esc(pname(t.by))}</td><td>${esc(t.targetLabel||'')}</td><td>${p?.openedAt?dstr(p.openedAt):'—'}</td><td>${p?.completedAt?dstr(p.completedAt):'—'}</td><td><span class="badge ${sc}">${sl}</span></td></tr>`; }).join('') || '<tr><td colspan="8" class="empty">No trainings match.</td></tr>'}
+      </tbody></table></div></div>`;
+  } else if(TR.tab==='manage'){
+    const L = trFiltered(uploads);
+    body = `<div class="card"><div class="card-h"><h3>Uploaded trainings</h3><span class="sub">audience, completion and actions</span></div><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Training</th><th>Uploaded</th><th>Uploader</th><th>Audience</th><th>Opened</th><th>Completed</th><th></th></tr></thead><tbody>
+      ${L.map(t=>{ const R = trAudienceNow(t); const o = R.filter(k=>trProg(t.id,k)).length, c = R.filter(k=>trProg(t.id,k)?.completedAt).length; return `<tr><td><b style="cursor:pointer" onclick="trView('${t.id}')">${esc(t.title)}</b><div class="hint">${(TR_KINDS[t.kind]||TR_KINDS.other)[0]}${t.file?' · '+esc(t.file.name)+' · '+trSize(t.file.size):''}</div></td><td>${dstr(t.at)}</td><td>${esc(pname(t.by))}</td><td>${esc(t.targetLabel||'')}<div class="hint">${R.length} ${R.length===1?'person':'people'}</div></td><td>${o}/${R.length}</td><td><div class="tr-bar"><i style="width:${R.length?Math.round(c/R.length*100):0}%"></i></div>${c}/${R.length}</td>
+        <td style="white-space:nowrap"><button class="btn" style="padding:5px 10px;font-size:12px" onclick="trTrack('${t.id}')">Tracking</button> ${trCanManage(t)?`<button class="btn" style="padding:5px 10px;font-size:12px" onclick="trEdit('${t.id}')">Edit</button> <button class="btn" style="padding:5px 10px;font-size:12px;color:var(--bad)" onclick="trDelete('${t.id}')">Delete</button>`:''}</td></tr>`; }).join('') || '<tr><td colspan="7" class="empty">Nothing uploaded yet — click “Upload training”.</td></tr>'}
+      </tbody></table></div></div>`;
+  }
+  el('v-training').innerHTML = `<div class="page-head"><div><h2>Training Hub</h2><p>Training videos, presentations and documents for the Cross Core team — shared only with the people each training is meant for.</p></div>
+      ${trCanUpload()?`<button class="btn primary" onclick="trEdit()">＋ Upload training</button>`:''}</div>
+    <div class="grid cols-4" style="margin-bottom:16px">
+      <div class="card kpi"><div class="k-label">New for you</div><div class="k-val" style="color:${fresh.length?'var(--info)':'var(--ink)'}">${fresh.length}</div><div class="hint">not opened yet</div></div>
+      <div class="card kpi"><div class="k-label">In progress</div><div class="k-val">${prog.length}</div><div class="hint">opened, not completed</div></div>
+      <div class="card kpi"><div class="k-label">Completed</div><div class="k-val" style="color:var(--ok)">${done.length}</div><div class="hint">of ${mine.length} shared with you</div></div>
+      <div class="card kpi"><div class="k-label">${trCanUpload()?'Uploaded by you':'Available'}</div><div class="k-val">${trCanUpload()?all.filter(t=>t.by===PERSON).length:mine.length}</div><div class="hint">${trCanUpload()?'you can upload & tag audiences':'trainings in the hub'}</div></div></div>
+    <div class="tabs" style="margin-bottom:12px">${tabs.map(([k,l])=>`<button class="tab ${TR.tab===k?'on':''}" onclick="TR.tab='${k}';RENDER.training()">${l}</button>`).join('')}</div>
+    ${filters}${body}`;
+  if(keep){ const i = el('trQ'); i.focus(); i.setSelectionRange(i.value.length, i.value.length); }
+};
+/* current audience (people who joined later are included for "All employees"; removed staff drop out) */
+const trAudienceNow = t => t.target?.type==='all' ? trStaff() : (t.recipients||[]).filter(k=>PEOPLE[k]);
+
+/* ---------- upload / edit ---------- */
+function trEdit(id){
+  if(!trCanUpload()) return toast('Only HR, project managers, company heads and approved uploaders can add trainings');
+  const t = id ? TRAININGS.find(x=>x.id===id) : null; if(t && !trCanManage(t)) return toast('Only the uploader, HR or a company head can edit this training');
+  TR.edit = {id:t?.id || uid('TR'), file:t?.file||null, thumb:t?.thumb||'', kind:t?.kind||'', isNew:!t};
+  const tg = t?.target || {type:'all', values:[]};
+  openModal(t ? 'Edit training' : 'Upload training', `
+    <div class="field"><label>Title *</label><input id="trTitle" value="${esc(t?.title||'')}" placeholder="e.g. Lead Gen: how to submit leads with attachments"></div>
+    <div class="field"><label>Short description</label><textarea id="trDesc" rows="3" placeholder="What it covers and who it is for">${esc(t?.desc||'')}</textarea></div>
+    <div class="field"><label>Training file</label><div class="tr-drop" id="trDrop" onclick="trPick()" ondragover="event.preventDefault();this.classList.add('on')" ondragleave="this.classList.remove('on')" ondrop="event.preventDefault();this.classList.remove('on');trTakeFile(event.dataTransfer.files[0])">${trDropHTML()}</div>
+      <div class="hint" style="margin-top:6px">MP4 / video, PDF, Word, Excel, PowerPoint, images, audio and other common files · up to ${BACKEND.mode==='live'?'50 MB':'1.5 MB in demo mode'}.</div></div>
+    <div class="field"><label>…or a link (Google Drive, YouTube unlisted, Loom, Google Slides)</label><input id="trLink" value="${esc(t?.link||'')}" placeholder="https://…"></div>
+    <div class="grid cols-2"><div class="field"><label>Category (optional)</label><input id="trCat" value="${esc(t?.category||'')}" placeholder="e.g. Onboarding, Lead Gen, Tools"></div>
+      <div class="field"><label>Announcement</label><select id="trPrio"><option value="Normal">Normal announcement</option><option value="High" ${t?.required?'selected':''}>Required — pop-up the audience must acknowledge</option></select></div></div>
+    <div class="field"><label>Who can access this training? *</label><select id="trType" onchange="trTypeChange()">${Object.entries(TR_TYPES).map(([k,l])=>`<option value="${k}" ${tg.type===k?'selected':''}>${l}</option>`).join('')}</select></div>
+    <div id="trVals" class="tr-vals">${trValsHTML(tg.type, tg.values)}</div>
+    <div class="hint" id="trCount" style="margin:-4px 0 12px"></div>
+    <button class="btn primary" style="width:100%" onclick="trSave()">${t?'Save changes':'Publish & notify audience'}</button>
+    <div class="hint" style="text-align:center;margin-top:8px">${t?'Changes update the training for its audience. People added to the audience are notified.':'Only the selected audience can see this training. They get an announcement and a notification with a “View training” button.'}</div>`);
+  trTypeChange(true);
+}
+function trDropHTML(){ const e = TR.edit; if(!e?.file) return `<span class="tr-drop-ico">⬆</span><b>Click to choose a file</b><span class="hint">or drag it here</span>`;
+  const [label, ico] = TR_KINDS[e.kind] || TR_KINDS.other;
+  return `${e.thumb?`<img src="${e.thumb}" alt="">`:`<span class="tr-drop-ico">${ico}</span>`}<div style="text-align:left;flex:1;min-width:0"><b>${esc(e.file.name)}</b><div class="hint">${label} · ${trSize(e.file.size)}${e.busy?' · uploading…':' · ready'}</div></div><button class="btn ghost" onclick="event.stopPropagation();TR.edit.file=null;TR.edit.thumb='';el('trDrop').innerHTML=trDropHTML()">Remove</button>`; }
+function trPick(){ const i = document.createElement('input'); i.type = 'file'; i.accept = TR_ACCEPT; i.onchange = () => trTakeFile(i.files[0]); i.click(); }
+async function trTakeFile(f){
+  if(!f) return; const e = TR.edit; if(!e) return;
+  e.file = {name:f.name, type:f.type, size:f.size}; e.kind = trKind(f); e.busy = true; e.thumb = ''; el('trDrop').innerHTML = trDropHTML();
+  if(!el('trTitle').value.trim()) el('trTitle').value = f.name.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ');
+  const [thumb, ref] = await Promise.all([trMakeThumb(f), trStore(f, e.id)]);
+  if(TR.edit!==e) return;
+  e.busy = false; e.thumb = thumb || '';
+  if(!ref){ e.file = null; e.thumb = ''; } else e.file = ref;
+  if(el('trDrop')) el('trDrop').innerHTML = trDropHTML();
+}
+function trValsHTML(type, vals=[]){
+  if(type==='all') return `<div class="hint">Every active employee, VA, PM and company head — including people who join later.</div>`;
+  const opts = trOptions(type);
+  return `${type==='people'?`<input class="tr-vsearch" placeholder="Search people…" oninput="document.querySelectorAll('#trVals label').forEach(l=>l.style.display=l.textContent.toLowerCase().includes(this.value.toLowerCase())?'':'none')">`:''}
+    <div class="chipsel">${opts.map(([v,l])=>`<label><input type="checkbox" class="trVal" value="${esc(v)}" ${vals.includes(v)?'checked':''} onchange="trCountUpdate()">${esc(l)}</label>`).join('')}</div>`;
+}
+function trReadTarget(){ const type = el('trType').value; return {type, values: type==='all' ? [] : [...document.querySelectorAll('.trVal:checked')].map(x=>x.value)}; }
+function trTypeChange(keep){ const tg = keep && TR.edit && TRAININGS.find(x=>x.id===TR.edit.id)?.target; const type = el('trType').value;
+  el('trVals').innerHTML = trValsHTML(type, tg && tg.type===type ? tg.values : []); trCountUpdate(); }
+function trCountUpdate(){ const tg = trReadTarget(); const n = trRecipients(tg).length; const c = el('trCount'); if(!c) return;
+  c.innerHTML = tg.type!=='all' && !tg.values.length ? 'Choose at least one option above.' : `👥 <b>${n}</b> ${n===1?'person':'people'} will see this training and be notified.`; }
+function trSave(){
+  const e = TR.edit; if(!e) return; if(e.busy) return toast('Please wait — the file is still uploading');
+  const title = el('trTitle').value.trim(); if(!title) return toast('Add a title');
+  const link = el('trLink').value.trim(); if(link && !/^https?:\/\//i.test(link)) return toast('The link must start with https://');
+  if(!e.file && !link) return toast('Choose a file or paste a link');
+  const target = trReadTarget(); if(target.type!=='all' && !target.values.length) return toast('Choose who can access this training');
+  const recipients = trRecipients(target); if(!recipients.length) return toast('Nobody matches that audience yet');
+  const prio = el('trPrio').value; const old = TRAININGS.find(x=>x.id===e.id);
+  const t = old || {id:e.id, by:PERSON, at:nowISO()};
+  const before = old ? trAudienceNow(old) : [];
+  Object.assign(t, {title, desc:el('trDesc').value.trim(), category:el('trCat').value.trim(), file:e.file||null, link, thumb:e.thumb||'', kind:e.file ? e.kind : trKind(null, link),
+    target, targetLabel:trTargetLabel(target), recipients: target.type==='all' ? [] : recipients, required: prio==='High', updatedAt:nowISO(), archived:false});
+  if(!old) TRAININGS.unshift(t);
+  const added = recipients.filter(k=>!before.includes(k) && k!==PERSON);
+  if(!old || added.length){
+    const who = old ? added : recipients;
+    const {a} = publishAnnouncement({title:`New training: ${title}`, body:`${t.desc || 'A new training has been added to the Training Hub.'}\n\nUploaded by ${pname(PERSON)} on ${dstr(t.at)}.`,
+      priority:prio, link:'', expiresDays:'', target: target.type==='all' && !old ? {type:'all', label:'All employees'} : {type:'people', people:who, label:t.targetLabel}, files:[],
+      training:t.id, note:{text:`<b>New training</b> from ${esc(pname(PERSON))}: “${esc(title)}”`, link:{view:'training', training:t.id}}});
+    t.annIds = [...(t.annIds||[]), a.id];
+  }
+  audit(`${old?'Updated':'Published'} training “${title}” for ${t.targetLabel} (${recipients.length} people)`);
+  recordChange(); closeModal(); TR.edit = null; buildNav(); if(CURRENT==='training') RENDER.training(); else go('training');
+  toast(old ? (added.length ? `Saved — ${added.length} new ${added.length===1?'person':'people'} notified` : 'Saved') : `Published — ${recipients.length} ${recipients.length===1?'person':'people'} notified`);
+}
+function trDelete(id){
+  const t = TRAININGS.find(x=>x.id===id); if(!t || !trCanManage(t)) return;
+  if(!confirm(`Delete “${t.title}”? It disappears from everyone’s Training Hub, and its announcement is archived.`)) return;
+  TRAININGS = TRAININGS.filter(x=>x.id!==id); TRAINPROG = TRAINPROG.filter(p=>p.training!==id);
+  ANNOUNCEMENTS.filter(a=>a.training===id).forEach(a=>a.archived=true);
+  audit(`Deleted training “${t.title}”`); recordChange(); buildNav(); RENDER.training(); toast('Training deleted');
+}
+
+/* ---------- viewing ---------- */
+async function trView(id){
+  const t = TRAININGS.find(x=>x.id===id);
+  if(!t || !canSee('trainings', t) || !(trForMe(t) || trCanManage(t) || isHead(PERSON))) return toast('This training isn’t shared with you');
+  if(trForMe(t) && !trProg(id)) { trTouch(id, {}); buildNav(); }
+  const st = trStatus(t); const mine = trForMe(t);
+  openModal(t.title, `<div class="tr-view-meta">${av(P(t.by))}<div style="flex:1;min-width:0"><b>${esc(pname(t.by))}</b><div class="hint">Uploaded ${dstr(t.at)} · ${esc(t.targetLabel||'All employees')}${t.category?' · '+esc(t.category):''}</div></div>${mine?`<span class="badge ${TR_ST[st][1]}">${TR_ST[st][0]}</span>`:''}</div>
+    ${t.desc?`<p class="tr-view-desc">${linkify(t.desc)}</p>`:''}
+    <div id="trStage" class="tr-stage">${trThumbHTML(t, 'tr-thumb big')}<div class="hint" style="text-align:center;margin-top:8px"><span class="spinner" style="display:inline-block;vertical-align:middle"></span> Loading…</div></div>
+    <div class="tr-view-acts" id="trActs"></div>`, true);
+  let url = '';
+  if(t.file){ for(let i=0; i<2 && !url; i++){ try{ url = await BACKEND.fileUrl(t.file); }catch(e){ if(i) { el('trStage') && (el('trStage').innerHTML = `<div class="empty">Could not load the file: ${esc(e.message)}</div>`); } else await new Promise(r=>setTimeout(r, 1500)); } } }
+  const stage = el('trStage'); if(!stage) return;
+  const k = t.kind;
+  if(t.file && url){
+    if(k==='video') stage.innerHTML = `<video id="trVid" controls playsinline preload="metadata" ${t.thumb?`poster="${t.thumb}"`:''} src="${url}"></video>`;
+    else if(k==='audio') stage.innerHTML = `<audio controls src="${url}" style="width:100%"></audio>`;
+    else if(k==='image') stage.innerHTML = `<img src="${url}" alt="" class="tr-img">`;
+    else if(k==='pdf') stage.innerHTML = `<iframe src="${url}" class="tr-pdf" title="${esc(t.title)}"></iframe>`;
+    else stage.innerHTML = `${trThumbHTML(t, 'tr-thumb big')}<div class="hint" style="text-align:center;margin-top:8px">${(TR_KINDS[k]||TR_KINDS.other)[0]} files open in their own app — download it, or open it in a new tab.</div>`;
+  } else if(t.link){
+    const yt = t.link.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([\w-]{11})/);
+    stage.innerHTML = yt ? `<div class="tr-embed"><iframe src="https://www.youtube-nocookie.com/embed/${yt[1]}" allowfullscreen title="${esc(t.title)}"></iframe></div>`
+      : `${trThumbHTML(t, 'tr-thumb big')}<div class="hint" style="text-align:center;margin-top:8px">This training is hosted outside the portal — open the link to view it.</div>`;
+  }
+  const v = el('trVid'); if(v && mine) v.addEventListener('timeupdate', ()=>{ if(!v.duration) return; const pct = Math.round(v.currentTime / v.duration * 100); const p = trProg(id);
+    if(p && pct > (p.pct||0) + 9){ trTouch(id, {pct}); }
+    if(pct >= 90 && !trProg(id)?.completedAt){ trTouch(id, {pct:100, completedAt:nowISO()}); toast('Training completed ✓'); trActs(t, url); buildNav(); } });
+  trActs(t, url);
+}
+function trActs(t, url){
+  const box = el('trActs'); if(!box) return; const p = trProg(t.id); const mine = trForMe(t);
+  box.innerHTML = `${t.link?`<a class="btn" href="${esc(t.link)}" target="_blank" rel="noopener">↗ Open link</a>`:''}
+    ${t.file && url?`<a class="btn" href="${url}" target="_blank" rel="noopener" ${t.file.data?`download="${esc(t.file.name)}"`:''}>⬇ Download${t.file.size?' · '+trSize(t.file.size):''}</a>`:''}
+    ${mine ? (p?.completedAt ? `<span class="badge b-approved" style="align-self:center">✓ Completed ${dstr(p.completedAt)}</span>` : `<button class="btn primary" onclick="trComplete('${t.id}')">✓ Mark as completed</button>`) : ''}
+    ${trCanManage(t)?`<button class="btn" onclick="trTrack('${t.id}')">Tracking</button><button class="btn" onclick="trEdit('${t.id}')">Edit</button>`:''}`;
+}
+function trComplete(id){ const t = TRAININGS.find(x=>x.id===id); if(!t) return; trTouch(id, {completedAt:nowISO(), pct:100}); trActs(t, el('trActs')?.querySelector('a[href^="http"],a[href^="data"],a[href^="blob"]')?.href||'');
+  buildNav(); if(CURRENT==='training') RENDER.training(); toast('Marked as completed ✓'); }
+function trTrack(id){
+  const t = TRAININGS.find(x=>x.id===id); if(!t) return; const R = trAudienceNow(t);
+  const o = R.filter(k=>trProg(id,k)), c = R.filter(k=>trProg(id,k)?.completedAt);
+  const kpi = (l,v,col) => `<div style="flex:1;min-width:86px;text-align:center;padding:10px 6px;background:var(--panel-2);border:1px solid var(--line);border-radius:10px"><div style="font-family:Sora;font-size:20px;font-weight:700;color:${col||'var(--ink)'}">${v}</div><div class="hint">${l}</div></div>`;
+  openModal('Training tracking', `<b style="font-size:13px">${esc(t.title)}</b><div class="hint" style="margin-bottom:12px">${esc(t.targetLabel)} · uploaded ${dstr(t.at)} by ${esc(pname(t.by))}</div>
+    <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">${kpi('Audience', R.length)}${kpi('Opened', o.length, 'var(--info)')}${kpi('Completed', c.length, 'var(--ok)')}${kpi('Not opened', R.length-o.length, R.length-o.length?'var(--warn)':'var(--ok)')}</div>
+    <div style="max-height:320px;overflow-y:auto">${R.map(k=>{ const p = trProg(id,k); return `<div class="list-row">${av(P(k))}<div style="flex:1"><b style="font-size:12.5px">${esc(pname(k))}</b><div class="hint">${esc(P(k).sub||'')}</div></div><div style="text-align:right">${p?.completedAt?`<span class="badge b-approved">Completed</span><div class="hint">${dstr(p.completedAt)}</div>`:p?`<span class="badge b-progress">Opened${p.pct?' · '+p.pct+'%':''}</span><div class="hint">${dstr(p.openedAt)}</div>`:'<span class="badge b-missed">Not opened</span>'}</div></div>`; }).join('')}</div>`);
+}
+
+/* ---------- announcements: training preview + “View training” ---------- */
+function trAnnCard(a){
+  const t = TRAININGS.find(x=>x.id===a.training);
+  if(!t || !canSee('trainings', t)) return `<div class="hint" style="margin-bottom:12px">This training is no longer available.</div>`;
+  return `<div class="tr-ann" onclick="closeModal();trView('${t.id}')">${trThumbHTML(t, 'tr-thumb')}<div class="tr-ann-b"><span class="kb-type">Training · ${(TR_KINDS[t.kind]||TR_KINDS.other)[0]}</span><b>${esc(t.title)}</b>${t.desc?`<p>${esc(coraTrim(t.desc, 160))}</p>`:''}<div class="hint">Uploaded by ${esc(pname(t.by))} · ${dstr(t.at)} · ${esc(t.targetLabel)}</div>
+    <button class="btn primary" style="margin-top:8px" onclick="event.stopPropagation();closeModal();trView('${t.id}')">▶ View training</button></div></div>`;
+}
+
+/* ---------- Administration: who can upload ---------- */
+function trAdminCard(){
+  const s = S(); const cur = s.trainUploaders ?? ['kiara'];
+  const auto = trStaff().filter(k=>isHead(k) || ['hr','manager'].includes(PEOPLE[k].role));
+  return `<div class="card"><div class="card-h"><h3>Training Hub — who can upload</h3></div><div class="card-b">
+    <div class="hint" style="margin-bottom:8px">Company heads, HR and project managers can always upload trainings and choose their audience (${auto.map(first).join(', ')}). Add department heads or other trusted people here:</div>
+    <div class="chipsel" id="setTrain">${trStaff().filter(k=>!auto.includes(k)).map(k=>`<label><input type="checkbox" value="${k}" ${cur.includes(k)?'checked':''}>${esc(pname(k))}</label>`).join('')}</div>
+    <button class="btn primary" style="margin-top:10px" onclick="saveSettings('training')">Save uploaders</button></div></div>`;
 }
 
 CC_BOOT();

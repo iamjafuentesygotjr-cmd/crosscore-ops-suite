@@ -9248,7 +9248,7 @@ WRITING FOR CLIENTS
 /* client voice, shared by Cora and Marcus: tone, audience, brand kit, guidelines, examples, SOP style */
 function emojiRate(texts){ const all = texts.join(' '); const n = (all.match(/\p{Extended_Pictographic}/gu)||[]).length; const posts = Math.max(1, texts.length); return n/posts; }
 function clientExamples(cid, n=6){
-  const T = TASKS.filter(t=>t.client===cid && t.caption && ['Approved','Completed','For Approval'].includes(t.status)).sort((a,b)=>(b.status==='Approved'||b.status==='Completed')-(a.status==='Approved'||a.status==='Completed')).slice(0,n);
+  const T = TASKS.filter(t=>t.client===cid && t.caption && ['Approved','Completed','For Approval'].includes(t.status) && canSee('tasks', t)).sort((a,b)=>(b.status==='Approved'||b.status==='Completed')-(a.status==='Approved'||a.status==='Completed')).slice(0,n);
   return T.map(t=>({text:t.caption, ref:`[T:${t.id}|${t.title}]`, status:t.status}));
 }
 function clientVoice(cid){
@@ -9605,7 +9605,7 @@ function cpSend(){
 
 /* ===== 22_assistants.js ===== */
 /* ================= AI ASSISTANTS — identities, avatars, shared engine =================
-   Cora (company-wide), Marcus (client writing for VAs) and one operations assistant per PM
+   Cora (company-wide), Marcus (client writing for VAs and HR) and one operations assistant per PM
    (Tricia's Assistant, Yam's Assistant). Each has its own illustrated face avatar, used everywhere it
    appears: its chat, its messages in group chats, notifications and reminders. */
 
@@ -9681,7 +9681,7 @@ function aiAva(id, size=34, dot){ const a = assistant(id); if(!a) return '';
 { const at = NAV.findIndex(n=>n.label==='Clients & Production');
   NAV.splice(at, 0, {label:'AI assistants'},
     {id:'cora', name:'Cora', roles:ALLR, img:'cora', ai:true},
-    {id:'marcus', name:'Ask Marcus', roles:['employee','manager','ceo','coo','creative'], img:'marcus', ai:true},
+    {id:'marcus', name:'Ask Marcus', roles:['employee','manager','ceo','coo','creative','hr'], img:'marcus', ai:true},
     {id:'pa', name:'My Assistant', roles:['manager','ceo','coo','creative'], img:'pa', ai:true}); }
 const paForPM = k => pmAssistants().find(a=>a.pm===k);
 function navAssistantLabel(n){
@@ -9753,10 +9753,12 @@ function notifyAs(asstKey, to, type, text, link, idBase){
 }
 
 /* ===== 24_marcus.js ===== */
-/* ================= ASK MARCUS — client writing assistant for VAs =================
+/* ================= ASK MARCUS — client writing assistant for VAs and HR =================
    A ChatGPT-style writing space. Marcus writes for ONE client at a time (shown as "Writing for: …"),
    using that client's tone of voice, audience, brand guidelines, SOP and approved content examples —
-   including typical length, formality and emoji style. VAs only see their assigned clients.
+   including typical length, formality and emoji style. VAs only see their assigned clients; HR sees the
+   active clients their portal can open (their own clients listed first). Only client records the person is
+   allowed to see are used — never package rates, pay or restricted Lead Gen details.
    Drafts can be edited, copied, revised (shorter, warmer…) and saved to a client task or the content plan.
    Nothing is ever posted automatically — every draft is reviewed by a person first. */
 const MARCUS = {conv:null, busy:false, mode:'comment', ask:null};
@@ -9768,7 +9770,25 @@ const MX_MODES = [
   ['free', '✨ Anything else', 'Ask for any writing for this client — DM, bio, story text, email…'],
 ];
 const MX_REVISE = [['shorter','Shorter'],['warmer','Warmer'],['professional','More professional'],['direct','More direct'],['emoji+','Add emojis'],['emoji-','No emojis']];
-const marcusClients = () => coraClients();
+/* clients this person may write for = clients they are authorized to open in the portal */
+const mxIsHR = () => ROLE==='hr' && !isFullAccess();
+const mxOwnClients = () => new Set(EMPLOYEES.find(e=>e.id===PERSON)?.clients || []);
+function marcusClients(){
+  if(!mxIsHR()) return coraClients();
+  const ok = new Set(clientIdsFor(PERSON)); const own = mxOwnClients();
+  return CLIENTS.filter(c=>ok.has(c.id) && !isEnded(c) && c.status==='Active' && canSee('clients', c))
+    .sort((a,b)=>(own.has(b.id)-own.has(a.id)) || a.name.localeCompare(b.name));
+}
+const mxScope = () => mxIsHR() ? 'clients you can access in the HR portal' : 'your assigned clients';
+const mxWho = () => mxIsHR() ? 'HR' : 'VA';
+function mxClientOptions(list){
+  if(!mxIsHR()) return list.map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join('');
+  const own = mxOwnClients(); const a = list.filter(x=>own.has(x.id)), b = list.filter(x=>!own.has(x.id));
+  const o = x=>`<option value="${x.id}">${esc(x.name)}</option>`;
+  return (a.length?`<optgroup label="Your clients">${a.map(o).join('')}</optgroup>`:'') + (b.length?`<optgroup label="${a.length?'Other active clients':'Active clients'}">${b.map(o).join('')}</optgroup>`:'');
+}
+/* tasks a draft may be linked or saved to: the same people who can edit the task in the Content Board */
+const mxCanEditTask = t => t.assignee===PERSON || t.createdBy===PERSON || canApproveTask(t) || isExec();
 /* the selected button sets the kind of writing; a clear request in the message wins */
 function mxModeFor(t){ if(/\b(\d|two|three|four|five)\s+(alternatives?|options?|versions?|variations?)\b|\balternatives?\b/i.test(t)) return 'alts'; if(/\bcaption|content draft|post copy\b/i.test(t)) return 'caption';
   if(/\breply|respond|answer (this|the)\b/i.test(t)) return 'reply'; if(/\bcomment\b/i.test(t)) return 'comment'; return MARCUS.mode; }
@@ -9785,7 +9805,7 @@ function mxConv(){
 function mxNew(cid, taskId){ MARCUS.conv = {id:null, msgs:[], client:cid||null, task:taskId||null}; MARCUS.ask = null; if(CURRENT==='marcus') RENDER.marcus(); }
 /* open Marcus from a client workspace or a task: the client is filled in automatically */
 function marcusOpen(cid, taskId){
-  if(cid && !marcusClients().some(c=>c.id===cid)) return toast('Marcus only writes for clients you are assigned to');
+  if(cid && !marcusClients().some(c=>c.id===cid)) return toast(mxIsHR() ? 'Marcus can only write for active clients you can access' : 'Marcus only writes for clients you are assigned to');
   const recent = aiConvs('marcus').find(c=>c.client===cid && (taskId ? c.task===taskId : !c.task) && Date.now()-new Date(c.updatedAt).getTime() < 12*3600e3);
   if(recent) MARCUS.conv = recent; else mxNew(cid, taskId);
   MARCUS.ask = null; go('marcus');
@@ -9793,12 +9813,12 @@ function marcusOpen(cid, taskId){
 function mxSetClient(cid){
   const c = mxConv(); if(cid===c.client) return;
   if(!cid){ mxNew(null); return; }
-  if(!marcusClients().some(x=>x.id===cid)) return toast('You are not assigned to that client');
+  if(!marcusClients().some(x=>x.id===cid)) return toast(mxIsHR() ? 'That client isn’t available to you' : 'You are not assigned to that client');
   if(c.msgs.length) mxNew(cid); else { c.client = cid; c.task = null; if(c.id) aiSaveConv(c); RENDER.marcus(); }
   toast('Writing for '+cname(cid));
 }
 function mxSetTask(tid){ const c = mxConv(); c.task = tid||null; if(c.id) aiSaveConv(c); RENDER.marcus(); }
-function mxTasks(cid){ return TASKS.filter(t=>t.client===cid && !['Completed'].includes(t.status) && (t.assignee===PERSON || t.createdBy===PERSON || pmsOf(cid).includes(PERSON) || isExec() || isFullAccess())).sort((a,b)=>(a.due||0)-(b.due||0)).slice(0,60); }
+function mxTasks(cid){ return TASKS.filter(t=>t.client===cid && !['Completed'].includes(t.status) && canSee('tasks', t) && (mxIsHR() ? mxCanEditTask(t) : (t.assignee===PERSON || t.createdBy===PERSON || pmsOf(cid).includes(PERSON) || isExec() || isFullAccess()))).sort((a,b)=>(a.due||0)-(b.due||0)).slice(0,60); }
 
 /* which client does a message name? (only clients this person may write for) */
 function mxDetect(text){
@@ -9807,7 +9827,8 @@ function mxDetect(text){
     return n.split(/[\s&()·,.\-/]+/).filter(w=>w.length>=4 && !/^(the|and|clinic|dental|company|group|client|studio|media|inc|corp|services?|marketing|official|shop|store)$/.test(w)).some(w=>new RegExp('[^\\p{L}]'+reEsc(w)+'[^\\p{L}]','iu').test(tl)); });
   const mine = hit(marcusClients());
   const other = mine.length ? [] : hit(CLIENTS.filter(c=>!isEnded(c) && !marcusClients().some(m=>m.id===c.id)));
-  return {mine, other};
+  const ended = mine.length || other.length ? [] : hit(CLIENTS.filter(c=>isEnded(c)));
+  return {mine, other, ended};
 }
 
 /* ---------- the page ---------- */
@@ -9823,11 +9844,11 @@ RENDER.marcus = () => {
     <aside class="ai-side"><div class="ai-side-h">${aiAva('marcus', 44, true)}<div><b>Marcus</b><small><i class="ai-online"></i> Online · writing assistant</small></div></div>
       <button class="btn primary" style="width:100%;justify-content:center" onclick="mxNew(${c?`'${c.id}'`:'null'})">＋ New chat${c?' for '+esc(c.name):''}</button>
       <div class="ai-hist">${order.map(k=>`<div class="ai-hist-g">${k==='_'?'No client yet':esc(cname(k))}</div>${groups[k].slice(0,15).map(x=>`<button class="${conv.id===x.id?'on':''}" onclick="MARCUS.conv=AICHATS.find(y=>y.id==='${x.id}');MARCUS.ask=null;RENDER.marcus()"><b>${esc(x.title)}</b><small>${x.task&&TASKS.find(t=>t.id===x.task)?'📌 '+esc(TASKS.find(t=>t.id===x.task).title.slice(0,32))+' · ':''}${ago(x.updatedAt)}</small></button>`).join('')}`).join('')||'<div class="hint" style="padding:8px">Your drafts with Marcus are saved here, grouped by client and task.</div>'}</div>
-      <div class="hint" style="padding:8px 4px">Marcus writes only for your assigned clients and never mixes one client’s voice with another’s.</div></aside>
+      <div class="hint" style="padding:8px 4px">Marcus writes only for ${mxScope()} and never mixes one client’s voice with another’s.</div></aside>
     <section class="ai-main">
       <div class="ai-main-h mx-head">
         <div class="mx-for ${c?'':'none'}"><span>Writing for:</span><b>${c?esc(c.name):'Choose a client'}</b>
-          <select onchange="if(this.value)mxSetClient(this.value)" title="Change client"><option value="">${C.length?(c?'Change ▾':'Choose ▾'):'No assigned clients'}</option>${C.filter(x=>x.id!==conv.client).map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join('')}</select></div>
+          <select onchange="if(this.value)mxSetClient(this.value)" title="Change client"><option value="">${C.length?(c?'Change ▾':'Choose ▾'):(mxIsHR()?'No active clients':'No assigned clients')}</option>${mxClientOptions(C.filter(x=>x.id!==conv.client))}</select></div>
         ${c?`<label class="mx-task">📌 Task <select onchange="mxSetTask(this.value)"><option value="">Not linked to a task</option>${tasks.map(t=>`<option value="${t.id}" ${t.id===conv.task?'selected':''}>${esc(t.title.slice(0,50))} · ${esc(t.status)}</option>`).join('')}</select></label>`:''}
         ${c?`<span class="mx-voice" title="${esc(mxVoiceSummary(c.id))}">🎙️ ${esc(mxVoiceShort(c.id))}</span>`:''}
       </div>
@@ -9877,7 +9898,10 @@ async function mxSend(text){
   text = (text ?? el('mxIn')?.value ?? '').trim(); if(!text || MARCUS.busy) return;
   const conv = mxConv(); const det = mxDetect(text);
   if(el('mxIn')) el('mxIn').value = '';
-  if(det.other.length && !det.mine.length) return mxInfo(conv, text, `You’re not assigned to **${det.other.map(c=>c.name).join(', ')}**, so I can’t write for ${det.other.length>1?'them':'that client'}. Ask your PM if you should be added to the team.`);
+  if(det.ended.length) return mxInfo(conv, text, `**${det.ended.map(c=>c.name).join(', ')}**’s contract has ended, so I no longer write for ${det.ended.length>1?'them':'that client'}. If the client is coming back, a company head can reopen the contract from Ended Contracts.`);
+  if(det.other.length && !det.mine.length) return mxInfo(conv, text, mxIsHR()
+    ? `**${det.other.map(c=>c.name).join(', ')}** ${det.other.length>1?'aren’t':'isn’t'} an active client you can access, so I can’t write for ${det.other.length>1?'them':'that client'}. Check the client’s status in Client Workspaces or ask JA.`
+    : `You’re not assigned to **${det.other.map(c=>c.name).join(', ')}**, so I can’t write for ${det.other.length>1?'them':'that client'}. Ask your PM if you should be added to the team.`);
   /* the message names a different client from this conversation's → ask, never mix */
   if(conv.client && det.mine.length && !det.mine.some(c=>c.id===conv.client)){
     MARCUS.ask = {q:`This sounds like it’s for ${det.mine.map(c=>c.name).join(' or ')}, but this chat is writing for ${cname(conv.client)}. Which client is it for?`, text,
@@ -9886,7 +9910,7 @@ async function mxSend(text){
   if(!conv.client){
     if(det.mine.length===1) conv.client = det.mine[0].id;
     else { const opts = (det.mine.length ? det.mine : marcusClients());
-      if(!opts.length) return mxInfo(conv, text, 'You don’t have any assigned clients yet, so there’s no client voice to write in. Ask your PM to add you to a client team.');
+      if(!opts.length) return mxInfo(conv, text, mxIsHR() ? 'There are no active clients you can access yet, so there’s no client voice to write in.' : 'You don’t have any assigned clients yet, so there’s no client voice to write in. Ask your PM to add you to a client team.');
       MARCUS.ask = {q: det.mine.length ? 'You mentioned more than one client — which one is this for?' : 'Which client is this for?', text, options:opts.slice(0,12).map(c=>({id:'set:'+c.id, label:c.name}))};
       return RENDER.marcus(); }
   }
@@ -9911,7 +9935,7 @@ Rules:
 - Write exactly in ${name}'s voice using the CLIENT VOICE below: tone, audience, brand guidelines, SOP, approved examples — match their usual length, formality, sentence style, hashtag habits and emoji style.
 - Never use another client's name, facts or style. Never invent facts (prices, promos, dates, addresses, results) — use [placeholders] for anything not given.
 - Output drafts only, ready to copy. One draft goes under the heading "### Draft". When several options are asked for, put each under "### Draft 1", "### Draft 2", "### Draft 3".
-- After the drafts you may add ONE short line starting "Note:" if something is missing (e.g. no SOP or examples yet) or needs the VA's check.
+- After the drafts you may add ONE short line starting "Note:" if something is missing (e.g. no SOP or examples yet) or needs the writer's check.
 - Comments and replies are short and natural (1–2 sentences unless the examples are longer). Captions follow the client's usual structure and platform.
 - Write in the language the client's examples use (English by default; Taglish only if the examples do).`;
 const MX_MODE_ASK = {comment:'Write a comment for the client to post on this post', reply:'Write a reply from the client to this comment/message', alts:'Give 3 alternative versions of this, each under its own "### Draft N" heading', caption:'Write a caption / content draft for this', free:'Do this writing task'};
@@ -9922,7 +9946,7 @@ async function mxRun(conv, text, opt={}){
   conv.msgs.push({role:'user', text: opt.revise ? MX_REVISE.find(r=>r[0]===opt.revise)[1] + ' — ' + coraTrim(opt.base, 80) : text, revise:!!opt.revise, at:nowISO()});
   MARCUS.busy = true; RENDER.marcus();
   const task = TASKS.find(t=>t.id===conv.task);
-  const hist = conv.msgs.slice(-7, -1).map(m=>`${m.role==='user'?'VA':'Marcus'}: ${m.text}`).join('\n');
+  const hist = conv.msgs.slice(-7, -1).map(m=>`${m.role==='user'?mxWho():'Marcus'}: ${m.text}`).join('\n');
   const ask = opt.revise ? `Revise this draft. ${MX_REV_ASK[opt.revise]}\nDRAFT:\n${opt.base}` : `${MX_MODE_ASK[opt.mode]||MX_MODE_ASK.free}:\n${text}`;
   const prompt = `CLIENT VOICE:\n${clientVoice(c.id)}\n${task?`LINKED TASK: ${task.title} · ${task.type||''} · platform ${task.plat||'—'}${task.theme?' · theme: '+task.theme:''}${task.notes?' · brief: '+coraTrim(task.notes,400):''}\n`:''}\n${hist?'EARLIER IN THIS CHAT:\n'+hist+'\n\n':''}REQUEST: ${ask}`;
   const res = await aiChat(MARCUS_SYSTEM(c.name), prompt);
@@ -9938,7 +9962,7 @@ async function mxCopy(i, j){ const ok = await copyText(mxDraftText(i, j)); toast
 /* ---------- save a draft to a client task or the content plan ---------- */
 function mxSaveModal(i, j){
   const conv = mxConv(); const c = mxClient(); if(!c) return;
-  const text = mxDraftText(i, j); const tasks = mxTasks(c.id).filter(t=>t.assignee===PERSON || t.createdBy===PERSON || canApproveTask(t) || isExec());
+  const text = mxDraftText(i, j); const tasks = mxTasks(c.id).filter(mxCanEditTask);
   MODAL_CTX = {mx:{i, j, text}};
   openModal('Save draft — '+c.name, `<div class="field"><label>Draft</label><textarea id="mxSaveText" rows="5">${esc(text)}</textarea></div>
     <div class="field"><label>Save to</label><select id="mxSaveTo" onchange="el('mxSaveHow').style.display=this.value==='new'?'none':''">

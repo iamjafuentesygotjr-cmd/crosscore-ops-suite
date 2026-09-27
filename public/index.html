@@ -772,6 +772,94 @@ body.client-mode .cora-fab{display:none!important}
 [data-theme="dark"] .pa-hero{background:linear-gradient(135deg,rgba(245,158,11,.14),rgba(234,179,8,.08));border-color:rgba(245,158,11,.3)}
 [data-theme="dark"] .btn.ai-btn{color:#141414}
 </style>
+<style>
+/* ===== Cora: streaming, history ===== */
+.cora-typing{display:inline-flex;gap:3px;vertical-align:middle}
+.cora-typing i{width:6px;height:6px;border-radius:99px;background:var(--ink-3);animation:coraDot 1.1s infinite ease-in-out}
+.cora-typing i:nth-child(2){animation-delay:.15s}.cora-typing i:nth-child(3){animation-delay:.3s}
+@keyframes coraDot{0%,80%,100%{opacity:.25;transform:translateY(0)}40%{opacity:1;transform:translateY(-3px)}}
+.cora-status{font-size:12px;color:var(--ink-3)}
+.cora-caret{display:inline-block;width:7px;height:14px;margin-left:2px;vertical-align:-2px;background:var(--brand-2);border-radius:2px;animation:coraBlink 1s steps(2) infinite}
+@keyframes coraBlink{50%{opacity:0}}
+.cora-send{min-width:42px;justify-content:center}
+.cora-h .icon-btn.on{background:rgba(255,255,255,.18)}
+.cora-histlist{display:flex;flex-direction:column;gap:3px}
+.cora-hist-h{display:flex;justify-content:space-between;align-items:center;padding:2px 2px 8px}
+.cora-histlist > button{text-align:left;padding:8px 10px;border-radius:10px;border:1px solid transparent;background:none}
+.cora-histlist > button:hover{background:var(--panel-2)}.cora-histlist > button.on{background:var(--panel-2);border-color:var(--line)}
+.cora-histlist b{display:block;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.cora-histlist small{font-size:11px;color:var(--ink-3)}
+.cora-m.assistant{line-height:1.55}
+/* ===== Company Knowledge ===== */
+.kb-search{margin-bottom:14px}.kb-search input{width:100%;padding:12px 14px;font-size:14px;border-radius:12px}
+.kb-type{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;padding:2px 7px;border-radius:99px;background:var(--panel-2);border:1px solid var(--line);color:var(--ink-2);white-space:nowrap}
+.kb-hit{padding:10px 8px;border-bottom:1px solid var(--line);cursor:pointer;border-radius:8px}.kb-hit:hover{background:var(--panel-2)}
+.kb-hit b{margin-left:6px;font-size:13px}.kb-hit p{font-size:12.5px;color:var(--ink-2);margin-top:4px}
+.kb-body{font-size:13px;line-height:1.6}.kb-body p{margin:0 0 8px}
+.kb-clients{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px;padding:14px}
+.kb-client{text-align:left;padding:11px 12px;border:1px solid var(--line);border-radius:12px;background:var(--panel);display:flex;flex-direction:column;gap:3px}
+.kb-client:hover{border-color:var(--brand-2)}.kb-client b{font-size:13px}.kb-client span{font-size:12px;color:var(--ink-2)}.kb-client small{font-size:11px;color:var(--ink-3)}
+.kb-prof-h{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+/* ===== E-signatures ===== */
+.es-opt{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:12px;background:var(--panel-2)}
+.es-opt code,.es-banner code{font-size:11.5px;background:var(--panel);padding:1px 5px;border-radius:5px;border:1px solid var(--line)}
+.es-banner{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:12px 14px;border-radius:12px;margin-bottom:12px;background:var(--warn-bg);border:1px solid color-mix(in srgb,var(--warn) 35%,transparent)}
+.es-banner > div{flex:1;min-width:200px}.es-banner b{display:block;font-size:13.5px}.es-banner span{font-size:12px;color:var(--ink-2)}
+.es-banner.done{background:var(--ok-bg);border-color:color-mix(in srgb,var(--ok) 35%,transparent)}.es-banner.old{background:var(--panel-2);border-color:var(--line)}
+body.es-open{overflow:hidden}
+.es-overlay{position:fixed;inset:0;z-index:300;background:var(--bg);display:flex;flex-direction:column}
+.es-top{display:flex;gap:14px;align-items:center;padding:12px 18px;border-bottom:1px solid var(--line);background:var(--panel)}
+.es-top > div:first-child{flex:1;min-width:0}.es-top b{font-size:15px;display:block}.es-top small{font-size:12px;color:var(--ink-3)}
+.es-progress{display:flex;gap:8px;align-items:center;font-size:12px;color:var(--ink-2);white-space:nowrap}
+.es-bar{width:140px;height:8px;border-radius:99px;background:var(--panel-2);border:1px solid var(--line);overflow:hidden}.es-bar i{display:block;height:100%;background:var(--ok);transition:width .3s}
+.es-main{flex:1;display:grid;grid-template-columns:250px 1fr;min-height:0}
+.es-side{border-right:1px solid var(--line);padding:14px;overflow-y:auto;background:var(--panel)}
+.es-pg{display:block;width:100%;text-align:left;padding:9px 10px;border-radius:10px;border:1px solid var(--line);background:var(--panel);margin-bottom:6px;border-left:4px solid var(--line)}
+.es-pg b{display:block;font-size:12.5px}.es-pg small{font-size:11px;color:var(--ink-3)}
+.es-pg.todo{border-left-color:var(--warn)}.es-pg.done{border-left-color:var(--ok)}.es-pg.on{background:var(--panel-2);border-color:var(--brand-2)}
+.es-scroll{overflow-y:auto;padding:24px 16px;min-height:0}
+.es-paper{max-width:760px;margin:0 auto 22px;background:#fff;color:#1c1c1e;border-radius:6px;box-shadow:0 2px 14px rgba(0,0,0,.12);padding:34px 48px 30px;min-height:520px;display:flex;flex-direction:column}
+.es-pagehead{display:flex;justify-content:space-between;font-size:11px;color:#8a8a8e;border-bottom:1px solid #eee;padding-bottom:8px;margin-bottom:18px;gap:10px}
+.es-text{white-space:pre-wrap;font-size:13.5px;line-height:1.7;flex:1;font-family:Georgia,'Times New Roman',serif}
+.es-foot{display:flex;justify-content:flex-end;gap:18px;flex-wrap:wrap;border-top:1px dashed #ddd;margin-top:18px;padding-top:12px}
+.es-foot-f{display:flex;flex-direction:column;gap:4px;align-items:flex-start}.es-foot-f .hint{color:#8a8a8e}
+.es-field{display:inline-flex;flex-direction:column;justify-content:flex-end;vertical-align:bottom;border:2px dashed #E39312;border-radius:8px;background:#FFF8EB;color:#8a5a00;padding:6px 10px;min-width:220px;min-height:70px;cursor:pointer;font-family:inherit;margin:4px 0;position:relative;text-align:left}
+.es-field.initials{min-width:120px;min-height:54px}
+.es-field b{font-size:13px}.es-field small{font-size:10.5px;opacity:.85}
+.es-field.signed{border:none;border-bottom:1.5px solid #333;border-radius:0;background:none;color:#555;padding:2px 4px}
+.es-field.signed img{max-height:62px;max-width:240px;object-fit:contain;align-self:flex-start}.es-field.initials.signed img{max-height:44px;max-width:120px}
+.es-field.signed em{position:absolute;right:2px;top:2px;font-size:10px;font-style:normal;color:#2D63C8;opacity:0;transition:opacity .15s}.es-field.signed:hover em{opacity:1}
+.es-field.empty:hover{background:#FFEFCC}
+.es-bottom{display:flex;gap:10px;align-items:center;padding:12px 18px;border-top:1px solid var(--line);background:var(--panel)}
+.es-mid{flex:1;text-align:center;font-size:12.5px;color:var(--ink-2)}
+.es-confirm{flex-direction:column;align-items:stretch}.es-confirm label{display:flex;gap:9px;align-items:flex-start;font-size:13px;line-height:1.5}.es-confirm label input{width:auto;margin-top:3px}
+.es-btns{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
+.es-pad-back{position:fixed;inset:0;z-index:320;background:rgba(10,12,20,.55);display:grid;place-items:center;padding:14px}
+.es-pad{width:min(620px,100%);background:var(--panel);border-radius:16px;padding:16px;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+.es-pad-h{display:flex;flex-direction:column;gap:2px;margin-bottom:10px}.es-pad-h b{font-size:15px}
+.es-canvas-wrap{position:relative;height:210px;background:#fff;border:1px solid var(--line);border-radius:12px;overflow:hidden;touch-action:none}
+.es-canvas-wrap.initials{height:170px;max-width:360px}
+.es-canvas-wrap canvas{position:absolute;inset:0;touch-action:none;cursor:crosshair}
+.es-line{position:absolute;left:34px;right:20px;bottom:46px;border-bottom:1.5px solid #c9c9cf;pointer-events:none}
+.es-x{position:absolute;left:14px;bottom:44px;color:#b0b0b8;font-size:16px;pointer-events:none}
+.es-ph{position:absolute;left:0;right:0;top:40%;text-align:center;color:#c2c2c8;font-size:22px;font-style:italic;pointer-events:none}
+.es-pad-tools{display:flex;justify-content:space-between;align-items:center;gap:10px;margin:12px 0 6px;flex-wrap:wrap}.es-pad-tools label{display:flex;gap:8px;align-items:center;font-size:12.5px}.es-pad-tools input[type=range]{width:150px}
+.es-all{display:flex;gap:8px;align-items:center;font-size:12.5px;margin:6px 0}.es-all input{width:auto}
+.es-pad-btns{display:flex;gap:8px;justify-content:flex-end;margin-top:10px}
+.es-signed-h{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+.es-view{max-height:60vh;overflow-y:auto;background:var(--panel-2);border-radius:10px;padding:14px 8px}
+.es-view .es-paper{min-height:0;padding:24px 28px}
+.es-cert{display:flex;flex-direction:column;gap:3px;margin-top:10px;font-size:12px}.es-cert code{font-size:11px;word-break:break-all;background:var(--panel-2);padding:6px 8px;border-radius:8px}
+@media (max-width:760px){.es-main{grid-template-columns:1fr}.es-side{display:flex;gap:6px;overflow-x:auto;border-right:0;border-bottom:1px solid var(--line);padding:8px}.es-side .nav-label,.es-side .hint{display:none}.es-pg{min-width:150px;margin:0}
+  .es-paper{padding:22px 18px}.es-bar{width:70px}.es-top{padding:10px 12px}.es-bottom{padding:10px 12px}.es-mid{display:none}}
+</style>
+<style>
+/* lead submissions & attachments */
+.lead-files{display:flex;flex-wrap:wrap;gap:8px}.lead-files .lf{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:10px;padding:3px 8px 3px 3px;background:var(--panel-2)}
+.lead-files .lf small{font-size:10.5px;color:var(--ink-3)}.lead-files .x{cursor:pointer;color:var(--ink-3);font-size:11px}
+.js-fb{background:var(--warn-bg);border:1px solid color-mix(in srgb,var(--warn) 35%,transparent);border-radius:10px;padding:9px 12px;margin-bottom:12px;font-size:13px}.js-fb p{margin:4px 0 0}.js-fb.small{margin:6px 0 0;padding:6px 10px;font-size:12px}
+.js-warn{background:var(--bad-bg);border:1px solid color-mix(in srgb,var(--bad) 30%,transparent);border-radius:10px;padding:9px 12px;margin-bottom:12px;font-size:13px}
+.js-note{background:var(--panel-2);border-radius:10px;padding:9px 12px;margin-bottom:10px;font-size:13px;font-style:italic}
+</style>
 </head>
 <body>
 <div class="login" id="login">
@@ -903,6 +991,7 @@ body.client-mode .cora-fab{display:none!important}
     <div id="v-cora" class="view"></div>
     <div id="v-marcus" class="view"></div>
     <div id="v-pa" class="view"></div>
+    <div id="v-knowledge" class="view"></div>
     <div id="v-cportal" class="view"></div>
     <div id="v-cprospects" class="view"></div>
     <div id="v-cactivity" class="view"></div>
@@ -1488,6 +1577,7 @@ const NAV = [
   {id:'chat', name:'Messages', roles:ALLR, ico:I.chat},
   {id:'mydocs', name:'My Documents', roles:['employee','manager','hr'], ico:I.doc},
   {id:'attendance', name:'Attendance & Time Logs', roles:ALLR, ico:I.clock},
+  {id:'knowledge', name:'Company Knowledge', roles:ALLR, ico:I.doc},
   {label:'Clients & Production'},
   {id:'clients', name:'Client Workspaces', roles:ALLR, ico:I.bld},
   {id:'orgsetup', name:'Client Setup & Briefs', roles:['hr','ceo','coo','creative'], ico:I.plus},
@@ -1802,8 +1892,10 @@ const LiveBackend = {
 /* ================= SYNC ENGINE =================
    Screens keep editing the in-memory lists exactly as before. recordChange() diffs
    every collection against what the server last confirmed and sends only what changed. */
+/* key-order-independent JSON (the database stores objects with its own key order) */
+const canonJSON = v => JSON.stringify(v, (k, x) => x && typeof x==='object' && !Array.isArray(x) ? Object.keys(x).sort().reduce((o,kk)=>(o[kk]=x[kk], o), {}) : x);
 const SYNC = {
-  last:{}, pending:new Map(), timer:null, busy:false, ready:false, needResync:false, applying:false,
+  last:{}, sent:{}, pending:new Map(), timer:null, busy:false, ready:false, needResync:false, applying:false,
   key:(c,id)=>c+'|'+id,
   snap(c){ const m=new Map(); (COLL[c].get()||[]).forEach(o=>{ if(o && o.id!=null) m.set(String(o.id), JSON.stringify(o)); }); return m; },
   baseline(){ Object.keys(COLL).forEach(c=>this.last[c]=this.snap(c)); },
@@ -1828,6 +1920,7 @@ const SYNC = {
       const obj = (COLL[p.c].get()||[]).find(o=>String(o.id)===p.id); if(!obj) return;
       const row = {collection:p.c, id:p.id, data:JSON.parse(JSON.stringify(obj)), audience:COLL[p.c].aud?COLL[p.c].aud(obj):null, scope:COLL[p.c].scope?COLL[p.c].scope(obj):null};
       ups.push(row);
+      const k = this.key(p.c, p.id); const cj = canonJSON(row.data); (this.sent[k] = this.sent[k] || []).push(cj); if(this.sent[k].length > 6) this.sent[k].shift();
     });
     try{
       await BACKEND.write(ups, dels);
@@ -1836,9 +1929,12 @@ const SYNC = {
       this.saveCache();
     }catch(e){
       console.warn('Sync failed, will retry', e);
-      if(/row-level security|permission|42501/i.test(e.message||'')){
+      if(/row-level security|permission|42501|P0001/i.test((e.message||'')+' '+(e.code||''))){
+        /* a permanent refusal (no permission, or a locked record such as a signed contract): save what can be saved, one row at a time, and drop the refused rows */
+        let refused = 0;
+        if(ups.length + dels.length > 1){ for(const r of ups){ try{ await BACKEND.write([r], []); }catch(x){ refused++; } } for(const d of dels){ try{ await BACKEND.write([], [d]); }catch(x){ refused++; } } } else refused = 1;
         batch.forEach(p=>this.pending.delete(this.key(p.c,p.id)));
-        toast('Some changes were not saved — your account does not have permission for them');
+        toast(/locked|sign their own/i.test(e.message||'') ? (e.message||'That record is locked') : 'Some changes were not saved — your account does not have permission for them');
       } else { BACKEND.online = navigator.onLine ? BACKEND.online : false; setTimeout(()=>this.flush(), 5000); }
     }
     this.busy=false; syncUI();
@@ -1856,6 +1952,7 @@ const SYNC = {
         if(this.pending.has(k)) return;              /* our newer local edit wins; it is on its way */
         const j = JSON.stringify(r.data);
         if(this.last[r.collection]?.get(r.id)===j) return;   /* echo of our own write */
+        if(this.sent[k] && this.sent[k].includes(canonJSON(r.data))) return;   /* a late echo of something we wrote earlier — never roll back newer local edits */
         if(BACKEND.mode==='demo' && !canSee(r.collection, r.data)) { this.last[r.collection].set(r.id,j); /* hidden from this person */ }
         const obj = this.revive(r.collection, JSON.parse(j));
         const arr = c.get(); const i = arr.findIndex(o=>String(o.id)===r.id);
@@ -3251,7 +3348,7 @@ RENDER.clientws = () => {
       return `${clientLinksHTML(c.id, {label:'Client accounts — open directly'})}<div class="grid cols-3" style="margin-bottom:16px">
         <div class="card span-2"><div class="card-h"><h3>About ${esc(c.name)}</h3>${edit?`<button class="btn ghost" onclick="orgModal('${c.id}')">Edit organization</button>`:''}</div>
           <div class="card-b">
-            <p style="font-size:13px;margin-bottom:12px;white-space:pre-wrap">${esc(c.summary||'—')}</p>
+            <p style="font-size:13px;margin-bottom:12px;white-space:pre-wrap">${esc(c.summary||'—')}</p>${c.history?`<div class="info-item" style="margin-bottom:12px"><span class="hint">History & background</span><span style="white-space:pre-wrap">${esc(c.history)}</span></div>`:''}
             <div class="pill-row" style="margin-bottom:12px">${(c.services||[]).map(s=>`<span class="chip fill">${esc(s)}</span>`).join('')||'<span class="hint">No services tagged yet</span>'}</div>
             <div class="grid cols-2">
               <div class="info-item"><span class="hint">Brand colors</span><span style="display:flex;gap:6px;margin-top:4px">${c.colors.map(x=>`<span class="swatch" style="background:${x}" title="${x}"></span>`).join('')}</span></div>
@@ -3427,6 +3524,9 @@ function orgModal(cid, focus, fromBrief){
       <div class="field"><label>Website</label><input id="ogWeb" value="${esc(ORG.website==='—'?'':ORG.website)}"></div>
       <div class="field span-2"><label>Social accounts</label><input id="ogSoc" value="${esc(ORG.socials==='—'?'':ORG.socials)}" placeholder="@handle (FB · IG · TikTok)"></div>
       <div class="field span-2"><label>Short business summary</label><textarea id="ogSum" rows="3">${esc(ORG.summary)}</textarea></div>
+      <div class="field span-2"><label>Client history & background <span class="hint">— how we started working together, key milestones, what matters to them. Shared with all staff through Cora.</span></label><textarea id="ogHist" rows="3" placeholder="e.g. Joined Cross Core in March 2025 for LinkedIn lead generation; expanded to content in July…">${esc(ORG.history||'')}</textarea></div>
+      <div class="field"><label>Also known as <span class="hint">(other names staff use)</span></label><input id="ogAka" value="${esc(ORG.aka||'')}" placeholder="e.g. Kallista, Payvand"></div>
+      <div class="field"><label>Cora company knowledge</label><label class="switch-row" style="margin-top:6px"><input type="checkbox" id="ogShare" ${ORG.coraShare===false?'':'checked'}> Share this client’s profile, history and approved SOP with all staff</label></div>
     </div>
     <div class="field"><label>Services provided</label><div class="chipsel" id="ogSvc">${uniq([...SERVICE_TAGS,...(ORG.services||[])]).map(s=>`<label><input type="checkbox" value="${esc(s)}" ${(ORG.services||[]).includes(s)?'checked':''}>${esc(s)}</label>`).join('')}</div></div>
     <div class="nav-label" style="padding:10px 0 6px">Logo, brand kit & files</div>
@@ -3496,7 +3596,7 @@ function saveOrg(cid){
   const data = {name, industry:val('ogInd')||'—', category:val('ogCat'), type:val('ogType'), plan:+val('ogPlan')||3, website:val('ogWeb')||'—', socials:val('ogSoc')||'—',
     summary:val('ogSum'), services:[...document.querySelectorAll('#ogSvc input:checked')].map(x=>x.value), colors:ORG.colors.length?ORG.colors:['#F2B440','#E39312'],
     fonts:val('ogFonts')||'To be defined', tone:val('ogTone')||'To be defined', audience:val('ogAud')||'To be defined', deliverables:val('ogDel')||((+val('ogPlan')||3)*4+' posts / month'),
-    guidelines:val('ogGuide'), notes:val('ogNotes'), logo:ORG.logo, docs:ORG.docs, pms, mgr:pms[0]||existing?.mgr||null, team, resp, contact:val('ogContact')};
+    guidelines:val('ogGuide'), notes:val('ogNotes'), history:val('ogHist'), aka:val('ogAka'), coraShare:el('ogShare') ? el('ogShare').checked : existing?.coraShare, logo:ORG.logo, docs:ORG.docs, pms, mgr:pms[0]||existing?.mgr||null, team, resp, contact:val('ogContact')};
   let c;
   const prevTeam = existing?.team||[], prevPms = pmsOf(cid||'');
   if(existing){ c = existing; Object.assign(c, data); }
@@ -4153,7 +4253,7 @@ RENDER.leads = () => {
   const mult = who==='team' ? Math.max(1, uniq(LEADS.map(l=>l.am)).length) : Array.isArray(who) ? Math.max(1, who.length) : 1;
   const hr = +new Date().toLocaleString('en-US',{hour:'numeric',hour12:false,timeZone:'Asia/Manila'});
   const greet = hr<12?'Good morning':hr<18?'Good afternoon':'Good evening';
-  const jobs = LEADJOBS.filter(j=>j.status!=='Done' && (ROLE==='employee' ? (j.assignees||[]).includes(PERSON) : vis([j]).length));
+  const jobs = LEADJOBS.filter(j=>(j.status!=='Done' || (j.approvedAt && Date.now()-new Date(j.approvedAt).getTime() < 3*86400e3)) && (ROLE==='employee' ? (j.assignees||[]).includes(PERSON) : vis([j]).length));
   const wsBody = LG.client!=='all' ? lgWsBody(LG.client) : null;
   el('v-leads').innerHTML = `
     <div class="page-head lg-greet">
@@ -4171,12 +4271,13 @@ RENDER.leads = () => {
         return `<div><div class="t-row"><span>${label}</span><span><b>${n}</b> / ${t}</span></div><div class="bar ${pct>=100?'ok':''}"><i style="width:${pct}%"></i></div></div>`; }).join('')}</div></div></div>
     ${jobs.length?`<div class="card" style="margin-bottom:16px"><div class="card-h"><h3>Lead assignments</h3><span class="sub">${jobs.length} open</span></div><div class="card-b" style="padding-top:4px">
       ${jobs.map(j=>{ const got = LEADS.filter(l=>l.job===j.id).length; const pct=j.criteria?.count?Math.min(100,Math.round(got/j.criteria.count*100)):0; return `<div class="list-row" style="flex-wrap:wrap">
-        <div style="flex:1;min-width:240px"><b style="font-size:13px">${esc(j.title)}</b> <span class="hint">· ${esc(cname(j.client))} · by ${esc(first(j.by))}${j.due?' · due '+dstr(j.due):''}</span>
+        <div style="flex:1;min-width:240px"><b style="font-size:13px">${esc(j.title)}</b> ${jobRowExtra(j).badge} <span class="hint">· ${esc(cname(j.client))} · by ${esc(first(j.by))}${j.due?' · due '+dstr(j.due):''}</span>
           <div class="pill-row" style="margin-top:5px">${[j.criteria?.industry, j.criteria?.location, ...(j.criteria?.seniority||[]), j.criteria?.titles].filter(Boolean).map(x=>`<span class="chip">${esc(x)}</span>`).join('')}${j.criteria?.activeLinkedIn?'<span class="chip fill">Active LinkedIn required</span>':''}</div>
-          ${j.files?.length?`<div style="margin-top:5px">${fileChips(j.files)}</div>`:''}</div>
+          ${j.notes?`<div class="hint" style="margin-top:5px">📝 PM notes: ${esc(j.notes)}</div>`:''}
+          ${j.files?.length?`<div style="margin-top:5px">${fileChips(j.files)}</div>`:''}${jobRowExtra(j).fb}</div>
         <div style="width:160px"><div class="t-row" style="display:flex;justify-content:space-between;font-size:12px"><span class="hint">${got} / ${j.criteria?.count||'—'} leads</span><b>${pct}%</b></div><div class="bar"><i style="width:${pct}%"></i></div></div>
-        <span style="display:inline-flex;gap:6px"><button class="btn" style="padding:5px 10px;font-size:12px" onclick="addLeadsModal('${j.id}')">Add leads</button>
-        ${canManageLeads()?`<button class="btn" style="padding:5px 10px;font-size:12px" onclick="leadJobModal('${j.id}')">Edit</button><button class="btn" style="padding:5px 10px;font-size:12px" onclick="closeJob('${j.id}')">Mark done</button>`:''}</span></div>`; }).join('')}
+        <span style="display:inline-flex;gap:6px;flex-wrap:wrap">${j.status!=='Done'?`<button class="btn" style="padding:5px 10px;font-size:12px" onclick="addLeadsModal('${j.id}')">Add leads</button>`:''}${jobRowExtra(j).btns}
+        ${canManageLeads()&&j.status!=='Done'?`<button class="btn" style="padding:5px 10px;font-size:12px" onclick="leadJobModal('${j.id}')">Edit</button><button class="btn" style="padding:5px 10px;font-size:12px" onclick="closeJob('${j.id}')">Mark done</button>`:''}</span></div>`; }).join('')}
     </div></div>`:''}
     ${LG.client!=='all'?lgWsHeader(LG.client):''}
     ${LG.client!=='all' && wsBody!=null ? wsBody : LG.client!=='all'&&LG.ws==='criteria'?lgCriteriaPanel(LG.client):LG.client!=='all'&&LG.ws==='note'?lgNotePanel(LG.client):`
@@ -4216,7 +4317,7 @@ function leadCard(l){
       <span class="badge ${l.fit==='Primary fit'?'b-new':'b-draft'}" style="--x:0">${esc(l.fit||'Fit not set')}</span>
       <span class="badge b-${(l.verify||'Unverified').toLowerCase()}">${esc(l.verify||'Unverified')}</span>
       ${l.approval==='Pending'?'<span class="badge b-pending">Needs PM review</span>':''}</div>
-    <h4>${esc(l.name||'(name not set)')}${normLI(l.linkedin)?' <span class="li-mark">in</span>':''}</h4>
+    <h4>${esc(l.name||'(name not set)')}${normLI(l.linkedin)?' <span class="li-mark">in</span>':''}${(l.files||[]).length?` <span class="hint" title="Attachments">📎 ${l.files.length}</span>`:''}</h4>
     <div class="sub">${esc(l.title||'Title not set')}${l.company?` · <b style="color:var(--ink)">${esc(l.company)}</b>`:''}</div>
     <div class="chips">${chips.join('')}</div>
     ${dup?`<div class="dup-flag" style="margin:-4px 0 10px">⚠ Possible duplicate of ${esc(dup.name)} (${dup.id})</div>`:''}
@@ -4298,6 +4399,7 @@ function openLead(id){
     </div>
     <p style="font-size:13px;margin-bottom:14px">${l.note?esc(l.note):'<span class="hint">No CRM note yet.</span>'}</p>
     ${noteBubble(l)}
+    ${leadFilesHTML(l)}
     <div class="nav-label" style="padding:0 0 6px">Activity — calls, meetings, notes</div>
     ${(l.activities||[]).slice().reverse().map(a=>`<div class="info-item"><span class="hint">${esc(a.when)} · ${esc(a.kind)}</span>${esc(a.text)}</div>`).join('') || '<div class="empty" style="padding:14px">No activity logged yet.</div>'}
     <div style="display:flex;gap:8px;margin:12px 0">
@@ -5089,6 +5191,103 @@ async function saveSearchKey(remove){
   catch(e){ toast('Could not save: '+e.message); }
 }
 
+/* ===== 11c_leadsubmit.js ===== */
+/* ================= LEAD GEN — attachments & submissions =================
+   • Attach files to an individual lead (e.g. a screenshot of their LinkedIn profile, a spreadsheet row, a PDF).
+   • Submit a lead assignment to the PM with a note and supporting files (e.g. the full lead list spreadsheet).
+   • The PM reviews the submission: Approve, or Request changes with a note. The VA fixes and resubmits.
+   A file about one person belongs on that lead; a file about the whole batch (the full list, a summary,
+   a screen recording of the search) belongs on the assignment submission. */
+const LEAD_FILE_TYPES = '.csv,.xlsx,.xls,.doc,.docx,.pdf,.txt,.png,.jpg,.jpeg,.gif,.webp,.heic,.mp4,.mov,.webm';
+const jobState = j => j.state || (j.status==='Done' ? 'Approved' : 'Open');
+const jobMine = j => (j.assignees||[]).includes(PERSON);
+const jobPMs = j => uniq([j.by, ...pmsOf(j.client)]).filter(k=>PEOPLE[k]);
+const canReviewJob = j => canManageLeads() && (pmsOf(j.client).includes(PERSON) || j.by===PERSON || isExec() || isFullAccess());
+function jobLeads(j, who){ return LEADS.filter(l=>l.job===j.id && !l.archived && (!who || l.am===who)); }
+function leadProblems(l){ const P_ = []; if(!l.name) P_.push('name'); if(!normLI(l.linkedin)) P_.push('LinkedIn link'); if(!l.title) P_.push('job title'); if(!l.company) P_.push('company'); return P_; }
+
+/* ---------- attachments on one lead ---------- */
+async function leadAttach(id){
+  const l = LEADS.find(x=>x.id===id); if(!l) return;
+  if(!(l.am===PERSON || canManageLeads())) return toast('Only the lead owner or the PM can attach files');
+  toast('Choose the file(s) — they upload as soon as you pick them');
+  const f = await pickFiles({multiple:true, accept:LEAD_FILE_TYPES}); if(!f.length) return;
+  l.files = [...(l.files||[]), ...f.map(x=>({...x, by:PERSON, at:nowISO()}))];
+  l.history.push({at:nowISO(), by:PERSON, act:`Attached ${f.map(x=>x.name).join(', ')}`, note:''});
+  recordChange(); toast(`Attached to ${l.name}: ${f.map(x=>x.name).join(', ')}`);
+  if(el('modal').classList.contains('open')) openLead(id); RENDER[CURRENT]?.();
+}
+function leadFileRm(id, i){ const l = LEADS.find(x=>x.id===id); if(!l || !(l.am===PERSON || canManageLeads())) return; const f = l.files.splice(i,1)[0]; l.history.push({at:nowISO(), by:PERSON, act:`Removed attachment ${f?.name||''}`, note:''}); recordChange(); openLead(id); }
+function leadFilesHTML(l){
+  const can = l.am===PERSON || canManageLeads();
+  return `<div class="nav-label" style="padding:0 0 6px">Attachments on this lead (${(l.files||[]).length})</div>
+    <div class="lead-files">${(l.files||[]).map((f,i)=>`<span class="lf">${fileChips([f])}<small>${esc(first(f.by||l.am))} · ${ago(f.at)}</small>${can?`<b class="x" title="Remove" onclick="leadFileRm('${l.id}',${i})">✕</b>`:''}</span>`).join('') || '<span class="hint">No files on this lead yet.</span>'}</div>
+    ${can?`<button class="btn" style="margin:8px 0 14px" onclick="leadAttach('${l.id}')">📎 Attach file to this lead</button> <span class="hint">Screenshots, spreadsheets, documents, images or short videos about <b>this person</b>. Files about the whole list go on the assignment submission.</span>`:''}`;
+}
+
+/* ---------- submit an assignment to the PM ---------- */
+let JS_FILES = [];
+function jobSubmitModal(jid){
+  const j = LEADJOBS.find(x=>x.id===jid); if(!j || !jobMine(j)) return;
+  const L = jobLeads(j, PERSON); const bad = L.filter(l=>leadProblems(l).length); const last = (j.subs||[]).slice(-1)[0];
+  JS_FILES = [];
+  openModal(`${last?'Resubmit':'Submit'} to PM — ${j.title}`, `
+    ${jobState(j)==='Changes requested'&&last?.review?`<div class="js-fb"><b>${esc(first(last.review.by))} asked for changes</b><p>${esc(last.review.note)}</p></div>`:''}
+    <div class="kv" style="margin-bottom:12px"><span class="k">Client</span><span>${esc(cname(j.client))}</span><span class="k">Target</span><span>${j.criteria?.count||'—'} leads${j.due?' · due '+dstr(j.due):''}</span><span class="k">Your leads</span><span><b>${L.length}</b> in this assignment${L.filter(l=>(l.files||[]).length).length?` · ${L.filter(l=>(l.files||[]).length).length} with attachments`:''}</span></div>
+    ${bad.length?`<div class="js-warn"><b>⚠ ${bad.length} lead${bad.length>1?'s are':' is'} incomplete — fix before submitting</b>${bad.slice(0,8).map(l=>`<div class="list-row"><div style="flex:1"><b style="font-size:12.5px">${esc(l.name||'(no name)')}</b><div class="hint">Missing: ${leadProblems(l).join(', ')}</div></div><button class="btn" style="padding:4px 10px;font-size:12px" onclick="leadEdit('${l.id}')">Fix</button></div>`).join('')}</div>`:''}
+    <div class="field"><label>Note for your PM</label><textarea id="jsNote" rows="3" placeholder="e.g. 40 HR managers in Cebu; 6 have no email yet. The full list is attached.">${esc(last&&jobState(j)==='Changes requested'?'Fixed: ':'')}</textarea></div>
+    <div class="field"><label>Supporting files for the whole submission (optional)</label><button class="btn" style="padding:5px 10px;font-size:12px" onclick="pickFiles({multiple:true,accept:LEAD_FILE_TYPES}).then(f=>{JS_FILES.push(...f);el('jsFiles').innerHTML=fileChips(JS_FILES,'jsRm');if(f.length)toast('Uploaded: '+f.map(x=>x.name).join(', '))})">📎 Attach files</button>
+      <div id="jsFiles" style="margin-top:6px">${fileChips(JS_FILES,'jsRm')}</div><div class="hint" style="margin-top:4px">Spreadsheets, documents, screenshots, images or videos. A file about one person belongs on that lead instead (open the lead → 📎 Attach file).</div></div>
+    <button class="btn primary" style="width:100%" onclick="jobSubmit('${jid}')" ${bad.length||!L.length?'disabled':''}>${last?'Resubmit':'Submit'} ${L.length} lead${L.length===1?'':'s'} to ${esc(jobPMs(j).map(first).join(' / ')||'your PM')}</button>
+    ${!L.length?'<div class="hint" style="text-align:center;margin-top:6px">Add leads to this assignment first.</div>':''}`, true);
+}
+function jsRm(i){ JS_FILES.splice(i,1); el('jsFiles').innerHTML = fileChips(JS_FILES,'jsRm'); }
+function jobSubmit(jid){
+  const j = LEADJOBS.find(x=>x.id===jid); if(!j) return; const L = jobLeads(j, PERSON);
+  if(L.some(l=>leadProblems(l).length)) return toast('Fix the incomplete leads first');
+  const again = (j.subs||[]).length > 0;
+  const sub = {id:uid('LS'), by:PERSON, at:nowISO(), note:el('jsNote').value.trim(), files:[...JS_FILES], leadIds:L.map(l=>l.id), status:'Submitted'};
+  j.subs = [...(j.subs||[]), sub]; j.state = 'Submitted'; j.submittedAt = sub.at;
+  notify(jobPMs(j), 'submission', `📥 ${esc(first(PERSON))} ${again?'resubmitted':'submitted'} <b>${esc(j.title)}</b> (${L.length} leads${sub.files.length?', '+sub.files.length+' file'+(sub.files.length>1?'s':''):''}) for your review`, {view:'leads'});
+  recordChange(); closeModal(); RENDER[CURRENT]?.(); toast(`${again?'Resubmitted':'Submitted'} — your PM was notified`);
+}
+
+/* ---------- PM review ---------- */
+function jobReviewModal(jid){
+  const j = LEADJOBS.find(x=>x.id===jid); if(!j) return; const s = (j.subs||[]).slice(-1)[0]; if(!s) return toast('Nothing submitted yet');
+  const L = s.leadIds.map(id=>LEADS.find(l=>l.id===id)).filter(Boolean); const can = canReviewJob(j) && s.status==='Submitted';
+  openModal(`Review submission — ${j.title}`, `
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px"><span class="badge ${s.status==='Approved'?'b-approved':s.status==='Changes requested'?'b-revisionsneeded':'b-pending'}">${esc(s.status)}</span><span class="hint">${esc(pname(s.by))} · ${dtstr(s.at)} · ${esc(cname(j.client))} · submission ${(j.subs||[]).length}</span></div>
+    ${s.note?`<div class="js-note">“${esc(s.note)}”</div>`:''}
+    ${s.files.length?`<div class="nav-label" style="padding:4px 0 6px">Submission files</div><div style="margin-bottom:10px">${fileChips(s.files)}</div>`:'<div class="hint" style="margin-bottom:10px">No files attached to the submission.</div>'}
+    <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Lead</th><th>LinkedIn</th><th>Title · company</th><th>Files</th><th>Check</th></tr></thead><tbody>
+      ${L.map(l=>{ const p = leadProblems(l); return `<tr><td><b style="cursor:pointer" onclick="openLead('${l.id}')">${esc(l.name||'(no name)')}</b></td><td>${normLI(l.linkedin)?`<a href="${esc(liURL(l.linkedin))}" target="_blank" rel="noopener" style="color:var(--info)">Open ↗</a>`:'<span class="dup-flag">Missing</span>'}</td>
+        <td>${esc([l.title, l.company].filter(Boolean).join(' · ')||'—')}</td><td>${(l.files||[]).length?fileChips(l.files):'<span class="hint">—</span>'}</td><td>${p.length?`<span class="dup-flag">Missing ${p.join(', ')}</span>`:findDup(l)?'<span class="dup-flag">Possible duplicate</span>':'<span style="color:var(--ok)">✓ Complete</span>'}</td></tr>`; }).join('')}</tbody></table></div>
+    ${can?`<div class="field" style="margin-top:12px"><label>Note to ${esc(first(s.by))} (required to request changes)</label><textarea id="jrNote" rows="3" placeholder="e.g. Maria Reyes is missing her LinkedIn link, and please attach the screenshot of the search filters."></textarea></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" style="flex:1" onclick="jobDecide('${jid}',true)">✓ Approve submission</button><button class="btn" style="flex:1" onclick="jobDecide('${jid}',false)">↺ Request changes</button></div>`:''}
+    <div class="nav-label" style="padding:14px 0 6px">History</div>
+    <div class="timeline">${(j.subs||[]).slice().reverse().map((x,i)=>`<div class="ti"><b>${i===0&&x.status==='Submitted'?'Submitted':'Submission '+((j.subs||[]).length-i)}</b> · ${esc(first(x.by))} · <span class="hint">${dtstr(x.at)} · ${x.leadIds.length} leads${x.files.length?' · '+x.files.length+' file(s)':''}</span>${x.review?`<div>${x.review.ok?'✓ Approved':'↺ Changes requested'} by ${esc(first(x.review.by))} · ${dtstr(x.review.at)}${x.review.note?' — “'+esc(x.review.note)+'”':''}</div>`:''}</div>`).join('')}</div>`, true);
+}
+function jobDecide(jid, ok){
+  const j = LEADJOBS.find(x=>x.id===jid); const s = (j?.subs||[]).slice(-1)[0]; if(!s || !canReviewJob(j)) return;
+  const note = el('jrNote').value.trim(); if(!ok && !note) return toast('Write what needs to change so the VA knows what to fix');
+  s.status = ok ? 'Approved' : 'Changes requested'; s.review = {ok, by:PERSON, at:nowISO(), note};
+  j.state = ok ? 'Approved' : 'Changes requested';
+  if(ok){ s.leadIds.map(id=>LEADS.find(l=>l.id===id)).filter(l=>l && l.approval==='Pending').forEach(l=>{ l.approval = 'Approved'; l.history.push({at:nowISO(), by:PERSON, act:'Approved by PM', note:'with the submission'}); }); j.status = 'Done'; j.approvedAt = nowISO(); }
+  notify(s.by, ok?'approval':'revision', ok ? `✅ ${esc(first(PERSON))} approved your submission <b>${esc(j.title)}</b>` : `↺ ${esc(first(PERSON))} asked for changes on <b>${esc(j.title)}</b>: “${esc(note.slice(0,120))}”`, {view:'leads'});
+  recordChange(); closeModal(); RENDER[CURRENT]?.(); toast(ok ? 'Approved — the VA was notified' : 'Changes requested — the VA was notified');
+}
+/* assignment row add-ons (status + buttons) */
+function jobRowExtra(j){
+  const st = jobState(j); const s = (j.subs||[]).slice(-1)[0];
+  const badgeH = st==='Submitted' ? '<span class="badge b-pending">Submitted — waiting for PM review</span>' : st==='Changes requested' ? '<span class="badge b-revisionsneeded">Changes requested</span>' : st==='Approved' ? '<span class="badge b-approved">Approved</span>' : '';
+  const fb = st==='Changes requested' && s?.review?.note ? `<div class="js-fb small"><b>${esc(first(s.review.by))}:</b> ${esc(s.review.note)}</div>` : '';
+  const btns = [];
+  if(jobMine(j) && ['Open','Changes requested'].includes(st)) btns.push(`<button class="btn primary" style="padding:5px 10px;font-size:12px" onclick="jobSubmitModal('${j.id}')">${st==='Changes requested'?'Fix & resubmit':'Submit to PM'}</button>`);
+  if(s) btns.push(`<button class="btn ${st==='Submitted'&&canReviewJob(j)?'primary':''}" style="padding:5px 10px;font-size:12px" onclick="jobReviewModal('${j.id}')">${st==='Submitted'&&canReviewJob(j)?'Review submission':'Submission history'}</button>`);
+  return {badge:badgeH, fb, btns:btns.join('')};
+}
+
 /* ===== 12_misc.js ===== */
 /* ================= ENGAGEMENT · TEAM PERFORMANCE · REPORTS · CREATORS (kept from v7, now on live data) ================= */
 /* live workload numbers from the Content Board (falls back to v7 figures when no items exist yet) */
@@ -5407,6 +5606,7 @@ function empModal(id){
       <div style="border:1px solid var(--line);border-radius:10px;padding:9px 12px">
       ${WORK_TYPES.map(w=>`<label style="display:inline-flex;align-items:center;gap:6px;font-size:12.5px;margin:0 13px 6px 0"><input type="checkbox" class="emWork" value="${w}" style="width:auto" ${!e||e.work.includes(w)?'checked':''}>${w}</label>`).join('')}
       </div></div>
+    ${e && (ROLE==='hr' || isExec() || isFullAccess()) && typeof esRecordHTML==='function' ? esRecordHTML(e.id) : ''}
     <button class="btn primary" style="width:100%" onclick="saveEmployee(${e?`'${e.id}'`:'null'})">${e?'Save changes':'Create account & temporary password'}</button>
     ${e?'':'<div class="hint" style="text-align:center;margin-top:8px">A temporary password is generated for you to share. The employee must set their own password the first time they sign in.</div>'}`);
 }
@@ -6045,15 +6245,15 @@ const DOC_TEMPLATES = {
   'Notice':'NOTICE\n\nTo: {name}\nDate: {date}\n\n[Details of the notice.]\n\nPlease acknowledge receipt in the portal.\n\nHR — The Cross Core',
   'Memo':'MEMORANDUM\n\nTo: {name}\nFrom: HR\nDate: {date}\nSubject: [Subject]\n\n[Body of the memo.]\n\nHR — The Cross Core',
   'Letter':'{date}\n\nDear {name},\n\n[Body of the letter.]\n\nSincerely,\n\nHR — The Cross Core',
-  'New contract':'EMPLOYMENT / SERVICE CONTRACT\n\nThis agreement is made on {date} between The Cross Core ("the Company") and {name} ("the Contractor").\n\n1. Position and scope: [role, clients, deliverables]\n2. Schedule and hours: [schedule]\n3. Compensation: [rate and payment schedule]\n4. Term: [start and end dates]\n5. Confidentiality: [terms]\n\nPlease review and acknowledge in the portal.',
-  'Contract renewal':'CONTRACT RENEWAL\n\nDear {name},\n\nWe are pleased to renew your contract with The Cross Core effective {date}.\n\nRenewed term: [start – end]\nChanges from the previous contract: [changes, if any]\n\nPlease review and acknowledge in the portal.\n\nHR — The Cross Core'};
+  'New contract':'EMPLOYMENT / SERVICE CONTRACT\n\nThis agreement is made on {date} between The Cross Core ("the Company") and {name} ("the Contractor").\n\n1. Position and scope: [role, clients, deliverables]\n2. Schedule and hours: [schedule]\n3. Compensation: [rate and payment schedule]\n4. Term: [start and end dates]\n5. Confidentiality: [terms]\n\n--- page break ---\n\n6. Signatures\n\nBy signing below, the Contractor confirms they have read and agree to this contract.\n\nSigned by the Contractor, {name}:\n[signature]',
+  'Contract renewal':'CONTRACT RENEWAL\n\nDear {name},\n\nWe are pleased to renew your contract with The Cross Core effective {date}.\n\nRenewed term: [start – end]\nChanges from the previous contract: [changes, if any]\n\nPlease review and sign in the portal.\n\nHR — The Cross Core'};
 const docRead = (docId, k=PERSON) => DOCREADS.find(r=>r.doc===docId && r.person===k);
 const myDocs = () => HRDOCS.filter(d=>d.status==='Sent' && (d.sentTo||[]).includes(PERSON)).sort((a,b)=>(b.sentAt||'').localeCompare(a.sentAt||''));
-const fillDoc = (body, k) => String(body||'').replace(/\{name\}/g, pname(k)).replace(/\{date\}/g, dstr(nowISO()));
+const fillDoc = (body, k, at) => String(body||'').replace(/\{name\}/g, pname(k)).replace(/\{date\}/g, dstr(at||nowISO()));
 let HDT = 'drafts', HD_FILES = [];
 RENDER.hrdocs = () => {
   const by = st => HRDOCS.filter(d=>st.includes(d.status)).sort((a,b)=>(b.updatedAt||b.at||'').localeCompare(a.updatedAt||a.at||''));
-  const tabs = [['drafts','Drafts & revisions',['Draft','Revisions Needed']],['submitted','Submitted to JA',['Submitted']],['approved','Approved — ready to send',['Approved']],['sent','Published & sent',['Sent','Published']],['rejected','Rejected',['Rejected']]];
+  const tabs = [['drafts','Drafts & revisions',['Draft','Revisions Needed']],['submitted','Submitted to JA',['Submitted']],['approved','Approved — ready to send',['Approved']],['sent','Published & sent',['Sent','Published']],['signatures','E-signatures',[]],['rejected','Rejected',['Rejected']]];
   const cur = tabs.find(t=>t[0]===HDT)||tabs[0];
   const rows = by(cur[2]);
   el('v-hrdocs').innerHTML = `
@@ -6065,17 +6265,17 @@ RENDER.hrdocs = () => {
       <div class="card kpi"><div class="k-label">Approved</div><div class="k-val" style="color:var(--ok)">${by(['Approved']).length}</div><div class="hint">ready to publish or send</div></div>
       <div class="card kpi"><div class="k-label">Sent this month</div><div class="k-val">${HRDOCS.filter(d=>['Sent','Published'].includes(d.status)&&(d.sentAt||'').slice(0,7)===monthKey()).length}</div><div class="hint">with read receipts</div></div>
     </div>
-    <div class="tabs">${tabs.map(([k,l,st])=>`<button class="tab ${HDT===k?'on':''}" onclick="HDT='${k}';RENDER.hrdocs()">${l} <span class="hint">${by(st).length}</span></button>`).join('')}</div>
-    <div class="card"><div class="card-b" style="padding-top:4px">
+    <div class="tabs">${tabs.map(([k,l,st])=>`<button class="tab ${HDT===k?'on':''}" onclick="HDT='${k}';RENDER.hrdocs()">${l} <span class="hint">${k==='signatures'?HRDOCS.filter(d=>esNeeds(d)&&d.status==='Sent'&&!esSummary(d).all).length+' awaiting':by(st).length}</span></button>`).join('')}</div>
+    ${HDT==='signatures' ? esTabHTML() : `<div class="card"><div class="card-b" style="padding-top:4px">
       ${rows.map(d=>hrDocRow(d)).join('')||'<div class="empty">Nothing here.</div>'}
-    </div></div>`;
+    </div></div>`}`;
 };
 function hrDocRow(d){
   const reads = DOCREADS.filter(r=>r.doc===d.id);
   return `<div class="list-row" style="flex-wrap:wrap;padding:12px 6px">
     <span class="badge b-draft" style="min-width:92px;justify-content:center">${esc(d.kind)}</span>
-    <div style="flex:1;min-width:220px"><b style="font-size:13px;cursor:pointer" onclick="openHrDoc('${d.id}')">${esc(d.title)}</b> ${badge(d.status==='Submitted'?'Submitted to JA':d.status)}
-      <div class="hint">${d.id} · by ${esc(pname(d.by))} · ${ago(d.updatedAt||d.at)}${d.needsCoo?' · requires COO approval':' · no COO approval needed'}${d.status==='Sent'?` · ${(d.sentTo||[]).length} recipient(s) · ${reads.filter(r=>r.ackAt).length} acknowledged`:''}${d.announcement?' · published as '+d.announcement:''}</div>
+    <div style="flex:1;min-width:220px"><b style="font-size:13px;cursor:pointer" onclick="openHrDoc('${d.id}')">${esc(d.title)}</b> ${badge(d.status==='Submitted'?'Submitted to JA':d.status)} ${esBadge(d)}${esNeeds(d)&&d.status!=='Sent'?' <span class="hint">✍️ e-signature required</span>':''}
+      <div class="hint">${d.id} · by ${esc(pname(d.by))} · ${ago(d.updatedAt||d.at)}${d.needsCoo?' · requires COO approval':' · no COO approval needed'}${d.status==='Sent'?` · ${(d.sentTo||[]).length} recipient(s) · ${esNeeds(d)?esSummary(d).n+' signed':reads.filter(r=>r.ackAt).length+' acknowledged'}`:''}${(d.version||1)>1?' · version '+d.version:''}${d.announcement?' · published as '+d.announcement:''}</div>
       ${d.status==='Revisions Needed'||d.status==='Rejected'?`<div style="font-size:12.5px;color:var(--bad);margin-top:3px">JA: “${esc(d.history?.slice().reverse().find(h=>h.note)?.note||'')}”</div>`:''}</div>
     <button class="btn" style="padding:5px 11px;font-size:12px" onclick="openHrDoc('${d.id}')">Open</button></div>`;
 }
@@ -6085,12 +6285,15 @@ function hrDocModal(id){
   const kind = d?.kind || 'Letter';
   openModal(d?'Edit — '+d.title:'New HR document', `
     <div class="grid cols-2">
-      <div class="field"><label>Type</label><select id="hdKind" onchange="if(!el('hdBody').value.trim()||Object.values(DOC_TEMPLATES).includes(el('hdBody').value))el('hdBody').value=DOC_TEMPLATES[this.value];el('hdCoo').checked=this.value!=='Announcement'">${HRDOC_KINDS.map(k=>`<option ${k===kind?'selected':''}>${k}</option>`).join('')}</select></div>
+      <div class="field"><label>Type</label><select id="hdKind" onchange="if(!el('hdBody').value.trim()||Object.values(DOC_TEMPLATES).includes(el('hdBody').value))el('hdBody').value=DOC_TEMPLATES[this.value];el('hdCoo').checked=this.value!=='Announcement';el('hdSign').checked=/contract/i.test(this.value);el('hdSignOpts').style.display=el('hdSign').checked?'':'none'">${HRDOC_KINDS.map(k=>`<option ${k===kind?'selected':''}>${k}</option>`).join('')}</select></div>
       <div class="field"><label>Title *</label><input id="hdTitle" value="${esc(d?.title||'')}" placeholder="e.g. Contract renewal — Kiara San Luis"></div>
     </div>
     <div class="field"><label>Content *</label><textarea id="hdBody" rows="12" style="font-family:inherit;line-height:1.6">${esc(d?.body||DOC_TEMPLATES[kind])}</textarea>
       <div class="hint" style="margin-top:4px">{name} and {date} are filled in for each recipient.</div></div>
     <div class="field"><label>Attachments</label><button class="btn" style="padding:5px 10px;font-size:12px" onclick="pickFiles({multiple:true}).then(f=>{HD_FILES.push(...f);el('hdFiles').innerHTML=fileChips(HD_FILES,'hdRm')})">📎 Attach files</button><div id="hdFiles" style="margin-top:6px">${fileChips(HD_FILES,'hdRm')}</div></div>
+    <div class="es-opt"><label style="display:flex;gap:8px;align-items:center;font-size:13px"><input id="hdSign" type="checkbox" style="width:auto" ${(d?esNeeds(d):/contract/i.test(kind))?'checked':''} onchange="el('hdSignOpts').style.display=this.checked?'':'none'"> <b>Recipient must review and e-sign</b> in their portal</label>
+      <div id="hdSignOpts" style="${(d?esNeeds(d):/contract/i.test(kind))?'':'display:none'}"><select id="hdSignMode" style="margin:8px 0 4px"><option value="auto" ${d?.sign?.mode!=='marked'?'selected':''}>Initials on every page + full signature on the last page (recommended)</option><option value="marked" ${d?.sign?.mode==='marked'?'selected':''}>Only where I type [signature] or [initials] in the content</option></select>
+        <div class="hint">Type <code>[signature]</code> or <code>[initials]</code> where a field should appear, and <code>--- page break ---</code> on its own line to start a new page. Long contracts are split into pages automatically.${(d?.version||1)>1?` This is version ${d.version}.`:''}</div></div></div>
     <label style="display:flex;gap:8px;align-items:center;font-size:13px;margin-bottom:14px"><input id="hdCoo" type="checkbox" style="width:auto" ${(d?d.needsCoo:kind!=='Announcement')?'checked':''}> Requires COO (JA) approval before it can be sent</label>
     <div style="display:flex;gap:8px"><button class="btn" style="flex:1" onclick="saveHrDoc(${d?`'${d.id}'`:'null'},false)">Save draft</button><button class="btn primary" style="flex:1" onclick="saveHrDoc(${d?`'${d.id}'`:'null'},true)">Save & submit to JA →</button></div>`, true);
 }
@@ -6099,8 +6302,8 @@ function saveHrDoc(id, submit){
   const title=el('hdTitle').value.trim(), body=el('hdBody').value.trim(); if(!title||!body) return toast('Title and content are required');
   const needsCoo = el('hdCoo').checked;
   let d = id ? HRDOCS.find(x=>x.id===id) : null;
-  const data = {kind:el('hdKind').value, title, body, files:HD_FILES, needsCoo, updatedAt:nowISO()};
-  if(d) Object.assign(d, data); else { d = {id:uid('HD'), ...data, by:PERSON, at:nowISO(), status:'Draft', history:[{at:nowISO(), by:PERSON, act:'Drafted', note:''}], sentTo:[]}; HRDOCS.unshift(d); }
+  const data = {kind:el('hdKind').value, title, body, files:HD_FILES, needsCoo, sign:el('hdSign')?.checked ? {required:true, mode:el('hdSignMode').value} : null, updatedAt:nowISO()};
+  if(d) Object.assign(d, data); else { d = {id:uid('HD'), ...data, version:1, by:PERSON, at:nowISO(), status:'Draft', history:[{at:nowISO(), by:PERSON, act:'Drafted', note:''}], sentTo:[]}; HRDOCS.unshift(d); }
   if(submit){
     if(!needsCoo){ d.status='Approved'; d.history.push({at:nowISO(), by:PERSON, act:'Marked ready (no COO approval needed)', note:''}); }
     else { d.status='Submitted'; d.history.push({at:nowISO(), by:PERSON, act:'Submitted to JA', note:''}); notify('ja', 'submission', `HR submitted <b>${esc(d.kind)}: ${esc(title)}</b> for your approval`, {view:'coo', doc:d.id}); }
@@ -6119,7 +6322,8 @@ function openHrDoc(id){
   const reads = DOCREADS.filter(r=>r.doc===id);
   openModal(`${d.kind}: ${d.title}`, `
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px">${badge(d.status==='Submitted'?'Submitted to JA':d.status)}<span class="hint">${d.id} · by ${esc(pname(d.by))} · ${dtstr(d.at)}${d.needsCoo?' · requires COO approval':''}</span></div>
-    <div class="doc-paper">${linkify(recipient?fillDoc(d.body,PERSON):d.body)}</div>
+    ${recipient&&esNeeds(d)?esRecipientBanner(d):''}
+    <div class="doc-paper">${linkify(recipient?fillDoc(d.body,PERSON,d.sentAt):d.body)}</div>
     ${d.files?.length?`<div style="margin-top:10px">${fileChips(d.files)}</div>`:''}
     ${isJA?`<div class="field" style="margin-top:14px"><label>Notes for HR (required for revisions or rejection)</label><textarea id="jaNote" rows="3"></textarea></div>
       <div style="display:flex;gap:8px"><button class="btn primary" style="flex:1" onclick="cooDecide('${id}','Approved')">✓ Approve</button><button class="btn" style="flex:1" onclick="cooDecide('${id}','Revisions Needed')">↺ Revisions needed</button><button class="btn" style="flex:1;color:var(--bad)" onclick="cooDecide('${id}','Rejected')">✕ Reject</button></div>`:''}
@@ -6135,8 +6339,9 @@ function openHrDoc(id){
           <button class="btn primary" style="width:100%" onclick="sendHrDoc('${id}')">Send to selected</button></div></div>
       </div>`:''}
     ${d.status==='Sent'&&(isHR||isExec())?`<div class="nav-label" style="padding:16px 0 6px">Recipients (${(d.sentTo||[]).length})</div>
-      ${(d.sentTo||[]).map(k=>{ const r=reads.find(x=>x.person===k); return `<div class="list-row">${av(P(k))}<div style="flex:1"><b style="font-size:12.5px">${esc(pname(k))}</b></div>${r?.ackAt?`<span class="badge b-approved">Acknowledged ${dtstr(r.ackAt)}</span>`:r?.readAt?`<span class="badge b-scheduled">Opened ${dtstr(r.readAt)}</span>`:'<span class="badge b-missed">Not opened</span>'}</div>`; }).join('')}`:''}
-    ${recipient?(docRead(id)?.ackAt?`<div class="hint" style="text-align:center;margin-top:12px">You acknowledged this on ${dtstr(docRead(id).ackAt)}</div>`:`<button class="btn primary" style="width:100%;margin-top:14px" onclick="ackDoc('${id}')">✓ Acknowledge receipt</button>`):''}
+      ${(d.sentTo||[]).map(k=>{ const r=reads.find(x=>x.person===k); return `<div class="list-row">${av(P(k))}<div style="flex:1"><b style="font-size:12.5px">${esc(pname(k))}</b></div>${esNeeds(d)?esRecipientRow(d,k):r?.ackAt?`<span class="badge b-approved">Acknowledged ${dtstr(r.ackAt)}</span>`:r?.readAt?`<span class="badge b-scheduled">Opened ${dtstr(r.readAt)}</span>`:'<span class="badge b-missed">Not opened</span>'}</div>`; }).join('')}`:''}
+    ${isHR&&esNeeds(d)&&d.status==='Sent'&&!HRDOCS.some(x=>x.prevVersion===d.id)?`<div style="margin-top:12px"><button class="btn" onclick="esNewVersion('${id}')">Issue a new version for signature…</button> <span class="hint">Sent and signed versions stay locked.</span></div>`:''}
+    ${recipient&&esNeeds(d)?'':recipient?(docRead(id)?.ackAt?`<div class="hint" style="text-align:center;margin-top:12px">You acknowledged this on ${dtstr(docRead(id).ackAt)}</div>`:`<button class="btn primary" style="width:100%;margin-top:14px" onclick="ackDoc('${id}')">✓ Acknowledge receipt</button>`):''}
     <div class="nav-label" style="padding:16px 0 6px">History</div>
     <div class="timeline">${(d.history||[]).slice().reverse().map(h=>`<div class="ti"><b>${esc(h.act)}</b> · ${esc(pname(h.by))} · <span class="hint">${dtstr(h.at)}</span>${h.note?`<div>“${esc(h.note)}”</div>`:''}</div>`).join('')}</div>`, true);
 }
@@ -6157,9 +6362,10 @@ function publishHrDoc(id){
 function sendHrDoc(id){
   const d = HRDOCS.find(x=>x.id===id);
   const to = [...document.querySelectorAll('.sendTo:checked')].map(x=>x.value); if(!to.length) return toast('Choose at least one recipient');
-  d.status='Sent'; d.sentTo=uniq([...(d.sentTo||[]), ...to]); d.sentAt=nowISO(); d.updatedAt=nowISO();
+  d.status='Sent'; d.sentTo=uniq([...(d.sentTo||[]), ...to]); d.sentAt=d.sentAt||nowISO(); d.updatedAt=nowISO();
+  if(d.prevVersion){ const pv = HRDOCS.find(x=>x.id===d.prevVersion); if(pv && !pv.supersededBy){ pv.supersededBy = d.id; pv.history = [...(pv.history||[]), {at:nowISO(), by:PERSON, act:`Replaced by version ${d.version} (${d.id})`, note:''}]; } }
   d.history.push({at:nowISO(), by:PERSON, act:`Sent to ${to.length===1?pname(to[0]):to.length+' people'}`, note:''});
-  notify(to, 'hr', `📄 HR sent you a ${esc(d.kind.toLowerCase())}: <b>${esc(d.title)}</b>`, {view:'mydocs', doc:d.id});
+  notify(to, 'hr', esNeeds(d) ? `✍️ HR sent you a ${esc(d.kind.toLowerCase())} to review and sign: <b>${esc(d.title)}</b>` : `📄 HR sent you a ${esc(d.kind.toLowerCase())}: <b>${esc(d.title)}</b>`, {view:'mydocs', doc:d.id});
   recordChange(); closeModal(); HDT='sent'; RENDER[CURRENT]?.(); toast(`Sent to ${to.length} ${to.length===1?'person':'people'} — it appears in their portal now`);
 }
 function delHrDoc(id){ if(!confirm('Delete this document?')) return; HRDOCS=HRDOCS.filter(x=>x.id!==id); recordChange(); closeModal(); RENDER[CURRENT]?.(); }
@@ -6171,10 +6377,10 @@ function ackDoc(id){ let r=docRead(id); if(!r){ r={id:id+'|'+PERSON, doc:id, per
 RENDER.mydocs = () => {
   const D = myDocs();
   el('v-mydocs').innerHTML = `
-    <div class="page-head"><div><h2>My Documents</h2><p>Letters, memos, notices, and contracts HR has sent you, and your payslips from Finance.</p></div></div>
+    <div class="page-head"><div><h2>My Documents</h2><p>Letters, memos, notices, and contracts HR has sent you, and your payslips from Finance. Contracts that need your signature have a <b>Review & sign</b> button.</p></div></div>
     ${myPayslipsCard()}
     <div class="card"><div class="card-b" style="padding-top:4px">
-      ${D.map(d=>{ const r=docRead(d.id); return `<div class="list-row" style="padding:12px 6px;${r?.ackAt?'':'background:var(--panel-2);border-radius:10px'}"><span class="badge b-draft" style="min-width:92px;justify-content:center">${esc(d.kind)}</span>
+      ${D.map(d=>{ const r=docRead(d.id); if(esNeeds(d)) return esMyDocRow(d); return `<div class="list-row" style="padding:12px 6px;${r?.ackAt?'':'background:var(--panel-2);border-radius:10px'}"><span class="badge b-draft" style="min-width:92px;justify-content:center">${esc(d.kind)}</span>
         <div style="flex:1"><b style="font-size:13px;cursor:pointer" onclick="openHrDoc('${d.id}')">${esc(d.title)}</b>${r?.ackAt?'':' <span class="badge b-new">New</span>'}<div class="hint">From HR · ${dtstr(d.sentAt)}${r?.ackAt?' · acknowledged '+dtstr(r.ackAt):''}</div></div>
         <button class="btn ${r?.ackAt?'':'primary'}" style="padding:5px 11px;font-size:12px" onclick="openHrDoc('${d.id}')">${r?.ackAt?'View':'Open & acknowledge'}</button></div>`; }).join('')||'<div class="empty">No documents yet.</div>'}
     </div></div>`;
@@ -8940,7 +9146,7 @@ function lgOnClientSaved(c, reg, chg){
    link straight to the page, profile or file, and say when something is missing or needs confirming.
    The AI provider is configured once by a company head (Administration → Cora). Without it, Cora still finds
    the matching records and links. */
-const CORA = {open:false, conv:null, busy:false, research:'auto'};
+const CORA = {open:false, conv:null, busy:false, research:'auto', hist:false, live:null};
 const CORA_NAME = 'Cora';
 Object.defineProperty(CORA, 'msgs', {get:()=>coraConv().msgs});   /* current conversation's messages */
 const DEFAULT_COMPANY = {about:'The Cross Core OPC is a virtual-assistance agency in the Philippines. Our VAs, specialists and project managers run content, social media, graphics and video, lead generation and admin work for clients in the Philippines and abroad. Tagline: "Virtual assistance, reimagined."',
@@ -8959,46 +9165,50 @@ function coraClients(){
   return CLIENTS.filter(c=>mine.has(c.id) && !isEnded(c));
 }
 const coraTrim = (s, n) => { s = String(s||'').replace(/\s+\n/g,'\n').trim(); return s.length>n ? s.slice(0,n)+'…' : s; };
-/* the knowledge Cora gets for one question — only records this person can open */
-function coraContext(q){
-  const ql = q.toLowerCase(); const me = PEOPLE[PERSON]; const co = coraCompany();
-  const C = coraClients();
-  const named = C.filter(c=>{ const n = c.name.toLowerCase(); return ql.includes(n) || n.split(/[\s&()·,-]+/).filter(w=>w.length>=4).some(w=>ql.includes(w)); });
-  const focus = named.length ? named : (C.length<=6 ? C : C.filter(c=>(me.clients||[]).includes(c.id)).slice(0,6));
-  const voiceQ = /tone|voice|brand|caption|post|comment|reply|draft|write|content|guideline|example|style/i.test(q);
-  const out = [];
-  out.push(`## Company [PAGE:dashboard|Dashboard]\nAbout: ${co.about}\n${co.history?'History: '+co.history+'\n':''}${co.values?'Values: '+co.values+'\n':''}${co.leaders?'Leadership: '+co.leaders+'\n':''}${co.policies?'Ways of working: '+co.policies+'\n':''}`);
-  out.push(`## You\nName: ${me.name} · Role: ${me.sub||ROLE} · Portal: ${PORTAL_LABEL[me.portal]||me.portal||ROLE}\nToday: ${new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric',timeZone:'Asia/Manila'})} (Manila time)\nAssigned clients: ${C.length>40?C.length+' clients (full access)':C.map(c=>c.name).join(', ')||'none yet'}`);
-  focus.forEach(c=>{
-    const cfg = LEADCFG.find(x=>x.id===c.id); const lg = lgIsLeadGen(c);
-    let t = `## Client: ${c.name} [C:${c.id}|${c.name} workspace]\nIndustry: ${c.industry||'—'} · Type: ${c.type||'—'} · Status: ${c.status}\nPM: ${pmsOf(c.id).filter(k=>PEOPLE[k]).map(pname).join(', ')||'not set'}\nTeam: ${(c.team||[]).filter(k=>PEOPLE[k]).map(k=>pname(k)+(c.resp?.[k]?' ('+c.resp[k]+')':'')).join('; ')||'—'}\nServices: ${(c.services||[]).join(', ')||'—'}\n`;
-    if(c.summary) t += `Background: ${coraTrim(c.summary, 700)}\n`;
-    ['deliverables','tone','audience','website','socials','guidelines','notes','icp'].forEach(k=>{ if(c[k] && !/^(—|To be defined)$/.test(c[k])) t += `${k[0].toUpperCase()+k.slice(1)}: ${coraTrim(c[k], 400)}\n`; });
-    (c.links||[]).filter(l=>l.url).forEach(l=>t += `Client account link (${l.platform}${l.purpose?' — '+l.purpose:''}): ${l.url}\n`);
-    if(c.sop){ t += `SOP v${c.sop.version} [SOP:${c.id}|${c.name} SOP]:\n`; Object.entries(c.sop.sections||{}).forEach(([k,v])=>{ if(v) t += `- ${k}: ${coraTrim(v, 600)}\n`; });
-      if(c.sop.tagged?.includes(PERSON)) t += `Your responsibilities in the SOP are in the team section.\n`; }
-    else t += `SOP: not published yet.\n`;
-    if(lg){ const m = lgMetrics(c.id); const g = m.goal; const p = cfg?.portal;
-      t += `Lead generation [LG:${c.id}|${c.name} Lead Gen workspace]: portal ${p?PORTAL_TYPES[p.type]?.short:'not set up'}${p?.type==='desk'&&p.url?' ('+p.url+')':''}; VA ${lgVAs(c.id).map(pname).join(', ')||'—'}; target ${g.total?g.total+' leads':'—'}${g.daily?', '+g.daily+'/day':''}${g.deadline?', deadline '+g.deadline:''}; progress: ${m.loading?'loading':`${m.total} active leads, ${m.todayN} added today, ${m.added} since start, ${m.completed} contacted, status ${m.state}`}.\n`;
-      if(cfg?.criteria) t += `Lead criteria [LGC:${c.id}|criteria]: titles ${cfg.criteria.titles||'—'}; industry ${cfg.criteria.industry||'—'}; location ${cfg.criteria.location||'—'}; leave out ${cfg.criteria.exclude||'—'}.\n`;
-      if(cfg?.instructions) t += `Lead Gen instructions: ${coraTrim(cfg.instructions, 600)}\n`;
-      (cfg?.files||[]).slice(0,8).forEach(f=>t += `Lead file [LGF:${c.id}|${f.name}]: ${f.name} — ${f.added||0} added by ${pname(f.by)} on ${dstr(f.at)}\n`);
-      LEADJOBS.filter(j=>j.client===c.id && j.status!=='Done' && (ROLE!=='employee' || (j.assignees||[]).includes(PERSON))).forEach(j=>t += `Lead assignment [LG:${c.id}|${j.title}]: ${j.title}, ${j.criteria?.count||'?'} leads, due ${j.due||'—'}, to ${(j.assignees||[]).map(first).join(', ')}${j.notes?'; instructions: '+coraTrim(j.notes,200):''}\n`); }
-    (c.docs||[]).slice(0,6).forEach(d=>t += `Client file [C:${c.id}|${d.name}]: ${d.name}\n`);
-    t += coraFinance(c.id);
-    if(voiceQ || named.length) t += clientVoice(c.id);
-    out.push(t);
+/* Lead Gen details for a client this person works on (assigned team only) */
+function coraLGText(c){
+  const cfg = LEADCFG.find(x=>x.id===c.id); if(!lgIsLeadGen(c) || !cfg || !canSee('leadcfg', cfg)) return '';
+  const m = lgMetrics(c.id); const g = m.goal; const p = cfg.portal; let t = '';
+  t += `Lead generation [LG:${c.id}|${c.name} Lead Gen workspace]: portal ${p?PORTAL_TYPES[p.type]?.short:'not set up'}; VA ${lgVAs(c.id).map(pname).join(', ')||'—'}; target ${g.total?g.total+' leads':'—'}${g.daily?', '+g.daily+'/day':''}${g.deadline?', deadline '+g.deadline:''}; progress: ${m.loading?'loading':`${m.total} active leads, ${m.todayN} added today, ${m.added} since start, ${m.completed} contacted, status ${m.state}`}.\n`;
+  if(cfg.criteria) t += `Lead criteria [LGC:${c.id}|criteria]: titles ${cfg.criteria.titles||'—'}; industry ${cfg.criteria.industry||'—'}; location ${cfg.criteria.location||'—'}; leave out ${cfg.criteria.exclude||'—'}.\n`;
+  (cfg.files||[]).slice(0,6).forEach(f=>t += `Lead file [LGF:${c.id}|${f.name}]: ${f.name} — ${f.added||0} added by ${pname(f.by)} on ${dstr(f.at)}\n`);
+  LEADJOBS.filter(j=>j.client===c.id && j.status!=='Done' && (ROLE!=='employee' || (j.assignees||[]).includes(PERSON))).forEach(j=>t += `Lead assignment [LG:${c.id}|${j.title}]: ${j.title}, ${j.criteria?.count||'?'} leads, due ${j.due||'—'}, to ${(j.assignees||[]).map(first).join(', ')}${j.notes?'; instructions: '+coraTrim(j.notes,200):''}\n`);
+  return t;
+}
+/* the records Cora gets for one question: shared company knowledge ranked by relevance + this person's own work.
+   Follow-up questions ("what about her SOP?") carry over the clients named earlier in the conversation. */
+function coraContext(q, conv){
+  const me = PEOPLE[PERSON]; const C = coraClients(); const shared = kbClients(); const active = shared.filter(c=>!isEnded(c));
+  const prior = (conv?.msgs||[]).filter(m=>m.text);
+  let named = kbNamedClients(q, shared), carried = false;
+  const followUp = /\b(he|she|his|her|hers|him|they|them|their|it|its|that client|this client|same client|niya|siya|sya|kanya|kaniya|nila|nito|niyan)\b|^\s*(and|also|what about|how about|at|tapos|eh|yung|e\b)/i.test(q) || q.trim().split(/\s+/).length <= 5;
+  if(!named.length && prior.length && followUp){
+    for(const m of prior.slice().reverse().slice(0,6)){ const n = kbNamedClients(m.text, shared); if(n.length){ named = n.slice(0,3); carried = true; break; } }
+  }
+  const docs = kbDocs();
+  const hits = kbSearch(q + (carried ? ' '+named.map(c=>c.name).join(' ') : ''), {docs, clients:named});
+  const out = []; let budget = 20000; const used = new Set();
+  const add = s => { out.push(s); budget -= s.length; };
+  add(`## You\nName: ${me.name} · Role: ${me.sub||ROLE} · Portal: ${PORTAL_LABEL[me.portal]||me.portal||ROLE}\nToday: ${new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric',timeZone:'Asia/Manila'})} (Manila time)\nClients you work on: ${C.length>40?C.length+' clients (full access)':C.map(c=>c.name).join(', ')||'none yet'}`);
+  const company = docs.find(d=>d.id==='company'); used.add('company'); add(`## ${company.title} [${company.ref}]\n${company.text}`);
+  add(`## Client directory [PAGE:knowledge|Client directory] — ${active.length} clients\n` + active.map(c=>`- ${c.name}${kbAka(c).length?' (aka '+kbAka(c).join(', ')+')':''} · ${kbDef(c.industry)?c.industry:'—'} · PM ${pmsOf(c.id).filter(k=>PEOPLE[k]).map(first).join('/')||'—'} · [CP:${c.id}|${c.name} — client profile]`).join('\n'));
+  const top = hits.length ? hits[0].score : 0;
+  hits.filter((d,i)=>i<10 && (d.score>=top*0.12 || named.some(c=>c.id===d.client))).forEach(d=>{
+    if(used.has(d.id) || budget<800) return; used.add(d.id);
+    let t = `## ${d.title} [${d.ref}]${d.restricted?' (restricted)':''}\n${d.text}`;
+    if(d.type==='Client' && d.client && C.some(c=>c.id===d.client)) t += '\n' + coraLGText(client(d.client));
+    add(t.slice(0, Math.max(800, budget)));
   });
-  const myTasks = TASKS.filter(t=>(t.assignee===PERSON || (ROLE==='manager' && pmsOf(t.client).includes(PERSON) && t.status==='For Approval')) && !['Completed'].includes(t.status) && C.some(c=>c.id===t.client)).slice(0,25);
-  if(myTasks.length) out.push(`## Your tasks\n`+myTasks.map(t=>`- [T:${t.id}|${t.title}] ${t.title} · ${cname(t.client)} · ${t.type||''} · status ${t.status} · due ${t.due?iso(new Date(t.due)):'—'}${t.due&&new Date(t.due)<TODAY?' (OVERDUE)':''}`).join('\n'));
-  const jobs = LEADJOBS.filter(j=>j.status!=='Done' && (j.assignees||[]).includes(PERSON)); if(jobs.length) out.push(`## Your lead assignments\n`+jobs.map(j=>`- [LG:${j.client}|${j.title}] ${j.title} · ${cname(j.client)} · ${j.criteria?.count||'?'} leads · due ${j.due||'—'}`).join('\n'));
-  /* people / LinkedIn profiles the question names (whole-word name matches only) */
-  const top = coraLeadHits(q, C);
-  if(top.length) out.push(`## Leads matching the question\n`+top.map(l=>`- [L:${l.client}:${l.id}|${l.name}] ${l.name} · ${[l.title,l.company].filter(Boolean).join(' · ')} · ${cname(l.client)} · status ${l.statusLabel||l.stage} · LinkedIn ${l.linkedin||'none'}`).join('\n'));
-  const docs = coraDocs(); if(docs) out.push(`## Documents and policies sent to you\n${docs}`);
-  const anns = (typeof annFor==='function' ? annFor(PERSON) : []).slice(0,3); if(anns.length) out.push(`## Recent announcements\n`+anns.map(a=>`- [ANN:${a.id}|${a.title}] ${a.title}`).join('\n'));
-  out.push(`## Portal pages\n[PAGE:leads|Lead Generation] [PAGE:tasks|Content Board] [PAGE:attendance|Attendance & Time Logs] [PAGE:mydocs|My Documents] [PAGE:chat|Messages] [PAGE:announce|Announcements]${navAllowed(NAV.find(n=>n.id==='lgdash'))?' [PAGE:lgdash|Lead Gen Progress]':''}`);
-  return {text:out.join('\n\n').slice(0, 48000), clients:focus.map(c=>c.id), named:named.length>0};
+  const voiceQ = /tone|voice|brand|caption|post|comment|reply|draft|write|content|guideline|example|style/i.test(q);
+  if(voiceQ) named.filter(c=>C.some(x=>x.id===c.id)).slice(0,2).forEach(c=>add(clientVoice(c.id)));
+  const myTasks = TASKS.filter(t=>(t.assignee===PERSON || (ROLE==='manager' && pmsOf(t.client).includes(PERSON) && t.status==='For Approval')) && t.status!=='Completed' && C.some(c=>c.id===t.client)).slice(0,25);
+  if(myTasks.length) add(`## Your tasks\n`+myTasks.map(t=>`- [T:${t.id}|${t.title}] ${t.title} · ${cname(t.client)} · ${t.type||''} · status ${t.status} · due ${t.due?iso(new Date(t.due)):'—'}${t.due&&new Date(t.due)<TODAY?' (OVERDUE)':''}`).join('\n'));
+  const jobs = LEADJOBS.filter(j=>j.status!=='Done' && (j.assignees||[]).includes(PERSON)); if(jobs.length) add(`## Your lead assignments\n`+jobs.map(j=>`- [LG:${j.client}|${j.title}] ${j.title} · ${cname(j.client)} · ${j.criteria?.count||'?'} leads · due ${j.due||'—'}`).join('\n'));
+  const leadHits = coraLeadHits(q, C);
+  if(leadHits.length) add(`## Leads matching the question\n`+leadHits.map(l=>`- [L:${l.client}:${l.id}|${l.name}] ${l.name} · ${[l.title,l.company].filter(Boolean).join(' · ')} · ${cname(l.client)} · status ${l.statusLabel||l.stage} · LinkedIn ${l.linkedin||'none'}`).join('\n'));
+  const docsMine = coraDocs(); if(docsMine) add(`## Documents HR sent you (private to you)\n${docsMine}`);
+  add(`## Portal pages\n[PAGE:knowledge|Company Knowledge] [PAGE:tasks|Content Board] [PAGE:attendance|Attendance & Time Logs] [PAGE:mydocs|My Documents] [PAGE:chat|Messages] [PAGE:announce|Announcements]${navAllowed(NAV.find(n=>n.id==='leads'))?' [PAGE:leads|Lead Generation]':''}`);
+  return {text:out.join('\n\n').slice(0, 30000), clients:named.map(c=>c.id), named:named.length>0, carried, hits, leadHits};
 }
 const CORA_STOP = new Set('the and for with what who where when how are can you your our show find lead leads linkedin profile profiles client clients about next this that from have does did need needs doing target targets today week my me i is it do give tell list please status sop deadline deadlines task tasks work team help cross core cora hi hello update progress requirement requirements background company contact look up prospect prospects'.split(' '));
 function coraLeadHits(q, C){
@@ -9011,16 +9221,29 @@ function coraLeadHits(q, C){
   const best = Math.max(0, ...hits.map(h=>h[0]));
   return hits.filter(h=>h[0]===best && (best>=Math.min(2, want.length))).slice(0,8).map(h=>h[1]);
 }
-const CORA_SYSTEM = `You are Cora, the master AI assistant of The Cross Core OPC (a Philippine virtual-assistance agency), inside the Cross Core Ops Suite.
-You help VAs, specialists, project managers, HR and company heads with company information and processes, client organizations, brand guidelines, approved SOPs, assignments, tasks and deadlines, lead generation, and next steps — and with general questions and outside research, like a general assistant.
-Rules:
-- For Cross Core and client matters, use ONLY the CONTEXT (records this person may see). Cite every record you use with its reference in double brackets exactly as written, e.g. [[SOP:abc|Horizon Dental SOP]], [[C:abc|client workspace]], [[T:T-12|task title]]. These become links.
-- If a company or client fact is not in the CONTEXT, say it is missing (or restricted) and who to ask (their PM, HR, Finance or a company head). Never invent clients, people, numbers, rates, links or policies. Package rates and pay are restricted to Finance and company heads.
-- Say when information may be outdated (dates are in the context) or needs confirmation.
-- For outside/general questions you may use WEB RESULTS (cite them as [[https://link|site or title]]) and your general knowledge (label it "General knowledge — verify if important").
-- Keep the two apart: start internal facts with "From Cross Core records:" and outside facts with "From outside research:" when you use both.
-- When drafting anything for a client, follow that client's tone, audience, brand guidelines, content examples and SOP from the CONTEXT.
-- Be concise and practical: short paragraphs or bullets, then the concrete next step. Reply in the person's language (English or Tagalog/Taglish).`;
+const CORA_SYSTEM = `You are Cora, the AI assistant of The Cross Core OPC — a Philippine virtual-assistance agency — working inside the Cross Core Ops Suite alongside our VAs, specialists, project managers, HR and company leaders.
+
+HOW YOU SOUND
+- Warm, friendly and conversational — like a thoughtful senior colleague who is genuinely glad to help. Polished and professional, never stiff, robotic or overly formal.
+- Mirror the person's language: reply in natural, friendly Taglish when they write in Taglish or Tagalog; otherwise reply in clear English. Keep company and client terms in English.
+- Lead with the answer, then the useful detail. Keep replies concise — a few short paragraphs or a short list. End with a brief next step or offer only when it genuinely helps.
+- This is an ongoing conversation. Use the earlier messages to understand follow-ups ("what about her SOP?", "and Rob?", "yung sa kanya?") without asking the person to repeat themselves.
+- Use the person's first name now and then, not in every reply. At most one emoji, and only in light, casual moments.
+- Stay precise and professional for company processes, client work, HR and finance topics.
+
+WHAT YOU KNOW
+- CROSS CORE RECORDS below are the approved company knowledge this person may see: company background, team structure, client profiles and histories, approved SOPs, knowledge articles, and their own tasks and documents.
+- Answer questions about Cross Core, our team and our clients ONLY from those records. Cite each record you rely on with its reference in double brackets, exactly as written — for example [[CP:dan|Dan — client profile]] or [[SOP:rob|Rob Imbeault SOP v2]]. These become links.
+- If something is not in the records, say so plainly and kindly ("That hasn't been added to our records yet") and suggest who can help — their PM, HR, Finance or a company head. Never guess or invent clients, people, dates, numbers, rates or policies.
+- Package rates, pay, private HR records and restricted documents are shared only with authorized roles. If they aren't in the records, explain that the information is restricted — never speculate.
+- Mention when a record may be outdated or needs confirmation.
+
+OUTSIDE RESEARCH
+- For topics beyond Cross Core, use the WEB RESULTS when provided and cite them as [[https://link|Source name]]. You may add general knowledge, labelled as general knowledge.
+- Keep internal and outside information clearly apart. When you use both, label the parts "From Cross Core records" and "From the web".
+
+WRITING FOR CLIENTS
+- When drafting anything for a client, follow that client's approved tone of voice, audience, brand guidelines and SOP from the records.`;
 
 /* client voice, shared by Cora and Marcus: tone, audience, brand kit, guidelines, examples, SOP style */
 function emojiRate(texts){ const all = texts.join(' '); const n = (all.match(/\p{Extended_Pictographic}/gu)||[]).length; const posts = Math.max(1, texts.length); return n/posts; }
@@ -9050,9 +9273,15 @@ function coraDocs(){ return (typeof myDocs==='function' ? myDocs() : []).slice(0
 function coraFinance(cid){ if(!(typeof finAuth==='function' && finAuth())) return ''; const f = FINCLIENTS.find(x=>x.client===cid); const r = f?.packageRate; return r && (r.amount!=null || r.note) ? `Package rate (Finance & heads only): ${r.amount!=null?r.amount+' '+(r.currency||'')+' '+(r.basis||''):r.note}\n` : ''; }
 const CORA_WEB_RX = /\b(latest|news|trend(s|ing)?|what is|what are|who is|how (do|to|can)|best|compare|research|statistic|market|competitor|price of|definition|meaning|example of|ideas? for|tips|benchmark|industry average|algorithm|hashtag)\b/i;
 
-/* ---------- conversation state (saved per person) ---------- */
-function coraConv(){ let c = CORA.conv && AICHATS.includes(CORA.conv) ? CORA.conv : null; if(!c){ c = aiConvs('cora')[0]; if(c && c.msgs.length && Date.now()-new Date(c.updatedAt).getTime() > 12*3600e3) c = null; } if(!c) c = {id:null, msgs:[]}; CORA.conv = c; return c; }
-function coraNew(){ CORA.conv = {id:null, msgs:[]}; drawCora(); if(CURRENT==='cora') RENDER.cora(); }
+/* ---------- conversation state (saved per person; earlier chats stay in History) ---------- */
+function coraConv(){ if(CORA.busy && CORA.conv) return CORA.conv; if(CORA.conv?.id && !AICHATS.includes(CORA.conv)){ const f = AICHATS.find(x=>x.id===CORA.conv.id); if(f) CORA.conv = f; } let c = CORA.conv && (AICHATS.includes(CORA.conv) || !CORA.conv.id) ? CORA.conv : null; if(!c){ c = aiConvs('cora')[0]; if(c && c.msgs.length && Date.now()-new Date(c.updatedAt).getTime() > 12*3600e3) c = null; } if(!c) c = {id:null, msgs:[]}; CORA.conv = c; return c; }
+function coraNew(){ if(CORA.busy) return; CORA.conv = {id:null, msgs:[]}; CORA.hist = false; coraRedraw(); setTimeout(()=>(el('coraIn')||el('coraPageIn'))?.focus(), 30); }
+function coraOpenConv(id){ const c = AICHATS.find(x=>x.id===id); if(!c || CORA.busy) return; CORA.conv = c; CORA.hist = false; coraRedraw(); }
+const coraRedraw = () => { drawCora(); if(CURRENT==='cora') RENDER.cora(); };
+/* English or Taglish? (reply in the language the person writes in) */
+const CORA_TL = /\b(ano|anong|paano|pano|sino|sinong|saan|kailan|bakit|po|opo|ba|yung|iyong|naman|lang|mga|nga|ng|ko|mo|siya|sya|kami|tayo|natin|namin|niya|nila|ang|hindi|di|wala|walang|meron|may|pwede|puwede|salamat|kasi|talaga|diba|ito|iyan|yan|dito|doon|dun|gawin|kailangan|alam|sabihin|tungkol|ngayon|bukas|kanina|pala|sige|ganun|ganyan|kaya|parang|medyo|ulit|pakisabi|paki)\b/gi;
+const coraTaglish = q => (String(q).match(CORA_TL)||[]).length >= 2;
+const CORA_INTERNAL_RX = /\b(cross ?core|our (client|team|company|process|sop)|client|clients|sop|task|deadline|assign|payroll|attendance|policy|process|leave|onboarding|hr|pm)\b/i;
 
 /* ---------- floating panel (every staff page) ---------- */
 function coraMount(){
@@ -9060,123 +9289,162 @@ function coraMount(){
   const b = document.createElement('button'); b.id = 'coraFab'; b.className = 'cora-fab'; b.title = 'Ask Cora'; b.innerHTML = `${aiAva('cora', 30, true)}<span>Ask Cora</span>`; b.onclick = ()=>coraToggle(); document.body.appendChild(b);
   const p = document.createElement('div'); p.id = 'coraPanel'; p.className = 'cora-panel'; document.body.appendChild(p);
 }
-function coraToggle(force){ CORA.open = typeof force==='boolean' ? force : !CORA.open; drawCora(); if(CORA.open) setTimeout(()=>el('coraIn')?.focus(), 50); }
+function coraToggle(force){ CORA.open = typeof force==='boolean' ? force : !CORA.open; drawCora(); if(CORA.open) setTimeout(()=>el('coraIn')?.focus(), 30); }
 function coraSuggest(){
-  const C = coraClients(); const c = C.find(x=>lgIsLeadGen(x)) || C[0];
-  const s = ['What should I work on today?', 'What are my deadlines this week?'];
-  if(c){ s.push(`What are ${c.name}'s requirements and tone of voice?`); if(lgIsLeadGen(c)) s.push(`How am I doing on ${c.name}'s Lead Gen target?`); if(c.sop) s.push(`Show me ${c.name}'s SOP`); }
-  s.push('Tell me about Cross Core', 'What are the latest Instagram trends for small businesses?'); return s.slice(0,6);
+  const C = coraClients(); const S_ = kbClients().filter(c=>!isEnded(c)); const c = C[0] || S_[0]; const o = S_.find(x=>x!==c && !C.includes(x));
+  const s = ['What should I focus on today?'];
+  if(c) s.push(`What's ${c.name}'s tone of voice and SOP?`);
+  if(o) s.push(`Tell me about ${o.name} — how did we start working together?`);
+  s.push('How do I submit content for PM approval?', 'What are the latest Instagram trends for small businesses?');
+  return s.slice(0,5);
 }
-function coraMsgsHTML(conv){
-  return conv.msgs.length ? conv.msgs.map(m=>m.role==='user' ? `<div class="cora-m user">${esc(m.text)}</div>`
-    : `<div class="cora-row">${aiAva('cora', 28)}<div class="cora-m assistant">${coraRender(m.text)}${coraSources(m)}${m.note?`<small class="cora-note">${esc(m.note)}</small>`:''}<div class="cora-tools"><button onclick="coraCopy(this)" title="Copy">Copy</button></div></div></div>`).join('')
-    : `<div class="cora-hello">${aiAva('cora', 56, true)}<b>Hi ${esc(first(PERSON))}! I'm Cora.</b><p>Ask me about Cross Core, your clients' requirements, tone of voice and SOPs, your tasks and deadlines, Lead Gen targets and files — or anything else, and I'll research it. I only use what you're allowed to see.</p><div class="cora-sugg">${coraSuggest().map(s=>`<button onclick="coraAsk(${esc(JSON.stringify(s))})">${esc(s)}</button>`).join('')}</div></div>`;
+function coraHello(){
+  return `<div class="cora-hello">${aiAva('cora', 56, true)}<b>Hi ${esc(first(PERSON))}, I'm Cora.</b><p>Your Cross Core assistant. Ask me about the company, our clients and processes, or your own work — and I'm happy to research anything else for you. Pwede rin sa Taglish.</p><div class="cora-sugg">${coraSuggest().map(s=>`<button onclick="coraAsk(${esc(JSON.stringify(s))})">${esc(s)}</button>`).join('')}</div></div>`;
+}
+function coraMsgHTML(m){
+  if(m.role==='user') return `<div class="cora-m user">${esc(m.text)}</div>`;
+  if(m.streaming) return `<div class="cora-row">${aiAva('cora', 28)}<div class="cora-m assistant cora-live">${coraLiveInner(m)}</div></div>`;
+  return `<div class="cora-row">${aiAva('cora', 28)}<div class="cora-m assistant">${coraRender(m.text)}${coraSources(m)}${m.note?`<small class="cora-note">${esc(m.note)}</small>`:''}<div class="cora-tools"><button onclick="coraCopy(this)" title="Copy">Copy</button></div></div></div>`;
+}
+function coraLiveInner(m){ return m.text ? coraRender(m.text)+'<span class="cora-caret"></span>' : `<span class="cora-typing"><i></i><i></i><i></i></span> <span class="cora-status">${esc(CORA.busyText||'Thinking…')}</span>`; }
+function coraMsgsHTML(conv){ return conv.msgs.length ? conv.msgs.map(coraMsgHTML).join('') : coraHello(); }
+function coraHistHTML(){
+  const L = aiConvs('cora');
+  return `<div class="cora-histlist"><div class="cora-hist-h"><b>Your conversations</b><button class="btn ghost" onclick="coraNew()">＋ New</button></div>${L.map(c=>`<button class="${CORA.conv?.id===c.id?'on':''}" onclick="coraOpenConv('${c.id}')"><b>${esc(c.title)}</b><small>${ago(c.updatedAt)} · ${Math.ceil(c.msgs.length/2)} message${c.msgs.length>2?'s':''}</small></button>`).join('')||'<div class="hint" style="padding:10px">Your conversations with Cora will appear here.</div>'}</div>`;
 }
 function coraComposer(id){
-  return `<div class="cora-in"><button class="cora-web ${CORA.research==='on'?'on':''}" title="Web research: ${CORA.research==='on'?'always on':'automatic for outside questions'} — click to switch" onclick="CORA.research=CORA.research==='on'?'auto':'on';drawCora();if(CURRENT==='cora')RENDER.cora()">🌐 ${CORA.research==='on'?'Research on':'Auto'}</button>
-    <textarea id="${id}" rows="1" placeholder="Ask Cora anything…" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();coraAsk(null,'${id}')}"></textarea><button class="btn primary" onclick="coraAsk(null,'${id}')" ${CORA.busy?'disabled':''}>Ask</button></div>`;
+  return `<div class="cora-in"><button class="cora-web ${CORA.research==='on'?'on':''}" title="Web research: ${CORA.research==='on'?'always on':'automatic for outside topics'} — click to switch" onclick="CORA.research=CORA.research==='on'?'auto':'on';coraRedraw()">🌐 ${CORA.research==='on'?'Research on':'Auto'}</button>
+    <textarea id="${id}" rows="1" placeholder="Message Cora…" oninput="this.style.height='auto';this.style.height=Math.min(120,this.scrollHeight)+'px'" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();coraAsk(null,'${id}')}"></textarea><button class="btn primary cora-send" onclick="coraAsk(null,'${id}')" ${CORA.busy?'disabled':''} title="Send">➤</button></div>`;
 }
 function drawCora(){
   coraMount(); const p = el('coraPanel'); const fab = el('coraFab');
   fab.style.display = coraFabShown() ? '' : 'none'; p.classList.toggle('open', CORA.open && coraOn() && CURRENT!=='cora');
   if(!CORA.open || !coraOn() || CURRENT==='cora') return;
-  const conv = coraConv();
-  p.innerHTML = `<div class="cora-h">${aiAva('cora', 36, true)}<div style="flex:1;min-width:0"><b>Cora</b><small><i class="ai-online"></i> Online · Cross Core assistant</small></div><button class="icon-btn" onclick="coraToggle(false);go('cora')" title="Open full page & history">⤢</button><button class="icon-btn" onclick="coraNew()" title="New conversation">＋</button><button class="icon-btn" onclick="coraToggle(false)" title="Close">✕</button></div>
-    <div class="cora-body" id="coraBody">${coraMsgsHTML(conv)}${CORA.busy?`<div class="cora-row">${aiAva('cora',28)}<div class="cora-m assistant"><span class="spinner" style="display:inline-block;vertical-align:middle"></span> ${esc(CORA.busyText||'Cora is thinking…')}</div></div>`:''}</div>${coraComposer('coraIn')}`;
-  const b = el('coraBody'); b.scrollTop = b.scrollHeight;
+  const keep = el('coraIn')?.value || ''; const conv = coraConv();
+  p.innerHTML = `<div class="cora-h">${aiAva('cora', 36, true)}<div style="flex:1;min-width:0"><b>Cora</b><small><i class="ai-online"></i> ${CORA.busy?'Typing…':'Online · Cross Core assistant'}</small></div><button class="icon-btn ${CORA.hist?'on':''}" onclick="CORA.hist=!CORA.hist;drawCora()" title="Conversation history">🕘</button><button class="icon-btn" onclick="coraNew()" title="New conversation">＋</button><button class="icon-btn" onclick="coraToggle(false);go('cora')" title="Open full page">⤢</button><button class="icon-btn" onclick="coraToggle(false)" title="Close">✕</button></div>
+    <div class="cora-body" id="coraBody">${CORA.hist ? coraHistHTML() : coraMsgsHTML(conv)}</div>${coraComposer('coraIn')}`;
+  const b = el('coraBody'); b.scrollTop = CORA.hist ? 0 : b.scrollHeight; if(keep) el('coraIn').value = keep;
 }
 /* full page with history (AI assistants → Cora) */
 RENDER.cora = () => {
   { const f = el('coraFab'); if(f) f.style.display = 'none'; el('coraPanel')?.classList.remove('open'); }
-  const conv = coraConv(); const list = aiConvs('cora');
+  const keep = el('coraPageIn')?.value || ''; const conv = coraConv(); const list = aiConvs('cora');
   el('v-cora').innerHTML = `<div class="ai-page">
     <aside class="ai-side"><div class="ai-side-h">${aiAva('cora', 44, true)}<div><b>Cora</b><small><i class="ai-online"></i> Online</small></div></div>
       <button class="btn primary" style="width:100%;justify-content:center" onclick="coraNew()">＋ New conversation</button>
-      <div class="ai-hist">${list.map(c=>`<button class="${conv.id===c.id?'on':''}" onclick="CORA.conv=AICHATS.find(x=>x.id==='${c.id}');RENDER.cora()"><b>${esc(c.title)}</b><small>${ago(c.updatedAt)}</small></button>`).join('')||'<div class="hint" style="padding:8px">Your conversations with Cora appear here.</div>'}</div>
-      <div class="hint" style="padding:8px 4px">Cora answers from records you're allowed to see and shows where each answer came from.</div></aside>
-    <section class="ai-main"><div class="ai-main-h"><div><h3>Cora — Cross Core assistant</h3><span class="sub">Company · processes · clients · brand guidelines · SOPs · assignments · research</span></div></div>
-      <div class="cora-body ai-body" id="coraPageBody">${coraMsgsHTML(conv)}${CORA.busy?`<div class="cora-row">${aiAva('cora',28)}<div class="cora-m assistant"><span class="spinner" style="display:inline-block;vertical-align:middle"></span> ${esc(CORA.busyText||'Cora is thinking…')}</div></div>`:''}</div>
+      <div class="ai-hist">${list.map(c=>`<button class="${conv.id===c.id?'on':''}" onclick="coraOpenConv('${c.id}')"><b>${esc(c.title)}</b><small>${ago(c.updatedAt)}</small></button>`).join('')||'<div class="hint" style="padding:8px">Your conversations with Cora appear here.</div>'}</div>
+      <div class="hint" style="padding:8px 4px">Cora answers from approved Cross Core records you're allowed to see, and shows where each answer came from.</div></aside>
+    <section class="ai-main"><div class="ai-main-h"><div><h3>Cora — your Cross Core assistant</h3><span class="sub">Company · clients · processes · SOPs · your work · outside research</span></div></div>
+      <div class="cora-body ai-body" id="coraPageBody">${coraMsgsHTML(conv)}</div>
       ${coraComposer('coraPageIn')}</section></div>`;
-  const b = el('coraPageBody'); b.scrollTop = b.scrollHeight;
+  const b = el('coraPageBody'); b.scrollTop = b.scrollHeight; if(keep) el('coraPageIn').value = keep;
 };
+/* stream the answer into the open bubble(s) without re-drawing the whole chat */
+let CORA_RAF = 0;
+function coraLiveUpdate(){
+  if(CORA_RAF) return;
+  CORA_RAF = requestAnimationFrame(()=>{ CORA_RAF = 0; const m = CORA.live; if(!m) return;
+    document.querySelectorAll('.cora-live').forEach(n=>{ const box = n.closest('.cora-body'); const stick = box && box.scrollHeight - box.scrollTop - box.clientHeight < 80;
+      n.innerHTML = coraLiveInner(m); if(stick) box.scrollTop = box.scrollHeight; });
+    const s = document.querySelector('#coraPanel .cora-h small'); if(s) s.innerHTML = '<i class="ai-online"></i> Typing…'; });
+}
+/* reveal a ready-made answer smoothly (used when no AI provider is connected) */
+async function coraType(m, text){ const steps = Math.min(24, Math.max(6, Math.ceil(text.length/60))); for(let i=1;i<=steps;i++){ m.text = text.slice(0, Math.ceil(text.length*i/steps)); coraLiveUpdate(); await new Promise(r=>setTimeout(r, 22)); } m.text = text; }
 /* [[REF|label]] → a link that opens the page / profile / file; [[https://…|title]] → outside source */
 function coraRender(t){
   let h = esc(t);
   h = h.replace(/\[\[(https?:\/\/[^|\]\s]+)\|([^\]]+)\]\]/g, (_, u, label)=>`<a href="${u}" class="cora-ref ext" target="_blank" rel="noopener">${label} ↗</a>`);
-  h = h.replace(/\[\[([A-Z]+):([^|\]]+)\|([^\]]+)\]\]/g, (_, k, v, label)=>`<a href="#" class="cora-ref" onclick="coraGo('${k}','${esc(v).replace(/'/g,'')}');return false">${label} ↗</a>`);
-  h = h.replace(/\[\[([A-Z]+):([^\]|]+)\]\]/g, (_, k, v)=>`<a href="#" class="cora-ref" onclick="coraGo('${k}','${v.replace(/'/g,'')}');return false">open ↗</a>`);
+  h = h.replace(/\[\[([A-Z]+):([^|\]]+)\|([^\]]+)\]\]/g, (_, k, v, label)=>`<a href="#" class="cora-ref" onclick="coraGo('${k}','${esc(v).replace(/'/g,'')}');return false">${label}</a>`);
+  h = h.replace(/\[\[([A-Z]+):([^\]|]+)\]\]/g, (_, k, v)=>`<a href="#" class="cora-ref" onclick="coraGo('${k}','${v.replace(/'/g,'')}');return false">open</a>`);
   h = h.replace(/(^|[\s(])(https?:\/\/[^\s<)]+)/g, '$1<a href="$2" target="_blank" rel="noopener">$2</a>');
-  h = h.replace(/\*\*([^*]+)\*\*/g,'<b>$1</b>').replace(/^#{1,4} (.*)$/gm,'<b>$1</b>').replace(/^[-•*] (.*)$/gm,'<li>$1</li>').replace(/(<li>.*<\/li>\n?)+/g, m=>`<ul>${m}</ul>`).replace(/\n/g,'<br>').replace(/<\/li><br>/g,'</li>').replace(/<ul><br>/g,'<ul>');
+  h = h.replace(/\*\*([^*]+)\*\*/g,'<b>$1</b>').replace(/(^|[\s(])\*([^*\n]+)\*(?=[\s.,!?)]|$)/g,'$1<i>$2</i>').replace(/^#{1,4} (.*)$/gm,'<b>$1</b>').replace(/^\s*(?:[-•*]|\d+\.) (.*)$/gm,'<li>$1</li>').replace(/(<li>.*<\/li>\n?)+/g, m=>`<ul>${m}</ul>`).replace(/\n/g,'<br>').replace(/<\/li><br>/g,'</li>').replace(/<ul><br>/g,'<ul>').replace(/(<br>){3,}/g,'<br><br>');
   return h;
 }
 /* which records / outside pages an answer used */
 function coraSources(m){
   const refs = []; const seen = new Set();
-  String(m.text).replace(/\[\[([A-Z]+):([^|\]]+)\|([^\]]+)\]\]/g, (_, k, v, label)=>{ const id = k+v; if(!seen.has(id)){ seen.add(id); refs.push({k, v, label}); } return ''; });
+  String(m.text).replace(/\[\[([A-Z]+):([^|\]]+)\|([^\]]+)\]\]/g, (_, k, v, label)=>{ const id = k+v; if(!seen.has(id) && k!=='PAGE'){ seen.add(id); refs.push({k, v, label}); } return ''; });
   const web = (m.web||[]).filter(w=>String(m.text).includes(w.link) || !m.ai);
   if(!refs.length && !web.length) return '';
-  return `<div class="cora-src"><small>Sources</small>${refs.slice(0,8).map(r=>`<a href="#" class="src int" onclick="coraGo('${r.k}','${esc(r.v).replace(/'/g,'')}');return false" title="Cross Core record">🏢 ${esc(r.label)}</a>`).join('')}${web.slice(0,5).map(w=>`<a class="src ext" href="${esc(w.link)}" target="_blank" rel="noopener" title="Outside research">🌐 ${esc((w.title||w.link).slice(0,60))}</a>`).join('')}</div>`;
+  return `<div class="cora-src"><small>Sources</small>${refs.slice(0,8).map(r=>`<a href="#" class="src int" onclick="coraGo('${r.k}','${esc(r.v).replace(/'/g,'')}');return false" title="Cross Core record">🏢 ${esc(r.label)}</a>`).join('')}${web.slice(0,5).map(w=>`<a class="src ext" href="${esc(w.link)}" target="_blank" rel="noopener" title="From the web">🌐 ${esc((w.title||w.link).slice(0,60))}</a>`).join('')}</div>`;
 }
-function coraAskClient(cid){ const c = client(cid); if(!c) return; CORA.open = true; drawCora(); const i = el('coraIn'); if(i){ i.value = `About ${c.name}: `; i.focus(); } }
+function coraAskClient(cid){ const c = client(cid); if(!c) return; CORA.open = true; CORA.hist = false; drawCora(); const i = el('coraIn'); if(i){ i.value = `About ${c.name}: `; i.focus(); } }
 async function coraCopy(btn){ const t = btn.closest('.cora-m').innerText.replace(/\nCopy$/,''); const ok = await copyText(t); toast(ok?'Copied':'Copy failed'); }
 function coraGo(k, v){
-  const allowed = C => coraClients().some(c=>c.id===C);
-  if(k==='C' && allowed(v)){ openClient(v); return; }
-  if(k==='SOP' && allowed(v)){ openClient(v); setTimeout(()=>{ if(typeof WS!=='undefined'){ WS.tab='sop'; RENDER.clientws(); } }, 60); return; }
-  if(['LG','LGF','LGC','LGP'].includes(k) && allowed(v)){ LG.client = v; LG.ws = {LG:'leads', LGF:'files', LGC:'criteria', LGP:'progress'}[k]; go('leads'); return; }
+  const assigned = C => coraClients().some(c=>c.id===C);
+  if(k==='C' || k==='CP'){ if(k==='C' && assigned(v)) openClient(v); else kbClientView(v); return; }
+  if(k==='SOP'){ if(assigned(v)){ openClient(v); setTimeout(()=>{ if(typeof WS!=='undefined'){ WS.tab='sop'; RENDER.clientws(); } }, 60); } else kbClientView(v, 'sop'); return; }
+  if(k==='KB'){ kbArticleView(v); return; }
+  if(['LG','LGF','LGC','LGP'].includes(k) && assigned(v)){ LG.client = v; LG.ws = {LG:'leads', LGF:'files', LGC:'criteria', LGP:'progress'}[k]; go('leads'); return; }
   if(k==='T'){ const t = TASKS.find(x=>x.id===v); if(t){ go('tasks'); setTimeout(()=>openTask(v), 60); } return; }
-  if(k==='L'){ const [cid, ...rest] = v.split(':'); const id = rest.join(':'); if(!allowed(cid)) return;
+  if(k==='L'){ const [cid, ...rest] = v.split(':'); const id = rest.join(':'); if(!assigned(cid)) return;
     const l = lgLeads(cid).find(x=>x.id===id); if(l?.linkedin) window.open(l.linkedin, '_blank', 'noopener'); else { LG.client = cid; LG.ws='leads'; go('leads'); } return; }
   if(k==='ANN'){ go('announce'); setTimeout(()=>openAnn(v), 60); return; }
   if(k==='DOC'){ go('mydocs'); return; }
   if(k==='PAGE'){ go(v); return; }
 }
 async function coraAsk(q, inputId){
-  q = (q ?? el(inputId||'coraIn')?.value ?? '').trim(); if(!q || CORA.busy) return;
-  const conv = coraConv();
-  if(!conv.id){ const c = aiNewConv('cora', {title:q.slice(0,60)}); CORA.conv = c; }
-  CORA.conv.msgs.push({role:'user', text:q, at:nowISO()}); CORA.busy = true; CORA.busyText = 'Cora is looking through your workspace…';
-  const redraw = ()=>{ drawCora(); if(CURRENT==='cora') RENDER.cora(); }; redraw();
-  const ctx = coraContext(q);
-  const internal = ctx.named || /\b(my|me|i|our|cross ?core|client|task|deadline|sop|lead|assign|team|pm|hr|payroll|attendance|brand|tone|policy|process)\b/i.test(q);
+  const inp = el(inputId||'coraIn');
+  q = (q ?? inp?.value ?? '').trim(); if(!q || CORA.busy) return;
+  if(inp){ inp.value = ''; inp.style.height = ''; }
+  let conv = coraConv(); CORA.hist = false;
+  if(!conv.id){ conv = aiNewConv('cora', {title:q.slice(0,60)}); CORA.conv = conv; }
+  const prior = conv.msgs.slice();
+  const ans = {role:'assistant', text:'', streaming:true, at:nowISO()};
+  conv.msgs.push({role:'user', text:q, at:nowISO()}, ans);
+  CORA.busy = true; CORA.live = ans; CORA.busyText = 'Checking Cross Core records…'; coraRedraw();
+  const t0 = performance.now(); await new Promise(r=>setTimeout(r, 0));
+  const ctx = coraContext(q, {msgs:prior}); const t1 = performance.now();
   let web = [], webNote = '';
-  if(CORA.research==='on' || (CORA.research!=='off' && CORA_WEB_RX.test(q) && !ctx.named)){ CORA.busyText = 'Cora is researching online…'; redraw(); const r = await webSearch(q); web = r.results||[]; webNote = r.note||''; }
-  const hist = CORA.conv.msgs.slice(-9, -1).map(m=>`${m.role==='user'?'Person':'Cora'}: ${m.text}`).join('\n');
-  CORA.busyText = 'Cora is writing…'; redraw();
-  const res = await aiChat(CORA_SYSTEM, `CONTEXT (only what ${pname(PERSON)} may see, as of ${new Date().toISOString().slice(0,10)}):\n${ctx.text}\n\n${web.length?'WEB RESULTS:\n'+web.map((w,i)=>`[W${i+1}] ${w.title} — ${w.link}\n${w.snippet||''}`).join('\n')+'\n\n':''}${hist?'CONVERSATION SO FAR:\n'+hist+'\n\n':''}QUESTION: ${q}`);
-  let answer = res.text, note = '';
-  if(!answer){ answer = coraLocal(q, ctx, web); note = res.note + ' Showing the matching records' + (web.length?' and web results':'') + ' instead.'; }
-  else if(webNote && CORA.research==='on') note = webNote;
-  CORA.conv.msgs.push({role:'assistant', text:answer, note, web, ai:!!res.text, at:nowISO()});
-  aiSaveConv(CORA.conv); CORA.busy = false; redraw();
-  const i = el(inputId||'coraIn'); if(i){ i.value=''; i.focus(); }
+  const wantWeb = CORA.research==='on' || (CORA_WEB_RX.test(q) && !ctx.named && !CORA_INTERNAL_RX.test(q));
+  if(wantWeb){ CORA.busyText = 'Searching the web…'; coraLiveUpdate();
+    const r = await Promise.race([webSearch(q), new Promise(ok=>setTimeout(()=>ok({results:[], note:'Web search took too long, so I answered without it.'}), 8000))]); web = r.results||[]; webNote = r.note||''; }
+  const t2 = performance.now(); CORA.busyText = 'Writing…'; coraLiveUpdate();
+  const hist = prior.filter(m=>m.text).slice(-12).map(m=>`${m.role==='user'?first(PERSON):'Cora'}: ${coraTrim(String(m.text).replace(/\[\[([^|\]]+)\|([^\]]+)\]\]/g,'$2'), 1200)}`).join('\n');
+  const lang = coraTaglish(q) ? 'They are writing in Taglish/Tagalog — reply in natural, friendly Taglish.' : 'Reply in English unless they switch to Taglish.';
+  const prompt = `THE PERSON: ${pname(PERSON)} — ${P(PERSON).sub||ROLE}. ${lang}\n\nCROSS CORE RECORDS (only what ${first(PERSON)} may see, as of ${manilaDate()}):\n${ctx.text}\n\n${web.length?'WEB RESULTS:\n'+web.map((w,i)=>`[W${i+1}] ${w.title} — ${w.link}\n${w.snippet||''}`).join('\n')+'\n\n':''}${hist?'CONVERSATION SO FAR:\n'+hist+'\n\n':''}${ctx.carried?`(This follows up on: ${ctx.clients.map(cname).join(', ')})\n`:''}${first(PERSON)}: ${q}`;
+  let tFirst = 0;
+  const res = await aiStream(CORA_SYSTEM, prompt, t=>{ if(!tFirst) tFirst = performance.now(); ans.text = t; coraLiveUpdate(); });
+  let note = '';
+  if(res.text){ ans.text = res.text; if(webNote && CORA.research==='on') note = webNote; }
+  else { note = (res.note||'') + (res.note ? ' Here’s what I found in the records meanwhile.' : ''); await coraType(ans, coraLocal(q, ctx, web)); }
+  Object.assign(ans, {streaming:false, note, web, ai:!!res.text, ms:{ctx:Math.round(t1-t0), web:Math.round(t2-t1), first:tFirst?Math.round(tFirst-t0):null, total:Math.round(performance.now()-t0)}});
+  CORA.busy = false; CORA.live = null; aiSaveConv(conv); coraRedraw();
+  el(inputId||'coraIn')?.focus();
 }
-/* without the AI provider: find the records that match the question */
+/* without the AI provider: a friendly summary of the matching records */
 function coraLocal(q, ctx, web=[]){
-  const ql = q.toLowerCase(); const C = coraClients(); const focus = ctx.clients.map(client).filter(Boolean); const lines = [];
-  const named = C.filter(c=>ql.includes(c.name.toLowerCase()) || c.name.toLowerCase().split(/[\s&()·,-]+/).filter(w=>w.length>=4).some(w=>ql.includes(w)));
-  if(/task|today|work on|deadline|due|overdue|priority|next/.test(ql)){
+  const ql = q.toLowerCase(); const tl = coraTaglish(q); const L = [];
+  if(/task|today|work on|focus|deadline|due|overdue|priority|next|gagawin|trabaho/.test(ql)){
     const T = TASKS.filter(t=>t.assignee===PERSON && !['Completed','Approved'].includes(t.status)).sort((a,b)=>(a.due||0)-(b.due||0)).slice(0,6);
-    lines.push(T.length ? '**Your open tasks**\n'+T.map(t=>`- [[T:${t.id}|${t.title}]] · ${cname(t.client)} · ${t.status} · due ${t.due?fmt(new Date(t.due)):'—'}${t.due&&new Date(t.due)<TODAY?' — overdue':''}`).join('\n') : 'You have no open tasks on the Content Board.');
-    const J = LEADJOBS.filter(j=>j.status!=='Done' && (j.assignees||[]).includes(PERSON)); if(J.length) lines.push('**Lead assignments**\n'+J.map(j=>`- [[LG:${j.client}|${j.title}]] · ${cname(j.client)} · ${j.criteria?.count||'?'} leads · due ${j.due||'—'}`).join('\n'));
-    lgMyClients().filter(c=>lgVAs(c.id).includes(PERSON)).slice(0,4).forEach(c=>{ const m = lgMetrics(c.id); if(m.loading) return; lines.push(`- [[LG:${c.id}|${c.name} Lead Gen]]: ${m.todayN}${m.goal.daily?' of '+m.goal.daily:''} added today · ${m.state}${m.goal.deadline?' · deadline '+m.goal.deadline:''}\n  Next: ${m.goal.daily&&m.todayN<m.goal.daily?`add ${m.goal.daily-m.todayN} more leads today, then `:''}open the ${(m.stages['Not connected']||0).toLocaleString()} “Not connected” leads, send the connection note and set them to Request sent${m.stages['Follow-up']?`; ${m.stages['Follow-up']} follow-ups are due`:''}.`); });
+    L.push(T.length ? (tl?'**Mga open tasks mo**\n':'**Your open tasks**\n')+T.map(t=>`- [[T:${t.id}|${t.title}]] · ${cname(t.client)} · ${t.status} · due ${t.due?fmt(new Date(t.due)):'—'}${t.due&&new Date(t.due)<TODAY?' — overdue':''}`).join('\n') : (tl?'Wala kang open tasks sa Content Board ngayon. 🎉':'You have no open tasks on the Content Board right now. 🎉'));
+    const J = LEADJOBS.filter(j=>j.status!=='Done' && (j.assignees||[]).includes(PERSON)); if(J.length) L.push('**Lead assignments**\n'+J.map(j=>`- [[LG:${j.client}|${j.title}]] · ${cname(j.client)} · ${j.criteria?.count||'?'} leads · due ${j.due||'—'}`).join('\n'));
+    lgMyClients().filter(c=>lgVAs(c.id).includes(PERSON)).slice(0,4).forEach(c=>{ const m = lgMetrics(c.id); if(m.loading) return; L.push(`- [[LG:${c.id}|${c.name} Lead Gen]]: ${m.todayN}${m.goal.daily?' of '+m.goal.daily:''} added today · ${m.state}${m.goal.deadline?' · deadline '+m.goal.deadline:''}`); });
   }
-  (named.length ? named : /sop|require|client|about|background|target|criteria|instruction|tone|voice|brand/.test(ql) ? focus.slice(0,2) : []).forEach(c=>{
-    const cfg = LEADCFG.find(x=>x.id===c.id); const def = v => v && !/^(—|To be defined)$/i.test(v);
-    let t = `**${c.name}** — [[C:${c.id}|workspace]]\n${c.summary?coraTrim(c.summary, 300)+'\n':''}Services: ${(c.services||[]).join(', ')||'—'} · PM: ${pmsOf(c.id).filter(k=>PEOPLE[k]).map(first).join(', ')||'not set'}`;
-    if(def(c.tone)) t += `\nTone of voice: ${c.tone}`; if(def(c.audience)) t += `\nAudience: ${c.audience}`; if(def(c.guidelines)) t += `\nBrand guidelines: ${coraTrim(c.guidelines, 200)}`;
-    t += c.sop ? `\nSOP: [[SOP:${c.id}|${c.name} SOP v${c.sop.version}]]` : '\nSOP: not published yet — ask your PM.';
-    if(lgIsLeadGen(c)){ const m = lgMetrics(c.id); t += `\nLead Gen: [[LG:${c.id}|workspace]] · ${m.loading?'loading…':`${m.total} leads · ${m.todayN} today · ${m.state}`}${cfg?.criteria?.titles?' · titles: '+cfg.criteria.titles:''}${cfg?.instructions?'\nInstructions: '+coraTrim(cfg.instructions,200):''}`; }
-    if(/rate|price|package|fee|pay/.test(ql)) t += typeof finAuth==='function' && finAuth() ? `\n${coraFinance(c.id)||'No package rate on file.'}` : '\nPackage rates are restricted to Finance and company heads.';
-    lines.push(t); });
-  const lm = ctx.text.match(/## Leads matching the question\n([\s\S]*?)(\n## |$)/); if(lm) lines.push('**Matching leads**\n'+lm[1].split('\n').filter(Boolean).map(s=>s.replace(/^- \[(L:[^|\]]+)\|([^\]]+)\]/, '- [[$1|$2]]')).join('\n'));
-  if(/cross ?core|company|history|about us|who are we|ceo|coo|founder/.test(ql)){ const co = coraCompany(); lines.push(`**The Cross Core OPC** — from Cross Core records\n${co.about}${co.history?'\n'+co.history:''}\nLeadership: ${co.leaders}`); }
-  if(/policy|policies|process|rule|how do i|procedure/.test(ql)){ const co = coraCompany(); if(co.policies) lines.push(`**Ways of working** — from Cross Core records\n${co.policies}`); const d = coraDocs(); if(d) lines.push('**Documents you received**\n'+d.replace(/^- \[(DOC:[^|\]]+)\|([^\]]+)\]/gm, '- [[$1|$2]]')); }
-  if(web.length) lines.push('**From outside research**\n'+web.slice(0,5).map(w=>`- [[${w.link}|${w.title||w.link}]]${w.snippet?' — '+coraTrim(w.snippet, 160):''}`).join('\n'));
-  return lines.length ? lines.join('\n\n') : `I couldn't find that in your workspace. Try naming the client, task or person — or ask your PM.`;
+  ctx.clients.slice(0,2).map(client).filter(Boolean).forEach(c=>{
+    const sop = c.sop ? `[[SOP:${c.id}|${c.name} SOP v${c.sop.version}]]` : (tl?'wala pang published SOP':'no approved SOP published yet');
+    let t = `**${c.name}** — [[CP:${c.id}|${c.name} — client profile]]\n${[kbDef(c.industry)&&c.industry, (c.services||[]).length&&c.services.join(', ')].filter(Boolean).join(' · ')}${pmsOf(c.id).filter(k=>PEOPLE[k]).length?` · PM ${pmsOf(c.id).filter(k=>PEOPLE[k]).map(first).join(', ')}`:''}`;
+    if(kbDef(c.summary)) t += `\n${coraTrim(c.summary, 320)}`;
+    t += kbDef(c.history) ? `\n**History:** ${coraTrim(c.history, 420)}` : `\n${tl?'Wala pang history o background na naidagdag sa client record — pwede itong idagdag ng PM o HR.':'Their history and background haven’t been added to the client record yet — the PM or HR can add them.'}`;
+    if(kbDef(c.tone)) t += `\nTone of voice: ${c.tone}`; if(kbDef(c.audience)) t += `\nAudience: ${c.audience}`;
+    t += `\nSOP: ${sop}`;
+    if(/rate|price|package|fee|pay|bayad|sahod/.test(ql)) t += typeof finAuth==='function' && finAuth() ? `\n${coraFinance(c.id)||'No package rate on file.'}` : `\n${tl?'Ang package rates ay para lang sa Finance at company heads.':'Package rates are restricted to Finance and company heads.'}`;
+    L.push(t); });
+  if(!ctx.clients.length){ const top = (ctx.hits||[]).filter(d=>!['company','team'].includes(d.id) && d.type!=='Client' && d.rare>0).slice(0,3);
+    top.forEach(d=>L.push(`**${d.title}** — [[${d.ref}]]\n${kbSnippet(d, q)}`)); }
+  const lm = (ctx.leadHits||[]); if(lm.length) L.push('**Matching leads**\n'+lm.map(l=>`- [[L:${l.client}:${l.id}|${l.name}]] · ${[l.title,l.company].filter(Boolean).join(' · ')} · ${cname(l.client)}`).join('\n'));
+  if(/cross ?core|company|history|about us|who are we|ceo|coo|founder|kumpanya/.test(ql) && !ctx.clients.length){ const co = coraCompany(); L.push(`**The Cross Core OPC** — [[PAGE:knowledge|Company profile]]\n${co.about}${co.history?'\n'+co.history:''}\nLeadership: ${co.leaders}`); }
+  if(/team|who (is|are)|sino|structure/.test(ql) && !ctx.clients.length){ const t = (ctx.hits||[]).find(d=>d.id==='team'); if(t) L.push(`**Team structure** — [[PAGE:knowledge|Team structure]]\n${kbSnippet(t, q)}`); }
+  if(/policy|policies|process|rule|how do i|procedure|paano/.test(ql)){ const co = coraCompany(); if(co.policies && !L.length) L.push(`**Ways of working**\n${co.policies}`); }
+  if(web.length) L.push((tl?'**Mula sa web**\n':'**From the web**\n')+web.slice(0,5).map(w=>`- [[${w.link}|${w.title||w.link}]]${w.snippet?' — '+coraTrim(w.snippet, 160):''}`).join('\n'));
+  if(!L.length) return tl ? 'Hmm, wala pa akong nakikitang info tungkol diyan sa Cross Core records natin — baka hindi pa ito naidadagdag. Pwede mong itanong sa PM mo o sa HR, o i-add ito ng company head sa Company Knowledge.'
+    : 'I couldn’t find that in our Cross Core records yet — it may not have been added. Your PM or HR can confirm, and a company head can add it to Company Knowledge.';
+  return (tl ? 'Eto ang nakita ko sa Cross Core records:\n\n' : 'Here’s what I found in our Cross Core records:\n\n') + L.join('\n\n');
 }
 { const _go = go; go = function(id){ _go(id); const f = el('coraFab'); if(f) f.style.display = coraFabShown() ? '' : 'none'; }; }
 setInterval(()=>{ const f = el('coraFab'); if(f) f.style.display = coraFabShown() ? '' : 'none'; else if(PEOPLE[PERSON]) coraMount(); }, 1500);
+/* ready the moment someone signs in (no waiting for the timer) */
+{ const _sp = setPerson; setPerson = function(p){ _sp(p); CORA.conv = null; CORA.hist = false; if(coraOn()){ coraMount(); drawCora(); } }; }
 
 /* ---------- Administration: Cora settings (company information Cora uses) ---------- */
 function coraAdminCard(){
@@ -9439,6 +9707,29 @@ async function aiChat(system, prompt){
     return {text:null, note:'The AI provider is not connected yet — a company head connects it in Administration → Finance & Cora.'};
   }catch(e){ return {text:null, note:/Unknown action/i.test(e.message) ? 'Update the cc-admin server function to turn on AI answers.' : 'Could not reach the AI service ('+e.message+').'}; }
 }
+/* streamed answer: onText(fullTextSoFar) is called as the words arrive. Falls back to a single response on an older server. */
+async function aiStream(system, prompt, onText){
+  if(BACKEND?.mode!=='live') return {text:null, note:'Demo mode — AI answers work on the live portal once a company head connects the AI provider.'};
+  const ctrl = new AbortController(); const timer = setTimeout(()=>ctrl.abort(), 90000);
+  try{
+    const {data} = await BACKEND.sb.auth.getSession(); const token = data?.session?.access_token;
+    const r = await fetch(String(CC_CONFIG.SUPABASE_URL).replace(/\/$/,'')+'/functions/v1/cc-admin', {method:'POST', signal:ctrl.signal,
+      headers:{'Content-Type':'application/json', apikey:CC_CONFIG.SUPABASE_ANON_KEY, Authorization:'Bearer '+(token||CC_CONFIG.SUPABASE_ANON_KEY)}, body:JSON.stringify({action:'ai_stream', system, prompt})});
+    if(!/text\/plain/.test(r.headers.get('content-type')||'')){
+      const d = await r.json().catch(()=>({}));
+      if(/Unknown action/i.test(d.error||'')) return aiChat(system, prompt);
+      if(d.error) return {text:null, note:'Could not reach the AI service ('+d.error+').'};
+      if(d.configured===false) return {text:null, note:'The AI provider is not connected yet — a company head connects it in Administration → Finance & Cora.'};
+      return {text:d.text||null};
+    }
+    const rd = r.body.getReader(); const dec = new TextDecoder(); let t = '';
+    for(;;){ const {done, value} = await rd.read(); if(done) break; t += dec.decode(value, {stream:true}); const shown = t.replace(/\n*\[\[CC_ERR[\s\S]*$/, ''); if(shown) onText?.(shown); }
+    const m = t.match(/\n*\[\[CC_ERROR:([\s\S]*?)\]\]\s*$/);
+    if(m){ t = t.slice(0, m.index); if(!t.trim()) return {text:null, note:'Could not reach the AI service ('+m[1]+').'}; }
+    return {text:t.trim() ? t : null, note:t.trim() ? '' : 'The AI service returned an empty answer.'};
+  }catch(e){ return {text:null, note:e.name==='AbortError' ? 'The AI service took too long to answer.' : 'Could not reach the AI service ('+e.message+').'}; }
+  finally{ clearTimeout(timer); }
+}
 async function webSearch(q){
   if(BACKEND?.mode!=='live') return {results:[], note:'Web research works on the live portal (uses the search key set in Administration).'};
   try{ const d = await aiInvoke({action:'web_search', query:q}); return {results:d.results||[]}; }
@@ -9450,7 +9741,7 @@ let AICHATS = [];
 COLL.aichats = {get:()=>AICHATS, set:v=>AICHATS=v, aud:c=>[c.owner]};
 function aiConvs(assistantId){ return AICHATS.filter(c=>c.owner===PERSON && c.assistant===assistantId).sort((a,b)=>(b.updatedAt||'').localeCompare(a.updatedAt||'')); }
 function aiNewConv(assistantId, extra={}){ const c = {id:uid('AI'), owner:PERSON, assistant:assistantId, title:'New conversation', msgs:[], createdAt:nowISO(), updatedAt:nowISO(), ...extra}; AICHATS.unshift(c); return c; }
-function aiSaveConv(c){ c.updatedAt = nowISO(); if(c.msgs.length>80) c.msgs = c.msgs.slice(-80); if(AICHATS.length>300){ const mine = AICHATS.filter(x=>x.owner===PERSON).sort((a,b)=>(a.updatedAt||'').localeCompare(b.updatedAt||'')); mine.slice(0, mine.length-250).forEach(x=>{ AICHATS = AICHATS.filter(y=>y!==x); }); } recordChange(); }
+function aiSaveConv(c){ if(c.id && !AICHATS.includes(c)){ const i = AICHATS.findIndex(x=>x.id===c.id); if(i>=0) AICHATS[i] = c; else AICHATS.unshift(c); } c.updatedAt = nowISO(); if(c.msgs.length>80) c.msgs = c.msgs.slice(-80); if(AICHATS.length>300){ const mine = AICHATS.filter(x=>x.owner===PERSON).sort((a,b)=>(a.updatedAt||'').localeCompare(b.updatedAt||'')); mine.slice(0, mine.length-250).forEach(x=>{ AICHATS = AICHATS.filter(y=>y!==x); }); } recordChange(); }
 
 /* ---------- assistants in notifications, messages and toasts ---------- */
 function notifyAs(asstKey, to, type, text, link, idBase){
@@ -10144,6 +10435,448 @@ function reactionsHTML(m){
   return `<div class="reacts">${Object.entries(g).map(([e, who])=>`<button class="react ${who.includes(PERSON)?'mine':''}" title="${esc(who.map(k=>k===PERSON?'You':pname(k)).join(', '))}" onclick="toggleReaction('${m.id}','${e}')">${e} <b>${who.length}</b></button>`).join('')}</div>`;
 }
 function reactBtnHTML(m){ if(m.sys || m.kind==='call') return ''; return ` <button class="react-add" data-emoji-btn title="React" onclick="emojiOpen(this, e=>toggleReaction('${m.id}', e), {quick:true})">☺+</button>`; }
+
+/* ===== 28_knowledge.js ===== */
+/* ================= COMPANY KNOWLEDGE — one shared, searchable knowledge base for every staff portal =================
+   Cora and the Company Knowledge page read from the same index, built fresh from the live records each time,
+   so edits to client profiles, histories, SOPs or articles are picked up immediately.
+   Shared with all staff: company profile, team structure, client profiles & histories, approved (published) SOPs,
+   approved knowledge articles marked "All staff".
+   Never shared beyond authorized roles: package rates & pay (Finance + company heads), HR records, restricted articles,
+   lead lists (the client's assigned team), ended-contract archives (HR + previous PM). The live database enforces the
+   same rules, so a portal only ever receives what its user may see. */
+let KB = [];
+const KB_ACCESS = {all:'All staff', leads:'PMs, HR & leadership', hr:'HR & leadership', heads:'Company leadership only'};
+const KB_CATS = ['Company','Process','Policy','Team','Client','Tools','Other'];
+const kbManagers = () => activePeople().filter(k=>PEOPLE[k].role==='manager');
+COLL.kb = {get:()=>KB, set:v=>KB=v, aud:a=>{ const acc = a.access||'all';
+  if(a.status!=='Approved') return uniq([a.by, ...HEADS, ...HR_KEYS()]);
+  if(acc==='all') return null; if(acc==='heads') return uniq([a.by, ...HEADS]); if(acc==='hr') return uniq([a.by, ...HEADS, ...HR_KEYS()]);
+  return uniq([a.by, ...HEADS, ...HR_KEYS(), ...kbManagers()]); }};
+const kbEditor = () => ['manager','hr'].includes(ROLE) || isExec() || isFullAccess();
+const kbApprover = () => ROLE==='hr' || isHead(PERSON) || isFullAccess();
+const kbDef = v => v && !/^(—|-|To be defined|none)$/i.test(String(v).trim());
+
+/* clients whose shared profile this person may read */
+function kbClients(){
+  const mine = new Set(coraClients().map(c=>c.id)); const lead = ['ceo','coo','creative','hr'].includes(ROLE) || isFullAccess();
+  return CLIENTS.filter(c=>{
+    if(isEnded(c)) return typeof canSeeEnded==='function' && canSeeEnded(c);
+    return c.coraShare!==false || lead || mine.has(c.id) || pmsOf(c.id).includes(PERSON);
+  });
+}
+const kbAka = c => String(c.aka||'').split(/[,;/]+/).map(s=>s.trim()).filter(Boolean);
+function kbClientText(c){
+  const mine = coraClients().some(x=>x.id===c.id) || pmsOf(c.id).includes(PERSON) || isExec() || isFullAccess() || ROLE==='hr';
+  const L = [`Client: ${c.name}${kbAka(c).length?' (also known as '+kbAka(c).join(', ')+')':''} · ${[c.industry, c.type, c.category].filter(kbDef).join(' · ')} · Status: ${isEnded(c)?'Contract ended':c.status||'Active'}`];
+  if((c.services||[]).length) L.push(`Services Cross Core provides: ${c.services.join(', ')}`);
+  L.push(`Project manager: ${pmsOf(c.id).filter(k=>PEOPLE[k]).map(pname).join(', ')||'not set'} · Team: ${(c.team||[]).filter(k=>PEOPLE[k]).map(k=>pname(k)+(c.resp?.[k]?' ('+c.resp[k]+')':'')).join('; ')||'none assigned'}`);
+  if(c.createdAt) L.push(`Client record created: ${dstr(c.createdAt)}`);
+  if(kbDef(c.summary)) L.push(`Background: ${coraTrim(c.summary, 900)}`);
+  if(kbDef(c.history)) L.push(`History with Cross Core: ${coraTrim(c.history, 1400)}`);
+  [['tone','Tone of voice'],['audience','Target audience'],['deliverables','Monthly deliverables'],['guidelines','Brand guidelines'],['website','Website'],['socials','Social accounts'],['notes','Client notes & preferences']].forEach(([k,l])=>{ if(kbDef(c[k])) L.push(`${l}: ${coraTrim(c[k], 600)}`); });
+  if(kbDef(c.fonts) || (c.colors||[]).length) L.push(`Brand kit: colours ${(c.colors||[]).join(', ')||'—'}; fonts ${kbDef(c.fonts)?c.fonts:'—'}`);
+  if(mine && kbDef(c.contact)) L.push(`Client contact: ${c.contact}`);
+  if(lgIsLeadGen(c)){ const cfg = LEADCFG.find(x=>x.id===c.id);
+    if(cfg && canSee('leadcfg', cfg)){ const g = lgGoal(c.id); L.push(`Lead generation: target ${g.total?g.total+' leads':'—'}${g.daily?', '+g.daily+'/day':''}${g.deadline?', deadline '+g.deadline:''}; VA ${lgVAs(c.id).map(pname).join(', ')||'—'}${cfg.criteria?.titles?'; titles '+cfg.criteria.titles:''}${cfg.instructions?'; instructions: '+coraTrim(cfg.instructions, 400):''}`); }
+    else L.push('Lead generation client — lead lists, targets and instructions are shared with its assigned team only.'); }
+  const f = typeof coraFinance==='function' ? coraFinance(c.id) : ''; if(f) L.push(f.trim());
+  if(kbDef(c.package) && (typeof finAuth==='function' && finAuth() || ROLE==='hr' || pmsOf(c.id).includes(PERSON))) L.push(`Package: ${c.package}`);
+  if(!kbDef(c.summary) && !kbDef(c.history)) L.push('Background and history: not added to the client record yet.');
+  return L.join('\n');
+}
+function kbSopText(c){ const s = c.sop; if(!s) return '';
+  return `Approved SOP v${s.version}${(s.publishedAt||s.at)?' · published '+dstr(s.publishedAt||s.at):''} for ${c.name}\n` + Object.entries(s.sections||{}).filter(([,v])=>v).map(([k,v])=>`${k}: ${coraTrim(v, 700)}`).join('\n'); }
+function kbTeamText(){
+  const lines = []; const byPortal = {};
+  activePeople().forEach(k=>{ const p = PEOPLE[k]; const g = isHead(k) ? 'Leadership' : PORTAL_LABEL[p.portal]||p.portal||p.role; (byPortal[g] = byPortal[g]||[]).push(k); });
+  Object.entries(byPortal).sort((a,b)=>a[0]==='Leadership'?-1:b[0]==='Leadership'?1:a[0].localeCompare(b[0])).forEach(([g, ks])=>{
+    lines.push(`${g}: ` + ks.map(k=>{ const cl = CLIENTS.filter(c=>!isEnded(c) && ((c.team||[]).includes(k) || pmsOf(c.id).includes(k))).map(c=>c.name); return `${pname(k)} — ${P(k).sub||PEOPLE[k].role}${cl.length && cl.length<=6?' (clients: '+cl.join(', ')+')':cl.length?' ('+cl.length+' clients)':''}`; }).join('; ')); });
+  return lines.join('\n');
+}
+function kbArticles(includeDrafts){ return KB.filter(a=>canSee('kb', a) && (includeDrafts || a.status==='Approved')).sort((a,b)=>(b.updatedAt||'').localeCompare(a.updatedAt||'')); }
+
+/* every record this person may read, as searchable documents */
+function kbDocs(){
+  const co = coraCompany(); const D = [];
+  D.push({id:'company', type:'Company', title:'About The Cross Core', ref:'PAGE:knowledge|Company profile', always:true,
+    text:[co.about, co.history&&'History: '+co.history, co.values&&'Values: '+co.values, co.leaders&&'Leadership: '+co.leaders, co.policies&&'Ways of working: '+co.policies].filter(Boolean).join('\n')});
+  D.push({id:'team', type:'Team', title:'Team structure', ref:'PAGE:knowledge|Team structure', text:kbTeamText()});
+  kbClients().forEach(c=>{
+    D.push({id:'cp-'+c.id, type:'Client', client:c.id, title:`${c.name} — client profile`, ref:`CP:${c.id}|${c.name} — client profile`, text:kbClientText(c)});
+    if(c.sop) D.push({id:'sop-'+c.id, type:'SOP', client:c.id, title:`${c.name} — approved SOP v${c.sop.version}`, ref:`SOP:${c.id}|${c.name} SOP v${c.sop.version}`, text:kbSopText(c)});
+  });
+  kbArticles().forEach(a=>D.push({id:'kb-'+a.id, type:a.category||'Article', client:a.client||null, title:a.title, ref:`KB:${a.id}|${a.title}`, text:`${a.title}\n${coraTrim(a.body, 3000)}`, restricted:(a.access||'all')!=='all'}));
+  (typeof annFor==='function' ? annFor(PERSON) : []).slice(0,6).forEach(a=>D.push({id:'ann-'+a.id, type:'Announcement', title:a.title, ref:`ANN:${a.id}|${a.title}`, text:`Announcement (${dstr(a.at||a.createdAt)}): ${a.title}\n${coraTrim(a.body, 700)}`}));
+  return D;
+}
+
+/* ---------- search (shared by Cora and the Knowledge page) ---------- */
+const KB_STOP = new Set('the and for with what who whom where when how are can could would should you your our about this that from have has had does did need needs please tell give show me my mine is it its do was were will ano anong paano pano sino saan kailan bakit po ba yung iyong naman lang mga ang ng sa na ko mo siya kami tayo natin namin nila niya hindi wala meron may pwede puwede salamat kasi talaga diba ito iyan yan dito doon ba sya si ni kay nung noon'.split(' '));
+const kbTokens = s => (String(s||'').toLowerCase().normalize('NFKD').replace(/[̀-ͯ]/g,'').match(/[\p{L}\p{N}]{3,}/gu)||[]).filter(w=>!KB_STOP.has(w));
+/* clients a text mentions: full name, any distinctive name word, or an "also known as" name (whole words only) */
+function kbNamedClients(text, list){
+  const t = ' '+String(text||'').toLowerCase()+' ';
+  const has = w => w && new RegExp('(^|[^\\p{L}\\p{N}])'+reEsc(w.toLowerCase())+'($|[^\\p{L}\\p{N}])','u').test(t);
+  const generic = /^(the|and|clinic|dental|company|group|client|clients|studio|media|inc|corp|services?|marketing|official|shop|store|local|cross|core|brand|internal|agency)$/i;
+  return (list||kbClients()).filter(c=>{
+    if(has(c.name)) return true; if(kbAka(c).some(has)) return true;
+    const words = c.name.split(/[\s&()·,.\-/]+/).filter(w=>w.length>=3 && !generic.test(w));
+    return words.length===1 ? has(words[0]) : words.some(w=>w.length>=4 && has(w)) || (words[0] && words[0].length>=3 && has(words[0]) && words.length<=2);
+  });
+}
+function kbSearch(q, opts={}){
+  const docs = opts.docs || kbDocs(); const toks = uniq(kbTokens(q)); const named = new Set((opts.clients||[]).map(c=>c.id||c));
+  const N = docs.length; const df = {}; const dt = docs.map(d=>{ const w = kbTokens(d.title+' '+d.text); const tf = {}; w.forEach(x=>tf[x]=(tf[x]||0)+1); Object.keys(tf).forEach(x=>df[x]=(df[x]||0)+1); return tf; });
+  const scored = docs.map((d,i)=>{ let s = 0, rare = 0; const tf = dt[i];
+    toks.forEach(w=>{ const n = tf[w] || Object.keys(tf).filter(k=>k.length>4 && w.length>4 && (k.startsWith(w)||w.startsWith(k))).reduce((a,k)=>a+tf[k]*0.6,0); if(n){ s += Math.log(1+N/(1+(df[w]||1))) * (1+Math.log(n)); if((df[w]||1) <= Math.max(2, N*0.25)) rare++; } });
+    if(d.client && named.has(d.client)) s += d.type==='Client' ? 60 : 45;
+    if(toks.some(w=>d.title.toLowerCase().includes(w))) s += 2;
+    return {d, s, rare}; });
+  return scored.filter(x=>x.s>0).sort((a,b)=>b.s-a.s).map(x=>({...x.d, score:x.s, rare:x.rare}));
+}
+function kbSnippet(d, q){ const toks = kbTokens(q); const lines = d.text.split('\n'); const hit = lines.find(l=>toks.some(w=>l.toLowerCase().includes(w))) || lines[0] || ''; return coraTrim(hit, 220); }
+
+/* ---------- Company Knowledge page ---------- */
+const KBV = {q:'', tab:'all'};
+RENDER.knowledge = () => {
+  const keep = el('kbQ') === document.activeElement;
+  const C = kbClients().filter(c=>!isEnded(c)); const A = kbArticles(kbEditor()); const co = coraCompany();
+  const res = KBV.q.trim() ? kbSearch(KBV.q, {clients:kbNamedClients(KBV.q, C)}).slice(0,30) : null;
+  const pend = A.filter(a=>a.status!=='Approved');
+  el('v-knowledge').innerHTML = `<div class="page-head"><div><h2>Company Knowledge</h2><p>Approved Cross Core information for the whole team — company profile, team, client profiles and histories, SOPs and processes. Cora answers from the same records.</p></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">${kbEditor()?`<button class="btn primary" onclick="kbArticleEdit()">+ Add knowledge</button>`:''}<button class="btn ai-btn" onclick="coraToggle(true)">${aiAva('cora',22)} Ask Cora</button></div></div>
+    <div class="kb-search"><input id="kbQ" placeholder="Search clients, histories, SOPs, processes, people…" value="${esc(KBV.q)}" oninput="KBV.q=this.value;clearTimeout(KBV.t);KBV.t=setTimeout(RENDER.knowledge,160)"></div>
+    ${res ? `<div class="card"><div class="card-h"><h3>${res.length} result${res.length===1?'':'s'} for “${esc(KBV.q)}”</h3><button class="btn ghost" onclick="coraToggle(true);setTimeout(()=>{el('coraIn').value=${esc(JSON.stringify(KBV.q))};},60)">Ask Cora instead</button></div><div class="card-b">
+        ${res.map(d=>`<div class="kb-hit" onclick="coraGo('${d.ref.split(':')[0]}','${esc(d.ref.split('|')[0].split(':').slice(1).join(':'))}')"><span class="kb-type">${esc(d.type)}</span><b>${esc(d.title)}</b>${d.restricted?' <span class="hint">🔒 restricted</span>':''}<p>${esc(kbSnippet(d, KBV.q))}</p></div>`).join('') || '<div class="empty">Nothing found. It may not have been added yet — ask your PM or HR.</div>'}</div></div>`
+    : `<div class="kb-tabs tabs">${[['all','Overview'],['clients',`Clients (${C.length})`],['articles',`Processes & articles (${A.filter(a=>a.status==='Approved').length})`],['team','Team']].map(([k,l])=>`<button class="tab ${KBV.tab===k?'on':''}" onclick="KBV.tab='${k}';RENDER.knowledge()">${l}</button>`).join('')}</div>
+      ${KBV.tab==='all'||KBV.tab==='articles' ? '' : ''}
+      ${KBV.tab==='all' ? `<div class="grid cols-2" style="margin-bottom:16px"><div class="card"><div class="card-h"><h3>About The Cross Core</h3>${isSysAdmin()?`<button class="btn ghost" onclick="go('settings')">Edit</button>`:''}</div><div class="card-b kb-body">${esc(co.about)}${co.history?`<p><b>History.</b> ${esc(co.history)}</p>`:''}${co.values?`<p><b>Values.</b> ${esc(co.values)}</p>`:''}${co.leaders?`<p><b>Leadership.</b> ${esc(co.leaders)}</p>`:''}${co.policies?`<p><b>Ways of working.</b> ${esc(co.policies)}</p>`:''}</div></div>
+        <div class="card"><div class="card-h"><h3>Recently updated</h3></div><div class="card-b">${kbRecent().map(x=>`<div class="list-row" style="cursor:pointer" onclick="${x.go}"><span class="kb-type">${esc(x.type)}</span><div style="flex:1;min-width:0"><b style="font-size:12.5px">${esc(x.title)}</b><div class="hint">${esc(x.when)}</div></div></div>`).join('')||'<div class="empty">Nothing yet.</div>'}</div></div></div>` : ''}
+      ${KBV.tab==='all'||KBV.tab==='articles' ? `<div class="card" style="margin-bottom:16px"><div class="card-h"><h3>Processes, policies & articles</h3>${pend.length&&kbApprover()?`<span class="badge b-pending">${pend.length} awaiting approval</span>`:''}</div><div class="card-b">${(KBV.tab==='all'?A.slice(0,8):A).map(a=>`<div class="list-row" style="cursor:pointer" onclick="kbArticleView('${a.id}')"><span class="kb-type">${esc(a.category||'Article')}</span><div style="flex:1;min-width:0"><b style="font-size:12.5px">${esc(a.title)}</b><div class="hint">${esc(KB_ACCESS[a.access||'all'])}${a.client?' · '+esc(cname(a.client)):''} · updated ${ago(a.updatedAt||a.at)} by ${esc(first(a.updatedBy||a.by))}</div></div>${a.status!=='Approved'?badge(a.status==='Draft'?'Draft':'Pending'):''}</div>`).join('')||`<div class="empty">No articles yet.${kbEditor()?' Add your first process or policy with “+ Add knowledge”.':''}</div>`}</div></div>` : ''}
+      ${KBV.tab==='all'||KBV.tab==='clients' ? `<div class="card" style="margin-bottom:16px"><div class="card-h"><h3>Client directory</h3><span class="sub">Profiles, histories and approved SOPs shared with all staff</span></div><div class="kb-clients">${(KBV.tab==='all'?C.slice(0,12):C).map(c=>`<button class="kb-client" onclick="kbClientView('${c.id}')"><b>${esc(c.name)}</b><span>${esc([c.industry, pmsOf(c.id).filter(k=>PEOPLE[k]).map(first).join(', ')].filter(kbDef).join(' · '))}</span><small>${kbDef(c.history)||kbDef(c.summary)?'':'⚠︎ background not added · '}${c.sop?'SOP v'+c.sop.version:'no SOP yet'}</small></button>`).join('')}</div>${KBV.tab==='all'&&C.length>12?`<div class="card-b"><button class="btn ghost" onclick="KBV.tab='clients';RENDER.knowledge()">See all ${C.length} clients →</button></div>`:''}</div>` : ''}
+      ${KBV.tab==='team' ? `<div class="card"><div class="card-h"><h3>Team structure</h3></div><div class="card-b kb-body">${kbTeamText().split('\n').map(l=>{ const [g, rest] = l.split(/: (.+)/); return `<p><b>${esc(g)}</b><br>${esc(rest||'').split('; ').join('<br>')}</p>`; }).join('')}</div></div>` : ''}`}`;
+  if(keep){ const i = el('kbQ'); i.focus(); i.setSelectionRange(i.value.length, i.value.length); }
+};
+function kbRecent(){
+  const X = [];
+  kbArticles().slice(0,6).forEach(a=>X.push({type:a.category||'Article', title:a.title, at:a.updatedAt||a.at, when:'Updated '+ago(a.updatedAt||a.at), go:`kbArticleView('${a.id}')`}));
+  kbClients().filter(c=>c.sop?.publishedAt||c.sop?.at).forEach(c=>X.push({type:'SOP', title:`${c.name} SOP v${c.sop.version}`, at:(c.sop.publishedAt||c.sop.at), when:'Published '+ago((c.sop.publishedAt||c.sop.at)), go:`kbClientView('${c.id}','sop')`}));
+  return X.sort((a,b)=>(b.at||'').localeCompare(a.at||'')).slice(0,7);
+}
+function kbClientView(cid, focus){
+  const c = client(cid); if(!c || !kbClients().some(x=>x.id===cid)) return toast('That client profile is not shared with you');
+  const mine = coraClients().some(x=>x.id===cid) || pmsOf(cid).includes(PERSON) || isExec() || isFullAccess();
+  const txt = kbClientText(c).split('\n').slice(1);
+  openModal(`${c.name} — client profile`, `<div class="kb-prof-h"><span class="kb-type">Client</span><span class="hint">${esc([c.industry, c.type, c.category].filter(kbDef).join(' · '))}${isEnded(c)?' · contract ended':''}</span></div>
+    <div class="kb-body">${txt.map(l=>{ const i = l.indexOf(': '); return i>0 && i<40 ? `<p><b>${esc(l.slice(0,i))}.</b> ${esc(l.slice(i+2))}</p>` : `<p>${esc(l)}</p>`; }).join('')}</div>
+    ${c.sop?`<div class="nav-label" id="kbSop" style="padding:14px 0 6px">Approved SOP v${c.sop.version}${(c.sop.publishedAt||c.sop.at)?' · '+dstr((c.sop.publishedAt||c.sop.at)):''}</div><div class="doc-paper" style="max-height:340px;overflow:auto">${Object.entries(c.sop.sections||{}).filter(([,v])=>v).map(([k,v])=>`<p><b>${esc(k)}</b><br>${esc(v).replace(/\n/g,'<br>')}</p>`).join('')}</div>`:'<div class="hint" style="margin-top:10px">No approved SOP has been published for this client yet.</div>'}
+    <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">${mine?`<button class="btn primary" onclick="closeModal();openClient('${c.id}')">Open workspace</button>`:''}<button class="btn ai-btn" onclick="closeModal();coraToggle(true);setTimeout(()=>{el('coraIn').value='Tell me about ${esc(c.name).replace(/'/g,'')} — ';el('coraIn').focus()},60)">${aiAva('cora',20)} Ask Cora about ${esc(c.name)}</button></div>`, true);
+  if(focus==='sop') setTimeout(()=>el('kbSop')?.scrollIntoView({block:'start'}), 60);
+}
+function kbArticleView(id){
+  const a = KB.find(x=>x.id===id); if(!a || !canSee('kb', a)) return toast('That article is not available to you');
+  const canEdit = kbEditor() && (a.by===PERSON || kbApprover());
+  openModal(a.title, `<div class="kb-prof-h"><span class="kb-type">${esc(a.category||'Article')}</span>${a.status!=='Approved'?badge(a.status):''}<span class="hint">${esc(KB_ACCESS[a.access||'all'])}${a.client?' · '+esc(cname(a.client)):''} · updated ${dtstr(a.updatedAt||a.at)} by ${esc(pname(a.updatedBy||a.by))}${a.approvedBy?' · approved by '+esc(pname(a.approvedBy)):''}</span></div>
+    <div class="doc-paper">${linkify(a.body)}</div>${a.files?.length?`<div style="margin-top:10px">${fileChips(a.files)}</div>`:''}
+    <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">${canEdit?`<button class="btn" onclick="kbArticleEdit('${a.id}')">Edit</button>`:''}${kbApprover()&&a.status!=='Approved'?`<button class="btn primary" onclick="kbApprove('${a.id}')">✓ Approve & share</button>`:''}${kbApprover()?`<button class="btn" style="color:var(--bad)" onclick="kbDelete('${a.id}')">Delete</button>`:''}</div>`, true);
+}
+let KB_FILES = [];
+function kbArticleEdit(id){
+  const a = id ? KB.find(x=>x.id===id) : null; KB_FILES = [...(a?.files||[])];
+  openModal(a?'Edit knowledge':'Add knowledge', `<div class="grid cols-2"><div class="field"><label>Title *</label><input id="kbT" value="${esc(a?.title||'')}" placeholder="e.g. How to submit content for PM approval"></div>
+      <div class="field"><label>Category</label><select id="kbC">${KB_CATS.map(c=>`<option ${c===(a?.category||'Process')?'selected':''}>${c}</option>`).join('')}</select></div>
+      <div class="field"><label>Who can see it</label><select id="kbA">${Object.entries(KB_ACCESS).filter(([k])=>k!=='heads'||isHead(PERSON)||isFullAccess()).map(([k,l])=>`<option value="${k}" ${k===(a?.access||'all')?'selected':''}>${l}</option>`).join('')}</select></div>
+      <div class="field"><label>Related client (optional)</label><select id="kbCl"><option value="">—</option>${CLIENTS.filter(c=>!isEnded(c)).map(c=>`<option value="${c.id}" ${a?.client===c.id?'selected':''}>${esc(c.name)}</option>`).join('')}</select></div></div>
+    <div class="field"><label>Content *</label><textarea id="kbB" rows="12" style="line-height:1.6">${esc(a?.body||'')}</textarea></div>
+    <div class="field"><button class="btn" style="padding:5px 10px;font-size:12px" onclick="pickFiles({multiple:true}).then(f=>{KB_FILES.push(...f);el('kbF').innerHTML=fileChips(KB_FILES,'kbRmF')})">📎 Attach files</button><div id="kbF" style="margin-top:6px">${fileChips(KB_FILES,'kbRmF')}</div></div>
+    <div class="hint" style="margin-bottom:10px">${kbApprover()?'Saved as approved — it is shared right away with the people you chose, and Cora can use it.':'It is sent to HR and company heads for approval before it is shared or used by Cora.'}</div>
+    <button class="btn primary" onclick="kbArticleSave(${a?`'${a.id}'`:'null'})">${kbApprover()?'Save & share':'Submit for approval'}</button>`, true);
+}
+function kbRmF(i){ KB_FILES.splice(i,1); el('kbF').innerHTML = fileChips(KB_FILES,'kbRmF'); }
+function kbArticleSave(id){
+  const title = el('kbT').value.trim(), body = el('kbB').value.trim(); if(!title || !body) return toast('Add a title and the content');
+  let a = id ? KB.find(x=>x.id===id) : null; const data = {title, body, category:el('kbC').value, access:el('kbA').value, client:el('kbCl').value||null, files:KB_FILES, updatedAt:nowISO(), updatedBy:PERSON};
+  const status = kbApprover() ? 'Approved' : 'Pending approval';
+  if(a) Object.assign(a, data, {status, ...(status==='Approved'?{approvedBy:PERSON, approvedAt:nowISO()}:{})});
+  else { a = {id:uid('KB'), ...data, status, by:PERSON, at:nowISO(), ...(status==='Approved'?{approvedBy:PERSON, approvedAt:nowISO()}:{})}; KB.unshift(a); }
+  if(status!=='Approved') notify(uniq([...HR_KEYS(), ...HEADS]).filter(k=>k!==PERSON), 'submission', `📚 ${esc(first(PERSON))} submitted knowledge for approval: <b>${esc(title)}</b>`, {view:'knowledge'});
+  audit(`${id?'Updated':'Added'} company knowledge: ${title}`); recordChange(); closeModal(); if(CURRENT==='knowledge') RENDER.knowledge(); toast(status==='Approved'?'Shared — Cora can use it now':'Submitted for approval');
+}
+function kbApprove(id){ const a = KB.find(x=>x.id===id); if(!a || !kbApprover()) return; a.status = 'Approved'; a.approvedBy = PERSON; a.approvedAt = nowISO(); a.updatedAt = nowISO();
+  notify(a.by, 'approval', `📚 Your knowledge article <b>${esc(a.title)}</b> was approved and shared`, {view:'knowledge'}); recordChange(); closeModal(); if(CURRENT==='knowledge') RENDER.knowledge(); toast('Approved and shared'); }
+function kbDelete(id){ if(!confirm('Delete this article?')) return; KB = KB.filter(x=>x.id!==id); recordChange(); closeModal(); if(CURRENT==='knowledge') RENDER.knowledge(); }
+
+/* ===== 29_esign.js ===== */
+/* ================= E-SIGNATURES FOR HR CONTRACTS =================
+   HR marks a document "Recipient must review and e-sign". The employee opens Review & Sign, reads every page,
+   draws a signature or initials in each required field (mouse, trackpad, touch or pen), checks a final preview
+   and confirms. The signed record keeps the exact contract text, a SHA-256 fingerprint of that version, every
+   drawn field with its time, the signer's account and the signing time. A locked PDF copy is stored for HR and
+   the employee. Signed records cannot be edited (the database refuses changes); HR issues a new version instead. */
+let ESIGN = [];
+COLL.esign = {get:()=>ESIGN, set:v=>ESIGN=v, aud:r=>uniq([r.person, ...HR_KEYS(), ...HEADS])};
+const esSig = (docId, k=PERSON) => ESIGN.find(r=>r.doc===docId && r.person===k && r.status==='Signed');
+const esNeeds = d => !!d?.sign?.required;
+const ES_TOKEN = /\[(signature|initials)\]/gi;
+const ES_BREAK = /^\s*(?:-{3,}\s*page\s*break\s*-{3,}|\[\[page\]\]|\[page break\])\s*$/im;
+const ES_INK = '#0f1b3d';
+
+/* split the exact contract text into pages and work out every required field */
+function esPaginate(text){
+  let parts = String(text).split(new RegExp(ES_BREAK.source, 'gim')).map(s=>s.replace(/^\n+|\n+$/g,''));
+  if(parts.length===1){ const paras = text.split(/\n{2,}/); parts = []; let cur = '';
+    paras.forEach(p=>{ if(cur && (cur.length + p.length) > 1700){ parts.push(cur); cur = p; } else cur = cur ? cur+'\n\n'+p : p; }); if(cur) parts.push(cur); }
+  return parts.filter(p=>p.trim()).length ? parts.filter(p=>p.trim()) : [''];
+}
+function esLayout(d, text){
+  const pages = esPaginate(text); const mode = d.sign?.mode || 'auto'; const fields = [];
+  pages.forEach((p, i)=>{ let n = 0; p.replace(ES_TOKEN, (_, kind)=>{ fields.push({id:`p${i+1}-f${++n}`, page:i+1, kind:kind.toLowerCase(), inline:true}); return _; }); });
+  if(mode==='auto'){
+    const last = pages.length;
+    pages.forEach((p, i)=>{ const pg = i+1; if(pg<last && !fields.some(f=>f.page===pg)) fields.push({id:`p${pg}-init`, page:pg, kind:'initials', inline:false}); });
+    if(!fields.some(f=>f.kind==='signature')) fields.push({id:`p${last}-sign`, page:last, kind:'signature', inline:false});
+  }
+  if(!fields.length) fields.push({id:`p${pages.length}-sign`, page:pages.length, kind:'signature', inline:false});
+  return {pages, fields};
+}
+const esText = (d, k=PERSON) => fillDoc(d.body, k, d.sentAt);
+async function esHash(s){ const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s)); return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join(''); }
+
+/* ---------- Review & Sign ---------- */
+const ES = {};
+function esStart(docId){
+  const d = HRDOCS.find(x=>x.id===docId); if(!d || !esNeeds(d) || !(d.sentTo||[]).includes(PERSON)) return toast('This document is not waiting for your signature');
+  if(esSig(docId)) return esViewSigned(esSig(docId).id);
+  if(d.supersededBy) return toast('HR has issued a newer version of this contract — please sign the latest one');
+  const text = esText(d); const L = esLayout(d, text);
+  Object.assign(ES, {doc:d, text, pages:L.pages, fields:L.fields, sig:{}, viewed:new Set([1]), page:1, stage:'sign', thick:+(localStorage.getItem('cc-es-thick')||4) || 4, agree:false});
+  let r = docRead(docId); if(!r){ r = {id:docId+'|'+PERSON, doc:docId, person:PERSON, readAt:nowISO(), ackAt:null}; DOCREADS.push(r); recordChange(); }
+  closeModal(); esDraw();
+}
+function esClose(force){
+  if(!force && Object.keys(ES.sig||{}).length && ES.stage!=='done' && !confirm('Leave without submitting? Your drawn signatures on this screen will be discarded.')) return;
+  el('esign')?.remove(); document.body.classList.remove('es-open'); ES.doc = null;
+}
+const esDone = f => !!ES.sig[f.id];
+function esPageStatus(pg){ const F = ES.fields.filter(f=>f.page===pg); if(!F.length) return 'none'; return F.every(esDone) ? 'done' : 'todo'; }
+function esFieldHTML(f, preview){
+  const s = ES.sig[f.id]; const label = f.kind==='signature' ? 'Signature' : 'Initials';
+  if(s) return `<span class="es-field ${f.kind} signed" ${preview?'':`onclick="esPad('${f.id}')" title="Click to redraw"`}><img src="${s.img}" alt="${label}"><small>${label} · ${esc(pname(PERSON))}${preview?' · '+dtstr(s.at):''}</small>${preview?'':`<em>Redraw</em>`}</span>`;
+  return preview ? `<span class="es-field ${f.kind} empty"><small>${label} required</small></span>` : `<button class="es-field ${f.kind} empty" onclick="esPad('${f.id}')"><b>✍️ ${f.kind==='signature'?'Sign here':'Initial here'}</b><small>${label} required</small></button>`;
+}
+function esPageHTML(pg, preview){
+  const txt = ES.pages[pg-1]; let n = 0;
+  const body = esc(txt).replace(/\[(signature|initials)\]/gi, ()=>{ const f = ES.fields.find(x=>x.page===pg && x.inline && x.id===`p${pg}-f${++n}`); return f ? esFieldHTML(f, preview) : ''; });
+  const foot = ES.fields.filter(f=>f.page===pg && !f.inline);
+  return `<div class="es-paper" data-page="${pg}"><div class="es-pagehead"><span>${esc(ES.doc.title)}${ES.doc.version>1?' · version '+ES.doc.version:''}</span><span>Page ${pg} of ${ES.pages.length}</span></div>
+    <div class="es-text">${body}</div>${foot.length?`<div class="es-foot">${foot.map(f=>`<div class="es-foot-f"><span class="hint">${f.kind==='signature'?'Employee signature':'Employee initials — page '+pg}</span>${esFieldHTML(f, preview)}</div>`).join('')}</div>`:''}</div>`;
+}
+function esDraw(){
+  let o = el('esign'); if(!o){ o = document.createElement('div'); o.id = 'esign'; o.className = 'es-overlay'; document.body.appendChild(o); document.body.classList.add('es-open'); }
+  const d = ES.doc; const tot = ES.fields.length, done = ES.fields.filter(esDone).length; const unread = ES.pages.length - ES.viewed.size;
+  const ready = done===tot && !unread;
+  if(ES.stage==='preview'){
+    o.innerHTML = `<div class="es-top"><div><b>Final preview</b><small>${esc(d.title)} · all ${ES.pages.length} pages with your ${tot} signature${tot>1?'s':''}</small></div><button class="icon-btn" onclick="esClose()" title="Close">✕</button></div>
+      <div class="es-scroll es-preview">${ES.pages.map((_,i)=>esPageHTML(i+1, true)).join('')}</div>
+      <div class="es-bottom es-confirm"><label><input type="checkbox" id="esAgree" ${ES.agree?'checked':''} onchange="ES.agree=this.checked;el('esSubmit').disabled=!this.checked"><span>I, <b>${esc(pname(PERSON))}</b>, have read the entire contract and agree that my electronic signature and initials are legally binding, the same as signing by hand.</span></label>
+        <div class="es-btns"><button class="btn" onclick="ES.stage='sign';esDraw()">← Back to edit</button><button class="btn primary" id="esSubmit" onclick="esSubmit()" ${ES.agree?'':'disabled'}>Confirm & submit signed contract</button></div></div>`;
+    return;
+  }
+  o.innerHTML = `<div class="es-top"><div><b>Review & sign</b><small>${esc(d.title)}${d.version>1?' · version '+d.version:''} · from HR</small></div>
+      <div class="es-progress"><span class="es-bar"><i style="width:${tot?Math.round(done/tot*100):0}%"></i></span><span>${done} of ${tot} signed</span></div><button class="icon-btn" onclick="esClose()" title="Close">✕</button></div>
+    <div class="es-main"><aside class="es-side"><div class="nav-label" style="padding:0 0 6px">Pages & signatures</div>
+        ${ES.pages.map((_,i)=>{ const pg = i+1; const st = esPageStatus(pg); const F = ES.fields.filter(f=>f.page===pg);
+          return `<button class="es-pg ${ES.page===pg?'on':''} ${st}" onclick="esGo(${pg})"><b>Page ${pg}</b><small>${F.length?F.map(f=>`${f.kind==='signature'?'Signature':'Initials'} ${esDone(f)?'✓':'— needed'}`).join(' · '):'No signature needed'}${ES.viewed.has(pg)?'':' · not read yet'}</small></button>`; }).join('')}
+        <div class="hint" style="margin-top:8px">Read every page. Fields marked “needed” must be signed before you can submit.</div></aside>
+      <section class="es-scroll" id="esScroll">${esPageHTML(ES.page, false)}</section></div>
+    <div class="es-bottom"><button class="btn" onclick="esGo(${ES.page-1})" ${ES.page<=1?'disabled':''}>← Previous page</button>
+      <span class="es-mid">${unread?`${unread} page${unread>1?'s':''} left to read`:done<tot?`${tot-done} field${tot-done>1?'s':''} left to sign`:'All pages read and signed ✓'}</span>
+      ${ES.page<ES.pages.length?`<button class="btn primary" onclick="esGo(${ES.page+1})">Next page →</button>`:`<button class="btn primary" onclick="esFinish()" ${ready?'':'disabled title="Read every page and complete every field first"'}>Review & finish →</button>`}</div>`;
+}
+function esGo(pg){ if(pg<1 || pg>ES.pages.length) return; ES.page = pg; ES.viewed.add(pg); esDraw(); el('esScroll')?.scrollTo(0,0); }
+function esFinish(){
+  const miss = ES.fields.filter(f=>!esDone(f)); const unread = ES.pages.map((_,i)=>i+1).filter(p=>!ES.viewed.has(p));
+  if(unread.length) return esGo(unread[0]), toast('Please read page '+unread[0]+' first');
+  if(miss.length) return esGo(miss[0].page), toast(`Page ${miss[0].page} still needs your ${miss[0].kind}`);
+  ES.stage = 'preview'; ES.agree = false; esDraw();
+}
+
+/* ---------- signature pad (mouse, trackpad, touch, pen) ---------- */
+const PAD = {};
+function esPad(fid){
+  const f = ES.fields.find(x=>x.id===fid); if(!f) return;
+  const others = ES.fields.filter(x=>x.kind===f.kind && x.id!==fid && !esDone(x));
+  const box = document.createElement('div'); box.className = 'es-pad-back'; box.id = 'esPad';
+  box.innerHTML = `<div class="es-pad"><div class="es-pad-h"><b>${f.kind==='signature'?'Draw your signature':'Draw your initials'}</b><span class="hint">Page ${f.page} · use your mouse, trackpad, finger or stylus</span></div>
+    <div class="es-canvas-wrap ${f.kind}"><canvas id="esCanvas"></canvas><span class="es-x">✕</span><span class="es-line"></span><span class="es-ph" id="esPh">${f.kind==='signature'?'Sign here':'Initials'}</span></div>
+    <div class="es-pad-tools"><label>Pen thickness <input type="range" id="esThick" min="2" max="10" step="1" value="${ES.thick}" oninput="ES.thick=+this.value;el('esThickV').textContent=this.value;padRedraw()"> <b id="esThickV">${ES.thick}</b></label>
+      <button class="btn" onclick="padClear()">Clear</button></div>
+    ${others.length?`<label class="es-all"><input type="checkbox" id="esAll"> Also use these ${f.kind} for the other ${others.length} ${f.kind==='signature'?'signature':'initials'} field${others.length>1?'s':''}</label>`:''}
+    <div class="es-pad-btns"><button class="btn" onclick="el('esPad').remove()">Cancel</button><button class="btn primary" onclick="padApply('${fid}')">Apply ${f.kind}</button></div></div>`;
+  document.body.appendChild(box);
+  const cv = el('esCanvas'); const wrap = cv.parentNode; const dpr = Math.max(1, window.devicePixelRatio||1);
+  const W = wrap.clientWidth, H = wrap.clientHeight; cv.width = W*dpr; cv.height = H*dpr; cv.style.width = W+'px'; cv.style.height = H+'px';
+  Object.assign(PAD, {cv, ctx:cv.getContext('2d'), dpr, W, H, strokes:[], cur:null});
+  PAD.ctx.scale(dpr, dpr);
+  const pt = e => { const r = cv.getBoundingClientRect(); return {x:e.clientX-r.left, y:e.clientY-r.top, p:e.pressure||0.5}; };
+  cv.onpointerdown = e => { e.preventDefault(); cv.setPointerCapture(e.pointerId); PAD.cur = [pt(e)]; PAD.strokes.push(PAD.cur); el('esPh').style.display='none'; padRedraw(); };
+  cv.onpointermove = e => { if(!PAD.cur) return; e.preventDefault(); const co = e.getCoalescedEvents ? e.getCoalescedEvents() : null; (co && co.length ? co : [e]).forEach(x=>PAD.cur.push(pt(x))); padRedraw(); };
+  const up = e => { if(PAD.cur){ PAD.cur = null; padRedraw(); } };
+  cv.onpointerup = up; cv.onpointercancel = up; cv.onpointerleave = e => { if(e.buttons===0) up(); };
+}
+function padPaint(ctx, strokes, w, scale=1, dx=0, dy=0){
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = ES_INK; ctx.fillStyle = ES_INK; ctx.lineWidth = w*scale;
+  strokes.forEach(s=>{ const P_ = s.map(p=>({x:(p.x-dx)*scale, y:(p.y-dy)*scale}));
+    if(P_.length===1){ ctx.beginPath(); ctx.arc(P_[0].x, P_[0].y, w*scale/2, 0, Math.PI*2); ctx.fill(); return; }
+    ctx.beginPath(); ctx.moveTo(P_[0].x, P_[0].y);
+    for(let i=1;i<P_.length-1;i++){ const mx = (P_[i].x+P_[i+1].x)/2, my = (P_[i].y+P_[i+1].y)/2; ctx.quadraticCurveTo(P_[i].x, P_[i].y, mx, my); }
+    ctx.lineTo(P_[P_.length-1].x, P_[P_.length-1].y); ctx.stroke(); });
+}
+function padRedraw(){ if(!PAD.ctx) return; PAD.ctx.clearRect(0,0,PAD.W,PAD.H); padPaint(PAD.ctx, PAD.strokes, ES.thick); }
+function padClear(){ PAD.strokes = []; PAD.cur = null; padRedraw(); const ph = el('esPh'); if(ph) ph.style.display=''; }
+function padInk(){ let n = 0; PAD.strokes.forEach(s=>{ for(let i=1;i<s.length;i++) n += Math.hypot(s[i].x-s[i-1].x, s[i].y-s[i-1].y); }); return n; }
+/* export the drawing trimmed to its ink, at 2× for a crisp, thick printed signature */
+function padExport(){
+  const pts = PAD.strokes.flat(); const pad = ES.thick + 6;
+  const x0 = Math.max(0, Math.min(...pts.map(p=>p.x))-pad), y0 = Math.max(0, Math.min(...pts.map(p=>p.y))-pad);
+  const x1 = Math.min(PAD.W, Math.max(...pts.map(p=>p.x))+pad), y1 = Math.min(PAD.H, Math.max(...pts.map(p=>p.y))+pad);
+  const sc = 2; const c = document.createElement('canvas'); c.width = Math.max(10, Math.round((x1-x0)*sc)); c.height = Math.max(10, Math.round((y1-y0)*sc));
+  padPaint(c.getContext('2d'), PAD.strokes, ES.thick, sc, x0, y0);
+  return {img:c.toDataURL('image/png'), w:c.width, h:c.height};
+}
+function padApply(fid){
+  const f = ES.fields.find(x=>x.id===fid); const need = f.kind==='signature' ? 60 : 25;
+  if(padInk() < need) return toast(f.kind==='signature' ? 'Please draw your full signature' : 'Please draw your initials');
+  const out = padExport(); const at = nowISO(); try{ localStorage.setItem('cc-es-thick', String(ES.thick)); }catch(e){}
+  ES.sig[fid] = {...out, at, thick:ES.thick};
+  if(el('esAll')?.checked) ES.fields.filter(x=>x.kind===f.kind && !esDone(x)).forEach(x=>ES.sig[x.id] = {...out, at, thick:ES.thick, reused:fid});
+  el('esPad').remove(); esDraw();
+}
+
+/* ---------- submit: lock the exact version, keep a PDF copy, notify HR ---------- */
+async function esSubmit(){
+  const d = ES.doc; if(!d || !ES.agree) return; const btn = el('esSubmit'); btn.disabled = true; btn.textContent = 'Saving your signed contract…';
+  try{
+    if(esSig(d.id)) throw new Error('You already signed this contract');
+    const signedAt = nowISO(); const hash = await esHash(`${d.id}|v${d.version||1}|${ES.text}`);
+    const rec = {id:`ES-${d.id}-${PERSON}`, doc:d.id, docTitle:d.title, docKind:d.kind, version:d.version||1, person:PERSON, personName:pname(PERSON), account:PEOPLE[PERSON]?.email||'',
+      text:ES.text, pages:ES.pages, hash, signedAt, tz:'Asia/Manila', device:navigator.userAgent.slice(0,180), issuedBy:d.by, sentAt:d.sentAt, status:'Signed', locked:true,
+      fields:ES.fields.map(f=>({id:f.id, page:f.page, kind:f.kind, inline:f.inline, img:ES.sig[f.id].img, w:ES.sig[f.id].w, h:ES.sig[f.id].h, at:ES.sig[f.id].at}))};
+    try{ const pdf = await esPDF(rec); const blob = pdf.output('blob'); const name = esFileName(rec);
+      rec.file = await BACKEND.upload(new File([blob], name, {type:'application/pdf'})); }catch(e){ console.warn('Signed PDF upload failed — it will be generated on download', e); }
+    ESIGN.push(rec);
+    const r = docRead(d.id); if(r && !r.ackAt) r.ackAt = signedAt;
+    notify(uniq([d.by, ...HR_KEYS()]).filter(k=>k!==PERSON), 'hr', `✍️ <b>${esc(pname(PERSON))}</b> signed <b>${esc(d.title)}</b>${(d.version||1)>1?' (version '+d.version+')':''}`, {view:'hrdocs', doc:d.id});
+    audit(`${pname(PERSON)} e-signed ${d.title} (v${d.version||1})`);
+    recordChange(); ES.stage = 'done'; esClose(true); RENDER[CURRENT]?.(); buildNav();
+    toast('Signed and submitted — HR has your signed contract');
+    setTimeout(()=>esViewSigned(rec.id), 150);
+  }catch(e){ btn.disabled = false; btn.textContent = 'Confirm & submit signed contract'; toast('Could not submit: '+e.message); }
+}
+const esFileName = r => `${r.docTitle.replace(/[^\w\- ]+/g,'').replace(/\s+/g,'-').slice(0,60)}-v${r.version}-signed-${r.personName.replace(/[^\w]+/g,'-')}.pdf`;
+const esManila = at => new Date(at).toLocaleString('en-US',{timeZone:'Asia/Manila', year:'numeric', month:'long', day:'numeric', hour:'numeric', minute:'2-digit', second:'2-digit'}) + ' (Manila time)';
+async function esPDF(r){
+  await loadScript(JSPDF_SRC);
+  const doc = new window.jspdf.jsPDF({unit:'pt', format:'a4'}); const W = 595, H = 842, M = 56; const N = r.pages.length;
+  const footer = (pg, total) => { doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(120);
+    doc.text(doc.splitTextToSize(`Page ${pg} of ${total} · Signed electronically by ${r.personName} (${r.account}) on ${esManila(r.signedAt)} · ${r.doc} v${r.version} · SHA-256 ${r.hash.slice(0,24)}…`, W-2*M), M, H-30); doc.setTextColor(20); };
+  const head = () => { doc.setFillColor(242,180,64); doc.rect(0,0,W,6,'F'); doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(120); doc.text(`The Cross Core OPC · ${r.docTitle}${r.version>1?' · version '+r.version:''}`, M, 30); doc.setTextColor(20); };
+  const total = N + 1; let pdfPage = 0;
+  const box = (f, x, y) => { const bw = f.kind==='signature' ? 190 : 96, bh = f.kind==='signature' ? 58 : 40;
+    const ratio = Math.min(bw/(f.w||bw), bh/(f.h||bh)); const iw = (f.w||bw)*ratio, ih = (f.h||bh)*ratio;
+    try{ doc.addImage(f.img, 'PNG', x, y + (bh-ih), iw, ih); }catch(e){}
+    doc.setDrawColor(40); doc.setLineWidth(0.7); doc.line(x, y+bh+3, x+bw, y+bh+3);
+    doc.setFontSize(7.5); doc.setTextColor(90); const lbl = `${f.kind==='signature'?'Signature':'Initials'} · ${r.personName} · ${new Date(f.at).toLocaleString('en-US',{timeZone:'Asia/Manila', month:'short', day:'numeric', year:'numeric', hour:'numeric', minute:'2-digit'})}`;
+    if(x + doc.getTextWidth(lbl) > W-M) doc.text(lbl, W-M, y+bh+13, {align:'right'}); else doc.text(lbl, x, y+bh+13); doc.setTextColor(20);
+    return bh + 22; };
+  r.pages.forEach((txt, i)=>{
+    const pg = i+1; if(i) doc.addPage(); pdfPage++; head(); let y = 64;
+    doc.setFont('helvetica','normal'); doc.setFontSize(10.5);
+    const segs = String(txt).split(/(\[(?:signature|initials)\])/i); let n = 0;
+    segs.forEach(sg=>{
+      if(/^\[(signature|initials)\]$/i.test(sg)){ const f = r.fields.find(x=>x.page===pg && x.inline && x.id===`p${pg}-f${++n}`); if(!f) return; if(y+80 > H-60){ footer(pdfPage, total); doc.addPage(); head(); y = 64; } y += box(f, M, y); return; }
+      doc.splitTextToSize(sg.replace(/\n$/,''), W-2*M).forEach(line=>{ if(y > H-70){ footer(pdfPage, total); doc.addPage(); head(); y = 64; } doc.text(line, M, y); y += 14.5; });
+    });
+    const foot = r.fields.filter(f=>f.page===pg && !f.inline);
+    if(foot.length){ let fy = Math.max(y+16, H-150); if(fy+80 > H-44){ footer(pdfPage, total); doc.addPage(); head(); fy = 64; } let fx = W-M-190;
+      foot.forEach(f=>{ const bw = f.kind==='signature'?190:96; fx = W-M-bw; box(f, fx, fy); }); }
+    footer(pdfPage, total);
+  });
+  doc.addPage(); head(); let y = 80;
+  doc.setFont('helvetica','bold'); doc.setFontSize(16); doc.text('Signature certificate', M, y); y += 26;
+  doc.setFont('helvetica','normal'); doc.setFontSize(10);
+  [['Document', `${r.docKind}: ${r.docTitle}`], ['Document ID · version', `${r.doc} · version ${r.version}`], ['Contract fingerprint (SHA-256)', r.hash], ['Signed by', r.personName], ['Signer account', r.account],
+   ['Signed at', `${esManila(r.signedAt)} · ${r.signedAt} UTC`], ['Sent by HR', `${pname(r.issuedBy)}${r.sentAt?' on '+esManila(r.sentAt):''}`], ['Pages', String(N)], ['Device / browser', r.device], ['Status', 'Signed — locked. Changes require a new version issued by HR.']]
+    .forEach(([k,v])=>{ doc.setFont('helvetica','bold'); doc.text(k, M, y); doc.setFont('helvetica','normal'); const L = doc.splitTextToSize(String(v), W-2*M-170); doc.text(L, M+170, y); y += Math.max(16, L.length*13)+4; });
+  y += 8; doc.setFont('helvetica','bold'); doc.text('Signature fields', M, y); y += 16; doc.setFont('helvetica','normal');
+  r.fields.forEach(f=>{ if(y > H-80){ doc.addPage(); head(); y = 64; } doc.text(`Page ${f.page} · ${f.kind==='signature'?'Signature':'Initials'} · ${esManila(f.at)}`, M, y); try{ const ratio = Math.min(80/(f.w||80), 22/(f.h||22)); doc.addImage(f.img, 'PNG', W-M-90, y-16, (f.w||80)*ratio, (f.h||22)*ratio); }catch(e){} y += 26; });
+  y += 10; doc.setFontSize(8.5); doc.setTextColor(110); doc.text(doc.splitTextToSize('This contract was reviewed page by page and signed electronically in the Cross Core Ops Suite. The fingerprint above identifies the exact contract text that was signed; any change to the text produces a different fingerprint.', W-2*M), M, y);
+  footer(total, total);
+  return doc;
+}
+async function esDownload(id){
+  const r = ESIGN.find(x=>x.id===id); if(!r) return toast('Signed copy not available to you');
+  try{
+    if(r.file){ const url = await BACKEND.fileUrl(r.file); const a = document.createElement('a'); a.href = url; a.download = esFileName(r); a.target = '_blank'; a.rel = 'noopener'; document.body.appendChild(a); a.click(); a.remove(); return; }
+    (await esPDF(r)).save(esFileName(r));
+  }catch(e){ try{ (await esPDF(r)).save(esFileName(r)); }catch(x){ toast('Could not download: '+x.message); } }
+}
+/* read-only view of a signed contract (employee, HR, authorized leadership) */
+function esViewSigned(id){
+  const r = ESIGN.find(x=>x.id===id); if(!r) return toast('This signed contract is not available to you');
+  const fake = {...ES}; Object.assign(ES, {doc:{title:r.docTitle, version:r.version}, pages:r.pages, fields:r.fields.map(f=>({...f})), sig:Object.fromEntries(r.fields.map(f=>[f.id, f]))});
+  const person = ES; const html = r.pages.map((_,i)=>esPageHTML(i+1, true)).join('');
+  Object.assign(ES, fake);
+  openModal(`Signed — ${r.docTitle}`, `<div class="es-signed-h"><span class="badge b-approved">Signed · locked</span><span class="hint">${esc(r.personName)} · ${esc(r.account)} · ${esc(esManila(r.signedAt))} · version ${r.version}</span></div>
+    <div class="es-view">${html}</div>
+    <div class="es-cert"><b>Contract fingerprint (SHA-256)</b><code>${esc(r.hash)}</code><span class="hint">Document ${esc(r.doc)} · ${r.fields.length} signature field${r.fields.length>1?'s':''} · stored in ${r.person===PERSON?'your':esc(first(r.person))+'’s'} HR record</span></div>
+    <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap"><button class="btn primary" onclick="esDownload('${r.id}')">⬇ Download signed PDF</button>${(ROLE==='hr'||isFullAccess()) && HRDOCS.find(x=>x.id===r.doc) && !HRDOCS.find(x=>x.prevVersion===r.doc)?`<button class="btn" onclick="esNewVersion('${r.doc}')">Issue a new version…</button>`:''}</div>`, true);
+}
+/* HR: changes after sending → a new version for review and signature (the signed one stays locked) */
+function esNewVersion(docId){
+  const d = HRDOCS.find(x=>x.id===docId); if(!d || !(ROLE==='hr' || isFullAccess())) return;
+  const nd = {id:uid('HD'), kind:d.kind, title:d.title.replace(/\s*\(v\d+\)$/,'')+` (v${(d.version||1)+1})`, body:d.body, files:[...(d.files||[])], needsCoo:d.needsCoo, sign:d.sign ? {...d.sign} : {required:true, mode:'auto'},
+    version:(d.version||1)+1, prevVersion:d.id, by:PERSON, at:nowISO(), updatedAt:nowISO(), status:'Draft', sentTo:[], history:[{at:nowISO(), by:PERSON, act:`New version ${(d.version||1)+1} of ${d.id}`, note:''}]};
+  HRDOCS.unshift(nd); d.history = [...(d.history||[]), {at:nowISO(), by:PERSON, act:`New version ${nd.version} started (${nd.id})`, note:''}];
+  recordChange(); closeModal(); toast(`Version ${nd.version} created as a draft — edit it, then send it for signature`); setTimeout(()=>hrDocModal(nd.id), 80);
+}
+/* status helpers used by HR screens */
+function esSummary(d){ const to = d.sentTo||[]; const n = to.filter(k=>esSig(d.id, k)).length; return {n, total:to.length, all:to.length>0 && n===to.length}; }
+function esBadge(d){ if(!esNeeds(d) || d.status!=='Sent') return ''; const s = esSummary(d); return s.all ? '<span class="badge b-approved">Signed</span>' : `<span class="badge b-pending">Awaiting signature${s.total>1?` · ${s.n}/${s.total}`:''}</span>`; }
+function esRecipientRow(d, k){ const r = esSig(d.id, k); return r ? `<span class="badge b-approved">Signed ${dtstr(r.signedAt)}</span> <button class="btn ghost" style="padding:3px 9px;font-size:11.5px" onclick="esViewSigned('${r.id}')">View</button><button class="btn ghost" style="padding:3px 9px;font-size:11.5px" onclick="esDownload('${r.id}')">⬇ PDF</button>` : d.supersededBy ? '<span class="badge b-draft">Replaced by a newer version</span>' : '<span class="badge b-pending">Awaiting signature</span>'; }
+/* signed contracts in an employee's HR record */
+function esRecordHTML(k){
+  const R = ESIGN.filter(r=>r.person===k && r.status==='Signed').sort((a,b)=>b.signedAt.localeCompare(a.signedAt));
+  const W = HRDOCS.filter(d=>esNeeds(d) && d.status==='Sent' && (d.sentTo||[]).includes(k) && !esSig(d.id, k) && !d.supersededBy);
+  if(!R.length && !W.length) return '';
+  return `<div class="nav-label" style="padding:14px 0 6px">Contracts & e-signatures</div>${R.map(r=>`<div class="list-row"><span class="badge b-approved">Signed</span><div style="flex:1;min-width:0"><b style="font-size:12.5px">${esc(r.docTitle)}</b><div class="hint">version ${r.version} · ${esc(esManila(r.signedAt))}</div></div><button class="btn ghost" onclick="esViewSigned('${r.id}')">View</button><button class="btn ghost" onclick="esDownload('${r.id}')">⬇ PDF</button></div>`).join('')}
+    ${W.map(d=>`<div class="list-row"><span class="badge b-pending">Awaiting</span><div style="flex:1"><b style="font-size:12.5px">${esc(d.title)}</b><div class="hint">sent ${dtstr(d.sentAt)}</div></div></div>`).join('')}`;
+}
+/* HR Documents → Signatures tab */
+function esTabHTML(){
+  const D = HRDOCS.filter(d=>esNeeds(d) && d.status==='Sent').sort((a,b)=>(b.sentAt||'').localeCompare(a.sentAt||''));
+  const rows = D.flatMap(d=>(d.sentTo||[]).map(k=>({d, k, r:esSig(d.id, k)})));
+  return `<div class="card"><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Contract</th><th>Employee</th><th>Version</th><th>Sent</th><th>Status</th><th></th></tr></thead><tbody>
+    ${rows.map(({d,k,r})=>`<tr><td><b style="cursor:pointer" onclick="openHrDoc('${d.id}')">${esc(d.title)}</b><div class="hint">${esc(d.kind)} · ${d.id}</div></td><td>${av(P(k))} ${esc(pname(k))}</td><td>v${d.version||1}</td><td>${dtstr(d.sentAt)}</td><td>${r?`<span class="badge b-approved">Signed</span><div class="hint">${dtstr(r.signedAt)}</div>`:d.supersededBy?'<span class="badge b-draft">Replaced</span>':'<span class="badge b-pending">Awaiting signature</span>'}</td>
+      <td>${r?`<button class="btn ghost" onclick="esViewSigned('${r.id}')">View</button><button class="btn ghost" onclick="esDownload('${r.id}')">⬇ PDF</button>`:''}</td></tr>`).join('') || '<tr><td colspan="6" class="empty">No contracts have been sent for signature yet.</td></tr>'}</tbody></table></div></div>`;
+}
+
+function esRecipientBanner(d){
+  const r = esSig(d.id);
+  if(r) return `<div class="es-banner done"><div><b>✓ You signed this contract</b><span>${esc(esManila(r.signedAt))} · version ${r.version} · locked</span></div><button class="btn" onclick="esViewSigned('${r.id}')">View signed copy</button><button class="btn primary" onclick="esDownload('${r.id}')">⬇ Download PDF</button></div>`;
+  if(d.supersededBy) return `<div class="es-banner old"><div><b>HR issued a newer version</b><span>This version no longer needs your signature — please open the latest one in My Documents.</span></div></div>`;
+  const L = esLayout(d, esText(d));
+  return `<div class="es-banner"><div><b>✍️ Your signature is needed</b><span>${L.pages.length} page${L.pages.length>1?'s':''} · ${L.fields.length} field${L.fields.length>1?'s':''} to sign (${L.fields.filter(f=>f.kind==='initials').length} initials, ${L.fields.filter(f=>f.kind==='signature').length} signature)</span></div><button class="btn primary" onclick="esStart('${d.id}')">Review & sign →</button></div>`;
+}
+function esMyDocRow(d){
+  const r = esSig(d.id);
+  return `<div class="list-row" style="padding:12px 6px;${r||d.supersededBy?'':'background:var(--warn-bg);border-radius:10px'}"><span class="badge b-draft" style="min-width:92px;justify-content:center">${esc(d.kind)}</span>
+    <div style="flex:1;min-width:180px"><b style="font-size:13px;cursor:pointer" onclick="openHrDoc('${d.id}')">${esc(d.title)}</b> ${r?'<span class="badge b-approved">Signed</span>':d.supersededBy?'<span class="badge b-draft">Replaced by a newer version</span>':'<span class="badge b-pending">Signature needed</span>'}
+      <div class="hint">From HR · ${dtstr(d.sentAt)}${(d.version||1)>1?' · version '+d.version:''}${r?' · signed '+dtstr(r.signedAt):''}</div></div>
+    ${r?`<button class="btn" style="padding:5px 11px;font-size:12px" onclick="esViewSigned('${r.id}')">View</button><button class="btn" style="padding:5px 11px;font-size:12px" onclick="esDownload('${r.id}')">⬇ Signed PDF</button>`
+      : d.supersededBy ? `<button class="btn" style="padding:5px 11px;font-size:12px" onclick="openHrDoc('${d.id}')">View</button>` : `<button class="btn primary" style="padding:5px 11px;font-size:12px" onclick="esStart('${d.id}')">Review & sign</button>`}</div>`;
+}
 
 CC_BOOT();
 </script>

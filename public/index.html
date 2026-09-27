@@ -648,6 +648,130 @@ body.client-mode #annBtn,body.client-mode .role-switch #roleSwitchLbl{display:no
 body.client-mode .cora-fab{display:none!important}
 @media print{.cora-fab,.cora-panel{display:none!important}}
 </style>
+<style>
+/* ===== AI assistants, presence, emojis ===== */
+.avatar{position:relative}
+.avatar.img{background:none;overflow:visible}
+.avatar.img img{width:100%;height:100%;border-radius:99px;object-fit:cover;display:block}
+.ai-ava{position:relative;display:inline-block;flex:none;border-radius:99px;vertical-align:middle}
+.ai-ava img{width:100%;height:100%;border-radius:99px;display:block;box-shadow:0 0 0 2px var(--panel)}
+.ai-dot,.pres-dot{position:absolute;right:-1px;bottom:-1px;width:30%;height:30%;min-width:8px;min-height:8px;max-width:13px;max-height:13px;border-radius:99px;border:2px solid var(--panel);background:#22C55E;box-sizing:border-box}
+.pres-dot.online{background:#22C55E}.pres-dot.away{background:#EAB308}.pres-dot.break{background:#F59E0B;box-shadow:inset 0 0 0 2px #FDE68A}.pres-dot.offduty{background:#9CA3AF}
+.pres-chip{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;padding:2px 8px 2px 6px;border-radius:99px;background:var(--panel-2);color:var(--ink-2);border:1px solid var(--line);white-space:nowrap;vertical-align:middle}
+.pres-chip i{width:8px;height:8px;border-radius:99px;background:#9CA3AF;display:inline-block}
+.pres-chip.online{color:#15803D;border-color:#BBF7D0;background:#F0FDF4}.pres-chip.online i{background:#22C55E}
+.pres-chip.away{color:#A16207;border-color:#FEF08A;background:#FEFCE8}.pres-chip.away i{background:#EAB308}
+.pres-chip.break{color:#B45309;border-color:#FDE68A;background:#FFFBEB}.pres-chip.break i{background:#F59E0B}
+.pres-chip.offduty i,.pres-chip.offline i{background:#9CA3AF}
+.pres-chip.offline{background:none;border-color:transparent;color:var(--ink-3);font-weight:500;padding-left:2px}
+.ai-online{display:inline-block;width:8px;height:8px;border-radius:99px;background:#22C55E;box-shadow:0 0 0 3px rgba(34,197,94,.2);margin-right:3px;vertical-align:middle}
+.nav-ava{position:relative;width:22px;height:22px;flex:none;margin-left:-2px}
+.nav-ava img{width:22px;height:22px;border-radius:99px;display:block}
+.nav-ava i{position:absolute;right:-2px;bottom:-2px;width:8px;height:8px;border-radius:99px;background:#22C55E;border:2px solid var(--panel)}
+.nav-item.nav-ai{font-weight:600}
+.ai-chip{display:inline-block;font-size:9.5px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;padding:1px 6px;border-radius:99px;background:#EDE9FE;color:#5B21B6;margin-left:4px;vertical-align:1px}
+.msg.ai-msg .bubble{background:linear-gradient(180deg,#FBF8FF,#F5F0FF);border-color:#DDD6FE;white-space:pre-wrap}
+.btn.ai-btn{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.92);color:#141414;padding-left:6px}
+.modal .btn.ai-btn,.card .btn.ai-btn{background:var(--panel);border:1px solid var(--line);color:var(--ink)}
+/* Cora launcher with face */
+.cora-fab{padding:6px 16px 6px 6px}
+.cora-row{display:flex;gap:8px;align-items:flex-start}
+.cora-row .cora-m.assistant{max-width:calc(100% - 40px)}
+.cora-hello{display:flex;flex-direction:column;align-items:flex-start;gap:4px}
+.cora-tools{display:flex;gap:6px;margin-top:6px}
+.cora-tools button{font-size:11px;padding:3px 9px;border:1px solid var(--line);border-radius:99px;background:var(--panel);color:var(--ink-2)}
+.cora-tools button:hover{border-color:var(--brand-2);color:var(--ink)}
+.cora-src{display:flex;flex-wrap:wrap;gap:5px;align-items:center;margin-top:8px;padding-top:7px;border-top:1px dashed var(--line)}
+.cora-src small{font-size:10.5px;color:var(--ink-3);text-transform:uppercase;letter-spacing:.05em;margin-right:2px}
+.cora-src .src{font-size:11px;padding:2px 8px;border-radius:99px;text-decoration:none;border:1px solid var(--line);background:var(--panel);color:var(--ink-2);max-width:230px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cora-src .src.int{border-color:#C7D2FE;color:#3730A3;background:#EEF2FF}
+.cora-src .src.ext{border-color:#BAE6FD;color:#075985;background:#F0F9FF}
+.cora-web{font-size:11.5px;padding:0 10px;border:1px solid var(--line);border-radius:10px;background:var(--panel);color:var(--ink-2);white-space:nowrap}
+.cora-web.on{background:#E0F2FE;border-color:#7DD3FC;color:#075985}
+.cora-ref.ext{color:#0369A1}
+/* full-page assistant layout */
+.ai-page{display:grid;grid-template-columns:260px 1fr;gap:16px;height:calc(100vh - 150px);min-height:480px}
+.ai-side{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px;display:flex;flex-direction:column;gap:10px;min-height:0}
+.ai-side-h{display:flex;gap:10px;align-items:center}.ai-side-h small{display:block;font-size:11px;color:var(--ink-3)}
+.ai-hist{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:2px;min-height:0}
+.ai-hist button{text-align:left;padding:7px 9px;border-radius:9px;background:none;border:1px solid transparent;display:block;width:100%}
+.ai-hist button b{display:block;font-size:12.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ai-hist button small{font-size:10.5px;color:var(--ink-3)}
+.ai-hist button:hover{background:var(--panel-2)}.ai-hist button.on{background:var(--panel-2);border-color:var(--line)}
+.ai-hist-g{font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-3);padding:10px 9px 3px}
+.ai-main{background:var(--panel);border:1px solid var(--line);border-radius:14px;display:flex;flex-direction:column;min-height:0;overflow:hidden}
+.ai-main-h{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:12px 16px;border-bottom:1px solid var(--line)}
+.ai-main-h h3{font-size:15px}.ai-main-h .sub{font-size:12px;color:var(--ink-3)}
+.ai-body{flex:1;min-height:0}
+@media (max-width:860px){.ai-page{grid-template-columns:1fr;height:auto}.ai-side{max-height:220px}.ai-main{min-height:70vh}}
+/* Marcus */
+.mx-for{display:inline-flex;align-items:center;gap:8px;padding:5px 6px 5px 12px;border-radius:99px;background:#CCFBF1;color:#134E4A;font-size:13px}
+.mx-for.none{background:#FEF3C7;color:#78350F}
+.mx-for b{font-weight:700}.mx-for select{border:0;background:rgba(255,255,255,.7);border-radius:99px;font-size:12px;padding:3px 8px;max-width:180px}
+.mx-task{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--ink-2)}.mx-task select{max-width:230px;font-size:12px;padding:4px 8px}
+.mx-voice{font-size:11.5px;color:var(--ink-3);cursor:help;flex:1;min-width:160px;text-align:right}
+.mx-modes{display:flex;gap:6px;flex-wrap:wrap;padding:8px 10px 0;border-top:1px solid var(--line)}
+.mx-modes button{font-size:12px;padding:5px 10px;border-radius:99px;border:1px solid var(--line);background:var(--panel);color:var(--ink-2)}
+.mx-modes button.on{background:#0F766E;border-color:#0F766E;color:#fff}
+.ai-main .mx-modes + .cora-in{border-top:0}
+.mx-review{padding:0 12px 10px;font-size:11.5px}
+.cora-row .mx-ans{flex:1;min-width:0;max-width:760px}
+.mx-tag{font-size:10.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#0F766E;margin-bottom:6px}
+.mx-draft{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:8px;margin-bottom:8px}
+.mx-dh{font-size:11px;font-weight:700;color:var(--ink-3);margin:0 0 4px 2px}
+.mx-draft textarea{width:100%;border:0;background:transparent;resize:vertical;font-size:13px;line-height:1.5;padding:4px;min-height:44px}
+.mx-draft textarea:focus{outline:2px solid #99F6E4;border-radius:8px}
+.mx-acts{display:flex;flex-wrap:wrap;gap:5px;align-items:center;border-top:1px dashed var(--line);padding-top:7px;margin-top:4px}
+.mx-acts button{font-size:11px;padding:3px 9px;border-radius:99px;border:1px solid var(--line);background:var(--panel-2);color:var(--ink-2)}
+.mx-acts > button:first-child{background:#0F766E;border-color:#0F766E;color:#fff}
+.mx-acts button:hover{border-color:#0F766E}
+.mx-rev{display:inline-flex;flex-wrap:wrap;gap:4px;margin-left:auto}
+/* PM assistants */
+.pa-hero{display:flex;gap:14px;align-items:center;flex-wrap:wrap;padding:16px 18px;border-radius:16px;margin-bottom:14px;background:linear-gradient(135deg,#FFF7ED,#FEF3C7);border:1px solid #FDE68A}
+.pa-hero h2{font-size:19px}.pa-hero p{font-size:12.5px;margin-top:2px}
+.pa-strip{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
+.pa-strip > div{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 14px;min-width:140px}
+.pa-strip b{display:block;font-size:20px;font-variant-numeric:tabular-nums}.pa-strip span{font-size:11.5px;color:var(--ink-3)}
+.pa-va{display:inline-flex;align-items:center;gap:4px;margin:2px 8px 2px 0;font-size:12px}
+.pa-tbl td.num{text-align:center;font-variant-numeric:tabular-nums}.pa-tbl td.bad{color:var(--bad);font-weight:700}
+.pa-fu{margin-bottom:10px}.pa-fu textarea,#paPrevText{width:100%;font-size:13px;line-height:1.5}
+.pa-days{display:flex;flex-wrap:wrap;gap:6px}.pa-days label{font-size:12px;display:inline-flex;gap:3px;align-items:center}
+.pa-rcp{display:inline-flex;gap:3px;align-items:center;margin-right:8px;font-size:12px;white-space:nowrap}
+.pa-preview-h{display:flex;gap:10px;align-items:center;margin-bottom:10px}
+.pa-chat{height:calc(100vh - 330px);min-height:420px}
+.pa-adm{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px}
+.pa-adm img{width:34px;height:34px;border-radius:99px}.pa-adm input.paAN{flex:1;min-width:140px}
+.switch-row{display:flex;gap:8px;align-items:center;font-size:13px}
+/* emojis */
+.emoji-btn{padding:0 10px;font-size:16px}
+.emoji-box{position:fixed;z-index:200;width:320px;max-height:360px;display:flex;flex-direction:column;background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:0 18px 50px rgba(0,0,0,.18);overflow:hidden}
+.emoji-search{margin:8px;font-size:12.5px}
+.emoji-grid{overflow-y:auto;padding:0 8px 8px}
+.emoji-h{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-3);margin:6px 2px 3px}
+.emoji-row{display:grid;grid-template-columns:repeat(8,1fr);gap:2px}
+.emoji-row button,.emoji-quick button{font-size:20px;line-height:1;padding:5px 0;border-radius:8px;background:none;border:0;cursor:pointer}
+.emoji-row button:hover,.emoji-quick button:hover{background:var(--panel-2)}
+.emoji-quick{display:flex;justify-content:space-around;padding:6px 6px 0;border-bottom:1px solid var(--line)}
+.reacts{display:flex;flex-wrap:wrap;gap:4px;margin-top:3px}
+.msg.mine .reacts{justify-content:flex-end}
+.react{font-size:12px;padding:1px 7px;border-radius:99px;border:1px solid var(--line);background:var(--panel);cursor:pointer;line-height:1.6}
+.react b{font-size:10.5px;color:var(--ink-2);font-weight:600}
+.react.mine{border-color:var(--brand-2);background:color-mix(in srgb,var(--brand-2) 16%,var(--panel))}
+.react-add{font-size:11px;padding:0 5px;border:0;background:none;color:var(--ink-3);cursor:pointer;opacity:0;transition:opacity .15s}
+.msg:hover .react-add,.react-add:focus{opacity:1}
+@media (hover:none){.react-add{opacity:.7}}
+[data-theme="dark"] .pres-chip.online{background:rgba(34,197,94,.14);border-color:rgba(34,197,94,.35);color:#86EFAC}
+[data-theme="dark"] .pres-chip.away{background:rgba(234,179,8,.14);border-color:rgba(234,179,8,.35);color:#FDE047}
+[data-theme="dark"] .pres-chip.break{background:rgba(245,158,11,.14);border-color:rgba(245,158,11,.35);color:#FCD34D}
+[data-theme="dark"] .msg.ai-msg .bubble{background:rgba(139,92,246,.12);border-color:rgba(139,92,246,.35)}
+[data-theme="dark"] .ai-chip{background:rgba(139,92,246,.22);color:#DDD6FE}
+[data-theme="dark"] .cora-src .src.int{background:rgba(99,102,241,.15);border-color:rgba(99,102,241,.4);color:#C7D2FE}
+[data-theme="dark"] .cora-src .src.ext,[data-theme="dark"] .cora-web.on{background:rgba(14,165,233,.15);border-color:rgba(14,165,233,.4);color:#BAE6FD}
+[data-theme="dark"] .mx-for{background:rgba(20,184,166,.18);color:#99F6E4}[data-theme="dark"] .mx-for.none{background:rgba(245,158,11,.18);color:#FDE68A}
+[data-theme="dark"] .mx-for select{background:rgba(0,0,0,.3);color:inherit}
+[data-theme="dark"] .pa-hero{background:linear-gradient(135deg,rgba(245,158,11,.14),rgba(234,179,8,.08));border-color:rgba(245,158,11,.3)}
+[data-theme="dark"] .btn.ai-btn{color:#141414}
+</style>
 </head>
 <body>
 <div class="login" id="login">
@@ -776,6 +900,9 @@ body.client-mode .cora-fab{display:none!important}
     <div id="v-sop" class="view"></div>
     <div id="v-lghub" class="view"></div>
     <div id="v-lgdash" class="view"></div>
+    <div id="v-cora" class="view"></div>
+    <div id="v-marcus" class="view"></div>
+    <div id="v-pa" class="view"></div>
     <div id="v-cportal" class="view"></div>
     <div id="v-cprospects" class="view"></div>
     <div id="v-cactivity" class="view"></div>
@@ -1245,10 +1372,12 @@ const $ = s => document.querySelector(s);
 const el = (s)=>document.getElementById(s);
 const esc = s => String(s??'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const initials = n => String(n||'?').split(/\s+/).filter(Boolean).slice(0,3).map(w=>w[0]).join('').toUpperCase();
-const av = (e)=> e ? `<span class="avatar" style="background:${e.color||'#9A9AA1'}" title="${esc(e.name)}">${esc(initials(e.name))}</span>` : `<span class="avatar" style="background:#9A9AA1">?</span>`;
-const P = k => PEOPLE[k] || EMPLOYEES.find(e=>e.id===k) || {name:k||'—', color:'#9A9AA1', sub:''};
+const av = (e)=> !e ? `<span class="avatar" style="background:#9A9AA1">?</span>`
+  : e.img ? `<span class="avatar img" title="${esc(e.name)}"><img src="${e.img}" alt="">${e.assistant?'<i class="pres-dot online" title="Online"></i>':''}</span>`
+  : `<span class="avatar" style="background:${e.color||'#9A9AA1'}" title="${esc(e.name)}${typeof presLabel==='function'&&presLabel(e.key||e.id)?' · '+presLabel(e.key||e.id):''}">${esc(initials(e.name))}${typeof presDot==='function'?presDot(e.key||e.id):''}</span>`;
+const P = k => (typeof isAssistantKey==='function' && isAssistantKey(k) && assistantPerson(k)) || PEOPLE[k] || EMPLOYEES.find(e=>e.id===k) || {name:k||'—', color:'#9A9AA1', sub:''};
 const pname = k => P(k).name || '—';
-const first = k => pname(k).split(' ')[0];
+const first = k => (typeof isAssistantKey==='function' && isAssistantKey(k)) ? pname(k) : pname(k).split(' ')[0];
 const emp = id => EMPLOYEES.find(e=>e.id===id) || (PEOPLE[id] ? {...PEOPLE[id], id, role:PEOPLE[id].sub, clients:[], work:[], dept:'Leadership', tier:'—', assigned:0, done:0, overdue:0, score:'—', resp:'—'} : null);
 const uid = (p='X') => p+'-'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
 const nowISO = () => new Date().toISOString();
@@ -1443,9 +1572,10 @@ function buildNav(){
     if(n.id==='orgsetup') pill = ROLE==='hr' ? BRIEFS.filter(b=>b.status==='New'||(isReg(b)&&b.status==='Endorsed')).length : isExec() ? BRIEFS.filter(b=>isReg(b)&&b.status==='Registered'&&b.by===PERSON).length : 0;
     if(n.id==='evals' && ROLE==='hr') pill = EVALS.filter(v=>v.kind==='monthly'&&v.status==='Submitted').length;
     if(n.id==='core') pill = TASKS.filter(t=>t.core && t.handoffTo===PERSON && !t.handoffSeen).length;
-    return `<button class="nav-item ${n.id===CURRENT?'active':''}" onclick="go('${n.id}')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="${n.ico}"/></svg>
-      ${n.name}${pill?`<span class="pill">${pill}</span>`:''}</button>${n.id==='chat'?pinnedNavHTML():''}`;
+    if(n.id==='pa') pill = typeof paReviewCount==='function' ? paReviewCount() : 0;
+    return `<button class="nav-item ${n.id===CURRENT?'active':''} ${n.ai?'nav-ai':''}" onclick="go('${n.id}')">
+      ${n.img?`<span class="nav-ava"><img src="${navAssistantImg(n)}" alt=""><i></i></span>`:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="${n.ico}"/></svg>`}
+      ${n.ai?navAssistantLabel(n):n.name}${pill?`<span class="pill">${pill}</span>`:''}</button>${n.id==='chat'?pinnedNavHTML():''}`;
   }).join('');
   updateBadges();
 }
@@ -1458,7 +1588,7 @@ function go(id){
   document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
   el('v-'+id).classList.add('active');
   const nn = NAV.find(n=>n.id===id) || CLIENT_NAV.find(n=>n.id===id);
-  el('pageTitle').textContent = nn?nn.name:'Client Workspace';
+  el('pageTitle').textContent = nn?(nn.ai?navAssistantLabel(nn):nn.name):'Client Workspace';
   el('crumb').textContent = 'Workspace / ' + (nn?nn.name:'Clients');
   buildNav();
   try{ RENDER[id]?.(); }catch(err){ console.error(err); el('v-'+id).innerHTML=`<div class="empty">Something went wrong showing this page: ${esc(err.message)}</div>`; }
@@ -1508,7 +1638,7 @@ async function openFileRef(elm){
 async function fileAsImageURL(f){ return BACKEND.fileUrl(f); }
 
 /* ================= NOTIFICATIONS ================= */
-const NTYPES = {assignment:'Assignments', submission:'Submissions', approval:'Approvals', revision:'Revisions', announcement:'Announcements', report:'Reports', message:'Messages', attendance:'Attendance', hr:'HR', system:'System'};
+const NTYPES = {assignment:'Assignments', submission:'Submissions', approval:'Approvals', revision:'Revisions', announcement:'Announcements', report:'Reports', message:'Messages', reminder:'Reminders', attendance:'Attendance', hr:'HR', system:'System'};
 function notify(to, type, text, link){
   uniq([].concat(to)).filter(k=>k && k!==PERSON && PEOPLE[k]).forEach(k=>{
     NOTIFS2.unshift({id:uid('N'), to:k, type, text, link:link||null, by:PERSON, at:nowISO(), read:false});
@@ -1520,14 +1650,14 @@ function renderNotifs(){
   const list = el('notifList'); if(!list || !PEOPLE[PERSON]) return;
   const icons = {approval:['var(--ok-bg)','var(--ok)','M9 12l2 2 4-4'], revision:['var(--warn-bg)','var(--warn)','M12 8v5M12 16.5h0'], attendance:['var(--bad-bg)','var(--bad)','M12 8v4l3 2'],
     submission:['var(--violet-bg)','var(--violet)','M12 16V8M8 12l4-4 4 4'], message:['var(--info-bg)','var(--info)','M8 11h8M8 14h5'], announcement:['var(--warn-bg)','var(--warn)','M12 8v5M12 16.5h0'],
-    assignment:['var(--info-bg)','var(--info)','M12 8h0M12 11v5'], report:['var(--violet-bg)','var(--violet)','M9 9h6M9 13h6'], hr:['var(--violet-bg)','var(--violet)','M9 9h6M9 13h6'], system:['var(--line-2)','var(--ink-2)','M12 8h0M12 11v5']};
+    assignment:['var(--info-bg)','var(--info)','M12 8h0M12 11v5'], report:['var(--violet-bg)','var(--violet)','M9 9h6M9 13h6'], hr:['var(--violet-bg)','var(--violet)','M9 9h6M9 13h6'], system:['var(--line-2)','var(--ink-2)','M12 8h0M12 11v5'], reminder:['var(--warn-bg)','var(--warn)','M12 8v4l3 2']};
   const mine = myNotifs();
   el('notifFilter').innerHTML = [['all','All'],['unread','Unread'],...Object.entries(NTYPES).filter(([k])=>mine.some(n=>n.type===k))].map(([k,v])=>`<button class="${NF===k?'on':''}" onclick="NF='${k}';renderNotifs()">${v}${k==='unread'?` (${mine.filter(n=>!n.read).length})`:''}</button>`).join('');
   const L = mine.filter(n=>NF==='all'||(NF==='unread'?!n.read:n.type===NF)).slice(0,80);
   list.innerHTML = L.map(n=>{
-    const [bg,fg,path] = icons[n.type]||icons.system;
-    return `<div class="notif ${n.read?'':'unread'}" onclick="openNotif('${n.id}')"><span class="n-ico" style="background:${bg};color:${fg}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="${path}"/></svg></span>
-      <div><p style="font-size:12.5px">${n.text}</p><span class="hint">${NTYPES[n.type]||'Update'} · ${ago(n.at)}${n.by&&PEOPLE[n.by]?' · from '+esc(first(n.by)):''}</span></div></div>`;
+    const [bg,fg,path] = icons[n.type]||icons.system; const asst = isAssistantKey(n.by) && assistant(n.by);
+    return `<div class="notif ${n.read?'':'unread'}" onclick="openNotif('${n.id}')">${asst?`<span class="n-ico" style="background:none">${aiAva(n.by,30)}</span>`:`<span class="n-ico" style="background:${bg};color:${fg}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="${path}"/></svg></span>`}
+      <div><p style="font-size:12.5px">${n.text}</p><span class="hint">${NTYPES[n.type]||'Update'} · ${ago(n.at)}${asst?' · from <b>'+esc(asst.name)+'</b>':n.by&&PEOPLE[n.by]?' · from '+esc(first(n.by)):''}</span></div></div>`;
   }).join('') || '<div class="empty">You\'re all caught up.</div>';
   updateBadges();
 }
@@ -1795,7 +1925,7 @@ function onRemoteEvent(ev){
   if(ev.deleted) return;
   const o = ev.obj;
   if(ev.coll==='notifs' && ev.isNew && o.to===PERSON && !o.read){
-    liveToast(NTYPES[o.type]||'Update', `<span>${o.text}</span>`, o.link);
+    liveToast(isAssistantKey(o.by)&&assistant(o.by) ? assistant(o.by).name : (NTYPES[o.type]||'Update'), `${isAssistantKey(o.by)?`<span style="display:flex;gap:8px;align-items:flex-start">${aiAva(o.by,28)}<span>${o.text}</span></span>`:`<span>${o.text}</span>`}`, o.link);
   }
   if(ev.coll==='messages' && ev.isNew && o.by!==PERSON){
     const ch = CHATS.find(c=>c.id===o.chat);
@@ -2604,6 +2734,7 @@ function openTask(id){
   if((mine||approver) && t.status==='Approved') actions.push(`<button class="btn primary" onclick="taskAction('${t.id}','Completed')">✓ Mark completed</button>`);
   if(t.core && t.stage==='brief' && (mine||isExec())) actions.push(`<button class="btn primary" onclick="coreHandoff('${t.id}')">Hand off to ${esc(first(coreVisualOwner()))} →</button>`);
   if(t.core && t.stage==='visual' && (t.assignee===PERSON||isExec()) && t.handoffFrom) actions.push(`<button class="btn" onclick="coreReturn('${t.id}')">↩ Return to ${esc(first(t.handoffFrom))}</button>`);
+  if(canEdit && t.client && typeof marcusClients==='function' && marcusClients().some(c=>c.id===t.client) && navAllowed(NAV.find(n=>n.id==='marcus'))) actions.push(`<button class="btn ai-btn" onclick="closeModal();marcusOpen('${t.client}','${t.id}')" title="Draft this caption or copy with Marcus in the client’s voice">${aiAva('marcus',20)} Ask Marcus</button>`);
   const pms = taskApprovers(t);
   openModal(t.title, `${t.client?clientLinksHTML(t.client, {label:'Open the client account'}):''}
   <div class="split">
@@ -3211,6 +3342,8 @@ RENDER.clientws = () => {
         <div style="flex:1;min-width:200px"><h2 style="font-size:20px">${esc(c.name)}</h2><p style="opacity:.85;font-size:12.5px">${esc(c.industry)} · ${esc(c.type)} client · ${c.plan} posts per week · PM ${pmsOf(c.id).map(k=>esc(pname(k))).join(', ')||'—'}</p></div>
         <button class="btn" style="background:rgba(255,255,255,.9);color:#141414" onclick="go('clients')">← All clients</button>
         ${CHATS.some(x=>x.id===c.chatId)?`<button class="btn" style="background:rgba(255,255,255,.9);color:#141414" onclick="CHAT_OPEN='${c.chatId}';go('chat')">💬 Group chat</button>`:''}
+        ${!isEnded(c)&&typeof marcusClients==='function'&&marcusClients().some(x=>x.id===c.id)&&navAllowed(NAV.find(n=>n.id==='marcus'))?`<button class="btn ai-btn" onclick="marcusOpen('${c.id}')" title="Write comments, replies and captions in ${esc(c.name)}’s voice">${aiAva('marcus',22)} Ask Marcus</button>`:''}
+        ${!isEnded(c)&&typeof coraAskClient==='function'?`<button class="btn ai-btn" onclick="coraAskClient('${c.id}')" title="Ask Cora about ${esc(c.name)}">${aiAva('cora',22)} Ask Cora</button>`:''}
         ${canCreateOrgs()&&!isEnded(c)?`<button class="btn" style="background:rgba(255,255,255,.9);color:#141414" onclick="archiveClient('${c.id}')">${c.status==='Active'?'Archive':'Restore'}</button>`:''}
         ${canEndContracts()&&!isEnded(c)?`<button class="btn" style="background:#141414;color:#fff" onclick="endContractModal('${c.id}')">End contract</button>`:''}
       </div>
@@ -5237,7 +5370,7 @@ RENDER.employees = () => {
         </div></div>
       <table class="tbl"><thead><tr><th>Employee</th><th>Role / portal</th><th>Contact</th><th>Type</th><th>Status</th><th>Clients</th>${canAdminEmp()?'<th style="text-align:right">Actions</th>':''}</tr></thead><tbody>
       ${E.map(e=>{ const cl = clientIdsFor(e.id); return `<tr style="${['Resigned','Terminated','Inactive'].includes(e.status)?'opacity:.6':''}">
-        <td>${av(e)} <b>${esc(e.name)}</b><div class="hint">${esc(e.group)}${e.start!=='—'?' · since '+esc(e.start):''}</div></td>
+        <td>${av(e)} <b>${esc(e.name)}</b> ${presChip(e.id)}<div class="hint">${esc(e.group)}${e.start!=='—'?' · since '+esc(e.start):''}</div></td>
         <td>${esc(e.role)}<div class="hint">${esc((PORTALS.find(p=>p[0]===portalOf(e))||[])[1]||'')} portal · ${esc(e.dept)}${isCore(e.id)?' · Core team':''}</div></td>
         <td style="font-size:12px">${esc(e.email)}<div class="hint">${esc(e.phone)}</div></td>
         <td>${esc(e.empType)}</td>
@@ -6150,9 +6283,10 @@ function msgBlock(m, prev){
   const mine = m.by===PERSON; const day = dstr(m.at); const sep = !prev || dstr(prev.at)!==day ? `<div class="hint" style="text-align:center;margin:6px 0">${day}</div>` : '';
   if(m.kind==='call') return `${sep}<div class="msg call-msg">${callCard(m)}</div>`;
   if(m.sys) return `${sep}<div class="msg sys-msg">${sysMsgHTML(m)}</div>`;
-  return `${sep}<div class="msg ${mine?'mine':''}">${mine?'':av(P(m.by))}<div style="min-width:0"><div class="who">${mine?'You':esc(pname(m.by))}</div><div class="bubble">${m.text?msgText(m):''}${attachHTML(m.files)}</div><div class="when" style="${mine?'text-align:right':''}">${clock(m.at)}</div></div></div>`;
+  const ai = isAssistantKey(m.by);
+  return `${sep}<div class="msg ${mine?'mine':''} ${ai?'ai-msg':''}" data-mid="${m.id}">${mine?'':av(P(m.by))}<div style="min-width:0"><div class="who">${mine?'You':esc(pname(m.by))}${ai?' <span class="ai-chip">AI assistant</span>':''}</div><div class="bubble">${m.text?msgText(m):''}${attachHTML(m.files)}</div>${typeof reactionsHTML==='function'?reactionsHTML(m):''}<div class="when" style="${mine?'text-align:right':''}">${clock(m.at)}${typeof reactBtnHTML==='function'?reactBtnHTML(m):''}</div></div></div>`;
 }
-const msgSig = (m, prev) => JSON.stringify([m.text, m.status, m.joined, m.endedAt, m.meetUrl, (m.files||[]).length, !prev||dstr(prev.at)!==dstr(m.at), m.by===PERSON]);
+const msgSig = (m, prev) => JSON.stringify([m.text, m.status, m.joined, m.endedAt, m.meetUrl, (m.files||[]).length, !prev||dstr(prev.at)!==dstr(m.at), m.by===PERSON, typeof reactSig==='function'?reactSig(m.id):'']);
 function messagesHTML(c){
   const M = chatMsgs(c.id).slice(-200);
   return M.map((m,i)=>`<div class="mwrap" id="mw-${m.id}" data-sig="${esc(msgSig(m,M[i-1]))}">${msgBlock(m,M[i-1])}</div>`).join('') || '<div class="empty" id="chatEmpty">No messages yet — say hello 👋</div>';
@@ -6173,7 +6307,7 @@ function updateMessages(c){
   hydrateChatMedia(sc);
 }
 function chatHeadHTML(c){
-  return `<div style="display:flex;gap:10px;align-items:center;min-width:0">${chatAvatar(c)}<div style="min-width:0"><h3>${esc(chatTitle(c))}</h3><span class="sub">${c.kind==='dm'?'Private conversation':c.kind==='client'?`Client group · ${c.members.length} members`:c.kind==='clientline'?`Client portal chat · the client reads this conversation`:`${c.members.length} members`}</span></div></div>
+  return `<div style="display:flex;gap:10px;align-items:center;min-width:0">${chatAvatar(c)}<div style="min-width:0"><h3>${esc(chatTitle(c))}</h3><span class="sub">${c.kind==='dm'?`${presChip((c.members||[]).find(k=>k!==PERSON)||PERSON)} Private conversation`:c.kind==='client'?`Client group · ${c.members.length} members`:c.kind==='clientline'?`Client portal chat · the client reads this conversation`:`${c.members.length} members`}</span></div></div>
     <span style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">
       ${c.archived?'':callHeadButton(c)}
       <button class="btn ghost" onclick="togglePin('${c.id}')" title="Pin to the top of Messages and your sidebar">${myPins().includes(c.id)?'📌 Unpin':'📌 Pin'}</button>${c.kind==='client'?`<button class="btn ghost" onclick="openClient('${c.client}')">Client workspace →</button>`:''}<button class="btn ghost" onclick="chatMembersModal('${c.id}')">Members</button></span>`;
@@ -6203,6 +6337,7 @@ RENDER.chat = (force) => {
         <div id="chatFiles" class="pending-files"></div>
         ${c.archived && !canPostEnded(c) ? `<div class="chat-input ended-ro">🔒 This client group chat is archived because the contract ended — it is read-only. Save anything you need before it is deleted.</div>` : `<div class="chat-input">
           <button class="btn" title="Attach photos, screenshots, videos or files" onclick="chatPick()">📎</button>
+          ${emojiBtn('chatMsg')}
           <div class="mention-box" id="mentionBox"></div>
           <input id="chatMsg" autocomplete="off" placeholder="Message ${esc(chatTitle(c))}…${c.kind!=='dm'?' Type @ to tag someone':''} (paste a screenshot with Ctrl/⌘+V)" oninput="mentionSuggest()" onkeydown="chatKey(event)" onblur="setTimeout(()=>mentionClose(),150)" onpaste="chatPaste(event)">
           <button class="btn primary" id="chatSend" onclick="sendChat()">Send</button>
@@ -6737,6 +6872,7 @@ RENDER.settings = () => {
       ${callsAdminCard()}
       ${financeAdminCard()}
       ${coraAdminCard()}
+      ${typeof paAdminCard==='function'?paAdminCard():''}
     </div>
     <div class="grid cols-2" style="margin-bottom:16px">
       <div class="card"><div class="card-h"><h3>Live database</h3></div><div class="card-b">
@@ -8804,13 +8940,16 @@ function lgOnClientSaved(c, reg, chg){
    link straight to the page, profile or file, and say when something is missing or needs confirming.
    The AI provider is configured once by a company head (Administration → Cora). Without it, Cora still finds
    the matching records and links. */
-const CORA = {open:false, msgs:[], busy:false};
+const CORA = {open:false, conv:null, busy:false, research:'auto'};
 const CORA_NAME = 'Cora';
+Object.defineProperty(CORA, 'msgs', {get:()=>coraConv().msgs});   /* current conversation's messages */
 const DEFAULT_COMPANY = {about:'The Cross Core OPC is a virtual-assistance agency in the Philippines. Our VAs, specialists and project managers run content, social media, graphics and video, lead generation and admin work for clients in the Philippines and abroad. Tagline: "Virtual assistance, reimagined."',
   history:'', values:'Reliable, proactive, clear communication, client-first.', leaders:'Pau — Chief Executive Officer · JA — Chief Operating Officer · Norman — Co-Founder & Creative Director',
   policies:'Time in on the portal at the start of your shift, report in your client group chat, and submit work for PM approval before anything is posted or sent.'};
 const coraCompany = () => ({...DEFAULT_COMPANY, ...(S().company||{})});
 const coraOn = () => PEOPLE[PERSON] && ROLE!=='client';
+/* the floating button stays out of the way on Cora's own page and over other assistants' composers on phones */
+const coraFabShown = () => coraOn() && CURRENT!=='cora' && !(window.innerWidth<860 && ['marcus','pa'].includes(CURRENT));
 
 /* clients Cora may talk about for this person */
 function coraClients(){
@@ -8826,6 +8965,7 @@ function coraContext(q){
   const C = coraClients();
   const named = C.filter(c=>{ const n = c.name.toLowerCase(); return ql.includes(n) || n.split(/[\s&()·,-]+/).filter(w=>w.length>=4).some(w=>ql.includes(w)); });
   const focus = named.length ? named : (C.length<=6 ? C : C.filter(c=>(me.clients||[]).includes(c.id)).slice(0,6));
+  const voiceQ = /tone|voice|brand|caption|post|comment|reply|draft|write|content|guideline|example|style/i.test(q);
   const out = [];
   out.push(`## Company [PAGE:dashboard|Dashboard]\nAbout: ${co.about}\n${co.history?'History: '+co.history+'\n':''}${co.values?'Values: '+co.values+'\n':''}${co.leaders?'Leadership: '+co.leaders+'\n':''}${co.policies?'Ways of working: '+co.policies+'\n':''}`);
   out.push(`## You\nName: ${me.name} · Role: ${me.sub||ROLE} · Portal: ${PORTAL_LABEL[me.portal]||me.portal||ROLE}\nToday: ${new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric',timeZone:'Asia/Manila'})} (Manila time)\nAssigned clients: ${C.length>40?C.length+' clients (full access)':C.map(c=>c.name).join(', ')||'none yet'}`);
@@ -8845,6 +8985,8 @@ function coraContext(q){
       (cfg?.files||[]).slice(0,8).forEach(f=>t += `Lead file [LGF:${c.id}|${f.name}]: ${f.name} — ${f.added||0} added by ${pname(f.by)} on ${dstr(f.at)}\n`);
       LEADJOBS.filter(j=>j.client===c.id && j.status!=='Done' && (ROLE!=='employee' || (j.assignees||[]).includes(PERSON))).forEach(j=>t += `Lead assignment [LG:${c.id}|${j.title}]: ${j.title}, ${j.criteria?.count||'?'} leads, due ${j.due||'—'}, to ${(j.assignees||[]).map(first).join(', ')}${j.notes?'; instructions: '+coraTrim(j.notes,200):''}\n`); }
     (c.docs||[]).slice(0,6).forEach(d=>t += `Client file [C:${c.id}|${d.name}]: ${d.name}\n`);
+    t += coraFinance(c.id);
+    if(voiceQ || named.length) t += clientVoice(c.id);
     out.push(t);
   });
   const myTasks = TASKS.filter(t=>(t.assignee===PERSON || (ROLE==='manager' && pmsOf(t.client).includes(PERSON) && t.status==='For Approval')) && !['Completed'].includes(t.status) && C.some(c=>c.id===t.client)).slice(0,25);
@@ -8853,9 +8995,10 @@ function coraContext(q){
   /* people / LinkedIn profiles the question names (whole-word name matches only) */
   const top = coraLeadHits(q, C);
   if(top.length) out.push(`## Leads matching the question\n`+top.map(l=>`- [L:${l.client}:${l.id}|${l.name}] ${l.name} · ${[l.title,l.company].filter(Boolean).join(' · ')} · ${cname(l.client)} · status ${l.statusLabel||l.stage} · LinkedIn ${l.linkedin||'none'}`).join('\n'));
+  const docs = coraDocs(); if(docs) out.push(`## Documents and policies sent to you\n${docs}`);
   const anns = (typeof annFor==='function' ? annFor(PERSON) : []).slice(0,3); if(anns.length) out.push(`## Recent announcements\n`+anns.map(a=>`- [ANN:${a.id}|${a.title}] ${a.title}`).join('\n'));
   out.push(`## Portal pages\n[PAGE:leads|Lead Generation] [PAGE:tasks|Content Board] [PAGE:attendance|Attendance & Time Logs] [PAGE:mydocs|My Documents] [PAGE:chat|Messages] [PAGE:announce|Announcements]${navAllowed(NAV.find(n=>n.id==='lgdash'))?' [PAGE:lgdash|Lead Gen Progress]':''}`);
-  return {text:out.join('\n\n').slice(0, 45000), clients:focus.map(c=>c.id)};
+  return {text:out.join('\n\n').slice(0, 48000), clients:focus.map(c=>c.id), named:named.length>0};
 }
 const CORA_STOP = new Set('the and for with what who where when how are can you your our show find lead leads linkedin profile profiles client clients about next this that from have does did need needs doing target targets today week my me i is it do give tell list please status sop deadline deadlines task tasks work team help cross core cora hi hello update progress requirement requirements background company contact look up prospect prospects'.split(' '));
 function coraLeadHits(q, C){
@@ -8868,47 +9011,114 @@ function coraLeadHits(q, C){
   const best = Math.max(0, ...hits.map(h=>h[0]));
   return hits.filter(h=>h[0]===best && (best>=Math.min(2, want.length))).slice(0,8).map(h=>h[1]);
 }
-const CORA_SYSTEM = `You are Cora, the AI assistant inside the Cross Core Ops Suite (The Cross Core OPC, a Philippine virtual-assistance agency).
-You help VAs, specialists and project managers with their clients, tasks, deadlines, SOPs, lead generation and next steps.
+const CORA_SYSTEM = `You are Cora, the master AI assistant of The Cross Core OPC (a Philippine virtual-assistance agency), inside the Cross Core Ops Suite.
+You help VAs, specialists, project managers, HR and company heads with company information and processes, client organizations, brand guidelines, approved SOPs, assignments, tasks and deadlines, lead generation, and next steps — and with general questions and outside research, like a general assistant.
 Rules:
-- Answer ONLY from the CONTEXT. If the answer is not there, say so plainly and suggest who to ask (their PM, HR, or a company head). Never invent clients, people, numbers, links or policies.
-- When you use a record, cite it with its reference in double brackets exactly as written in the context, for example [[SOP:abc|Horizon Dental SOP]] or [[LG:abc|Lead Gen workspace]] or [[T:T-12|Task title]]. These become clickable links.
-- Say when information may be out of date or needs confirmation (e.g. "confirm with your PM").
-- The context only includes what this person is allowed to see. Never speculate about other clients or people's private information.
-- Be concise and practical: short paragraphs or a few bullet points, then the concrete next step. Reply in the language the person uses (English or Tagalog/Taglish).`;
+- For Cross Core and client matters, use ONLY the CONTEXT (records this person may see). Cite every record you use with its reference in double brackets exactly as written, e.g. [[SOP:abc|Horizon Dental SOP]], [[C:abc|client workspace]], [[T:T-12|task title]]. These become links.
+- If a company or client fact is not in the CONTEXT, say it is missing (or restricted) and who to ask (their PM, HR, Finance or a company head). Never invent clients, people, numbers, rates, links or policies. Package rates and pay are restricted to Finance and company heads.
+- Say when information may be outdated (dates are in the context) or needs confirmation.
+- For outside/general questions you may use WEB RESULTS (cite them as [[https://link|site or title]]) and your general knowledge (label it "General knowledge — verify if important").
+- Keep the two apart: start internal facts with "From Cross Core records:" and outside facts with "From outside research:" when you use both.
+- When drafting anything for a client, follow that client's tone, audience, brand guidelines, content examples and SOP from the CONTEXT.
+- Be concise and practical: short paragraphs or bullets, then the concrete next step. Reply in the person's language (English or Tagalog/Taglish).`;
 
-/* ---------- panel ---------- */
+/* client voice, shared by Cora and Marcus: tone, audience, brand kit, guidelines, examples, SOP style */
+function emojiRate(texts){ const all = texts.join(' '); const n = (all.match(/\p{Extended_Pictographic}/gu)||[]).length; const posts = Math.max(1, texts.length); return n/posts; }
+function clientExamples(cid, n=6){
+  const T = TASKS.filter(t=>t.client===cid && t.caption && ['Approved','Completed','For Approval'].includes(t.status)).sort((a,b)=>(b.status==='Approved'||b.status==='Completed')-(a.status==='Approved'||a.status==='Completed')).slice(0,n);
+  return T.map(t=>({text:t.caption, ref:`[T:${t.id}|${t.title}]`, status:t.status}));
+}
+function clientVoice(cid){
+  const c = client(cid); if(!c) return '';
+  const ex = clientExamples(cid); const rate = emojiRate(ex.map(e=>e.text));
+  const def = v => v && !/^(—|To be defined)$/i.test(v);
+  let t = `### Voice & brand for ${c.name} [C:${c.id}|${c.name} workspace]\n`;
+  if(def(c.tone)) t += `Tone of voice: ${c.tone}\n`; if(def(c.audience)) t += `Audience: ${c.audience}\n`;
+  if(def(c.guidelines)) t += `Brand guidelines: ${coraTrim(c.guidelines, 700)}\n`;
+  if((c.colors||[]).length || def(c.fonts)) t += `Brand kit: colours ${(c.colors||[]).join(', ')||'—'}; fonts ${def(c.fonts)?c.fonts:'—'}\n`;
+  if(def(c.deliverables)) t += `Deliverables: ${c.deliverables}\n`; if(def(c.socials)) t += `Channels: ${c.socials}\n`;
+  if(c.summary) t += `About the client: ${coraTrim(c.summary, 500)}\n`;
+  const sop = c.sop?.sections||{}; ['tone','voice','style','brand','instructions','do','dont','communication'].forEach(k=>{ Object.entries(sop).forEach(([sk,v])=>{ if(v && sk.toLowerCase().includes(k)) t += `SOP (${sk}) [SOP:${c.id}|${c.name} SOP]: ${coraTrim(v, 500)}\n`; }); });
+  if(c.sop && !Object.keys(sop).some(sk=>/tone|voice|style|brand|instruction|do|communication/i.test(sk))) t += `SOP: v${c.sop.version} [SOP:${c.id}|${c.name} SOP] — ${coraTrim(Object.values(sop).filter(Boolean).join(' · '), 600)}\n`;
+  if(!c.sop) t += `SOP: not published yet — voice comes from the client profile only.\n`;
+  t += `Emoji style: ${ex.length ? (rate>=2?'uses emojis often':rate>=0.5?'uses a few emojis':'rarely or never uses emojis') + ` (from ${ex.length} approved examples)` : 'no examples yet — follow the guidelines; ask before adding many emojis'}\n`;
+  if(ex.length) t += `Approved content examples:\n` + ex.map(e=>`- ${e.ref} (${e.status}): ${coraTrim(e.text, 280)}`).join('\n') + '\n';
+  return t;
+}
+/* documents and policies this person has received (HR memos, notices) */
+function coraDocs(){ return (typeof myDocs==='function' ? myDocs() : []).slice(0,5).map(d=>`- [DOC:${d.id}|${d.title}] ${d.kind||'Document'} · sent ${dstr(d.sentAt)}: ${coraTrim(d.body||'', 300)}`).join('\n'); }
+function coraFinance(cid){ if(!(typeof finAuth==='function' && finAuth())) return ''; const f = FINCLIENTS.find(x=>x.client===cid); const r = f?.packageRate; return r && (r.amount!=null || r.note) ? `Package rate (Finance & heads only): ${r.amount!=null?r.amount+' '+(r.currency||'')+' '+(r.basis||''):r.note}\n` : ''; }
+const CORA_WEB_RX = /\b(latest|news|trend(s|ing)?|what is|what are|who is|how (do|to|can)|best|compare|research|statistic|market|competitor|price of|definition|meaning|example of|ideas? for|tips|benchmark|industry average|algorithm|hashtag)\b/i;
+
+/* ---------- conversation state (saved per person) ---------- */
+function coraConv(){ let c = CORA.conv && AICHATS.includes(CORA.conv) ? CORA.conv : null; if(!c){ c = aiConvs('cora')[0]; if(c && c.msgs.length && Date.now()-new Date(c.updatedAt).getTime() > 12*3600e3) c = null; } if(!c) c = {id:null, msgs:[]}; CORA.conv = c; return c; }
+function coraNew(){ CORA.conv = {id:null, msgs:[]}; drawCora(); if(CURRENT==='cora') RENDER.cora(); }
+
+/* ---------- floating panel (every staff page) ---------- */
 function coraMount(){
   if(el('coraFab')) return;
-  const b = document.createElement('button'); b.id = 'coraFab'; b.className = 'cora-fab'; b.title = 'Ask Cora'; b.innerHTML = `<span class="cora-spark">✦</span><span>Cora</span>`; b.onclick = coraToggle; document.body.appendChild(b);
+  const b = document.createElement('button'); b.id = 'coraFab'; b.className = 'cora-fab'; b.title = 'Ask Cora'; b.innerHTML = `${aiAva('cora', 30, true)}<span>Ask Cora</span>`; b.onclick = ()=>coraToggle(); document.body.appendChild(b);
   const p = document.createElement('div'); p.id = 'coraPanel'; p.className = 'cora-panel'; document.body.appendChild(p);
 }
 function coraToggle(force){ CORA.open = typeof force==='boolean' ? force : !CORA.open; drawCora(); if(CORA.open) setTimeout(()=>el('coraIn')?.focus(), 50); }
 function coraSuggest(){
   const C = coraClients(); const c = C.find(x=>lgIsLeadGen(x)) || C[0];
   const s = ['What should I work on today?', 'What are my deadlines this week?'];
-  if(c){ s.push(`What are ${c.name}'s requirements?`); if(lgIsLeadGen(c)) s.push(`How am I doing on ${c.name}'s Lead Gen target?`); if(c.sop) s.push(`Show me ${c.name}'s SOP`); }
-  s.push('Tell me about Cross Core'); return s.slice(0,5);
+  if(c){ s.push(`What are ${c.name}'s requirements and tone of voice?`); if(lgIsLeadGen(c)) s.push(`How am I doing on ${c.name}'s Lead Gen target?`); if(c.sop) s.push(`Show me ${c.name}'s SOP`); }
+  s.push('Tell me about Cross Core', 'What are the latest Instagram trends for small businesses?'); return s.slice(0,6);
+}
+function coraMsgsHTML(conv){
+  return conv.msgs.length ? conv.msgs.map(m=>m.role==='user' ? `<div class="cora-m user">${esc(m.text)}</div>`
+    : `<div class="cora-row">${aiAva('cora', 28)}<div class="cora-m assistant">${coraRender(m.text)}${coraSources(m)}${m.note?`<small class="cora-note">${esc(m.note)}</small>`:''}<div class="cora-tools"><button onclick="coraCopy(this)" title="Copy">Copy</button></div></div></div>`).join('')
+    : `<div class="cora-hello">${aiAva('cora', 56, true)}<b>Hi ${esc(first(PERSON))}! I'm Cora.</b><p>Ask me about Cross Core, your clients' requirements, tone of voice and SOPs, your tasks and deadlines, Lead Gen targets and files — or anything else, and I'll research it. I only use what you're allowed to see.</p><div class="cora-sugg">${coraSuggest().map(s=>`<button onclick="coraAsk(${esc(JSON.stringify(s))})">${esc(s)}</button>`).join('')}</div></div>`;
+}
+function coraComposer(id){
+  return `<div class="cora-in"><button class="cora-web ${CORA.research==='on'?'on':''}" title="Web research: ${CORA.research==='on'?'always on':'automatic for outside questions'} — click to switch" onclick="CORA.research=CORA.research==='on'?'auto':'on';drawCora();if(CURRENT==='cora')RENDER.cora()">🌐 ${CORA.research==='on'?'Research on':'Auto'}</button>
+    <textarea id="${id}" rows="1" placeholder="Ask Cora anything…" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();coraAsk(null,'${id}')}"></textarea><button class="btn primary" onclick="coraAsk(null,'${id}')" ${CORA.busy?'disabled':''}>Ask</button></div>`;
 }
 function drawCora(){
   coraMount(); const p = el('coraPanel'); const fab = el('coraFab');
-  fab.style.display = coraOn() ? '' : 'none'; p.classList.toggle('open', CORA.open && coraOn());
-  if(!CORA.open || !coraOn()) return;
-  p.innerHTML = `<div class="cora-h"><span class="cora-av">✦</span><div style="flex:1;min-width:0"><b>Cora</b><small>Your Cross Core assistant · answers from what you can access</small></div><button class="icon-btn" onclick="CORA.msgs=[];drawCora()" title="New conversation">↺</button><button class="icon-btn" onclick="coraToggle(false)" title="Close">✕</button></div>
-    <div class="cora-body" id="coraBody">${CORA.msgs.length ? CORA.msgs.map(m=>`<div class="cora-m ${m.role}">${m.role==='user'?esc(m.text):coraRender(m.text)}${m.note?`<small class="cora-note">${esc(m.note)}</small>`:''}</div>`).join('') : `<div class="cora-hello"><b>Hi ${esc(first(PERSON))}! I'm Cora.</b><p>Ask me about your clients, their requirements and SOPs, your tasks and deadlines, Lead Gen targets, lead files or LinkedIn profiles — I'll point you to the right page.</p><div class="cora-sugg">${coraSuggest().map(s=>`<button onclick="coraAsk(${esc(JSON.stringify(s))})">${esc(s)}</button>`).join('')}</div></div>`}
-      ${CORA.busy?'<div class="cora-m assistant"><span class="spinner" style="display:inline-block;vertical-align:middle"></span> Cora is looking through your workspace…</div>':''}</div>
-    <div class="cora-in"><textarea id="coraIn" rows="1" placeholder="Ask Cora…" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();coraAsk()}"></textarea><button class="btn primary" onclick="coraAsk()" ${CORA.busy?'disabled':''}>Ask</button></div>`;
+  fab.style.display = coraFabShown() ? '' : 'none'; p.classList.toggle('open', CORA.open && coraOn() && CURRENT!=='cora');
+  if(!CORA.open || !coraOn() || CURRENT==='cora') return;
+  const conv = coraConv();
+  p.innerHTML = `<div class="cora-h">${aiAva('cora', 36, true)}<div style="flex:1;min-width:0"><b>Cora</b><small><i class="ai-online"></i> Online · Cross Core assistant</small></div><button class="icon-btn" onclick="coraToggle(false);go('cora')" title="Open full page & history">⤢</button><button class="icon-btn" onclick="coraNew()" title="New conversation">＋</button><button class="icon-btn" onclick="coraToggle(false)" title="Close">✕</button></div>
+    <div class="cora-body" id="coraBody">${coraMsgsHTML(conv)}${CORA.busy?`<div class="cora-row">${aiAva('cora',28)}<div class="cora-m assistant"><span class="spinner" style="display:inline-block;vertical-align:middle"></span> ${esc(CORA.busyText||'Cora is thinking…')}</div></div>`:''}</div>${coraComposer('coraIn')}`;
   const b = el('coraBody'); b.scrollTop = b.scrollHeight;
 }
-/* [[REF|label]] → a button that opens the page / profile / file */
+/* full page with history (AI assistants → Cora) */
+RENDER.cora = () => {
+  { const f = el('coraFab'); if(f) f.style.display = 'none'; el('coraPanel')?.classList.remove('open'); }
+  const conv = coraConv(); const list = aiConvs('cora');
+  el('v-cora').innerHTML = `<div class="ai-page">
+    <aside class="ai-side"><div class="ai-side-h">${aiAva('cora', 44, true)}<div><b>Cora</b><small><i class="ai-online"></i> Online</small></div></div>
+      <button class="btn primary" style="width:100%;justify-content:center" onclick="coraNew()">＋ New conversation</button>
+      <div class="ai-hist">${list.map(c=>`<button class="${conv.id===c.id?'on':''}" onclick="CORA.conv=AICHATS.find(x=>x.id==='${c.id}');RENDER.cora()"><b>${esc(c.title)}</b><small>${ago(c.updatedAt)}</small></button>`).join('')||'<div class="hint" style="padding:8px">Your conversations with Cora appear here.</div>'}</div>
+      <div class="hint" style="padding:8px 4px">Cora answers from records you're allowed to see and shows where each answer came from.</div></aside>
+    <section class="ai-main"><div class="ai-main-h"><div><h3>Cora — Cross Core assistant</h3><span class="sub">Company · processes · clients · brand guidelines · SOPs · assignments · research</span></div></div>
+      <div class="cora-body ai-body" id="coraPageBody">${coraMsgsHTML(conv)}${CORA.busy?`<div class="cora-row">${aiAva('cora',28)}<div class="cora-m assistant"><span class="spinner" style="display:inline-block;vertical-align:middle"></span> ${esc(CORA.busyText||'Cora is thinking…')}</div></div>`:''}</div>
+      ${coraComposer('coraPageIn')}</section></div>`;
+  const b = el('coraPageBody'); b.scrollTop = b.scrollHeight;
+};
+/* [[REF|label]] → a link that opens the page / profile / file; [[https://…|title]] → outside source */
 function coraRender(t){
   let h = esc(t);
+  h = h.replace(/\[\[(https?:\/\/[^|\]\s]+)\|([^\]]+)\]\]/g, (_, u, label)=>`<a href="${u}" class="cora-ref ext" target="_blank" rel="noopener">${label} ↗</a>`);
   h = h.replace(/\[\[([A-Z]+):([^|\]]+)\|([^\]]+)\]\]/g, (_, k, v, label)=>`<a href="#" class="cora-ref" onclick="coraGo('${k}','${esc(v).replace(/'/g,'')}');return false">${label} ↗</a>`);
   h = h.replace(/\[\[([A-Z]+):([^\]|]+)\]\]/g, (_, k, v)=>`<a href="#" class="cora-ref" onclick="coraGo('${k}','${v.replace(/'/g,'')}');return false">open ↗</a>`);
   h = h.replace(/(^|[\s(])(https?:\/\/[^\s<)]+)/g, '$1<a href="$2" target="_blank" rel="noopener">$2</a>');
-  h = h.replace(/\*\*([^*]+)\*\*/g,'<b>$1</b>').replace(/^[-•] (.*)$/gm,'<li>$1</li>').replace(/(<li>.*<\/li>\n?)+/g, m=>`<ul>${m}</ul>`).replace(/\n/g,'<br>').replace(/<\/li><br>/g,'</li>').replace(/<ul><br>/g,'<ul>');
+  h = h.replace(/\*\*([^*]+)\*\*/g,'<b>$1</b>').replace(/^#{1,4} (.*)$/gm,'<b>$1</b>').replace(/^[-•*] (.*)$/gm,'<li>$1</li>').replace(/(<li>.*<\/li>\n?)+/g, m=>`<ul>${m}</ul>`).replace(/\n/g,'<br>').replace(/<\/li><br>/g,'</li>').replace(/<ul><br>/g,'<ul>');
   return h;
 }
+/* which records / outside pages an answer used */
+function coraSources(m){
+  const refs = []; const seen = new Set();
+  String(m.text).replace(/\[\[([A-Z]+):([^|\]]+)\|([^\]]+)\]\]/g, (_, k, v, label)=>{ const id = k+v; if(!seen.has(id)){ seen.add(id); refs.push({k, v, label}); } return ''; });
+  const web = (m.web||[]).filter(w=>String(m.text).includes(w.link) || !m.ai);
+  if(!refs.length && !web.length) return '';
+  return `<div class="cora-src"><small>Sources</small>${refs.slice(0,8).map(r=>`<a href="#" class="src int" onclick="coraGo('${r.k}','${esc(r.v).replace(/'/g,'')}');return false" title="Cross Core record">🏢 ${esc(r.label)}</a>`).join('')}${web.slice(0,5).map(w=>`<a class="src ext" href="${esc(w.link)}" target="_blank" rel="noopener" title="Outside research">🌐 ${esc((w.title||w.link).slice(0,60))}</a>`).join('')}</div>`;
+}
+function coraAskClient(cid){ const c = client(cid); if(!c) return; CORA.open = true; drawCora(); const i = el('coraIn'); if(i){ i.value = `About ${c.name}: `; i.focus(); } }
+async function coraCopy(btn){ const t = btn.closest('.cora-m').innerText.replace(/\nCopy$/,''); const ok = await copyText(t); toast(ok?'Copied':'Copy failed'); }
 function coraGo(k, v){
   const allowed = C => coraClients().some(c=>c.id===C);
   if(k==='C' && allowed(v)){ openClient(v); return; }
@@ -8918,26 +9128,31 @@ function coraGo(k, v){
   if(k==='L'){ const [cid, ...rest] = v.split(':'); const id = rest.join(':'); if(!allowed(cid)) return;
     const l = lgLeads(cid).find(x=>x.id===id); if(l?.linkedin) window.open(l.linkedin, '_blank', 'noopener'); else { LG.client = cid; LG.ws='leads'; go('leads'); } return; }
   if(k==='ANN'){ go('announce'); setTimeout(()=>openAnn(v), 60); return; }
+  if(k==='DOC'){ go('mydocs'); return; }
   if(k==='PAGE'){ go(v); return; }
 }
-async function coraAsk(q){
-  q = (q ?? el('coraIn')?.value ?? '').trim(); if(!q || CORA.busy) return;
-  CORA.msgs.push({role:'user', text:q}); CORA.busy = true; drawCora();
+async function coraAsk(q, inputId){
+  q = (q ?? el(inputId||'coraIn')?.value ?? '').trim(); if(!q || CORA.busy) return;
+  const conv = coraConv();
+  if(!conv.id){ const c = aiNewConv('cora', {title:q.slice(0,60)}); CORA.conv = c; }
+  CORA.conv.msgs.push({role:'user', text:q, at:nowISO()}); CORA.busy = true; CORA.busyText = 'Cora is looking through your workspace…';
+  const redraw = ()=>{ drawCora(); if(CURRENT==='cora') RENDER.cora(); }; redraw();
   const ctx = coraContext(q);
-  const hist = CORA.msgs.slice(-7, -1).map(m=>`${m.role==='user'?'Person':'Cora'}: ${m.text}`).join('\n');
-  let answer = null, note = '';
-  if(BACKEND?.mode==='live'){
-    try{ const {data, error} = await BACKEND.sb.functions.invoke('cc-admin', {body:{action:'cora', system:CORA_SYSTEM, prompt:`CONTEXT (only what ${pname(PERSON)} may see):\n${ctx.text}\n\n${hist?'CONVERSATION SO FAR:\n'+hist+'\n\n':''}QUESTION: ${q}`}});
-      if(error){ let m = error.message; try{ m = (await error.context.json()).error || m; }catch(e){} throw new Error(m); }
-      if(data?.error) throw new Error(data.error);
-      if(data?.configured && data.text) answer = data.text; else note = 'Cora’s AI is not connected yet — a company head can connect it in Administration → Cora. Showing the matching records instead.'; }
-    catch(e){ console.warn('Cora', e); note = /Unknown action/i.test(e.message) ? 'Update the cc-admin server function to enable Cora’s AI answers. Showing the matching records instead.' : 'Cora could not reach the AI service ('+e.message+'). Showing the matching records instead.'; }
-  } else note = 'Demo mode — Cora shows the matching records (AI answers work on the live portal once a company head connects the AI provider).';
-  if(!answer) answer = coraLocal(q, ctx);
-  CORA.msgs.push({role:'assistant', text:answer, note}); CORA.busy = false; drawCora();
+  const internal = ctx.named || /\b(my|me|i|our|cross ?core|client|task|deadline|sop|lead|assign|team|pm|hr|payroll|attendance|brand|tone|policy|process)\b/i.test(q);
+  let web = [], webNote = '';
+  if(CORA.research==='on' || (CORA.research!=='off' && CORA_WEB_RX.test(q) && !ctx.named)){ CORA.busyText = 'Cora is researching online…'; redraw(); const r = await webSearch(q); web = r.results||[]; webNote = r.note||''; }
+  const hist = CORA.conv.msgs.slice(-9, -1).map(m=>`${m.role==='user'?'Person':'Cora'}: ${m.text}`).join('\n');
+  CORA.busyText = 'Cora is writing…'; redraw();
+  const res = await aiChat(CORA_SYSTEM, `CONTEXT (only what ${pname(PERSON)} may see, as of ${new Date().toISOString().slice(0,10)}):\n${ctx.text}\n\n${web.length?'WEB RESULTS:\n'+web.map((w,i)=>`[W${i+1}] ${w.title} — ${w.link}\n${w.snippet||''}`).join('\n')+'\n\n':''}${hist?'CONVERSATION SO FAR:\n'+hist+'\n\n':''}QUESTION: ${q}`);
+  let answer = res.text, note = '';
+  if(!answer){ answer = coraLocal(q, ctx, web); note = res.note + ' Showing the matching records' + (web.length?' and web results':'') + ' instead.'; }
+  else if(webNote && CORA.research==='on') note = webNote;
+  CORA.conv.msgs.push({role:'assistant', text:answer, note, web, ai:!!res.text, at:nowISO()});
+  aiSaveConv(CORA.conv); CORA.busy = false; redraw();
+  const i = el(inputId||'coraIn'); if(i){ i.value=''; i.focus(); }
 }
 /* without the AI provider: find the records that match the question */
-function coraLocal(q, ctx){
+function coraLocal(q, ctx, web=[]){
   const ql = q.toLowerCase(); const C = coraClients(); const focus = ctx.clients.map(client).filter(Boolean); const lines = [];
   const named = C.filter(c=>ql.includes(c.name.toLowerCase()) || c.name.toLowerCase().split(/[\s&()·,-]+/).filter(w=>w.length>=4).some(w=>ql.includes(w)));
   if(/task|today|work on|deadline|due|overdue|priority|next/.test(ql)){
@@ -8946,17 +9161,22 @@ function coraLocal(q, ctx){
     const J = LEADJOBS.filter(j=>j.status!=='Done' && (j.assignees||[]).includes(PERSON)); if(J.length) lines.push('**Lead assignments**\n'+J.map(j=>`- [[LG:${j.client}|${j.title}]] · ${cname(j.client)} · ${j.criteria?.count||'?'} leads · due ${j.due||'—'}`).join('\n'));
     lgMyClients().filter(c=>lgVAs(c.id).includes(PERSON)).slice(0,4).forEach(c=>{ const m = lgMetrics(c.id); if(m.loading) return; lines.push(`- [[LG:${c.id}|${c.name} Lead Gen]]: ${m.todayN}${m.goal.daily?' of '+m.goal.daily:''} added today · ${m.state}${m.goal.deadline?' · deadline '+m.goal.deadline:''}\n  Next: ${m.goal.daily&&m.todayN<m.goal.daily?`add ${m.goal.daily-m.todayN} more leads today, then `:''}open the ${(m.stages['Not connected']||0).toLocaleString()} “Not connected” leads, send the connection note and set them to Request sent${m.stages['Follow-up']?`; ${m.stages['Follow-up']} follow-ups are due`:''}.`); });
   }
-  (named.length ? named : /sop|require|client|about|background|target|criteria|instruction/.test(ql) ? focus.slice(0,2) : []).forEach(c=>{
-    const cfg = LEADCFG.find(x=>x.id===c.id);
+  (named.length ? named : /sop|require|client|about|background|target|criteria|instruction|tone|voice|brand/.test(ql) ? focus.slice(0,2) : []).forEach(c=>{
+    const cfg = LEADCFG.find(x=>x.id===c.id); const def = v => v && !/^(—|To be defined)$/i.test(v);
     let t = `**${c.name}** — [[C:${c.id}|workspace]]\n${c.summary?coraTrim(c.summary, 300)+'\n':''}Services: ${(c.services||[]).join(', ')||'—'} · PM: ${pmsOf(c.id).filter(k=>PEOPLE[k]).map(first).join(', ')||'not set'}`;
+    if(def(c.tone)) t += `\nTone of voice: ${c.tone}`; if(def(c.audience)) t += `\nAudience: ${c.audience}`; if(def(c.guidelines)) t += `\nBrand guidelines: ${coraTrim(c.guidelines, 200)}`;
     t += c.sop ? `\nSOP: [[SOP:${c.id}|${c.name} SOP v${c.sop.version}]]` : '\nSOP: not published yet — ask your PM.';
     if(lgIsLeadGen(c)){ const m = lgMetrics(c.id); t += `\nLead Gen: [[LG:${c.id}|workspace]] · ${m.loading?'loading…':`${m.total} leads · ${m.todayN} today · ${m.state}`}${cfg?.criteria?.titles?' · titles: '+cfg.criteria.titles:''}${cfg?.instructions?'\nInstructions: '+coraTrim(cfg.instructions,200):''}`; }
+    if(/rate|price|package|fee|pay/.test(ql)) t += typeof finAuth==='function' && finAuth() ? `\n${coraFinance(c.id)||'No package rate on file.'}` : '\nPackage rates are restricted to Finance and company heads.';
     lines.push(t); });
   const lm = ctx.text.match(/## Leads matching the question\n([\s\S]*?)(\n## |$)/); if(lm) lines.push('**Matching leads**\n'+lm[1].split('\n').filter(Boolean).map(s=>s.replace(/^- \[(L:[^|\]]+)\|([^\]]+)\]/, '- [[$1|$2]]')).join('\n'));
-  if(/cross ?core|company|history|about us|who are we|ceo|coo|founder/.test(ql)){ const co = coraCompany(); lines.push(`**The Cross Core OPC**\n${co.about}${co.history?'\n'+co.history:''}\nLeadership: ${co.leaders}`); }
+  if(/cross ?core|company|history|about us|who are we|ceo|coo|founder/.test(ql)){ const co = coraCompany(); lines.push(`**The Cross Core OPC** — from Cross Core records\n${co.about}${co.history?'\n'+co.history:''}\nLeadership: ${co.leaders}`); }
+  if(/policy|policies|process|rule|how do i|procedure/.test(ql)){ const co = coraCompany(); if(co.policies) lines.push(`**Ways of working** — from Cross Core records\n${co.policies}`); const d = coraDocs(); if(d) lines.push('**Documents you received**\n'+d.replace(/^- \[(DOC:[^|\]]+)\|([^\]]+)\]/gm, '- [[$1|$2]]')); }
+  if(web.length) lines.push('**From outside research**\n'+web.slice(0,5).map(w=>`- [[${w.link}|${w.title||w.link}]]${w.snippet?' — '+coraTrim(w.snippet, 160):''}`).join('\n'));
   return lines.length ? lines.join('\n\n') : `I couldn't find that in your workspace. Try naming the client, task or person — or ask your PM.`;
 }
-setInterval(()=>{ const f = el('coraFab'); if(f) f.style.display = coraOn() ? '' : 'none'; else if(PEOPLE[PERSON]) coraMount(); }, 1500);
+{ const _go = go; go = function(id){ _go(id); const f = el('coraFab'); if(f) f.style.display = coraFabShown() ? '' : 'none'; }; }
+setInterval(()=>{ const f = el('coraFab'); if(f) f.style.display = coraFabShown() ? '' : 'none'; else if(PEOPLE[PERSON]) coraMount(); }, 1500);
 
 /* ---------- Administration: Cora settings (company information Cora uses) ---------- */
 function coraAdminCard(){
@@ -8967,7 +9187,7 @@ function coraAdminCard(){
     <div class="grid cols-2"><div class="field"><label>Values</label><input id="coVal" value="${esc(co.values)}"></div><div class="field"><label>Leadership</label><input id="coLead" value="${esc(co.leaders)}"></div></div>
     <div class="field"><label>Ways of working / policies VAs often ask about</label><textarea id="coPol" rows="2">${esc(co.policies)}</textarea></div>
     <button class="btn primary" onclick="saveCoraCompany()">Save</button>
-    <div class="hint" style="margin-top:8px">Cora's AI answers use the provider connected under <b>Cora — AI assistant</b> (Finance & Cora card). Without it, Cora still finds records and links.</div></div></div>`;
+    <div class="hint" style="margin-top:8px">Cora's AI answers use the provider connected under <b>Cora — AI assistant</b> (Finance & Cora card). The same provider powers <b>Marcus</b> and the <b>PM assistants</b>; Cora’s outside research uses the search key from <b>Automatic lead search</b>. Without them, the assistants still find records, links and offline drafts.</div></div></div>`;
 }
 function saveCoraCompany(){ const s = SETTINGS.find(x=>x.id==='global') || (SETTINGS.push({...DEFAULT_SETTINGS}), SETTINGS.find(x=>x.id==='global'));
   s.company = {about:el('coAbout').value.trim(), history:el('coHist').value.trim(), values:el('coVal').value.trim(), leaders:el('coLead').value.trim(), policies:el('coPol').value.trim()};
@@ -9104,7 +9324,7 @@ RENDER.cchat = () => {
   CHAT_OPEN = id; const M = MESSAGES.filter(m=>m.chat===id);
   el('v-cchat').innerHTML = `<div class="page-head"><div><h2>Messages</h2><p>Chat with your Cross Core team — your VA and project manager.</p></div></div>
     <div class="card cp-chat"><div class="cp-msgs" id="cpMsgs">${M.map(m=>`<div class="cp-msg ${m.by===PERSON?'me':''}"><small>${esc(m.by===PERSON?'You':pname(m.by))} · ${dtstr(m.at)}</small><div>${linkify(m.text)}</div></div>`).join('')||'<div class="empty">Say hello to your team 👋</div>'}</div>
-      <div class="chat-input" style="display:flex;gap:8px;padding:10px;border-top:1px solid var(--line)"><input id="cpMsg" style="flex:1" placeholder="Message your team…" onkeydown="if(event.key==='Enter'){event.preventDefault();cpSend()}"><button class="btn primary" onclick="cpSend()">Send</button></div></div>`;
+      <div class="chat-input" style="display:flex;gap:8px;padding:10px;border-top:1px solid var(--line)">${emojiBtn('cpMsg')}<input id="cpMsg" style="flex:1" placeholder="Message your team…" onkeydown="if(event.key==='Enter'){event.preventDefault();cpSend()}"><button class="btn primary" onclick="cpSend()">Send</button></div></div>`;
   const b = el('cpMsgs'); if(b) b.scrollTop = b.scrollHeight;
   if(typeof markChatRead==='function') markChatRead(id);
 };
@@ -9114,6 +9334,816 @@ function cpSend(){
   notify(ch.members.filter(k=>k!==PERSON), 'message', `💬 <b>${esc(pname(PERSON))}</b> (client portal · ${esc(cname(cid))}): ${esc(t.slice(0,120))}`, {view:'chat', arg:ch.id});
   recordChange(); el('cpMsg').value=''; RENDER.cchat();
 }
+
+/* ===== 22_assistants.js ===== */
+/* ================= AI ASSISTANTS — identities, avatars, shared engine =================
+   Cora (company-wide), Marcus (client writing for VAs) and one operations assistant per PM
+   (Tricia's Assistant, Yam's Assistant). Each has its own illustrated face avatar, used everywhere it
+   appears: its chat, its messages in group chats, notifications and reminders. */
+
+/* ---------- illustrated face avatars (original SVG, one look per assistant) ---------- */
+function faceSVG(o){
+  const s = o.skin, h = o.hair, sh = o.shirt, bg = o.bg;
+  const hairBack = {
+    bun:`<circle cx="32" cy="12.5" r="7" fill="${h}"/><path d="M15 30c0-12 7.5-18 17-18s17 6 17 18v4c-2-8-6-12-17-12s-15 4-17 12z" fill="${h}"/>`,
+    bob:`<path d="M13.5 33c0-13 7.5-20.5 18.5-20.5S50.5 20 50.5 33v10c-2.5 1.5-5 1.5-6.5 0V31c-4-4-9-6-12-6s-8 2-12 6v12c-1.5 1.5-4 1.5-6.5 0z" fill="${h}"/>`,
+    long:`<path d="M13 34c0-14 8-21.5 19-21.5S51 20 51 34v17c-3 2-6 2-8 0V31c-4-5-8-6.5-11-6.5S25 26 21 31v20c-2 2-5 2-8 0z" fill="${h}"/>`,
+    short:``, curly:``}[o.style]||'';
+  const hairFront = {
+    bun:`<path d="M18 30c1-8 6.5-13 14-13s13 5 14 13c-5-5.5-9-7-14-7s-9 1.5-14 7z" fill="${h}"/>`,
+    bob:`<path d="M17.5 31c1-9 7-14.5 14.5-14.5S45.5 22 46.5 31c-3-3-6-4.5-8-4.5-3.5 0-5-2.5-6.5-4-1.5 1.5-5 4-14.5 8.5z" fill="${h}"/>`,
+    long:`<path d="M18 31.5c1-9 6.5-14.5 14-14.5 7.5 0 13 5.5 14 14.5-6-1-10.5-4.5-12.5-8.5-2.5 4.5-8.5 7.5-15.5 8.5z" fill="${h}"/>`,
+    short:`<path d="M17.5 30c-.5-9.5 6-15.5 14.5-15.5S47 20.5 46.5 30c-1.5-3.5-3.5-5.5-5.5-6-3 1.5-6 2-9 2s-6.5-.5-9.5-2c-2 .5-3.5 2.5-5 6z" fill="${h}"/>`,
+    curly:`<g fill="${h}"><circle cx="21" cy="24" r="5"/><circle cx="26.5" cy="18.5" r="5.2"/><circle cx="33" cy="16.5" r="5.4"/><circle cx="39.5" cy="18.5" r="5.2"/><circle cx="44" cy="24" r="4.8"/><circle cx="18.5" cy="29.5" r="3.6"/><circle cx="46" cy="29.5" r="3.4"/></g>`}[o.style]||'';
+  const acc = (o.acc||[]).map(a => ({
+    headset:`<path d="M17 33c0-10 6.5-17 15-17s15 7 15 17" fill="none" stroke="#F2B440" stroke-width="2.4" stroke-linecap="round"/><rect x="13.8" y="30.5" width="5" height="8.5" rx="2.4" fill="#F2B440"/><rect x="45.2" y="30.5" width="5" height="8.5" rx="2.4" fill="#F2B440"/><path d="M16.5 38.5c0 5 3.5 7.5 9 7.8" fill="none" stroke="#F2B440" stroke-width="1.8" stroke-linecap="round"/><circle cx="26.3" cy="46.3" r="1.7" fill="#F2B440"/>`,
+    glasses:`<g fill="none" stroke="#1d1d1f" stroke-width="1.6"><circle cx="26.3" cy="33.2" r="4.3"/><circle cx="37.7" cy="33.2" r="4.3"/><path d="M30.6 33h2.8M22 32.4l-3 -1M42 32.4l3-1"/></g>`,
+    earrings:`<circle cx="19.2" cy="39.5" r="1.6" fill="#F7D774"/><circle cx="44.8" cy="39.5" r="1.6" fill="#F7D774"/>`,
+    band:`<path d="M18.5 25.5c4-4.5 8.5-6.5 13.5-6.5s9.5 2 13.5 6.5" fill="none" stroke="${o.bandColor||'#fff'}" stroke-width="2.6" stroke-linecap="round"/>`,
+  }[a]||'')).join('');
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><defs><clipPath id="c"><circle cx="32" cy="32" r="32"/></clipPath></defs><g clip-path="url(#c)">
+    <rect width="64" height="64" fill="${bg}"/>${hairBack}
+    <path d="M10 64c1-11 9.5-16.5 22-16.5S53 53 54 64z" fill="${sh}"/>${o.collar?`<path d="M26 48.5l6 6 6-6" fill="none" stroke="${o.collar}" stroke-width="2.2" stroke-linejoin="round"/>`:''}
+    <rect x="27.5" y="41" width="9" height="8.5" rx="3.5" fill="${s}"/><path d="M27.5 45.5c3 1.8 6 1.8 9 0" fill="rgba(0,0,0,.12)"/>
+    <ellipse cx="19.8" cy="34" rx="2.6" ry="3.4" fill="${s}"/><ellipse cx="44.2" cy="34" rx="2.6" ry="3.4" fill="${s}"/>
+    <ellipse cx="32" cy="32" rx="13" ry="14.5" fill="${s}"/>${hairFront}
+    <path d="M23.8 28.3c1.6-1.2 3.6-1.3 5.3-.4M34.9 27.9c1.7-.9 3.7-.8 5.3.4" fill="none" stroke="${o.brow||h}" stroke-width="1.6" stroke-linecap="round"/>
+    <ellipse cx="26.4" cy="33" rx="1.9" ry="2.2" fill="#2b2118"/><ellipse cx="37.6" cy="33" rx="1.9" ry="2.2" fill="#2b2118"/>
+    <circle cx="27.1" cy="32.2" r=".7" fill="#fff"/><circle cx="38.3" cy="32.2" r=".7" fill="#fff"/>
+    <path d="M31.2 34.5c-.4 1.8-.9 2.9.8 3.2" fill="none" stroke="rgba(0,0,0,.18)" stroke-width="1.1" stroke-linecap="round"/>
+    <ellipse cx="23.2" cy="38.3" rx="2.3" ry="1.4" fill="${o.blush||'#f19a8a'}" opacity=".45"/><ellipse cx="40.8" cy="38.3" rx="2.3" ry="1.4" fill="${o.blush||'#f19a8a'}" opacity=".45"/>
+    <path d="M27.3 39.8c2.8 2.9 6.6 2.9 9.4 0" fill="${o.lip||'#fff'}" stroke="${o.mouth||'#8a3b2e'}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    ${acc}</g></svg>`;
+}
+const svgURI = s => 'data:image/svg+xml;charset=utf-8,'+encodeURIComponent(s.replace(/\s{2,}/g,' '));
+const FACES = {
+  cora:   {bg:'#2E2347', skin:'#C68642', hair:'#24160f', style:'bun', shirt:'#F2B440', acc:['headset','earrings'], lip:'#fff', mouth:'#7a2f22'},
+  marcus: {bg:'#0F766E', skin:'#8D5524', hair:'#141010', style:'curly', shirt:'#0B3B37', collar:'#E6FFFA', acc:['glasses'], brow:'#141010'},
+  tricia: {bg:'#FCE3BF', skin:'#F1C27D', hair:'#5A3825', style:'bob', shirt:'#E39312', acc:['earrings'], blush:'#e98474'},
+  yam:    {bg:'#D5F0E0', skin:'#E0AC69', hair:'#1f1a17', style:'long', shirt:'#188A4E', acc:['band'], bandColor:'#F2B440'},
+};
+/* a stable face for any future PM assistant, derived from its id */
+function faceFor(id){
+  if(FACES[id]) return FACES[id];
+  let n = 0; for(const ch of String(id)) n = (n*31 + ch.charCodeAt(0)) >>> 0;
+  const pick = a => a[(n = (n*1103515245+12345)>>>0) % a.length];
+  return {bg:pick(['#E8E3FB','#FDE2E4','#DDEFFD','#FFF1C9','#E2F5EC']), skin:pick(['#F1C27D','#E0AC69','#C68642','#8D5524','#FFDBAC']), hair:pick(['#2b1d14','#5A3825','#101010','#8a5a2b']),
+    style:pick(['bob','long','short','curly','bun']), shirt:pick(['#6C3BC9','#2D63C8','#B53E58','#0F766E','#B58A2E']), acc:[pick(['earrings','glasses','band',''])]};
+}
+const FACE_URI = {}; const faceURI = id => FACE_URI[id] || (FACE_URI[id] = svgURI(faceSVG(faceFor(id))));
+
+/* ---------- the assistants ---------- */
+const DEFAULT_PM_ASSISTANTS = [{id:'pa-tricia', pm:'tricia', name:"Tricia's Assistant", face:'tricia'}, {id:'pa-yam', pm:'yam', name:"Yam's Assistant", face:'yam'}];
+function pmAssistants(){ const cfg = (S().pmAssistants||DEFAULT_PM_ASSISTANTS); return cfg.filter(a=>a && a.id && !a.off); }
+function assistant(id){
+  id = String(id||'').replace(/^asst:/,'');
+  if(id==='cora') return {id, key:'asst:cora', name:'Cora', role:'Cross Core assistant', desc:'Company-wide assistant — processes, clients, SOPs, assignments and research', face:'cora', color:'#2E2347'};
+  if(id==='marcus') return {id, key:'asst:marcus', name:'Marcus', role:'Client writing assistant', desc:'Comments, replies and captions in each client’s voice', face:'marcus', color:'#0F766E'};
+  const a = pmAssistants().find(x=>x.id===id) || (S().pmAssistants||DEFAULT_PM_ASSISTANTS).find(x=>x.id===id);
+  if(a) return {id, key:'asst:'+id, name:a.name, role:`Operations assistant · ${pname(a.pm)}`, desc:`${pname(a.pm)}’s clients, VAs, deadlines and reminders`, face:a.face||id, pm:a.pm, color:'#E39312'};
+  return null;
+}
+const isAssistantKey = k => typeof k==='string' && k.startsWith('asst:');
+/* person-like record so existing screens (names, avatars) show assistants correctly */
+function assistantPerson(k){ const a = assistant(k); return a ? {key:a.key, name:a.name, sub:a.role, img:faceURI(a.face), color:a.color, assistant:true} : null; }
+function aiAva(id, size=34, dot){ const a = assistant(id); if(!a) return '';
+  return `<span class="ai-ava" style="width:${size}px;height:${size}px"><img src="${faceURI(a.face)}" alt="${esc(a.name)}">${dot?'<i class="ai-dot" title="Online"></i>':''}</span>`; }
+
+/* ---------- navigation: an "AI assistants" group near the top ---------- */
+{ const at = NAV.findIndex(n=>n.label==='Clients & Production');
+  NAV.splice(at, 0, {label:'AI assistants'},
+    {id:'cora', name:'Cora', roles:ALLR, img:'cora', ai:true},
+    {id:'marcus', name:'Ask Marcus', roles:['employee','manager','ceo','coo','creative'], img:'marcus', ai:true},
+    {id:'pa', name:'My Assistant', roles:['manager','ceo','coo','creative'], img:'pa', ai:true}); }
+const paForPM = k => pmAssistants().find(a=>a.pm===k);
+function navAssistantLabel(n){
+  if(n.id!=='pa') return n.name;
+  const mine = paForPM(PERSON); return mine ? mine.name : 'PM Assistants';
+}
+function navAssistantImg(n){ if(n.img!=='pa') return faceURI(n.img); const mine = paForPM(PERSON) || pmAssistants()[0]; return faceURI(mine?.face||'tricia'); }
+
+/* ---------- AI provider calls (server-side key; the browser never sees it) ---------- */
+async function aiInvoke(body){
+  const {data, error} = await BACKEND.sb.functions.invoke('cc-admin', {body});
+  if(error){ let m = error.message; try{ m = (await error.context.json()).error || m; }catch(e){} throw new Error(m); }
+  if(data?.error) throw new Error(data.error);
+  return data;
+}
+/* returns {text} or {text:null, note} when no AI provider is connected / reachable */
+async function aiChat(system, prompt){
+  if(BACKEND?.mode!=='live') return {text:null, note:'Demo mode — AI answers work on the live portal once a company head connects the AI provider.'};
+  try{ let d;
+    try{ d = await aiInvoke({action:'ai_chat', system, prompt}); }
+    catch(e){ if(/Unknown action/i.test(e.message)) d = await aiInvoke({action:'cora', system, prompt}); else throw e; }
+    if(d?.configured && d.text) return {text:d.text};
+    return {text:null, note:'The AI provider is not connected yet — a company head connects it in Administration → Finance & Cora.'};
+  }catch(e){ return {text:null, note:/Unknown action/i.test(e.message) ? 'Update the cc-admin server function to turn on AI answers.' : 'Could not reach the AI service ('+e.message+').'}; }
+}
+async function webSearch(q){
+  if(BACKEND?.mode!=='live') return {results:[], note:'Web research works on the live portal (uses the search key set in Administration).'};
+  try{ const d = await aiInvoke({action:'web_search', query:q}); return {results:d.results||[]}; }
+  catch(e){ return {results:[], note:/Unknown action/i.test(e.message) ? 'Update the cc-admin server function to turn on web research.' : /not connected/i.test(e.message) ? 'Web research needs the search key (Administration → Automatic lead search).' : 'Web research failed: '+e.message}; }
+}
+
+/* ---------- conversations (each person's own; organised by assistant, client and task) ---------- */
+let AICHATS = [];
+COLL.aichats = {get:()=>AICHATS, set:v=>AICHATS=v, aud:c=>[c.owner]};
+function aiConvs(assistantId){ return AICHATS.filter(c=>c.owner===PERSON && c.assistant===assistantId).sort((a,b)=>(b.updatedAt||'').localeCompare(a.updatedAt||'')); }
+function aiNewConv(assistantId, extra={}){ const c = {id:uid('AI'), owner:PERSON, assistant:assistantId, title:'New conversation', msgs:[], createdAt:nowISO(), updatedAt:nowISO(), ...extra}; AICHATS.unshift(c); return c; }
+function aiSaveConv(c){ c.updatedAt = nowISO(); if(c.msgs.length>80) c.msgs = c.msgs.slice(-80); if(AICHATS.length>300){ const mine = AICHATS.filter(x=>x.owner===PERSON).sort((a,b)=>(a.updatedAt||'').localeCompare(b.updatedAt||'')); mine.slice(0, mine.length-250).forEach(x=>{ AICHATS = AICHATS.filter(y=>y!==x); }); } recordChange(); }
+
+/* ---------- assistants in notifications, messages and toasts ---------- */
+function notifyAs(asstKey, to, type, text, link, idBase){
+  uniq([].concat(to)).filter(k=>k && PEOPLE[k]).forEach(k=>{
+    const id = idBase ? `N-${idBase}-${k}` : uid('N');
+    if(NOTIFS2.some(n=>n.id===id)) return;
+    NOTIFS2.unshift({id, to:k, type, text, link:link||null, by:asstKey, at:nowISO(), read:false});
+  });
+}
+
+/* ===== 24_marcus.js ===== */
+/* ================= ASK MARCUS — client writing assistant for VAs =================
+   A ChatGPT-style writing space. Marcus writes for ONE client at a time (shown as "Writing for: …"),
+   using that client's tone of voice, audience, brand guidelines, SOP and approved content examples —
+   including typical length, formality and emoji style. VAs only see their assigned clients.
+   Drafts can be edited, copied, revised (shorter, warmer…) and saved to a client task or the content plan.
+   Nothing is ever posted automatically — every draft is reviewed by a person first. */
+const MARCUS = {conv:null, busy:false, mode:'comment', ask:null};
+const MX_MODES = [
+  ['comment', '💬 Comment on a post', 'Paste the post (or describe it) and I’ll write a comment in the client’s voice.'],
+  ['reply', '↩️ Reply to a comment', 'Paste the comment or message you are replying to.'],
+  ['alts', '🔁 3 alternatives', 'Paste a line or caption — I’ll give three options in the client’s voice.'],
+  ['caption', '📝 Caption / content draft', 'Tell me the topic, platform and any details (offer, date, link).'],
+  ['free', '✨ Anything else', 'Ask for any writing for this client — DM, bio, story text, email…'],
+];
+const MX_REVISE = [['shorter','Shorter'],['warmer','Warmer'],['professional','More professional'],['direct','More direct'],['emoji+','Add emojis'],['emoji-','No emojis']];
+const marcusClients = () => coraClients();
+/* the selected button sets the kind of writing; a clear request in the message wins */
+function mxModeFor(t){ if(/\b(\d|two|three|four|five)\s+(alternatives?|options?|versions?|variations?)\b|\balternatives?\b/i.test(t)) return 'alts'; if(/\bcaption|content draft|post copy\b/i.test(t)) return 'caption';
+  if(/\breply|respond|answer (this|the)\b/i.test(t)) return 'reply'; if(/\bcomment\b/i.test(t)) return 'comment'; return MARCUS.mode; }
+const mxClient = () => client(MARCUS.conv?.client);
+
+/* ---------- conversations: one client per conversation (never mixed) ---------- */
+function mxConv(){
+  let c = MARCUS.conv && (AICHATS.includes(MARCUS.conv) || !MARCUS.conv.id) ? MARCUS.conv : null;
+  if(!c){ c = aiConvs('marcus')[0]; if(c && Date.now()-new Date(c.updatedAt).getTime() > 12*3600e3) c = null; }
+  if(!c){ const mine = marcusClients(); c = {id:null, msgs:[], client:mine.length===1 ? mine[0].id : null, task:null}; }
+  if(c.client && !marcusClients().some(x=>x.id===c.client)) c = {id:null, msgs:[], client:null, task:null};
+  MARCUS.conv = c; return c;
+}
+function mxNew(cid, taskId){ MARCUS.conv = {id:null, msgs:[], client:cid||null, task:taskId||null}; MARCUS.ask = null; if(CURRENT==='marcus') RENDER.marcus(); }
+/* open Marcus from a client workspace or a task: the client is filled in automatically */
+function marcusOpen(cid, taskId){
+  if(cid && !marcusClients().some(c=>c.id===cid)) return toast('Marcus only writes for clients you are assigned to');
+  const recent = aiConvs('marcus').find(c=>c.client===cid && (taskId ? c.task===taskId : !c.task) && Date.now()-new Date(c.updatedAt).getTime() < 12*3600e3);
+  if(recent) MARCUS.conv = recent; else mxNew(cid, taskId);
+  MARCUS.ask = null; go('marcus');
+}
+function mxSetClient(cid){
+  const c = mxConv(); if(cid===c.client) return;
+  if(!cid){ mxNew(null); return; }
+  if(!marcusClients().some(x=>x.id===cid)) return toast('You are not assigned to that client');
+  if(c.msgs.length) mxNew(cid); else { c.client = cid; c.task = null; if(c.id) aiSaveConv(c); RENDER.marcus(); }
+  toast('Writing for '+cname(cid));
+}
+function mxSetTask(tid){ const c = mxConv(); c.task = tid||null; if(c.id) aiSaveConv(c); RENDER.marcus(); }
+function mxTasks(cid){ return TASKS.filter(t=>t.client===cid && !['Completed'].includes(t.status) && (t.assignee===PERSON || t.createdBy===PERSON || pmsOf(cid).includes(PERSON) || isExec() || isFullAccess())).sort((a,b)=>(a.due||0)-(b.due||0)).slice(0,60); }
+
+/* which client does a message name? (only clients this person may write for) */
+function mxDetect(text){
+  const tl = ' '+text.toLowerCase()+' ';
+  const hit = list => list.filter(c=>{ const n = c.name.toLowerCase(); if(tl.includes(n)) return true;
+    return n.split(/[\s&()·,.\-/]+/).filter(w=>w.length>=4 && !/^(the|and|clinic|dental|company|group|client|studio|media|inc|corp|services?|marketing|official|shop|store)$/.test(w)).some(w=>new RegExp('[^\\p{L}]'+reEsc(w)+'[^\\p{L}]','iu').test(tl)); });
+  const mine = hit(marcusClients());
+  const other = mine.length ? [] : hit(CLIENTS.filter(c=>!isEnded(c) && !marcusClients().some(m=>m.id===c.id)));
+  return {mine, other};
+}
+
+/* ---------- the page ---------- */
+RENDER.marcus = () => {
+  const keep = el('mxIn')?.value || '';
+  const conv = mxConv(); const C = marcusClients(); const c = mxClient();
+  const list = aiConvs('marcus');
+  const groups = {}; list.forEach(x=>{ const k = x.client||'_'; (groups[k] = groups[k]||[]).push(x); });
+  const order = Object.keys(groups).sort((a,b)=>a==='_'?1:b==='_'?-1:cname(a).localeCompare(cname(b)));
+  const tasks = c ? mxTasks(c.id) : []; const task = TASKS.find(t=>t.id===conv.task);
+  const mode = MX_MODES.find(m=>m[0]===MARCUS.mode) || MX_MODES[0];
+  el('v-marcus').innerHTML = `<div class="ai-page">
+    <aside class="ai-side"><div class="ai-side-h">${aiAva('marcus', 44, true)}<div><b>Marcus</b><small><i class="ai-online"></i> Online · writing assistant</small></div></div>
+      <button class="btn primary" style="width:100%;justify-content:center" onclick="mxNew(${c?`'${c.id}'`:'null'})">＋ New chat${c?' for '+esc(c.name):''}</button>
+      <div class="ai-hist">${order.map(k=>`<div class="ai-hist-g">${k==='_'?'No client yet':esc(cname(k))}</div>${groups[k].slice(0,15).map(x=>`<button class="${conv.id===x.id?'on':''}" onclick="MARCUS.conv=AICHATS.find(y=>y.id==='${x.id}');MARCUS.ask=null;RENDER.marcus()"><b>${esc(x.title)}</b><small>${x.task&&TASKS.find(t=>t.id===x.task)?'📌 '+esc(TASKS.find(t=>t.id===x.task).title.slice(0,32))+' · ':''}${ago(x.updatedAt)}</small></button>`).join('')}`).join('')||'<div class="hint" style="padding:8px">Your drafts with Marcus are saved here, grouped by client and task.</div>'}</div>
+      <div class="hint" style="padding:8px 4px">Marcus writes only for your assigned clients and never mixes one client’s voice with another’s.</div></aside>
+    <section class="ai-main">
+      <div class="ai-main-h mx-head">
+        <div class="mx-for ${c?'':'none'}"><span>Writing for:</span><b>${c?esc(c.name):'Choose a client'}</b>
+          <select onchange="if(this.value)mxSetClient(this.value)" title="Change client"><option value="">${C.length?(c?'Change ▾':'Choose ▾'):'No assigned clients'}</option>${C.filter(x=>x.id!==conv.client).map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join('')}</select></div>
+        ${c?`<label class="mx-task">📌 Task <select onchange="mxSetTask(this.value)"><option value="">Not linked to a task</option>${tasks.map(t=>`<option value="${t.id}" ${t.id===conv.task?'selected':''}>${esc(t.title.slice(0,50))} · ${esc(t.status)}</option>`).join('')}</select></label>`:''}
+        ${c?`<span class="mx-voice" title="${esc(mxVoiceSummary(c.id))}">🎙️ ${esc(mxVoiceShort(c.id))}</span>`:''}
+      </div>
+      <div class="cora-body ai-body" id="mxBody">${mxMsgsHTML(conv)}${MARCUS.busy?`<div class="cora-row">${aiAva('marcus',28)}<div class="cora-m assistant"><span class="spinner" style="display:inline-block;vertical-align:middle"></span> Marcus is writing in ${esc(c?.name||'the client')}’s voice…</div></div>`:''}</div>
+      <div class="mx-modes">${MX_MODES.map(m=>`<button class="${m[0]===MARCUS.mode?'on':''}" onclick="MARCUS.mode='${m[0]}';RENDER.marcus();el('mxIn').focus()">${m[1]}</button>`).join('')}</div>
+      <div class="cora-in"><textarea id="mxIn" rows="2" placeholder="${esc(mode[2])}" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();mxSend()}"></textarea><button class="btn primary" onclick="mxSend()" ${MARCUS.busy?'disabled':''}>Write</button></div>
+      <div class="hint mx-review">✋ Review every draft before posting — Marcus never posts or sends anything for you.${task?` Linked to <a href="#" onclick="openTask('${task.id}');return false">${esc(task.title)}</a>.`:''}</div>
+    </section></div>`;
+  const b = el('mxBody'); b.scrollTop = b.scrollHeight;
+  if(keep) el('mxIn').value = keep;
+};
+function mxVoiceShort(cid){ const c = client(cid); const def = v => v && !/^(—|To be defined)$/i.test(v); const ex = clientExamples(cid); const r = emojiRate(ex.map(e=>e.text));
+  return [def(c.tone)?coraTrim(c.tone, 40):'Tone not set', c.sop?'SOP v'+c.sop.version:'No SOP yet', ex.length?`${ex.length} examples · ${r>=2?'emoji-rich':r>=0.5?'few emojis':'no emojis'}`:'no examples yet'].join(' · '); }
+function mxVoiceSummary(cid){ return clientVoice(cid).replace(/\[[A-Z]+:[^\]]+\]/g,'').replace(/###/g,'').trim(); }
+
+function mxMsgsHTML(conv){
+  const c = client(conv.client);
+  if(!conv.msgs.length && !MARCUS.ask) return `<div class="cora-hello">${aiAva('marcus', 56, true)}<b>Hi ${esc(first(PERSON))}! I'm Marcus.</b>
+    <p>${c?`I’m writing for <b>${esc(c.name)}</b> — using their tone of voice, audience, brand guidelines, SOP and approved examples.`:`Tell me which client you’re writing for — mention the client’s name in your message or pick one above. I’ll load their tone of voice, SOP and examples.`}</p>
+    <div class="cora-sugg">${(c?[`Write a friendly comment on a post about a new product launch`, `Reply to a customer asking about our opening hours`, `Draft an Instagram caption for this week’s promo`, `Give me 3 alternatives for: "Thank you for your support!"`]:marcusClients().slice(0,4).map(x=>`Write a comment for ${x.name}`)).map(s=>`<button onclick="mxSend(${esc(JSON.stringify(s))})">${esc(s)}</button>`).join('')}</div></div>`;
+  let h = conv.msgs.map((m, i)=>{
+    if(m.role==='user') return `<div class="cora-m user">${m.revise?`<span class="hint">Revise: </span>`:''}${esc(m.text)}</div>`;
+    if(m.kind==='info') return `<div class="cora-row">${aiAva('marcus', 28)}<div class="cora-m assistant">${coraRender(m.text)}</div></div>`;
+    const drafts = mxDrafts(m.text);
+    return `<div class="cora-row">${aiAva('marcus', 28)}<div class="cora-m assistant mx-ans"><div class="mx-tag">Writing for ${esc(cname(m.client))}${m.mode?` · ${esc((MX_MODES.find(x=>x[0]===m.mode)||[])[1]||'')}`:''}</div>
+      ${drafts.list.map((d, j)=>`<div class="mx-draft" data-i="${i}" data-j="${j}">${drafts.list.length>1?`<div class="mx-dh">${esc(d.title)}</div>`:''}<textarea rows="${Math.min(9, Math.max(2, Math.ceil(d.text.length/70)+d.text.split('\n').length-1))}" id="mxd-${i}-${j}">${esc(d.text)}</textarea>
+        <div class="mx-acts"><button onclick="mxCopy(${i},${j})">Copy</button><button onclick="mxSaveModal(${i},${j})">Save to task / content plan</button><span class="mx-rev">${MX_REVISE.map(([k,l])=>`<button onclick="mxRevise(${i},${j},'${k}')">${l}</button>`).join('')}</span></div></div>`).join('')}
+      ${drafts.note?`<small class="cora-note">${coraRender(drafts.note)}</small>`:''}${m.note?`<small class="cora-note">${esc(m.note)}</small>`:''}${m.saved?.length?`<small class="cora-note">✓ Saved: ${m.saved.map(esc).join(', ')}</small>`:''}</div></div>`;
+  }).join('');
+  if(MARCUS.ask) h += `<div class="cora-row">${aiAva('marcus', 28)}<div class="cora-m assistant"><b>${esc(MARCUS.ask.q)}</b><div class="cora-sugg" style="margin-top:8px">${MARCUS.ask.options.map(o=>`<button onclick="mxAnswer('${o.id}')">${esc(o.label)}</button>`).join('')}</div></div></div>`;
+  return h;
+}
+/* split an answer into drafts: "### Draft 1" headings (or the whole answer), plus an optional "Note:" line */
+function mxDrafts(text){
+  let t = String(text||'').trim(); let note = '';
+  const nm = t.match(/\n\s*(?:\*\*)?Note:?(?:\*\*)?:?\s*([\s\S]+)$/i); if(nm){ note = nm[1].trim(); t = t.slice(0, nm.index).trim(); }
+  const parts = t.split(/^\s*#{2,4}\s*(Draft[^\n]*|Option[^\n]*|Alternative[^\n]*)$/im);
+  const list = [];
+  if(parts.length>1){ for(let k=1;k<parts.length;k+=2){ const body = (parts[k+1]||'').trim(); if(body) list.push({title:parts[k].replace(/[*#]/g,'').trim(), text:body}); } }
+  if(!list.length) list.push({title:'Draft', text:t});
+  list.forEach(d=>d.text = d.text.replace(/^["“](.*)["”]$/s, '$1').replace(/\*\*/g,'').trim());
+  return {list, note};
+}
+
+/* ---------- sending ---------- */
+async function mxSend(text){
+  text = (text ?? el('mxIn')?.value ?? '').trim(); if(!text || MARCUS.busy) return;
+  const conv = mxConv(); const det = mxDetect(text);
+  if(el('mxIn')) el('mxIn').value = '';
+  if(det.other.length && !det.mine.length) return mxInfo(conv, text, `You’re not assigned to **${det.other.map(c=>c.name).join(', ')}**, so I can’t write for ${det.other.length>1?'them':'that client'}. Ask your PM if you should be added to the team.`);
+  /* the message names a different client from this conversation's → ask, never mix */
+  if(conv.client && det.mine.length && !det.mine.some(c=>c.id===conv.client)){
+    MARCUS.ask = {q:`This sounds like it’s for ${det.mine.map(c=>c.name).join(' or ')}, but this chat is writing for ${cname(conv.client)}. Which client is it for?`, text,
+      options:[...det.mine.map(c=>({id:'new:'+c.id, label:`Start a new chat for ${c.name}`})), {id:'keep', label:`Keep writing for ${cname(conv.client)}`}]};
+    return RENDER.marcus(); }
+  if(!conv.client){
+    if(det.mine.length===1) conv.client = det.mine[0].id;
+    else { const opts = (det.mine.length ? det.mine : marcusClients());
+      if(!opts.length) return mxInfo(conv, text, 'You don’t have any assigned clients yet, so there’s no client voice to write in. Ask your PM to add you to a client team.');
+      MARCUS.ask = {q: det.mine.length ? 'You mentioned more than one client — which one is this for?' : 'Which client is this for?', text, options:opts.slice(0,12).map(c=>({id:'set:'+c.id, label:c.name}))};
+      return RENDER.marcus(); }
+  }
+  MARCUS.ask = null;
+  await mxRun(conv, text, {mode:mxModeFor(text)});
+}
+function mxAnswer(id){
+  const a = MARCUS.ask; if(!a) return; MARCUS.ask = null;
+  const conv = mxConv();
+  if(id==='keep') return mxRun(conv, a.text, {mode:mxModeFor(a.text)});
+  const [k, cid] = id.split(':');
+  if(k==='new'){ mxNew(cid); return mxRun(MARCUS.conv, a.text, {mode:mxModeFor(a.text)}); }
+  if(k==='set'){ conv.client = cid; return mxRun(conv, a.text, {mode:mxModeFor(a.text)}); }
+}
+function mxInfo(conv, text, answer){
+  if(!conv.id){ const c = aiNewConv('marcus', {title:text.slice(0,60), client:conv.client, task:conv.task}); MARCUS.conv = conv = c; }
+  conv.msgs.push({role:'user', text, at:nowISO()}, {role:'assistant', kind:'info', text:answer, at:nowISO()}); aiSaveConv(conv); RENDER.marcus();
+}
+const MARCUS_SYSTEM = name => `You are Marcus, the client writing assistant of The Cross Core OPC (a Philippine virtual-assistance agency).
+You write social media comments, replies, captions, content drafts and messages for ONE client only: ${name}.
+Rules:
+- Write exactly in ${name}'s voice using the CLIENT VOICE below: tone, audience, brand guidelines, SOP, approved examples — match their usual length, formality, sentence style, hashtag habits and emoji style.
+- Never use another client's name, facts or style. Never invent facts (prices, promos, dates, addresses, results) — use [placeholders] for anything not given.
+- Output drafts only, ready to copy. One draft goes under the heading "### Draft". When several options are asked for, put each under "### Draft 1", "### Draft 2", "### Draft 3".
+- After the drafts you may add ONE short line starting "Note:" if something is missing (e.g. no SOP or examples yet) or needs the VA's check.
+- Comments and replies are short and natural (1–2 sentences unless the examples are longer). Captions follow the client's usual structure and platform.
+- Write in the language the client's examples use (English by default; Taglish only if the examples do).`;
+const MX_MODE_ASK = {comment:'Write a comment for the client to post on this post', reply:'Write a reply from the client to this comment/message', alts:'Give 3 alternative versions of this, each under its own "### Draft N" heading', caption:'Write a caption / content draft for this', free:'Do this writing task'};
+const MX_REV_ASK = {shorter:'Make it shorter — keep the meaning and the voice.', warmer:'Make it warmer and friendlier — still in the client’s voice.', professional:'Make it more professional and polished.', direct:'Make it more direct — get to the point.', 'emoji+':'Add a few emojis that fit the client’s emoji style.', 'emoji-':'Remove all emojis.'};
+async function mxRun(conv, text, opt={}){
+  const c = client(conv.client); if(!c) return;
+  if(!conv.id){ const n = aiNewConv('marcus', {title:text.slice(0,60), client:conv.client, task:conv.task}); MARCUS.conv = conv = n; }
+  conv.msgs.push({role:'user', text: opt.revise ? MX_REVISE.find(r=>r[0]===opt.revise)[1] + ' — ' + coraTrim(opt.base, 80) : text, revise:!!opt.revise, at:nowISO()});
+  MARCUS.busy = true; RENDER.marcus();
+  const task = TASKS.find(t=>t.id===conv.task);
+  const hist = conv.msgs.slice(-7, -1).map(m=>`${m.role==='user'?'VA':'Marcus'}: ${m.text}`).join('\n');
+  const ask = opt.revise ? `Revise this draft. ${MX_REV_ASK[opt.revise]}\nDRAFT:\n${opt.base}` : `${MX_MODE_ASK[opt.mode]||MX_MODE_ASK.free}:\n${text}`;
+  const prompt = `CLIENT VOICE:\n${clientVoice(c.id)}\n${task?`LINKED TASK: ${task.title} · ${task.type||''} · platform ${task.plat||'—'}${task.theme?' · theme: '+task.theme:''}${task.notes?' · brief: '+coraTrim(task.notes,400):''}\n`:''}\n${hist?'EARLIER IN THIS CHAT:\n'+hist+'\n\n':''}REQUEST: ${ask}`;
+  const res = await aiChat(MARCUS_SYSTEM(c.name), prompt);
+  let out = res.text, note = '';
+  if(!out){ out = mxLocal(c, opt.revise ? opt.base : text, opt); note = res.note + ' This is an offline template in the client’s tone — edit it before use.'; }
+  conv.msgs.push({role:'assistant', text:out, note, client:c.id, mode:opt.revise?'':opt.mode, ai:!!res.text, at:nowISO()});
+  MARCUS.busy = false; aiSaveConv(conv); RENDER.marcus();
+}
+function mxDraftText(i, j){ const ta = el(`mxd-${i}-${j}`); if(ta) return ta.value; const m = mxConv().msgs[i]; return mxDrafts(m?.text).list[j]?.text || ''; }
+function mxRevise(i, j, k){ if(MARCUS.busy) return; const conv = mxConv(); if(!conv.client) return; mxRun(conv, '', {revise:k, base:mxDraftText(i, j)}); }
+async function mxCopy(i, j){ const ok = await copyText(mxDraftText(i, j)); toast(ok ? 'Copied — review it before posting' : 'Copy failed'); }
+
+/* ---------- save a draft to a client task or the content plan ---------- */
+function mxSaveModal(i, j){
+  const conv = mxConv(); const c = mxClient(); if(!c) return;
+  const text = mxDraftText(i, j); const tasks = mxTasks(c.id).filter(t=>t.assignee===PERSON || t.createdBy===PERSON || canApproveTask(t) || isExec());
+  MODAL_CTX = {mx:{i, j, text}};
+  openModal('Save draft — '+c.name, `<div class="field"><label>Draft</label><textarea id="mxSaveText" rows="5">${esc(text)}</textarea></div>
+    <div class="field"><label>Save to</label><select id="mxSaveTo" onchange="el('mxSaveHow').style.display=this.value==='new'?'none':''">
+      ${tasks.map(t=>`<option value="${t.id}" ${t.id===conv.task?'selected':''}>📌 ${esc(t.title.slice(0,60))} · ${esc(t.status)}</option>`).join('')}
+      <option value="new" ${!conv.task||!tasks.some(t=>t.id===conv.task)?'selected':''}>＋ New draft in ${esc(c.name)}’s content plan</option></select></div>
+    <div class="field" id="mxSaveHow" style="${!conv.task||!tasks.some(t=>t.id===conv.task)?'display:none':''}"><label>Put it in</label><select id="mxSaveField"><option value="caption">Caption draft (replaces the current caption)</option><option value="notes">Task notes (added below the brief)</option></select></div>
+    <div id="mxNewFields" class="grid cols-2"><div class="field"><label>Title (new draft)</label><input id="mxSaveTitle" value="${esc(text.replace(/\s+/g,' ').slice(0,48))}"></div><div class="field"><label>Platform</label><select id="mxSavePlat">${['ig','fb','li','tt','x'].map(p=>`<option value="${p}">${p.toUpperCase()}</option>`).join('')}</select></div></div>
+    <div class="hint" style="margin-bottom:10px">Saved drafts stay in <b>Draft</b> status — submit them for PM approval from the Content Board as usual. Nothing is posted.</div>
+    <button class="btn primary" onclick="mxSave()">Save draft</button>`);
+}
+function mxSave(){
+  const x = MODAL_CTX?.mx; const c = mxClient(); if(!x || !c) return;
+  const text = el('mxSaveText').value.trim(); if(!text) return toast('The draft is empty');
+  const to = el('mxSaveTo').value; const conv = mxConv(); const m = conv.msgs[x.i];
+  const hist = act => ({by:pname(PERSON), who:PERSON, act, note:'Written with Marcus', when:dtstr(nowISO()), at:nowISO()});
+  let label;
+  if(to==='new'){
+    const t = {id:uid('T'), title:el('mxSaveTitle').value.trim() || text.slice(0,48), client:c.id, assignee:PERSON, status:'Draft', plat:el('mxSavePlat').value, due:addD(2), type:'Caption', theme:'', caption:text, notes:'', sources:[], refs:[], outputs:[], history:[hist('Created')], createdBy:PERSON, createdAt:nowISO(), core:false};
+    TASKS.push(t); conv.task = t.id; label = 'new content-plan draft “'+t.title+'”';
+  } else {
+    const t = TASKS.find(y=>y.id===to); if(!t) return toast('That task is no longer available');
+    if(el('mxSaveField').value==='notes') t.notes = (t.notes ? t.notes+'\n\n' : '') + 'Draft (Marcus):\n' + text; else t.caption = text;
+    t.history = [...(t.history||[]), hist(el('mxSaveField').value==='notes' ? 'Draft added to notes' : 'Caption draft updated')]; conv.task = t.id; label = '“'+t.title+'”';
+  }
+  if(m) m.saved = [...(m.saved||[]), label];
+  aiSaveConv(conv); closeModal(); RENDER.marcus(); toast('Draft saved — review it before posting');
+}
+
+/* ---------- without the AI provider: tone-aware templates ---------- */
+function mxLocal(c, text, opt){
+  const ex = clientExamples(c.id); const rate = emojiRate(ex.map(e=>e.text)); const tone = (c.tone||'').toLowerCase();
+  const formal = /professional|formal|corporate|expert|clinical|luxury|premium/.test(tone); const playful = /fun|playful|witty|casual|bubbly|youthful|energetic/.test(tone);
+  const emo = rate>=0.5 || (!ex.length && playful); const e = s => emo ? ' '+s : '';
+  const topic = coraTrim(text.replace(/^[^:\n]{0,60}:\s*/,'').replace(/^(please\s+)?(write|draft|give me|make|create|do)\s+(me\s+)?(an?\s+|the\s+|\d+\s+)?(friendly\s+|short\s+|quick\s+)?(instagram\s+|ig\s+|facebook\s+|fb\s+|linkedin\s+|tiktok\s+)?(caption|comment|reply|post|content|message|alternatives?|options?)?\s*(about|for|on|to)?\s*/i,'').replace(/\s+/g,' ') || 'this', 90);
+  if(opt.revise){ let t = text;
+    if(opt.revise==='shorter') t = (t.match(/[^.!?\n]+[.!?]?/g)||[t]).slice(0, Math.max(1, Math.ceil((t.match(/[^.!?\n]+[.!?]?/g)||[t]).length/2))).join(' ').trim();
+    if(opt.revise==='warmer') t = (formal?'Thank you so much — ':'Aww, thank you! ') + t.replace(/^(thank you[^.!]*[.!]\s*)/i,'') + (emo?' 💛':'');
+    if(opt.revise==='professional') t = t.replace(/\p{Extended_Pictographic}️?/gu,'').replace(/!+/g,'.').replace(/\b(aww|yay|omg|super)\b/gi,'').replace(/\s{2,}/g,' ').trim();
+    if(opt.revise==='direct') t = t.replace(/\b(just|really|very|actually|basically|we wanted to|we would love to|feel free to)\b\s*/gi,'').replace(/\s{2,}/g,' ').trim();
+    if(opt.revise==='emoji+') t = t + ' ✨🙌';
+    if(opt.revise==='emoji-') t = t.replace(/\p{Extended_Pictographic}️?/gu,'').replace(/\s{2,}/g,' ').trim();
+    return `### Draft\n${t}`; }
+  const hi = formal ? 'Thank you for sharing this' : playful ? 'Love this' : 'So great to see this';
+  const map = {
+    comment:[`${hi}!${e('👏')} ${formal?'A wonderful example of':'Such a great take on'} ${topic.length<50?topic.toLowerCase():'this'} — ${c.name} is cheering you on.`],
+    reply:[`${formal?'Thank you for reaching out.':'Hi there, thanks for your message!'} ${formal?'We would be glad to help — please send us a direct message with your details and our team will assist you.':'We’d love to help — send us a DM and we’ll sort it out for you.'}${e('😊')}`],
+    alts:[`${topic}${e('✨')}`, `${formal?'We are pleased to share:':'Guess what?'} ${topic}${e('🎉')}`, `${topic} — ${formal?'learn more on our page.':'tell us what you think below!'}${e('💬')}`],
+    caption:[`${formal?'':'✨ '}${topic.charAt(0).toUpperCase()+topic.slice(1)}${e('✨')}\n\n${formal?`At ${c.name}, we are committed to serving ${c.audience&&!/^(—|To be defined)$/.test(c.audience)?c.audience:'our community'}.`:`Made for ${c.audience&&!/^(—|To be defined)$/.test(c.audience)?c.audience:'you'}.`} [add details: offer · date · link]\n\n${formal?'Learn more at [link].':'Tap the link in bio to learn more!'}${e('👉')}`],
+  };
+  const list = map[opt.mode] || [`${topic}${e('✨')}`];
+  const heads = list.length>1 ? list.map((d,k)=>`### Draft ${k+1}\n${d}`).join('\n\n') : `### Draft\n${list[0]}`;
+  return heads + `\nNote: Based on ${c.name}’s tone (${c.tone||'not set'})${ex.length?` and ${ex.length} approved examples`:''}${c.sop?'':' — no SOP published yet'}.`;
+}
+
+/* ===== 25_pmassist.js ===== */
+/* ================= PM OPERATIONS ASSISTANTS — Tricia's Assistant · Yam's Assistant =================
+   Each PM has a dedicated operations assistant with its own workspace, client context and reminder settings.
+   It only works with that PM's clients, SOPs, VA assignments, targets, deadlines and group chats.
+   • Routine daily reminders (the PM sets time, days, recipients and client targets) are posted automatically
+     in the client group chat by the assistant and notify the VAs — at most once per client per day.
+   • New or unusual follow-ups (overdue work, long-open revisions, Lead Gen behind target) wait in the PM's
+     review queue — nothing unusual is posted until the PM approves it.
+   • Every reminder is logged. Reminders are sent from the PM's (or a company head's) open portal at the scheduled
+     time, or as soon as one of them signs in that day; fixed record ids make duplicates impossible. */
+let PACFG = [], PALOG = [];
+COLL.pacfg = {get:()=>PACFG, set:v=>PACFG=v, aud:o=>uniq([assistant(o.id)?.pm, ...HEADS])};
+COLL.palog = {get:()=>PALOG, set:v=>PALOG=v, aud:o=>uniq([o.pm, ...HEADS])};
+const PA = {sel:null, tab:'today', conv:null, busy:false, scanned:{}};
+const PA_DAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const PA_CUTOFF = '20:00';
+
+/* ---------- configuration ---------- */
+function paCfg(id){ return PACFG.find(x=>x.id===id) || {id, enabled:false, time:'09:00', days:[1,2,3,4,5], followups:true, clients:{}}; }
+function paClientCfg(cfg, cid){ return {routine:true, recipients:null, leadDaily:null, target:'', note:'', ...(cfg.clients||{})[cid]}; }
+function paSaveCfg(cfg){ const i = PACFG.findIndex(x=>x.id===cfg.id); if(i<0) PACFG.push(cfg); else PACFG[i] = cfg; recordChange(); }
+const paCan = a => !!a && (a.pm===PERSON || isHead(PERSON) || isFullAccess());
+function paClients(a){ return CLIENTS.filter(c=>!isEnded(c) && c.status!=='Archived' && pmsOf(c.id).includes(a.pm)); }
+/* shared clients: one assistant owns the reminders (company heads or the PMs choose; default = first PM listed) */
+function paOwner(cid){ const o = (S().paOwners||{})[cid]; if(o && pmsOf(cid).includes(o) && paForPM(o)) return o; return pmsOf(cid).find(k=>paForPM(k)) || null; }
+const paOwned = a => paClients(a).filter(c=>paOwner(c.id)===a.pm);
+function paVAs(cid){ const c = client(cid); if(!c) return []; const act = new Set(activePeople());
+  return uniq([...(c.team||[]), ...(lgIsLeadGen(c) ? lgVAs(cid) : [])]).filter(k=>PEOPLE[k] && act.has(k) && !pmsOf(cid).includes(k) && !isHead(k)); }
+function paRecipients(cfg, cid){ const cc = paClientCfg(cfg, cid); const all = paVAs(cid); return cc.recipients ? all.filter(k=>cc.recipients.includes(k)) : all; }
+const mnlNow = () => { const d = new Date(Date.now()+8*3600e3); return {date:d.toISOString().slice(0,10), hm:d.toISOString().slice(11,16), dow:d.getUTCDay()}; };
+const hm12 = hm => { const [h,m] = String(hm||'09:00').split(':').map(Number); return `${(h%12)||12}:${String(m).padStart(2,'0')} ${h<12?'AM':'PM'}`; };
+
+/* ---------- what each VA has on their plate ---------- */
+const dayKey = d => d ? manilaDate(new Date(d)) : '';
+function paItems(cid, va){
+  const today = mnlNow().date; const tmr = shiftDate(today, 1);
+  const T = TASKS.filter(t=>t.client===cid && t.assignee===va && !['Approved','Completed'].includes(t.status));
+  return {dueToday:T.filter(t=>t.status!=='For Approval' && dayKey(t.due)===today), overdue:T.filter(t=>t.status!=='For Approval' && t.due && dayKey(t.due)<today),
+    tomorrow:T.filter(t=>t.status!=='For Approval' && dayKey(t.due)===tmr), revisions:T.filter(t=>t.status==='Revisions Needed'), waiting:T.filter(t=>t.status==='For Approval')};
+}
+function paApprovals(a, cid){ const T = TASKS.filter(t=>t.status==='For Approval' && (cid ? t.client===cid : paClients(a).some(c=>c.id===t.client))); return T; }
+const qt = t => `“${coraTrim(t.title, 48)}”`;
+function paReminderText(a, c, cfg){
+  const cc = paClientCfg(cfg, c.id); const to = paRecipients(cfg, c.id); const lg = lgIsLeadGen(c); const m = lg ? lgMetrics(c.id) : null;
+  const lines = [`Good morning, team! ☀️ Daily check-in for ${c.name}:`];
+  to.forEach(k=>{ const it = paItems(c.id, k); const bits = [];
+    if(it.overdue.length) bits.push(`overdue: ${it.overdue.slice(0,3).map(t=>`${qt(t)} (due ${fmt(new Date(t.due))})`).join(', ')}`);
+    if(it.dueToday.length) bits.push(`due today: ${it.dueToday.slice(0,3).map(qt).join(', ')}`);
+    if(it.revisions.length) bits.push(`revisions requested: ${it.revisions.slice(0,2).map(qt).join(', ')}`);
+    if(it.tomorrow.length) bits.push(`due tomorrow: ${it.tomorrow.slice(0,2).map(qt).join(', ')}`);
+    if(lg && lgVAs(c.id).includes(k) && m && !m.loading){ const daily = cc.leadDaily || m.per[k]?.daily; if(daily || m.setUp) bits.push(`Lead Gen: ${daily?'target '+daily+' leads today':'keep adding leads'}${m.weekN?` (${m.weekN} added this week)`:''}${m.stages?.['Follow-up']?`, ${m.stages['Follow-up']} follow-ups due`:''}`); }
+    lines.push(`• @${pname(k)} — ${bits.length ? bits.join('; ') : 'no deadlines today — keep going with the content plan'}`);
+  });
+  const wait = paApprovals(a, c.id).length; if(wait) lines.push(`⏳ ${wait} item${wait>1?'s are':' is'} waiting for ${first(a.pm)}’s approval.`);
+  if(cc.target) lines.push(`🎯 Target: ${cc.target}`);
+  if(cc.note) lines.push(`📌 ${cc.note}`);
+  lines.push(`Please update your status on the Content Board when you finish, and reply here if you’re blocked. — ${a.name}`);
+  return {text:lines.join('\n'), to};
+}
+
+/* ---------- posting (always as the assistant, always logged, never twice) ---------- */
+function paChatFor(c){ const ch = CHATS.find(x=>x.id===c.chatId); return ch && !ch.archived ? ch : null; }
+function paPost(a, c, text, to, kind, ids, meta={}){
+  const ch = paChatFor(c); if(!ch) return 'nochat';
+  if(!(ch.members||[]).includes(PERSON)) return 'notmember';
+  if(MESSAGES.some(m=>m.id===ids.msg) || PALOG.some(l=>l.id===ids.log && l.status==='Sent')) return 'already';
+  const mentions = (to||[]).filter(k=>(ch.members||[]).includes(k));
+  MESSAGES.push({id:ids.msg, chat:ch.id, by:a.key, kind:'assistant', text, at:nowISO(), files:[], ...(mentions.length?{mentions}:{})});
+  notifyAs(a.key, to, 'reminder', kind==='routine' ? `🗓️ Daily reminder for <b>${esc(c.name)}</b> in the group chat` : `🔔 Follow-up for you in <b>${esc(c.name)}</b>: ${esc(coraTrim(text.replace(/@/g,''), 90))}`, {view:'chat', arg:ch.id}, ids.msg);
+  const prev = PALOG.find(l=>l.id===ids.log);
+  const rec = {...(prev||{}), id:ids.log, pa:a.id, pm:a.pm, client:c.id, kind, status:'Sent', text, to, at:nowISO(), date:mnlNow().date, sentBy:PERSON, auto:!!meta.auto, msg:ids.msg, chat:ch.id, ...meta};
+  if(prev) Object.assign(prev, rec); else PALOG.unshift(rec);
+  if(PALOG.length>1500) PALOG.length = 1500;
+  return 'sent';
+}
+function paRoutineIds(a, c, date){ return {msg:`M-rem-${a.id}-${c.id}-${date}`, log:`RL-${a.id}-${c.id}-${date}`}; }
+function paSentToday(a, c){ const ids = paRoutineIds(a, c, mnlNow().date); return PALOG.find(l=>l.id===ids.log && l.status==='Sent') || (MESSAGES.some(m=>m.id===ids.msg) ? {at:MESSAGES.find(m=>m.id===ids.msg).at} : null); }
+function paSendRoutine(a, c, opts={}){
+  const cfg = paCfg(a.id); const cc = paClientCfg(cfg, c.id); if(!opts.manual && !cc.routine) return 'off';
+  const r = paReminderText(a, c, cfg); if(!r.to.length) return 'norecipients';
+  return paPost(a, c, opts.text || r.text, r.to, 'routine', paRoutineIds(a, c, mnlNow().date), {auto:!opts.manual});
+}
+function paSendAll(id){ const a = assistant(id); if(!paCan(a)) return; let n = 0, skip = [];
+  paOwned(a).forEach(c=>{ const cc = paClientCfg(paCfg(a.id), c.id); if(!cc.routine) return; const r = paSendRoutine(a, c, {manual:true}); if(r==='sent') n++; else if(r!=='already') skip.push(c.name+' ('+({nochat:'no group chat',notmember:'you are not in the group chat',norecipients:'no VAs'}[r]||r)+')'); });
+  recordChange(); RENDER.pa(); toast(n ? `Posted ${n} reminder${n>1?'s':''}${skip.length?' · skipped '+skip.length:''}` : skip.length ? 'Nothing posted: '+skip.join(', ') : 'Today’s reminders were already sent');
+}
+
+/* ---------- follow-ups that need the PM's review ---------- */
+function paScan(a, force){
+  const date = mnlNow().date; if(!force && PA.scanned[a.id]===date) return 0; PA.scanned[a.id] = date;
+  const recent = key => PALOG.some(l=>l.pa===a.id && l.key===key && (l.status==='Pending review' || Date.now()-new Date(l.at).getTime() < 3*86400e3));
+  let n = 0; const add = (c, key, va, reason, text) => { if(recent(key) || n>=12) return; n++;
+    PALOG.unshift({id:`FU-${a.id}-${key}-${date}`, pa:a.id, pm:a.pm, client:c.id, kind:'followup', key, status:'Pending review', reason, text, to:[va].filter(Boolean), at:nowISO(), date}); };
+  const today = date;
+  paOwned(a).forEach(c=>{
+    TASKS.filter(t=>t.client===c.id && !['Approved','Completed','For Approval'].includes(t.status) && t.due && dayKey(t.due) < shiftDate(today, -1) && PEOPLE[t.assignee]).forEach(t=>
+      add(c, 'task-'+t.id, t.assignee, `Overdue since ${fmt(new Date(t.due))}`, `Hi @${pname(t.assignee)}, quick check on ${qt(t)} for ${c.name} — it was due ${fmt(new Date(t.due))}. Could you share an update or a new ETA? If something is blocking you, let ${first(a.pm)} know here. — ${a.name}`));
+    TASKS.filter(t=>t.client===c.id && t.status==='Revisions Needed' && PEOPLE[t.assignee]).forEach(t=>{ const last = (t.history||[]).slice(-1)[0]?.at; if(last && Date.now()-new Date(last).getTime() > 2*86400e3)
+      add(c, 'rev-'+t.id, t.assignee, 'Revision open for more than 2 days', `Hi @${pname(t.assignee)}, the revision on ${qt(t)} for ${c.name} is still open. Can you resubmit it today, or tell ${first(a.pm)} what you need? — ${a.name}`); });
+    if(lgIsLeadGen(c)){ const m = lgMetrics(c.id); if(!m.loading && ['Behind','Past due'].includes(m.state)) lgVAs(c.id).filter(k=>PEOPLE[k]).forEach(k=>
+      add(c, `lg-${c.id}-${k}`, k, `Lead Gen ${m.state.toLowerCase()}`, `Hi @${pname(k)}, ${c.name}’s Lead Gen is ${m.state.toLowerCase()} (${m.weekN} added this week${m.expected?`, ${m.expected} expected by now`:''}). What’s slowing things down, and what’s your plan for today? — ${a.name}`)); }
+  });
+  if(n) recordChange(); return n;
+}
+function paReviewCount(){ const a = paForPM(PERSON); return a ? PALOG.filter(l=>l.pa===a.id && l.status==='Pending review').length : 0; }
+function paApprove(logId){
+  const l = PALOG.find(x=>x.id===logId); const a = assistant(l?.pa); if(!l || !paCan(a)) return;
+  const c = client(l.client); const text = (el('fu-'+logId)?.value || l.text).trim(); if(!text) return toast('The message is empty');
+  const r = paPost(a, c, text, l.to, 'followup', {msg:'M-'+logId, log:logId}, {key:l.key, reason:l.reason, reviewedBy:PERSON});
+  if(r!=='sent') return toast(r==='notmember' ? 'You are not a member of that group chat' : r==='nochat' ? 'This client has no active group chat' : 'Already posted');
+  recordChange(); RENDER.pa(); buildNav(); toast('Posted in the group chat — the VA was notified');
+}
+function paDismiss(logId){ const l = PALOG.find(x=>x.id===logId); if(!l || !paCan(assistant(l.pa))) return; l.status = 'Dismissed'; l.reviewedBy = PERSON; l.reviewedAt = nowISO(); recordChange(); RENDER.pa(); buildNav(); }
+
+/* ---------- scheduler: runs in the PM's (or a head's) open portal ---------- */
+function paTick(){
+  if(!PEOPLE[PERSON] || ROLE==='client' || !SYNC.ready) return;
+  const now = mnlNow(); let changed = false;
+  pmAssistants().filter(a=>a.pm===PERSON || isHead(PERSON)).forEach(x=>{ const a = assistant(x.id); const cfg = paCfg(a.id);
+    if(a.pm===PERSON && cfg.followups!==false && paScan(a)) changed = true;
+    if(!cfg.enabled || !(cfg.days||[]).includes(now.dow) || now.hm < (cfg.time||'09:00') || now.hm >= PA_CUTOFF) return;
+    paOwned(a).forEach(c=>{ if(paSendRoutine(a, c)==='sent') changed = true; });
+  });
+  if(changed){ recordChange(); buildNav(); if(CURRENT==='pa') RENDER.pa(); }
+}
+setInterval(paTick, 60000);
+{ const _sp = setPerson; setPerson = function(p){ _sp(p); setTimeout(paTick, 6000); }; }
+/* "My Assistant" appears for PMs who have an assistant and for company heads */
+{ const _na = navAllowed; navAllowed = function(n){ const r = _na(n); if(n?.id==='pa') return r && (!!paForPM(PERSON) || isHead(PERSON) || isFullAccess()); return r; }; }
+
+/* ---------- the assistant's workspace ---------- */
+function paSel(){ const mine = paForPM(PERSON); let a = assistant(PA.sel);
+  if(!a || !paCan(a)) a = mine ? assistant(mine.id) : (isHead(PERSON)||isFullAccess()) && pmAssistants()[0] ? assistant(pmAssistants()[0].id) : null;
+  PA.sel = a?.id || null; return a; }
+RENDER.pa = () => {
+  const keep = el('paIn')?.value || '';
+  const a = paSel(); const v = el('v-pa');
+  if(!a){ v.innerHTML = `<div class="empty">No operations assistant is assigned to you yet. A company head can add one in Administration → PM assistants.</div>`; return; }
+  const cfg = paCfg(a.id); const C = paClients(a); const pend = PALOG.filter(l=>l.pa===a.id && l.status==='Pending review');
+  const others = pmAssistants().filter(x=>paCan(assistant(x.id)));
+  const tabs = [['today','Today'],['review',`Review queue${pend.length?` (${pend.length})`:''}`],['settings','Reminders & targets'],['log','Reminder log'],['chat','Draft messages']];
+  v.innerHTML = `<div class="pa-hero">${aiAva(a.id, 58, true)}<div style="flex:1;min-width:220px"><h2>${esc(a.name)}</h2><p><i class="ai-online"></i> Online · Operations assistant for <b>${esc(pname(a.pm))}</b> · ${C.length} client${C.length===1?'':'s'} · ${uniq(C.flatMap(c=>paVAs(c.id))).length} VAs</p>
+      <p class="hint">${cfg.enabled?`🗓️ Daily reminders on · ${hm12(cfg.time)} · ${(cfg.days||[]).map(d=>PA_DAYS[d]).join(', ')}`:'🗓️ Daily reminders are off — set them up in “Reminders & targets”.'}</p></div>
+      ${others.length>1?`<select onchange="PA.sel=this.value;PA.conv=null;RENDER.pa()" title="Switch assistant">${others.map(x=>`<option value="${x.id}" ${x.id===a.id?'selected':''}>${esc(x.name)}</option>`).join('')}</select>`:''}</div>
+    <div class="tabs">${tabs.map(([k,l])=>`<button class="tab ${PA.tab===k?'on':''}" onclick="PA.tab='${k}';RENDER.pa()">${l}</button>`).join('')}</div>
+    ${({today:paTodayHTML, review:paReviewHTML, settings:paSettingsHTML, log:paLogHTML, chat:paChatHTML})[PA.tab](a, cfg, C)}`;
+  if(PA.tab==='chat'){ const b = el('paBody'); if(b) b.scrollTop = b.scrollHeight; if(keep && el('paIn')) el('paIn').value = keep; }
+};
+function paTodayHTML(a, cfg, C){
+  const owned = paOwned(a); const now = mnlNow();
+  const rows = C.map(c=>{ const vas = paVAs(c.id); const it = vas.map(k=>paItems(c.id, k)); const sum = f => it.reduce((s,x)=>s+x[f].length, 0);
+    const own = paOwner(c.id)===a.pm; const sent = own && paSentToday(a, c); const cc = paClientCfg(cfg, c.id); const lg = lgIsLeadGen(c) ? lgMetrics(c.id) : null;
+    const rem = !own ? `<span class="hint">Handled by ${esc(assistant(paForPM(paOwner(c.id))?.id)?.name||'another PM')}</span>` : sent ? `<span class="badge b-approved">Sent ${clock(sent.at)}</span>` : !cc.routine ? '<span class="hint">Off for this client</span>' : `<span class="badge b-draft">Not sent yet</span>`;
+    return `<tr><td><b>${esc(c.name)}</b></td><td>${vas.map(k=>`<span class="pa-va">${av(P(k))}<span>${esc(first(k))}</span></span>`).join('')||'<span class="hint">No VAs</span>'}</td>
+      <td class="num">${sum('dueToday')||'—'}</td><td class="num ${sum('overdue')?'bad':''}">${sum('overdue')||'—'}</td><td class="num">${sum('revisions')||'—'}</td><td class="num">${paApprovals(a, c.id).length||'—'}</td>
+      <td>${lg?`<span class="badge ${/Behind|Past/.test(lg.state)?'b-revisionsneeded':/met|Completed|On track/.test(lg.state)?'b-approved':'b-draft'}">${esc(lg.loading?'loading':lg.state)}</span>`:'<span class="hint">—</span>'}</td><td>${rem}</td>
+      <td>${own && vas.length?`<button class="btn ghost" onclick="paPreview('${a.id}','${c.id}')">${sent?'View':'Preview & post'}</button>`:''}</td></tr>`; }).join('');
+  const appr = paApprovals(a).slice(0,12);
+  const team = uniq(C.flatMap(c=>paVAs(c.id)));
+  return `<div class="pa-strip"><div><b>${owned.filter(c=>paSentToday(a,c)).length}/${owned.filter(c=>paClientCfg(cfg,c.id).routine && paVAs(c.id).length).length}</b><span>daily reminders sent today</span></div>
+      <div><b>${PALOG.filter(l=>l.pa===a.id && l.status==='Pending review').length}</b><span>follow-ups awaiting your review</span></div>
+      <div><b>${paApprovals(a).length}</b><span>items waiting for approval</span></div>
+      <div><b>${team.filter(k=>['online','away'].includes(presStatus(k))).length}/${team.length}</b><span>VAs online now</span></div>
+      <span style="flex:1"></span>${paCan(a)?`<button class="btn primary" onclick="paSendAll('${a.id}')">Send today’s reminders now</button> <button class="btn" onclick="if(paScan(assistant('${a.id}'),true)){recordChange();} PA.tab='review';RENDER.pa();buildNav()">Suggest follow-ups</button>`:''}</div>
+    <div class="card" style="margin-bottom:16px"><div class="card-h"><h3>Clients today</h3><span class="sub">${fmt(new Date(now.date+'T00:00:00'))} · Manila time ${hm12(now.hm)}</span></div><div class="tbl-wrap"><table class="tbl pa-tbl"><thead><tr><th>Client</th><th>VAs</th><th>Due today</th><th>Overdue</th><th>Revisions</th><th>For approval</th><th>Lead Gen</th><th>Daily reminder</th><th></th></tr></thead><tbody>${rows||'<tr><td colspan="9" class="empty">No active clients assigned to this PM.</td></tr>'}</tbody></table></div></div>
+    <div class="grid cols-2">
+      <div class="card"><div class="card-h"><h3>Waiting for approval</h3></div><div class="card-b">${appr.map(t=>`<div class="list-row" style="cursor:pointer" onclick="openTask('${t.id}')">${av(P(t.assignee))}<div style="flex:1;min-width:0"><b style="font-size:12.5px">${esc(t.title)}</b><div class="hint">${esc(cname(t.client))} · ${esc(first(t.assignee))} · ${esc(t.type||'')}</div></div>${badge(t.status)}</div>`).join('')||'<div class="empty">Nothing is waiting for approval.</div>'}
+        ${C.filter(c=>lgIsLeadGen(c)).map(c=>{ const m = lgMetrics(c.id); return !m.loading && m.pending.length ? `<div class="list-row"><span class="avatar" style="background:var(--info-bg);color:var(--info)">L</span><div style="flex:1"><b style="font-size:12.5px">${m.pending.length} new leads to review</b><div class="hint">${esc(c.name)} · Lead Gen</div></div><button class="btn ghost" onclick="go('lgdash')">Review</button></div>` : ''; }).join('')}</div></div>
+      <div class="card"><div class="card-h"><h3>Team today</h3><span class="sub">Presence is live; attendance comes from Time In</span></div><div class="card-b">${team.map(k=>{ const r = attRec(k); return `<div class="list-row">${av(P(k))}<div style="flex:1;min-width:0"><b style="font-size:12.5px">${esc(pname(k))}</b><div class="hint">${C.filter(c=>paVAs(c.id).includes(k)).map(c=>esc(c.name)).join(', ')}</div></div><span style="text-align:right">${presChip(k)}<div class="hint">${r?.in?`In ${showT(r.in)}${r.out?' · Out '+showT(r.out):''}`:'Not timed in yet'}</div></span></div>`; }).join('')||'<div class="empty">No VAs assigned.</div>'}</div></div>
+    </div>`;
+}
+function paPreview(id, cid){
+  const a = assistant(id); const c = client(cid); if(!paCan(a) || !c) return;
+  const sent = paSentToday(a, c); const r = paReminderText(a, c, paCfg(a.id)); const msg = MESSAGES.find(m=>m.id===paRoutineIds(a, c, mnlNow().date).msg);
+  openModal(`${a.name} — ${c.name}`, `<div class="pa-preview-h">${aiAva(a.id, 36)}<div><b>${esc(a.name)}</b><div class="hint">Posts in the ${esc(c.name)} group chat and notifies ${r.to.map(first).join(', ')||'no one'}</div></div></div>
+    <textarea id="paPrevText" rows="10" ${sent?'disabled':''}>${esc(msg?.text || r.text)}</textarea>
+    <div class="hint" style="margin:8px 0">${sent?`Already sent today at ${clock(sent.at)} — one daily reminder per client, so VAs aren’t flooded.`:'You can edit the message before it goes out. Only one daily reminder is posted per client per day.'}</div>
+    ${sent?`<button class="btn" onclick="closeModal();CHAT_OPEN='${c.chatId}';go('chat')">Open group chat</button>`:`<button class="btn primary" onclick="paPostPreview('${a.id}','${c.id}')">Post in group chat</button>`}`);
+}
+function paPostPreview(id, cid){ const a = assistant(id); const c = client(cid); const r = paSendRoutine(a, c, {manual:true, text:el('paPrevText').value.trim()});
+  if(r!=='sent') return toast({already:'Already sent today', nochat:'This client has no active group chat', notmember:'You are not a member of that group chat', norecipients:'No VAs to remind'}[r]||r);
+  recordChange(); closeModal(); RENDER.pa(); toast('Reminder posted — VAs notified'); }
+function paReviewHTML(a){
+  const P_ = PALOG.filter(l=>l.pa===a.id && l.status==='Pending review');
+  return `<div class="hint" style="margin-bottom:10px">New or unusual follow-ups are never posted automatically. Edit the message if you like, then approve — ${esc(a.name)} posts it in the client group chat and notifies the VA.</div>
+    ${P_.map(l=>`<div class="card pa-fu"><div class="card-b"><div style="display:flex;gap:10px;align-items:center;margin-bottom:8px">${av(P(l.to[0]))}<div style="flex:1"><b>${esc(cname(l.client))}</b> · ${esc(l.to.map(pname).join(', '))}<div class="hint">${esc(l.reason||'Follow-up')} · suggested ${ago(l.at)}</div></div></div>
+      <textarea id="fu-${l.id}" rows="3">${esc(l.text)}</textarea><div style="display:flex;gap:8px;margin-top:8px"><button class="btn primary" onclick="paApprove('${l.id}')">Approve & post</button><button class="btn" onclick="paDismiss('${l.id}')">Dismiss</button></div></div></div>`).join('') || `<div class="empty">No follow-ups waiting. ${esc(a.name)} checks for overdue work, long-open revisions and Lead Gen targets once a day.</div>`}`;
+}
+function paSettingsHTML(a, cfg, C){
+  const canEdit = paCan(a);
+  return `<div class="grid cols-2" style="margin-bottom:16px"><div class="card"><div class="card-h"><h3>Daily reminder schedule</h3></div><div class="card-b">
+      <label class="switch-row"><input type="checkbox" id="paOn" ${cfg.enabled?'checked':''} ${canEdit?'':'disabled'}> <b>Post routine daily reminders automatically</b></label>
+      <div class="grid cols-2" style="margin-top:10px"><div class="field"><label>Time (Manila)</label><input type="time" id="paTime" value="${esc(cfg.time||'09:00')}"></div>
+        <div class="field"><label>Days</label><div class="pa-days">${PA_DAYS.map((d,i)=>`<label><input type="checkbox" class="paDay" value="${i}" ${(cfg.days||[]).includes(i)?'checked':''}> ${d}</label>`).join('')}</div></div></div>
+      <label class="switch-row"><input type="checkbox" id="paFu" ${cfg.followups!==false?'checked':''}> Suggest follow-ups for my review (overdue work, open revisions, Lead Gen behind target)</label>
+      <div class="hint" style="margin-top:8px">Reminders go out from your portal at this time — or as soon as you (or a company head) open the portal that day, until ${hm12(PA_CUTOFF)}. One reminder per client per day.</div></div></div>
+    <div class="card"><div class="card-h"><h3>How ${esc(a.name)} works</h3></div><div class="card-b" style="font-size:12.5px;line-height:1.6">
+      ✅ Routine daily reminders — posted automatically in each client group chat and sent to the VAs as notifications.<br>
+      ✋ New or unusual follow-ups — wait in your Review queue until you approve them.<br>
+      🔒 Only ${esc(first(a.pm))}’s clients, SOPs, VA assignments, targets, deadlines and group chats.<br>
+      🧾 Every reminder is logged; duplicates are blocked.<br>
+      👥 Shared clients: one assistant owns the reminders (set below).</div></div></div>
+    <div class="card"><div class="card-h"><h3>Clients, recipients & targets</h3></div><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Client</th><th>Daily reminder</th><th>Recipients</th><th>Client target (shown in reminder)</th><th>Lead Gen per day</th><th>Extra note</th><th>Reminder owner</th></tr></thead><tbody>
+      ${C.map(c=>{ const cc = paClientCfg(cfg, c.id); const vas = paVAs(c.id); const pms = pmsOf(c.id).filter(k=>paForPM(k)); const own = paOwner(c.id);
+        return `<tr data-c="${c.id}"><td><b>${esc(c.name)}</b></td><td><input type="checkbox" class="paR" ${cc.routine?'checked':''}></td>
+        <td>${vas.map(k=>`<label class="pa-rcp"><input type="checkbox" class="paTo" value="${k}" ${!cc.recipients||cc.recipients.includes(k)?'checked':''}> ${esc(first(k))}</label>`).join('')||'<span class="hint">No VAs</span>'}</td>
+        <td><input class="paT" value="${esc(cc.target||'')}" placeholder="e.g. 2 posts + 20 comments/day"></td>
+        <td>${lgIsLeadGen(c)?`<input class="paL" type="number" min="0" style="width:80px" value="${cc.leadDaily??''}" placeholder="${lgGoal(c.id).daily||''}">`:'<span class="hint">—</span>'}</td>
+        <td><input class="paN" value="${esc(cc.note||'')}" placeholder="Optional"></td>
+        <td>${pms.length>1?`<select class="paO">${pms.map(k=>`<option value="${k}" ${own===k?'selected':''}>${esc(paForPM(k).name)}</option>`).join('')}</select>`:`<span class="hint">${own===a.pm?'This assistant':esc(assistant(paForPM(own)?.id)?.name||'—')}</span>`}</td></tr>`; }).join('') || '<tr><td colspan="7" class="empty">No clients.</td></tr>'}</tbody></table></div>
+      ${canEdit?`<div class="card-b"><button class="btn primary" onclick="paSaveSettings('${a.id}')">Save reminder settings</button></div>`:''}</div>`;
+}
+function paSaveSettings(id){
+  const a = assistant(id); if(!paCan(a)) return;
+  const cfg = JSON.parse(JSON.stringify(paCfg(id)));
+  cfg.enabled = el('paOn').checked; cfg.time = el('paTime').value || '09:00'; cfg.followups = el('paFu').checked;
+  cfg.days = [...document.querySelectorAll('.paDay:checked')].map(x=>+x.value);
+  const owners = {...(S().paOwners||{})}; let ownChanged = false;
+  cfg.clients = cfg.clients || {};
+  document.querySelectorAll('#v-pa tr[data-c]').forEach(tr=>{ const cid = tr.dataset.c; const all = paVAs(cid); const to = [...tr.querySelectorAll('.paTo:checked')].map(x=>x.value);
+    const ld = tr.querySelector('.paL')?.value;
+    cfg.clients[cid] = {routine:tr.querySelector('.paR').checked, recipients: to.length===all.length ? null : to, target:tr.querySelector('.paT').value.trim(), note:tr.querySelector('.paN').value.trim(), leadDaily: ld ? +ld : null};
+    const o = tr.querySelector('.paO')?.value; if(o && o!==paOwner(cid)){ owners[cid] = o; ownChanged = true; } });
+  if(ownChanged){ const s = SETTINGS.find(x=>x.id==='global') || (SETTINGS.push({...DEFAULT_SETTINGS, id:'global'}), SETTINGS.find(x=>x.id==='global')); s.paOwners = owners; }
+  paSaveCfg(cfg); audit(`Updated ${a.name} reminder settings`); RENDER.pa(); toast('Saved — '+(cfg.enabled?`daily reminders at ${hm12(cfg.time)}`:'daily reminders are off'));
+}
+function paLogHTML(a){
+  const L = PALOG.filter(l=>l.pa===a.id).sort((x,y)=>(y.at||'').localeCompare(x.at||'')).slice(0,200);
+  return `<div class="card"><div class="tbl-wrap"><table class="tbl"><thead><tr><th>When</th><th>Client</th><th>Type</th><th>To</th><th>Status</th><th>Message</th><th></th></tr></thead><tbody>
+    ${L.map(l=>`<tr><td style="white-space:nowrap">${dstr(l.at)} ${clock(l.at)}</td><td>${esc(cname(l.client))}</td><td>${l.kind==='routine'?'Daily reminder':l.kind==='followup'?'Follow-up':'Message'}${l.auto?' <span class="hint">· automatic</span>':''}</td><td>${esc((l.to||[]).map(first).join(', '))}</td>
+      <td><span class="badge ${l.status==='Sent'?'b-approved':l.status==='Dismissed'?'b-draft':'b-pending'}">${esc(l.status)}</span>${l.sentBy&&!l.auto?`<div class="hint">by ${esc(first(l.reviewedBy||l.sentBy))}</div>`:''}</td><td style="max-width:420px"><span class="hint">${esc(coraTrim(l.text, 140))}</span></td>
+      <td>${l.chat?`<button class="btn ghost" onclick="CHAT_OPEN='${l.chat}';go('chat')">Open chat</button>`:''}</td></tr>`).join('') || '<tr><td colspan="7" class="empty">No reminders yet.</td></tr>'}</tbody></table></div></div>`;
+}
+
+/* ---------- drafting chat: task instructions, status updates, follow-ups (PM reviews before posting) ---------- */
+function paContext(a){
+  const out = [`PM: ${pname(a.pm)} · Assistant: ${a.name} · Today (Manila): ${mnlNow().date}`];
+  paClients(a).forEach(c=>{ const vas = paVAs(c.id); const cc = paClientCfg(paCfg(a.id), c.id);
+    let t = `## ${c.name} [C:${c.id}|${c.name}]\nServices: ${(c.services||[]).join(', ')||'—'} · Deliverables: ${c.deliverables||'—'} · Tone: ${c.tone||'—'}\nSOP: ${c.sop?'v'+c.sop.version+' [SOP:'+c.id+'|SOP]':'not published'}${cc.target?'\nPM target: '+cc.target:''}\nVAs:\n`;
+    vas.forEach(k=>{ const it = paItems(c.id, k); t += `- ${pname(k)} (${presLabel(k)||'offline'}): ${c.resp?.[k]||''} · due today ${it.dueToday.map(x=>x.title).join('; ')||'none'} · overdue ${it.overdue.map(x=>x.title+' (due '+dayKey(x.due)+')').join('; ')||'none'} · revisions ${it.revisions.map(x=>x.title).join('; ')||'none'} · waiting approval ${it.waiting.length}\n`; });
+    if(lgIsLeadGen(c)){ const m = lgMetrics(c.id); if(!m.loading) t += `Lead Gen: ${m.state} · ${m.todayN} today · ${m.weekN} this week · target ${m.goal.total||'—'}${m.goal.daily?' / '+m.goal.daily+' per day':''}${m.goal.deadline?' · deadline '+m.goal.deadline:''} · ${m.pending.length} to review\n`; }
+    out.push(t); });
+  return out.join('\n').slice(0, 40000);
+}
+const PA_SYSTEM = a => `You are ${a.name}, the operations assistant of project manager ${pname(a.pm)} at The Cross Core OPC (a Philippine virtual-assistance agency).
+You help ${first(a.pm)} coordinate VAs: draft task instructions, status updates for clients or leadership, follow-up messages for group chats, daily plans and reminders.
+Use ONLY the CONTEXT (${first(a.pm)}'s own clients). Never invent tasks, dates or numbers; say when something is missing. Be concise, friendly and clear; tag VAs as @Full Name when a message is for them.
+When you write a message meant for a group chat, put it under "### Message" so it can be posted after ${first(a.pm)} reviews it.`;
+function paConv(a){ let c = PA.conv && PA.conv.assistant===a.id ? PA.conv : null; if(!c) c = {id:null, assistant:a.id, msgs:[]}; PA.conv = c; return c; }
+function paChatHTML(a){
+  const conv = paConv(a); const list = aiConvs(a.id);
+  const sugg = ['Summarize today’s status for all my clients', 'Draft a status update for leadership', ...paClients(a).slice(0,2).map(c=>`Draft task instructions for ${c.name}’s VAs for tomorrow`)];
+  return `<div class="ai-page pa-chat"><aside class="ai-side"><button class="btn primary" style="width:100%;justify-content:center" onclick="PA.conv=null;RENDER.pa()">＋ New conversation</button>
+      <div class="ai-hist">${list.map(c=>`<button class="${conv.id===c.id?'on':''}" onclick="PA.conv=AICHATS.find(x=>x.id==='${c.id}');RENDER.pa()"><b>${esc(c.title)}</b><small>${ago(c.updatedAt)}</small></button>`).join('')||'<div class="hint" style="padding:8px">Saved conversations appear here.</div>'}</div></aside>
+    <section class="ai-main"><div class="cora-body ai-body" id="paBody">${conv.msgs.length ? conv.msgs.map((m,i)=>m.role==='user'?`<div class="cora-m user">${esc(m.text)}</div>`:`<div class="cora-row">${aiAva(a.id, 28)}<div class="cora-m assistant">${coraRender(m.text)}${m.note?`<small class="cora-note">${esc(m.note)}</small>`:''}<div class="cora-tools"><button onclick="coraCopy(this)">Copy</button><button onclick="paPostModal('${a.id}',${i})">Post in a group chat…</button></div></div></div>`).join('')
+      : `<div class="cora-hello">${aiAva(a.id, 56, true)}<b>Hi ${esc(first(PERSON))}! I'm ${esc(a.name)}.</b><p>I know ${esc(first(a.pm))}’s clients, VA assignments, deadlines and targets. I can draft task instructions, status updates and follow-ups — you review before anything is posted.</p><div class="cora-sugg">${sugg.map(s=>`<button onclick="paAsk(${esc(JSON.stringify(s))})">${esc(s)}</button>`).join('')}</div></div>`}
+      ${PA.busy?`<div class="cora-row">${aiAva(a.id,28)}<div class="cora-m assistant"><span class="spinner" style="display:inline-block;vertical-align:middle"></span> Drafting…</div></div>`:''}</div>
+      <div class="cora-in"><textarea id="paIn" rows="1" placeholder="Ask ${esc(a.name)} to draft instructions, a status update or a follow-up…" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();paAsk()}"></textarea><button class="btn primary" onclick="paAsk()" ${PA.busy?'disabled':''}>Ask</button></div></section></div>`;
+}
+async function paAsk(q){
+  const a = paSel(); if(!paCan(a) || PA.busy) return; q = (q ?? el('paIn')?.value ?? '').trim(); if(!q) return;
+  let conv = paConv(a); if(!conv.id){ conv = aiNewConv(a.id, {title:q.slice(0,60)}); PA.conv = conv; }
+  conv.msgs.push({role:'user', text:q, at:nowISO()}); PA.busy = true; if(el('paIn')) el('paIn').value=''; RENDER.pa();
+  const hist = conv.msgs.slice(-7,-1).map(m=>`${m.role==='user'?first(PERSON):a.name}: ${m.text}`).join('\n');
+  const res = await aiChat(PA_SYSTEM(a), `CONTEXT:\n${paContext(a)}\n\n${hist?'CONVERSATION SO FAR:\n'+hist+'\n\n':''}REQUEST: ${q}`);
+  let text = res.text, note = ''; if(!text){ text = paLocal(a, q); note = res.note + ' Showing a summary built from the records instead.'; }
+  conv.msgs.push({role:'assistant', text, note, at:nowISO()}); PA.busy = false; aiSaveConv(conv); RENDER.pa();
+}
+function paLocal(a, q){
+  const ql = q.toLowerCase(); const C = paClients(a); const named = C.filter(c=>ql.includes(c.name.toLowerCase().split(/[\s(]/)[0]));
+  const focus = named.length ? named : C;
+  const lines = focus.map(c=>{ const vas = paVAs(c.id); const L = vas.map(k=>{ const it = paItems(c.id, k); return `- @${pname(k)}: ${it.overdue.length} overdue, ${it.dueToday.length} due today, ${it.revisions.length} in revision, ${it.waiting.length} waiting approval`; });
+    const lg = lgIsLeadGen(c) ? lgMetrics(c.id) : null;
+    return `**${c.name}** [[C:${c.id}|workspace]]\n${L.join('\n')||'- No VAs assigned'}${lg&&!lg.loading?`\n- Lead Gen: ${lg.state} · ${lg.weekN} this week`:''}`; });
+  if(/instruction|task/.test(ql) && named.length===1){ const c = named[0]; const r = paReminderText(a, c, paCfg(a.id)); return `### Message\n${r.text.replace(/^Good morning, team! ☀️ Daily check-in/,'Hi team! Here are the instructions')}`; }
+  return `Status for ${first(a.pm)}’s clients (${mnlNow().date}):\n\n${lines.join('\n\n')}`;
+}
+function paPostModal(id, i){
+  const a = assistant(id); if(!paCan(a)) return; const m = paConv(a).msgs[i]; if(!m) return;
+  const mm = String(m.text).match(/###\s*Message\s*\n([\s\S]+)$/i); const text = (mm ? mm[1] : m.text).replace(/\[\[[A-Z]+:[^|\]]+\|([^\]]+)\]\]/g,'$1').trim();
+  const C = paClients(a).filter(c=>paChatFor(c) && (paChatFor(c).members||[]).includes(PERSON));
+  const guess = C.find(c=>text.toLowerCase().includes(c.name.toLowerCase().split(/[\s(]/)[0])) || C[0];
+  openModal(`Post as ${a.name}`, `<div class="pa-preview-h">${aiAva(a.id, 36)}<div><b>${esc(a.name)}</b><div class="hint">You reviewed this — it posts in the chosen group chat and notifies the VAs tagged with @.</div></div></div>
+    <div class="field"><label>Group chat</label><select id="paPostC">${C.map(c=>`<option value="${c.id}" ${c===guess?'selected':''}>${esc(c.name)}</option>`).join('')}</select></div>
+    <div class="field"><label>Message</label><textarea id="paPostT" rows="8">${esc(text)}</textarea></div><button class="btn primary" onclick="paPostCustom('${a.id}')" ${C.length?'':'disabled'}>Post in group chat</button>`);
+}
+function paPostCustom(id){
+  const a = assistant(id); const c = client(el('paPostC').value); const text = el('paPostT').value.trim(); if(!c || !text) return;
+  const ch = paChatFor(c); const to = findMentionsAll(text, ch);
+  const logId = uid('PL'); const r = paPost(a, c, text, to, 'custom', {msg:'M-'+logId, log:logId}, {reviewedBy:PERSON});
+  if(r!=='sent') return toast(r==='notmember' ? 'You are not a member of that group chat' : 'Could not post ('+r+')');
+  recordChange(); closeModal(); toast('Posted in '+c.name+' group chat');
+}
+function findMentionsAll(t, ch){ const ks = (ch?.members||[]).filter(k=>PEOPLE[k]).sort((x,y)=>pname(y).length-pname(x).length);
+  return ks.filter(k=>new RegExp('@'+reEsc(pname(k))+'(?![\\w])','i').test(t) || new RegExp('@'+reEsc(first(k))+'(?![\\w])','i').test(t)); }
+
+/* ---------- Administration: company heads rename / reassign assistants and set shared-client owners ---------- */
+function paAdminCard(){
+  if(!(isHead(PERSON) || isFullAccess())) return '';
+  const list = S().pmAssistants || DEFAULT_PM_ASSISTANTS; const pms = Object.keys(PEOPLE).filter(k=>PEOPLE[k].role==='manager' && activePeople().includes(k));
+  const shared = CLIENTS.filter(c=>!isEnded(c) && pmsOf(c.id).filter(k=>paForPM(k)).length>1);
+  return `<div class="card"><div class="card-h"><h3>PM operations assistants</h3><span class="sub">Rename, reassign or add an assistant</span></div><div class="card-b">
+    <div id="paAdm">${list.map((x,i)=>paAdmRow(x, i, pms)).join('')}</div>
+    <button class="btn" onclick="paAdmAdd()">＋ Add assistant for another PM</button> <button class="btn primary" onclick="paAdmSave()">Save assistants</button>
+    ${shared.length?`<div class="nav-label" style="padding:14px 0 6px">Shared clients — which assistant sends reminders</div>${shared.map(c=>`<div class="field" style="display:flex;gap:8px;align-items:center"><label style="flex:1;margin:0">${esc(c.name)}</label><select data-own="${c.id}">${pmsOf(c.id).filter(k=>paForPM(k)).map(k=>`<option value="${k}" ${paOwner(c.id)===k?'selected':''}>${esc(paForPM(k).name)}</option>`).join('')}</select></div>`).join('')}`:''}
+    <div class="hint" style="margin-top:8px">Each assistant only sees its PM’s clients. Reassigning moves the assistant (and its reminder settings) to the new PM.</div></div></div>`;
+}
+function paAdmRow(x, i, pms){ return `<div class="pa-adm" data-id="${esc(x.id)}"><img src="${faceURI(x.face||x.id)}" alt=""><input class="paAN" value="${esc(x.name)}" placeholder="Assistant name">
+  <select class="paAP">${pms.map(k=>`<option value="${k}" ${k===x.pm?'selected':''}>${esc(pname(k))}</option>`).join('')}${pms.includes(x.pm)?'':`<option value="${esc(x.pm)}" selected>${esc(pname(x.pm)||x.pm)}</option>`}</select>
+  <select class="paAF" onchange="this.parentNode.querySelector('img').src=faceURI(this.value==='auto'?this.parentNode.dataset.id:this.value)">${['tricia','yam','auto'].map(f=>`<option value="${f}" ${(x.face||'auto')===f?'selected':''}>${f==='auto'?'Own face':f==='tricia'?'Face A (bob, orange)':'Face B (long hair, green)'}</option>`).join('')}</select>
+  <label><input type="checkbox" class="paAOn" ${x.off?'':'checked'}> Active</label></div>`; }
+function paAdmAdd(){ const pms = Object.keys(PEOPLE).filter(k=>PEOPLE[k].role==='manager' && activePeople().includes(k)); const k = pms.find(p=>!paForPM(p)) || pms[0];
+  const id = 'pa-'+(k||'pm')+'-'+Date.now().toString(36).slice(-4); el('paAdm').insertAdjacentHTML('beforeend', paAdmRow({id, pm:k, name:`${first(k)}’s Assistant`, face:'auto'}, 0, pms)); }
+function paAdmSave(){
+  if(!(isHead(PERSON) || isFullAccess())) return;
+  const rows = [...document.querySelectorAll('#paAdm .pa-adm')].map(r=>({id:r.dataset.id, name:r.querySelector('.paAN').value.trim() || 'PM Assistant', pm:r.querySelector('.paAP').value, face:r.querySelector('.paAF').value==='auto' ? r.dataset.id : r.querySelector('.paAF').value, off:!r.querySelector('.paAOn').checked}));
+  const dup = rows.filter(r=>!r.off).map(r=>r.pm).find((p,i,a)=>a.indexOf(p)!==i); if(dup) return toast(`${pname(dup)} has two active assistants — keep one active`);
+  const s = SETTINGS.find(x=>x.id==='global') || (SETTINGS.push({...DEFAULT_SETTINGS, id:'global'}), SETTINGS.find(x=>x.id==='global'));
+  s.pmAssistants = rows; const owners = {...(s.paOwners||{})}; document.querySelectorAll('[data-own]').forEach(x=>owners[x.dataset.own] = x.value); s.paOwners = owners;
+  PACFG.forEach(c=>{ const a = rows.find(r=>r.id===c.id); if(a) c._pm = a.pm; });   /* re-save so the new PM can see the settings */
+  audit('Updated PM operations assistants: '+rows.map(r=>`${r.name} → ${pname(r.pm)}${r.off?' (inactive)':''}`).join(', '));
+  Object.keys(FACE_URI).forEach(k=>{ if(!FACES[k]) delete FACE_URI[k]; });
+  recordChange(); buildNav(); if(CURRENT==='settings') RENDER.settings(); toast('Assistants saved');
+}
+
+/* ===== 26_presence.js ===== */
+/* ================= EMPLOYEE PRESENCE — Online · Away · On Break · Off Duty =================
+   Online / Away comes from the live connection (Supabase Realtime presence; between tabs in demo mode).
+   On Break and Off Duty come from the person's own attendance actions (Start Break / End Break / Time Out).
+   Presence is display-only: it never creates or changes an attendance (payroll) record. */
+const PRES = {map:{}, live:false, idle:false, lastAct:Date.now(), ch:null, bc:null, key:null, t:null};
+const PRES_LABEL = {online:'Online', away:'Away — inactive', break:'On Break', offduty:'Off Duty', offline:'Offline'};
+const PRES_IDLE_MS = 10*60*1000;
+function presConnected(k){ const x = PRES.map[k]; if(!x) return null; if(!PRES.live && Date.now()-x.at > 70000) return null; return x; }
+function presStatus(k){
+  const p = PEOPLE[k]; if(!k || !p || p.role==='client' || p.teamOnly) return null;
+  const r = typeof attRec==='function' ? attRec(k) : null; const c = presConnected(k);
+  if(r?.out) return 'offduty';
+  if(r?.in && (r.breaks||[]).some(b=>!b.e)) return 'break';
+  if(c) return c.idle ? 'away' : 'online';
+  return 'offline';
+}
+function presLabel(k){ const s = presStatus(k); return s && s!=='offline' ? PRES_LABEL[s] : ''; }
+function presDot(k){ const s = presStatus(k); return s && s!=='offline' ? `<i class="pres-dot ${s}" title="${PRES_LABEL[s]}"></i>` : ''; }
+function presChip(k){ const s = presStatus(k); return s ? `<span class="pres-chip ${s}"><i></i>${PRES_LABEL[s]}</span>` : ''; }
+function presChanged(){ clearTimeout(PRES.t); PRES.t = setTimeout(()=>{ if(!PEOPLE[PERSON]) return; if(['chat','employees','attendance','dashboard','team','lgdash','pa'].includes(CURRENT)) scheduleRender(); }, 400); }
+
+async function presStart(){
+  if(!PEOPLE[PERSON] || ROLE==='client') return presStop();
+  if(PRES.key===PERSON && (PRES.ch || PRES.bc)) return;
+  presStop(); PRES.key = PERSON;
+  if(BACKEND?.mode==='live'){
+    PRES.live = true;
+    const ch = BACKEND.sb.channel('cc-presence', {config:{presence:{key:PERSON}}}); PRES.ch = ch;
+    ch.on('presence', {event:'sync'}, ()=>{ const st = ch.presenceState(); const m = {};
+      Object.entries(st).forEach(([k, arr])=>{ m[k] = {at:Date.now(), idle:(arr||[]).every(x=>x.idle)}; }); PRES.map = m; presChanged(); });
+    ch.subscribe(async s=>{ if(s==='SUBSCRIBED') await ch.track({idle:PRES.idle, at:Date.now()}); });
+  } else if('BroadcastChannel' in window){
+    PRES.live = false; PRES.bc = new BroadcastChannel('cc-presence');
+    PRES.bc.onmessage = e => { const d = e.data||{}; if(!d.k) return; if(d.gone) delete PRES.map[d.k]; else PRES.map[d.k] = {at:Date.now(), idle:!!d.idle}; if(d.hello) presBeat(); presChanged(); };
+    presBeat(true);
+  }
+  PRES.map[PERSON] = {at:Date.now(), idle:PRES.idle};
+}
+function presBeat(hello){ if(PRES.bc && PRES.key){ PRES.map[PRES.key] = {at:Date.now(), idle:PRES.idle}; PRES.bc.postMessage({k:PRES.key, idle:PRES.idle, hello:!!hello}); } }
+function presStop(){
+  if(PRES.ch){ try{ PRES.ch.untrack(); BACKEND.sb.removeChannel(PRES.ch); }catch(e){} PRES.ch = null; }
+  if(PRES.bc){ try{ PRES.bc.postMessage({k:PRES.key, gone:true}); PRES.bc.close(); }catch(e){} PRES.bc = null; }
+  if(PRES.key) delete PRES.map[PRES.key]; PRES.key = null;
+}
+function presSetIdle(v){ if(PRES.idle===v) return; PRES.idle = v; if(PRES.key) PRES.map[PRES.key] = {at:Date.now(), idle:v};
+  if(PRES.ch) PRES.ch.track({idle:v, at:Date.now()}).catch(()=>{}); presBeat(); presChanged(); }
+['mousemove','keydown','mousedown','touchstart','scroll'].forEach(ev=>window.addEventListener(ev, ()=>{ PRES.lastAct = Date.now(); if(PRES.idle) presSetIdle(false); }, {passive:true, capture:true}));
+document.addEventListener('visibilitychange', ()=>{ if(!document.hidden){ PRES.lastAct = Date.now(); presSetIdle(false); } });
+setInterval(()=>{ if(!PRES.key) return; if(Date.now()-PRES.lastAct > PRES_IDLE_MS) presSetIdle(true); presBeat();
+  Object.keys(PRES.map).forEach(k=>{ if(!PRES.live && Date.now()-PRES.map[k].at > 70000){ delete PRES.map[k]; presChanged(); } }); }, 15000);
+window.addEventListener('pagehide', ()=>presStop());
+/* start / switch whenever the signed-in person changes */
+{ const _sp = setPerson; setPerson = function(p){ _sp(p); setTimeout(presStart, 50); }; }
+/* attendance changes of others arrive through the database → refresh the dots */
+{ const _ore = onRemoteEvent; onRemoteEvent = function(ev){ _ore(ev); if(ev.coll==='attendance') presChanged(); }; }
+
+/* ===== 27_emoji.js ===== */
+/* ================= EMOJIS IN CHATS — picker + reactions =================
+   The same emoji picker in private messages, group chats and client chats, for every portal.
+   Reactions are separate small records (one per person, message and emoji) scoped to the chat, so two people
+   reacting at the same time never overwrite each other and only the chat's members can see them. */
+const EMOJI_SETS = [
+  ['Smileys', '😀 😃 😄 😁 😆 😅 😂 🤣 🙂 😉 😊 😇 🥰 😍 🤩 😘 😋 😜 🤪 🤗 🤭 🤔 🤐 😐 😶 😏 😌 😴 😎 🤓 🥳 😲 😳 🥺 😢 😭 😤 😡 🤯 😱 🙄 😬 🤞'],
+  ['Gestures', '👍 👎 👌 ✌️ 🤟 🤙 👋 👏 🙌 🙏 💪 👊 ✊ 🤝 👀 🫶 ☝️ 👉 👈 👆 👇 ✍️'],
+  ['Hearts', '❤️ 🧡 💛 💚 💙 💜 🖤 🤍 💖 💕 💯 ✨ 🔥 ⭐ 🌟 💫'],
+  ['Celebrate', '🎉 🎊 🥂 🍾 🎂 🎁 🏆 🥇 🎯 🚀 📈 💰 💡 ✅ ☑️ ❗ ❓ ⚠️ ⏰ ⏳'],
+  ['Work', '💻 📱 📧 📝 📌 📎 📅 🗓️ 📊 📣 📢 💬 🗨️ 🔗 🔍 📷 🎥 🎨 ✂️ 🧾 ☕'],
+  ['Nature & food', '🌞 🌈 ☀️ 🌙 🌸 🌺 🌿 🍀 🌴 🌊 🍕 🍔 🍟 🍩 🍪 🍫 🍎 🍉 🥤 🧋'],
+];
+const EMOJI_QUICK = ['👍','❤️','😂','🎉','😮','🙏'];
+const EMOJI_NAMES = {'👍':'thumbs up like yes ok','❤️':'heart love','😂':'laugh lol joy','🎉':'party congrats celebrate','🙏':'thanks please pray','🔥':'fire hot lit','✅':'done check yes','👏':'clap applause','😊':'smile happy','😢':'sad cry','😮':'wow surprised','💯':'hundred perfect','🚀':'rocket launch','💡':'idea','⏰':'alarm time deadline','📅':'calendar date','☕':'coffee break','👀':'eyes looking','🤝':'deal handshake','💪':'strong','😅':'sweat phew','🥳':'party','🙌':'hooray','😍':'love eyes','🤔':'thinking hmm','👋':'wave hi hello bye'};
+let EMOJI_BOX = null;
+function emojiClose(){ EMOJI_BOX?.remove(); EMOJI_BOX = null; document.removeEventListener('mousedown', emojiOutside, true); }
+function emojiOutside(e){ if(EMOJI_BOX && !EMOJI_BOX.contains(e.target) && !e.target.closest?.('[data-emoji-btn]')) emojiClose(); }
+function emojiOpen(btn, onPick, opts={}){
+  if(EMOJI_BOX){ const same = EMOJI_BOX._btn===btn; emojiClose(); if(same) return; }
+  const box = document.createElement('div'); box.className = 'emoji-box'; box._btn = btn; EMOJI_BOX = box;
+  const draw = q => { q = (q||'').trim().toLowerCase();
+    const sets = q ? [['Results', EMOJI_SETS.flatMap(s=>s[1].split(' ')).filter(e=>(EMOJI_NAMES[e]||'').includes(q)).join(' ')]] : EMOJI_SETS;
+    box.querySelector('.emoji-grid').innerHTML = sets.map(([n, list])=>`<div class="emoji-h">${n}</div><div class="emoji-row">${list.split(' ').filter(Boolean).map(e=>`<button type="button" data-e="${e}">${e}</button>`).join('')||'<span class="hint">No match</span>'}</div>`).join(''); };
+  box.innerHTML = `${opts.quick?`<div class="emoji-quick">${EMOJI_QUICK.map(e=>`<button type="button" data-e="${e}">${e}</button>`).join('')}</div>`:''}<input class="emoji-search" placeholder="Search emoji (e.g. thanks, party, done)"><div class="emoji-grid"></div>`;
+  document.body.appendChild(box); draw('');
+  const r = btn.getBoundingClientRect(); const w = 320, h = Math.min(360, box.offsetHeight||360);
+  box.style.left = Math.max(8, Math.min(window.innerWidth-w-8, r.left + (opts.alignRight ? r.width - w : 0)))+'px';
+  box.style.top = (r.top - h - 8 > 8 ? r.top - h - 8 : r.bottom + 8)+'px';
+  box.querySelector('.emoji-search').oninput = e => draw(e.target.value);
+  box.onclick = e => { const b = e.target.closest('button[data-e]'); if(!b) return; onPick(b.dataset.e); if(!opts.keepOpen) emojiClose(); };
+  setTimeout(()=>document.addEventListener('mousedown', emojiOutside, true), 0);
+  if(!opts.quick) setTimeout(()=>box.querySelector('.emoji-search')?.focus(), 30);
+}
+function insertAtCursor(inp, text){ if(!inp) return; const s = inp.selectionStart ?? inp.value.length, e = inp.selectionEnd ?? s;
+  inp.value = inp.value.slice(0,s) + text + inp.value.slice(e); inp.focus(); const p = s + text.length; try{ inp.setSelectionRange(p, p); }catch(_){} inp.dispatchEvent(new Event('input')); }
+const emojiBtn = (target, extra='') => `<button class="btn emoji-btn" type="button" data-emoji-btn title="Add an emoji" onclick="emojiOpen(this, e=>insertAtCursor(el('${target}'), e))" ${extra}>😊</button>`;
+
+/* ---------- reactions ---------- */
+let REACTIONS = [];
+COLL.reactions = {get:()=>REACTIONS, set:v=>REACTIONS=v, scope:r=>r.chat};
+const ecode = e => [...e].map(c=>c.codePointAt(0).toString(16)).join('-');
+function reactionsFor(mid){ return REACTIONS.filter(r=>r.msg===mid); }
+function reactSig(mid){ return reactionsFor(mid).map(r=>r.person+r.emoji).sort().join(','); }
+function toggleReaction(mid, emoji){
+  const m = MESSAGES.find(x=>x.id===mid); if(!m) return;
+  const c = CHATS.find(x=>x.id===m.chat); if(!c || !(c.members||[]).includes(PERSON)) return;
+  if(c.archived && !canPostEnded(c)) return toast('This chat is archived — read-only');
+  const id = `${mid}|${PERSON}|${ecode(emoji)}`;
+  if(REACTIONS.some(r=>r.id===id)) REACTIONS = REACTIONS.filter(r=>r.id!==id);
+  else { REACTIONS.push({id, msg:mid, chat:m.chat, person:PERSON, emoji, at:nowISO()});
+    if(m.by!==PERSON && PEOPLE[m.by] && !isAssistantKey(m.by) && c.kind==='dm') notify(m.by, 'message', `${esc(first(PERSON))} reacted ${emoji} to your message`, {view:'chat', arg:c.id}); }
+  recordChange(); if(CURRENT==='chat') RENDER.chat(); else if(CURRENT==='cchat') RENDER.cchat();
+}
+function reactionsHTML(m){
+  const R = reactionsFor(m.id); if(!R.length) return '';
+  const g = {}; R.forEach(r=>(g[r.emoji]=g[r.emoji]||[]).push(r.person));
+  return `<div class="reacts">${Object.entries(g).map(([e, who])=>`<button class="react ${who.includes(PERSON)?'mine':''}" title="${esc(who.map(k=>k===PERSON?'You':pname(k)).join(', '))}" onclick="toggleReaction('${m.id}','${e}')">${e} <b>${who.length}</b></button>`).join('')}</div>`;
+}
+function reactBtnHTML(m){ if(m.sys || m.kind==='call') return ''; return ` <button class="react-add" data-emoji-btn title="React" onclick="emojiOpen(this, e=>toggleReaction('${m.id}', e), {quick:true})">☺+</button>`; }
 
 CC_BOOT();
 </script>

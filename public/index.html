@@ -641,6 +641,8 @@ body.client-mode #annBtn,body.client-mode .role-switch #roleSwitchLbl{display:no
 .cora-note{display:block;margin-top:6px;font-size:11px;color:var(--ink-3)}
 .cora-hello p{font-size:13px;color:var(--ink-2);margin:6px 0 10px}
 .cora-sugg{display:flex;flex-direction:column;gap:6px}
+.cora-off{margin:10px 0 4px;padding:9px 11px;border-radius:10px;background:var(--warn-bg,#FFF4E0);color:var(--ink,#1b1712);font-size:12.5px;line-height:1.45;text-align:left}
+.cora-off a{font-weight:600;color:inherit;text-decoration:underline}
 .cora-sugg button{text-align:left;padding:8px 11px;border:1px solid var(--line);border-radius:10px;font-size:12.5px;background:var(--panel)}
 .cora-sugg button:hover{border-color:var(--brand-2)}
 .cora-in{display:flex;gap:8px;padding:10px;border-top:1px solid var(--line)}
@@ -7739,7 +7741,7 @@ function financeAdminCard(){
     ${live?`<div class="grid cols-2"><div class="field"><label>Provider</label><select id="aiProv"><option value="gemini">Google Gemini — free tier</option><option value="anthropic">Anthropic Claude</option><option value="openai">OpenAI</option></select></div>
       <div class="field"><label>Model (optional)</label><input id="aiModel" placeholder="default"></div></div>
       <div class="field"><label>API key</label><input id="aiKey" type="password" placeholder="Paste the key — stored on the server only"></div>
-      <button class="btn" onclick="saveAiKey()">Save Cora settings</button>
+      <button class="btn primary" onclick="saveAiKey()">Save & test Cora</button> <button class="btn" onclick="testAiKey()">Test connection</button>
       <div class="hint" style="margin-top:6px">Free option: create a Gemini API key at aistudio.google.com. Cora answers VAs' questions, drafts SOPs (“Draft SOP with Cora”) and suggests captions. Without a key, Cora still finds records and links, and PMs get a built-in SOP draft.</div>`:''}
   </div></div>`;
 }
@@ -7751,8 +7753,19 @@ async function refreshAiAdmin(){ const b=el('aiStatus'); if(!b || BACKEND.mode!=
 async function saveAiKey(){
   const body = {action:'ai_config', provider:el('aiProv').value, model:el('aiModel').value.trim()}; const k = el('aiKey').value.trim(); if(k) body.key = k;
   const {data, error} = await BACKEND.sb.functions.invoke('cc-admin', {body}); if(error || data?.error) return toast('Could not save: '+(data?.error||error.message));
-  el('aiKey').value=''; toast(data.configured?'Cora connected':'Saved'); refreshAiAdmin();
+  el('aiKey').value=''; if(typeof CORA!=='undefined') CORA.aiOk = null;
+  if(!data.configured){ toast('Saved'); return refreshAiAdmin(); }
+  /* check the key really works before saying so */
+  const b = el('aiStatus'); if(b) b.innerHTML = '<span class="hint">Status</span><span class="spinner" style="display:inline-block"></span> Testing the connection…';
+  const t = await aiChat('You are a connection test. Reply with the single word OK.', 'Test');
+  if(t.text){ toast('Cora connected — AI answers are on'); if(typeof CORA!=='undefined') CORA.aiOk = true; return refreshAiAdmin(); }
+  if(b) b.innerHTML = `<span class="hint">Status</span><span class="badge b-missed">Key saved, but the test failed</span> <span class="hint">${esc(t.note||'')} Check the key and the provider, then save again.</span>`;
+  toast('The AI provider did not answer — check the key');
 }
+async function testAiKey(){ const b = el('aiStatus'); if(b) b.innerHTML = '<span class="hint">Status</span><span class="spinner" style="display:inline-block"></span> Testing…';
+  const t = await aiChat('You are a connection test. Reply with the single word OK.', 'Test');
+  if(t.text){ toast('Working — Cora is answering'); return refreshAiAdmin(); }
+  if(b) b.innerHTML = `<span class="hint">Status</span><span class="badge b-missed">Not answering</span> <span class="hint">${esc(t.note||'')}</span>`; }
 
 function setPayAttFrom(d){ let g = SETTINGS.find(x=>x.id==='global'); if(!g){ g={...DEFAULT_SETTINGS}; SETTINGS.push(g); } g.payAttFrom = d||null;
   audit(`Payroll: time-ins checked from ${d||'the start of each period'}`); recordChange(); RENDER.finance(); toast(d?`Missing time-ins are checked from ${dLong(d)}`:'Checking every scheduled day'); }
@@ -9298,8 +9311,15 @@ function coraSuggest(){
   s.push('How do I submit content for PM approval?', 'What are the latest Instagram trends for small businesses?');
   return s.slice(0,5);
 }
+async function coraCheckAI(){
+  if(CORA.aiOk!=null || CORA.aiChecking || BACKEND?.mode!=='live') return; CORA.aiChecking = true;
+  try{ const d = await aiInvoke({action:'ai_status'}); CORA.aiOk = !!d?.configured; }catch(e){ CORA.aiOk = null; }
+  CORA.aiChecking = false; if(CORA.open && !coraConv().msgs.length) coraRedraw();
+}
 function coraHello(){
-  return `<div class="cora-hello">${aiAva('cora', 56, true)}<b>Hi ${esc(first(PERSON))}, I'm Cora.</b><p>Your Cross Core assistant. Ask me about the company, our clients and processes, or your own work — and I'm happy to research anything else for you. Pwede rin sa Taglish.</p><div class="cora-sugg">${coraSuggest().map(s=>`<button onclick="coraAsk(${esc(JSON.stringify(s))})">${esc(s)}</button>`).join('')}</div></div>`;
+  coraCheckAI();
+  const off = CORA.aiOk===false ? `<div class="cora-off">${coraCanConnect() ? `AI answers are off — I can only search Cross Core records. <a href="#" onclick="coraToggle(false);go('settings');return false">Connect in Administration →</a>` : 'AI answers are off for now — I can search Cross Core records. JA or Pau can switch full answers on.'}</div>` : '';
+  return `<div class="cora-hello">${aiAva('cora', 56, true)}<b>Hi ${esc(first(PERSON))}, I'm Cora.</b><p>Your Cross Core assistant. Ask me about the company, our clients and processes, or your own work — and I'm happy to research anything else for you. Pwede rin sa Taglish.</p>${off}<div class="cora-sugg">${coraSuggest().map(s=>`<button onclick="coraAsk(${esc(JSON.stringify(s))})">${esc(s)}</button>`).join('')}</div></div>`;
 }
 function coraMsgHTML(m){
   if(m.role==='user') return `<div class="cora-m user">${esc(m.text)}</div>`;
@@ -9407,14 +9427,36 @@ async function coraAsk(q, inputId){
   const res = await aiStream(CORA_SYSTEM, prompt, t=>{ if(!tFirst) tFirst = performance.now(); ans.text = t; coraLiveUpdate(); });
   let note = '';
   if(res.text){ ans.text = res.text; if(webNote && CORA.research==='on') note = webNote; }
-  else { note = (res.note||'') + (res.note ? ' Here’s what I found in the records meanwhile.' : ''); await coraType(ans, coraLocal(q, ctx, web)); }
+  else {
+    const general = !ctx.named && !ctx.clients.length && CORA_WEB_RX.test(q) && !CORA_INTERNAL_RX.test(q);
+    const lo = {general, off:/not connected/i.test(res.note||''), found:false};
+    const txt = coraLocal(q, ctx, web, lo);
+    if(lo.off) CORA.aiOk = false;
+    note = general ? '' : (res.note||'') + (res.note && lo.found ? ' Here’s what I found in the records meanwhile.' : '');
+    await coraType(ans, txt); }
+  if(res.text) CORA.aiOk = true;
   Object.assign(ans, {streaming:false, note, web, ai:!!res.text, ms:{ctx:Math.round(t1-t0), web:Math.round(t2-t1), first:tFirst?Math.round(tFirst-t0):null, total:Math.round(performance.now()-t0)}});
   CORA.busy = false; CORA.live = null; aiSaveConv(conv); coraRedraw();
   el(inputId||'coraIn')?.focus();
 }
 /* without the AI provider: a friendly summary of the matching records */
-function coraLocal(q, ctx, web=[]){
+/* the AI connection is needed for general questions (trends, ideas, how-tos outside our records) */
+const coraCanConnect = () => typeof isSysAdmin==='function' && isSysAdmin() && isExec();
+function coraNoAI(tl, off){
+  if(BACKEND?.mode!=='live') return tl ? 'Walang AI connection ang demo copy na ito, kaya Cross Core records lang ang kaya kong i-search. Sa live portal, sasagutin ko ang general questions na tulad nito kapag naka-connect na ang AI provider.'
+    : 'This demo copy has no AI connection, so I can only search Cross Core records here. On the live portal I answer general questions like this once the AI provider is connected.';
+  if(!off) return tl ? 'Hindi ko ma-reach ang AI service ko ngayon, kaya hindi ko pa masagot ang general questions na tulad nito. Subukan ulit after a minute — kung ganito pa rin, i-check ng company head ang **Administration → Finance & Cora**.'
+    : 'I couldn’t reach my AI service just now, so I can’t answer general questions like this one at the moment. Please try again in a minute — if it keeps happening, a company head can check **Administration → Finance & Cora**.';
+  if(coraCanConnect()) return tl ? 'General question ito, kaya kailangan ko ang AI connection para masagot nang maayos — pero hindi pa ito naka-on, kaya Cross Core records lang ang kaya kong i-search ngayon.\n\nPwede mo itong i-connect sa [[PAGE:settings|Administration → Finance & Cora]] — libre ang Google Gemini key mula sa aistudio.google.com. Pagka-save, sasagutin ko na ang mga tanong na tulad nito (pati ang Marcus at PM assistants).'
+    : 'That’s a general question, so I need my AI connection to answer it well — and it isn’t switched on yet, so right now I can only search our Cross Core records.\n\nYou can connect it in [[PAGE:settings|Administration → Finance & Cora]] — a free Google Gemini key from aistudio.google.com works. Once it’s saved, I’ll answer questions like this (and Marcus and the PM assistants will write full drafts too).';
+  return tl ? 'General question ito, kaya kailangan ko ang AI connection para masagot nang maayos — at hindi pa ito naka-on, kaya Cross Core records lang ang kaya kong i-search ngayon. Pakisabi kay JA o Pau na i-connect ito sa Administration. 🙏'
+    : 'That’s a general question, so I need my AI connection to answer it well — and it isn’t switched on yet, so right now I can only search our Cross Core records. Please ask JA or Pau to connect it in Administration. 🙏';
+}
+function coraLocal(q, ctx, web=[], lo={}){
   const ql = q.toLowerCase(); const tl = coraTaglish(q); const L = [];
+  if(lo.general){ lo.found = !!web.length;
+    const w = web.slice(0,5).map(x=>`- [[${x.link}|${x.title||x.link}]]${x.snippet?' — '+coraTrim(x.snippet, 160):''}`).join('\n');
+    return coraNoAI(tl, lo.off) + (w ? (tl ? '\n\n**Mga sources mula sa web habang wala pa:**\n' : '\n\n**Meanwhile, here are sources from the web:**\n') + w : ''); }
   if(/task|today|work on|focus|deadline|due|overdue|priority|next|gagawin|trabaho/.test(ql)){
     const T = TASKS.filter(t=>t.assignee===PERSON && !['Completed','Approved'].includes(t.status)).sort((a,b)=>(a.due||0)-(b.due||0)).slice(0,6);
     L.push(T.length ? (tl?'**Mga open tasks mo**\n':'**Your open tasks**\n')+T.map(t=>`- [[T:${t.id}|${t.title}]] · ${cname(t.client)} · ${t.status} · due ${t.due?fmt(new Date(t.due)):'—'}${t.due&&new Date(t.due)<TODAY?' — overdue':''}`).join('\n') : (tl?'Wala kang open tasks sa Content Board ngayon. 🎉':'You have no open tasks on the Content Board right now. 🎉'));
@@ -9437,6 +9479,7 @@ function coraLocal(q, ctx, web=[]){
   if(/team|who (is|are)|sino|structure/.test(ql) && !ctx.clients.length){ const t = (ctx.hits||[]).find(d=>d.id==='team'); if(t) L.push(`**Team structure** — [[PAGE:knowledge|Team structure]]\n${kbSnippet(t, q)}`); }
   if(/policy|policies|process|rule|how do i|procedure|paano/.test(ql)){ const co = coraCompany(); if(co.policies && !L.length) L.push(`**Ways of working**\n${co.policies}`); }
   if(web.length) L.push((tl?'**Mula sa web**\n':'**From the web**\n')+web.slice(0,5).map(w=>`- [[${w.link}|${w.title||w.link}]]${w.snippet?' — '+coraTrim(w.snippet, 160):''}`).join('\n'));
+  lo.found = L.length>0;
   if(!L.length) return tl ? 'Hmm, wala pa akong nakikitang info tungkol diyan sa Cross Core records natin — baka hindi pa ito naidadagdag. Pwede mong itanong sa PM mo o sa HR, o i-add ito ng company head sa Company Knowledge.'
     : 'I couldn’t find that in our Cross Core records yet — it may not have been added. Your PM or HR can confirm, and a company head can add it to Company Knowledge.';
   return (tl ? 'Eto ang nakita ko sa Cross Core records:\n\n' : 'Here’s what I found in our Cross Core records:\n\n') + L.join('\n\n');

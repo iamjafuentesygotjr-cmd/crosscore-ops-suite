@@ -909,6 +909,25 @@ body.es-open{overflow:hidden}
 .tr-ann-b b{font-size:14px}.tr-ann-b p{margin:0;font-size:12.5px;color:var(--ink-2)}
 @media (max-width:640px){.tr-ann{flex-direction:column}.tr-ann .tr-thumb{width:100%}.tr-grid{grid-template-columns:1fr}}
 </style>
+<style>
+/* ---------- ICP & Creator Lists ---------- */
+.pr-clinks{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:-4px 0 12px}
+.pr-tabs .tab .pill{margin-left:6px;background:var(--line-2);color:var(--ink-2);border-radius:99px;padding:1px 7px;font-size:11px}
+.pr-bar{display:flex;flex-direction:column;gap:10px;margin-bottom:12px}
+.pr-acts{display:flex;gap:8px;flex-wrap:wrap}
+.pr-filters{display:flex;gap:8px;flex-wrap:wrap}
+.pr-filters input{flex:1 1 220px;min-width:0;padding:8px 12px;border:1px solid var(--line);border-radius:10px;background:var(--panel);color:var(--ink);font:inherit}
+.pr-filters select{padding:7px 10px;border:1px solid var(--line);border-radius:10px;background:var(--panel);color:var(--ink);font:inherit;font-size:12.5px}
+.pr-warn{background:var(--warn-bg);color:var(--warn);border-radius:10px;padding:9px 12px;font-size:12.5px;margin-bottom:12px}
+.pr-tbl td{vertical-align:middle;font-size:12.5px}
+.pr-link{color:var(--info);font-weight:600;text-decoration:none;white-space:nowrap}
+.pr-link:hover{text-decoration:underline}
+.pr-fol{font-variant-numeric:tabular-nums;font-weight:700}
+.pr-fol.unk{color:var(--warn)}
+.pr-st{padding:4px 6px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--ink);font:inherit;font-size:12px}
+.pr-note{display:inline-block;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink-2)}
+.pr-rev-sum{display:flex;gap:14px;flex-wrap:wrap;font-size:12.5px;margin-bottom:10px;padding:8px 12px;border:1px solid var(--line);border-radius:10px;background:var(--panel-2)}
+</style>
 </head>
 <body>
 <div class="login" id="login">
@@ -1042,6 +1061,7 @@ body.es-open{overflow:hidden}
     <div id="v-pa" class="view"></div>
     <div id="v-knowledge" class="view"></div>
     <div id="v-training" class="view"></div>
+    <div id="v-prospects" class="view"></div>
     <div id="v-cportal" class="view"></div>
     <div id="v-cprospects" class="view"></div>
     <div id="v-cactivity" class="view"></div>
@@ -4808,7 +4828,9 @@ function clientLeadsTab(c){
       <td>${av(P(i.assignee))} ${esc(first(i.assignee))}</td>
       <td style="text-align:right;white-space:nowrap"><button class="btn" style="padding:5px 10px;font-size:12px" onclick="icpModal('${c.id}','${i.id}')">Edit</button>
       <button class="btn" style="padding:5px 10px;font-size:12px" onclick="archICP('${i.id}')">Archive</button></td></tr>`).join('') || '<tr><td colspan="6" class="empty">No ICP entries — define target companies for outreach.</td></tr>'}
-      </tbody></table></div>`;
+      </tbody></table></div>
+    ${typeof prOf==='function' && navAllowed(NAV.find(n=>n.id==='prospects')) ? `<div class="card" style="margin-top:16px"><div class="card-h"><h3>ICP profiles & LinkedIn creators</h3><span class="sub">ICP List (0–15K followers): ${prOf(c.id,'icp').length} · Creator List (15K+): ${prOf(c.id,'creator').length}</span></div>
+      <div class="card-b" style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" onclick="PR.client='${c.id}';PR.list='icp';go('prospects')">Open ICP List</button><button class="btn" onclick="PR.client='${c.id}';PR.list='creator';go('prospects')">Open Creator List</button></div></div>` : ''}`;
 }
 function icpModal(cid, id){
   const i = id ? ICPS.find(x=>x.id===id) : null;
@@ -8843,17 +8865,21 @@ function kind(u){ const s = String(u).toLowerCase();
   return 'Not a LinkedIn profile link'; }
 const nameFromLink = u => normLI(u).split('/').pop().replace(/[-_]+/g,' ').replace(/\\b[a-z0-9]*\\d[a-z0-9]*\\b/gi,'').replace(/\\s{2,}/g,' ').replace(/\\b\\w/g,m=>m.toUpperCase()).trim();
 function guess(h){ h = String(h||'').toLowerCase().trim();
+  if(/follower/.test(h)) return 'followers'; if(/company size|employees|headcount|team size|^size$/.test(h)) return 'size';
+  if(/industry|niche|sector|vertical/.test(h)) return 'industry'; if(/segment|icp|persona|tier/.test(h)) return 'segment';
   if(/linkedin|profile url|profile link|li url|li link/.test(h)) return 'linkedin'; if(/^first|given/.test(h)) return 'first'; if(/^last|surname|family/.test(h)) return 'last';
   if(/full ?name|^name$|contact name|^contact$|person|decision ?maker|prospect/.test(h)) return 'name'; if(/title|position|role|designation|headline/.test(h)) return 'title';
   if(/company|organi[sz]ation|employer|account|^org$/.test(h)) return 'company'; if(/^city/.test(h)) return 'city'; if(/country/.test(h)) return 'country';
   if(/location|region|state|address/.test(h)) return 'location'; if(/note|comment/.test(h)) return 'note'; return ''; }
 const looksName = n => /^\\p{Lu}[\\p{L}\\p{M}.'’-]*(?:\\s+\\p{Lu}[\\p{L}\\p{M}.'’-]*){1,4}$/u.test(String(n||'').trim()) && String(n).length<=60;
-let OUT, FAIL, SEEN, HAVE, STATS;
+let OUT, FAIL, SEEN, HAVE, STATS, ANY = false;
+const URL_ANY = /https?:\\/\\/[^\\s"'<>]+/i;
+const urlKey = u => String(u).toLowerCase().replace(/^https?:\\/\\/(www\\.)?/,'').replace(/[?#].*$/,'').replace(/\\/+$/,'');
 function reset(have){ OUT=[]; FAIL=[]; SEEN=new Map(); HAVE=new Set(have||[]); STATS={rows:0, links:0}; }
 function push(c, where){
-  const k = normLI(c.linkedin); STATS.links++;
+  const k = normLI(c.linkedin) || (c.url ? urlKey(c.url) : ''); STATS.links++;
   if(SEEN.has(k)){ FAIL.push({where, value:c.linkedin, reason:'Duplicate inside this file (first seen '+SEEN.get(k)+')', dupFile:true}); return; }
-  SEEN.set(k, where); c.linkedin = liURL(c.linkedin); c.where = where;
+  SEEN.set(k, where); c.linkedin = c.url && !normLI(c.linkedin) ? '' : liURL(c.linkedin); c.where = where;
   if(!c.name || c.name.length>80) c.name = nameFromLink(c.linkedin), c.nameFromLink = true;
   c.dupWs = HAVE.has(k); OUT.push(c);
 }
@@ -8873,6 +8899,7 @@ function rowsToCands(rows, sheet, links){
     if(!base.location) base.location = [city,country].filter(Boolean).join(', ');
     const found = []; row.forEach((v,i)=>{ linksIn(v).forEach(u=>found.push(u)); const L = links && links[r] && links[r][i]; if(L) linksIn(L).forEach(u=>found.push(u)); });
     const uniqFound = [...new Set(found.map(u=>u.replace(/[.,]+$/,'')))];
+    if(!uniqFound.length && ANY){ const any = row.map(v=>String(v??'').match(URL_ANY)).find(Boolean); if(any){ push({...base, context:note, linkedin:'', url:any[0].replace(/[.,]+$/,'')}, where); continue; } }
     if(!uniqFound.length){ FAIL.push({where, value:[base.name, base.company].filter(Boolean).join(' · ').slice(0,80) || String(row.filter(Boolean)[0]||'').slice(0,80), reason:'No LinkedIn link in this row'}); continue; }
     let used = false;
     uniqFound.forEach(u=>{ const k = kind(u); if(k!=='profile'){ FAIL.push({where, value:u.slice(0,160), reason:k}); return; }
@@ -8893,12 +8920,12 @@ function scanText(txt, label){
   });
 }
 self.onmessage = async (e) => {
-  const {kind:k, buf, text, name, have, libs} = e.data;
-  reset(have);
+  const {kind:k, buf, text, name, have, libs, any} = e.data;
+  reset(have); ANY = !!any;
   try{
     if(k==='sheet'){
       importScripts(libs.xlsx);
-      const wb = XLSX.read(buf, {type:'array', cellHTML:false, dense:false});
+      const wb = XLSX.read(buf, {type:'array', cellHTML:false, dense:false, raw:/\\.(csv|tsv|txt)$/i.test(name||'')});  /* CSV: keep text as typed ("1-10" is not a date) */
       wb.SheetNames.forEach((sn, si)=>{
         const ws = wb.Sheets[sn]; if(!ws || !ws['!ref']) return;
         const rg = XLSX.utils.decode_range(ws['!ref']); const rows = []; const links = [];
@@ -11313,6 +11340,271 @@ function trAdminCard(){
     <div class="hint" style="margin-bottom:8px">Company heads, HR and project managers can always upload trainings and choose their audience (${auto.map(first).join(', ')}). Add department heads or other trusted people here:</div>
     <div class="chipsel" id="setTrain">${trStaff().filter(k=>!auto.includes(k)).map(k=>`<label><input type="checkbox" value="${k}" ${cur.includes(k)?'checked':''}>${esc(pname(k))}</label>`).join('')}</div>
     <button class="btn primary" style="margin-top:10px" onclick="saveSettings('training')">Save uploaders</button></div></div>`;
+}
+
+/* ===== 31_prospects.js ===== */
+/* ================= ICP LIST (0–15K followers) & LINKEDIN CREATOR LIST (15K+) — per client =================
+   Two separate lists for every client, built by the client's VAs through system search, file upload or manual entry.
+   The follower count decides the list: under 15,000 → ICP List; 15,000 or more → Creator List. If a profile is added
+   to the wrong list, it is moved automatically and the VA is told. One profile appears only once per client (across
+   both lists). Records are visible to the client's team, its PM(s) and company heads — the same audience as the
+   client's Lead Gen records, enforced by the live database. */
+let PROSPECTS = [];
+COLL.prospects = {get:()=>PROSPECTS, set:v=>PROSPECTS=v, aud:p=>lgAud(p.client)};
+{ const at = NAV.findIndex(n=>n.id==='leads'); NAV.splice(at+1, 0, {id:'prospects', name:'ICP & Creator Lists', roles:['employee','manager','ceo','coo','creative'], work:['Lead Generation','ICP Research','Engagement','Creator Research'], ico:I.users}); }
+
+const PR_SPLIT = 15000;
+const PR_LISTS = {icp:{name:'ICP List', range:'0–15K followers', short:'ICP'}, creator:{name:'LinkedIn Creator List', range:'15K+ followers', short:'Creator'}};
+const PR_STATUS = ['New','Qualified','Contacted','Connected','Engaged','Not a fit'];
+const PR_SEGMENTS = {icp:['Decision maker','Potential client','Referral partner','Peer','Other'], creator:['Industry creator','Thought leader','Potential partner','Collaboration target','Other']};
+const PR_SIZES = ['1–10','11–50','51–200','201–500','501–1,000','1,001–5,000','5,001+'];
+const PR_RANGES = {icp:[['','Any followers'],['0-1000','Under 1K'],['1000-5000','1K–5K'],['5000-15000','5K–15K'],['none','Followers unknown']],
+  creator:[['','Any followers'],['15000-50000','15K–50K'],['50000-100000','50K–100K'],['100000-1e12','100K+'],['none','Followers unknown']]};
+const PR = {client:null, list:'icp', q:'', status:'', va:'', seg:'', range:'', show:200, rev:null, t:null};
+
+/* ---------- helpers ---------- */
+const prClients = () => coraClients().filter(c=>!isEnded(c)).sort((a,b)=>a.name.localeCompare(b.name));
+function prFollowers(v){
+  if(v===null || v===undefined) return null; if(typeof v==='number') return isFinite(v) ? Math.round(v) : null;
+  const s = String(v).replace(/followers?/i,'').trim(); if(!s) return null;
+  const m = s.replace(/,/g,'').match(/^([\d.]+)\s*([kKmM])?\+?$/); if(!m) return null;
+  const n = parseFloat(m[1]) * (m[2] ? (/k/i.test(m[2]) ? 1e3 : 1e6) : 1); return isFinite(n) ? Math.round(n) : null;
+}
+const prFollowersFromText = t => { const m = String(t||'').match(/([\d.,]+\s*[KkMm]?)\+?\s+followers/); return m ? prFollowers(m[1]) : null; };
+const prFmt = n => n==null ? '—' : n>=1e6 ? (n/1e6).toFixed(n>=1e7?0:1).replace(/\.0$/,'')+'M' : n>=1e3 ? (n/1e3).toFixed(n>=1e4?0:1).replace(/\.0$/,'')+'K' : String(n);
+const prListFor = f => f==null ? null : f >= PR_SPLIT ? 'creator' : 'icp';
+const prKey = u => { const li = normLI(u); return li || String(u||'').toLowerCase().replace(/^https?:\/\/(www\.)?/,'').replace(/[?#].*$/,'').replace(/\/+$/,''); };
+const prHref = u => !u ? '' : /^https?:\/\//i.test(u) ? u : 'https://'+u.replace(/^\/+/,'');
+const prOf = (cid, list) => PROSPECTS.filter(p=>p.client===cid && (!list || p.list===list));
+const prCan = cid => !!cid && prClients().some(c=>c.id===cid);
+const prCanDelete = p => p.by===PERSON || p.va===PERSON || isExec() || isFullAccess() || pmsOf(p.client).includes(PERSON);
+const prTeam = cid => uniq([...lgVAs(cid), ...(client(cid)?.team||[])]).filter(k=>PEOPLE[k] && !HEADS.includes(k));
+function prClientLinks(cid){ const c = client(cid); const L = [...(c?.links||[]).filter(l=>l.url), ...(LEADCFG.find(x=>x.id===cid)?.links||[]).filter(l=>l.url)];
+  return uniq(L.map(l=>l.url)).map(u=>({url:u, label:(L.find(l=>l.url===u)?.platform||'') ? platName(L.find(l=>l.url===u).platform) : u.replace(/^https?:\/\/(www\.)?/,'').split('/')[0]})); }
+const prLinkSlug = u => { const m = String(u).match(/(?:linkedin\.com\/(?:company|in|showcase)\/|instagram\.com\/|tiktok\.com\/@?|facebook\.com\/|x\.com\/|twitter\.com\/|youtube\.com\/(?:@|c\/)?)([^/?#]+)/i);
+  return m ? decodeURIComponent(m[1]).replace(/[-_.]+/g,' ').replace(/\d{3,}/g,'').trim() : ''; };
+
+/* add profiles to a client's lists: routes by follower count, skips duplicates across both lists */
+function prAdd(cid, items, list, source){
+  const have = new Map(prOf(cid).map(p=>[prKey(p.linkedin), p])); const out = {added:0, moved:0, dups:[], movedNames:[]};
+  items.forEach(it=>{
+    const link = String(it.linkedin||it.url||'').trim(); const k = prKey(link); if(!k) return;
+    if(have.has(k)){ out.dups.push(it.name || link); return; }
+    const f = prFollowers(it.followers); const dest = prListFor(f) || list;
+    if(dest==='creator' && !normLI(link)){ (out.nolink = out.nolink||[]).push(it.name||link); return; }
+    if(dest!==list){ out.moved++; out.movedNames.push(it.name||link); }
+    const p = {id:uid('PR'), client:cid, list:dest, linkedin:normLI(link) ? liURL(link) : prHref(link), name:String(it.name||'').trim() || nameFromLink(link) || '', company:String(it.company||'').trim(),
+      industry:String(it.industry||'').trim(), title:String(it.title||'').trim(), size:String(it.size||'').trim(), location:String(it.location||'').trim(), followers:f,
+      segment:String(it.segment||'').trim(), status:it.status||'New', va:it.va || (prTeam(cid).includes(PERSON) ? PERSON : prTeam(cid)[0] || PERSON),
+      by:PERSON, at:nowISO(), notes:String(it.notes||it.context||'').trim(), source:source||'Manual'};
+    PROSPECTS.unshift(p); have.set(k, p); out.added++;
+  });
+  if(out.added) { audit(`Added ${out.added} profile${out.added===1?'':'s'} to ${cname(cid)}’s ICP / Creator lists (${source})`); recordChange(); }
+  return out;
+}
+function prResultToast(r, list){
+  const parts = [`${r.added} added`]; if(r.moved) parts.push(`${r.moved} moved to the ${list==='icp'?'Creator List (15K+ followers)':'ICP List (under 15K followers)'}`); if(r.dups.length) parts.push(`${r.dups.length} already in this client’s lists — skipped`); if(r.nolink?.length) parts.push(`${r.nolink.length} skipped — the Creator List needs a LinkedIn profile link`);
+  toast(parts.join(' · '));
+}
+
+/* ---------- the page ---------- */
+function prFiltered(cid){
+  const q = PR.q.trim().toLowerCase(); const [lo, hi] = PR.range && PR.range!=='none' ? PR.range.split('-').map(Number) : [null, null];
+  return prOf(cid, PR.list).filter(p=>(!q || [p.name, p.company, p.industry, p.title, p.location, p.segment, p.notes, p.linkedin].join(' ').toLowerCase().includes(q))
+    && (!PR.status || p.status===PR.status) && (!PR.va || p.va===PR.va) && (!PR.seg || p.segment===PR.seg)
+    && (PR.range!=='none' || p.followers==null) && (lo==null || (p.followers!=null && p.followers>=lo && p.followers<hi)));
+}
+RENDER.prospects = () => {
+  const keep = el('prQ') === document.activeElement;
+  const C = prClients(); if(!PR.client || !C.some(c=>c.id===PR.client)) PR.client = C[0]?.id || null;
+  const cid = PR.client; const c = client(cid);
+  if(!cid){ el('v-prospects').innerHTML = `<div class="page-head"><div><h2>ICP & Creator Lists</h2><p>ICP List (0–15K followers) and LinkedIn Creator List (15K+) for each client.</p></div></div><div class="empty">You have no assigned clients yet.</div>`; return; }
+  const all = prOf(cid, PR.list); const L = prFiltered(cid); const isC = PR.list==='creator';
+  const nI = prOf(cid,'icp').length, nC = prOf(cid,'creator').length; const unknown = all.filter(p=>p.followers==null).length;
+  const segs = uniq([...PR_SEGMENTS[PR.list], ...all.map(p=>p.segment)]).filter(Boolean);
+  const links = prClientLinks(cid);
+  const cols = isC ? ['LinkedIn profile','Name','Company','Niche / industry','Followers','Segment','Status','VA','Added','Notes','']
+    : ['Profile link','Name','Company','Industry','Job title / role','Company size','Location','Followers','Segment','Status','VA','Added','Notes',''];
+  const row = p => { const link = p.linkedin ? `<a class="pr-link" href="${esc(prHref(p.linkedin))}" target="_blank" rel="noopener" title="${esc(p.linkedin)}">${normLI(p.linkedin) ? 'in/'+esc(normLI(p.linkedin).split('/').pop()) : esc(p.linkedin.replace(/^https?:\/\/(www\.)?/,'').slice(0,30))} ↗</a>` : '—';
+    const fol = `<span class="pr-fol ${p.followers==null?'unk':''}" title="${p.followers==null?'Follower count not known yet — add it so the profile sits in the right list':p.followers.toLocaleString()+' followers'}">${p.followers==null?'?':prFmt(p.followers)}</span>`;
+    const st = `<select class="pr-st" onclick="event.stopPropagation()" onchange="prSet('${p.id}','status',this.value)">${PR_STATUS.map(s=>`<option ${p.status===s?'selected':''}>${s}</option>`).join('')}</select>`;
+    const cells = isC ? [link, `<b>${esc(p.name)}</b>`, esc(p.company), esc(p.industry), fol, esc(p.segment), st, esc(first(p.va)), dstr(p.at), `<span class="pr-note">${esc(p.notes)}</span>`]
+      : [link, `<b>${esc(p.name)}</b>`, esc(p.company), esc(p.industry), esc(p.title), esc(p.size), esc(p.location), fol, esc(p.segment), st, esc(first(p.va)), dstr(p.at), `<span class="pr-note">${esc(p.notes)}</span>`];
+    return `<tr><td>${cells.join('</td><td>')}</td><td style="white-space:nowrap"><button class="btn ghost" style="padding:4px 8px;font-size:12px" onclick="prEdit('${p.id}')">Edit</button>${prCanDelete(p)?`<button class="btn ghost" style="padding:4px 8px;font-size:12px;color:var(--bad)" onclick="prDelete('${p.id}')">✕</button>`:''}</td></tr>`; };
+  el('v-prospects').innerHTML = `<div class="page-head"><div><h2>ICP & Creator Lists</h2><p>Two separate lists per client: the <b>ICP List</b> for profiles with 0–15K followers and the <b>LinkedIn Creator List</b> for creators with 15K+ followers.</p></div>
+      <div class="field" style="margin:0;min-width:220px"><select onchange="PR.client=this.value;PR.show=200;RENDER.prospects()">${C.map(x=>`<option value="${x.id}" ${x.id===cid?'selected':''}>${esc(x.name)}</option>`).join('')}</select></div></div>
+    ${links.length?`<div class="pr-clinks"><span class="hint">${esc(c.name)}’s accounts:</span>${links.map(l=>`<a class="cl-link" href="${esc(prHref(l.url))}" target="_blank" rel="noopener">${esc(l.label)} ↗</a>`).join('')}</div>`:''}
+    <div class="tabs pr-tabs" style="margin-bottom:12px">${Object.entries(PR_LISTS).map(([k,v])=>`<button class="tab ${PR.list===k?'on':''}" onclick="PR.list='${k}';PR.seg='';PR.range='';PR.show=200;RENDER.prospects()">${v.name} <span class="hint">· ${v.range}</span> <span class="pill">${k==='icp'?nI:nC}</span></button>`).join('')}</div>
+    <div class="pr-bar">
+      <div class="pr-acts"><button class="btn primary" onclick="prSearch()">🔍 System search</button><button class="btn" onclick="prUpload()">⬆ Upload file</button><button class="btn" onclick="prEdit()">＋ Add manually</button><button class="btn ghost" onclick="prExport()">⬇ Export CSV</button></div>
+      <div class="pr-filters"><input id="prQ" placeholder="Search name, company, niche, notes…" value="${esc(PR.q)}" oninput="PR.q=this.value;clearTimeout(PR.t);PR.t=setTimeout(RENDER.prospects,160)">
+        <select onchange="PR.status=this.value;RENDER.prospects()"><option value="">Any status</option>${PR_STATUS.map(s=>`<option ${PR.status===s?'selected':''}>${s}</option>`).join('')}</select>
+        <select onchange="PR.range=this.value;RENDER.prospects()">${PR_RANGES[PR.list].map(([v,l])=>`<option value="${v}" ${PR.range===v?'selected':''}>${l}</option>`).join('')}</select>
+        <select onchange="PR.seg=this.value;RENDER.prospects()"><option value="">Any segment</option>${segs.map(s=>`<option ${PR.seg===s?'selected':''}>${esc(s)}</option>`).join('')}</select>
+        <select onchange="PR.va=this.value;RENDER.prospects()"><option value="">Any VA</option>${uniq(all.map(p=>p.va)).map(k=>`<option value="${k}" ${PR.va===k?'selected':''}>${esc(pname(k))}</option>`).join('')}</select></div></div>
+    ${unknown?`<div class="pr-warn">⚠ ${unknown} profile${unknown===1?' has':'s have'} no follower count yet. Add it (Edit) — a profile with ${isC?'fewer than 15K':'15K or more'} followers moves to the ${isC?'ICP List':'Creator List'} automatically.</div>`:''}
+    <div class="card"><div class="card-h"><h3>${PR_LISTS[PR.list].name} — ${esc(c.name)}</h3><span class="sub">${L.length} of ${all.length} shown${L.length>PR.show?` · first ${PR.show}`:''}</span></div>
+      <div class="tbl-wrap"><table class="tbl pr-tbl"><thead><tr>${cols.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>
+        ${L.slice(0, PR.show).map(row).join('') || `<tr><td colspan="${cols.length}" class="empty">${all.length?'No profiles match these filters.':`No ${isC?'creators':'ICP profiles'} yet — use System search, Upload file or Add manually.`}</td></tr>`}
+      </tbody></table></div>${L.length>PR.show?`<div style="text-align:center;padding:12px"><button class="btn" onclick="PR.show+=200;RENDER.prospects()">Show more</button></div>`:''}</div>`;
+  if(keep){ const i = el('prQ'); i.focus(); i.setSelectionRange(i.value.length, i.value.length); }
+};
+function prSet(id, f, v){ const p = PROSPECTS.find(x=>x.id===id); if(!p) return; p[f] = v; p.updatedAt = nowISO(); recordChange(); }
+function prDelete(id){ const p = PROSPECTS.find(x=>x.id===id); if(!p || !prCanDelete(p)) return; if(!confirm(`Remove ${p.name||'this profile'} from the ${PR_LISTS[p.list].name}?`)) return;
+  PROSPECTS = PROSPECTS.filter(x=>x.id!==id); recordChange(); RENDER.prospects(); toast('Removed'); }
+function prExport(){
+  const cid = PR.client; const isC = PR.list==='creator'; const L = prFiltered(cid);
+  const head = isC ? ['LinkedIn profile','Name','Company','Niche / industry','Followers','Segment','Status','VA','Date added','Notes'] : ['Profile link','Name','Company','Industry','Job title','Company size','Location','Followers','Segment','Status','VA','Date added','Notes'];
+  const rows = L.map(p=> isC ? [p.linkedin,p.name,p.company,p.industry,p.followers??'',p.segment,p.status,pname(p.va),dstr(p.at),p.notes] : [p.linkedin,p.name,p.company,p.industry,p.title,p.size,p.location,p.followers??'',p.segment,p.status,pname(p.va),dstr(p.at),p.notes]);
+  dlCSV([head, ...rows].map(r=>r.map(csvCell).join(',')).join('\n'), `${cname(cid)} ${PR_LISTS[PR.list].name}`);
+}
+
+/* ---------- manual entry / edit ---------- */
+function prEdit(id){
+  const p = id ? PROSPECTS.find(x=>x.id===id) : null; const cid = p?.client || PR.client; if(!prCan(cid)) return toast('Choose one of your clients first');
+  const list = p?.list || PR.list; const team = prTeam(cid);
+  openModal(p ? 'Edit profile' : `Add to ${PR_LISTS[list].name} — ${cname(cid)}`, `
+    <div class="field"><label>${list==='creator'?'LinkedIn profile link':'Profile / LinkedIn link'} *</label><input id="prLink" value="${esc(p?.linkedin||'')}" placeholder="https://www.linkedin.com/in/…"></div>
+    <div class="grid cols-2"><div class="field"><label>Name</label><input id="prName" value="${esc(p?.name||'')}"></div><div class="field"><label>Company</label><input id="prCo" value="${esc(p?.company||'')}"></div>
+      <div class="field"><label>${list==='creator'?'Niche / industry':'Industry'}</label><input id="prInd" value="${esc(p?.industry||'')}"></div>
+      <div class="field"><label>Follower count</label><input id="prFol" value="${p?.followers??''}" placeholder="e.g. 8,400 or 22K" oninput="prFolHint('${list}')"></div>
+      ${list==='icp'||p?`<div class="field"><label>Job title / role</label><input id="prTitle" value="${esc(p?.title||'')}"></div>
+      <div class="field"><label>Company size</label><input id="prSize" list="prSizes" value="${esc(p?.size||'')}" placeholder="e.g. 11–50"><datalist id="prSizes">${PR_SIZES.map(s=>`<option value="${s}">`).join('')}</datalist></div>
+      <div class="field"><label>Location</label><input id="prLoc" value="${esc(p?.location||'')}"></div>`:''}
+      <div class="field"><label>ICP category / segment</label><input id="prSeg" list="prSegs" value="${esc(p?.segment||'')}"><datalist id="prSegs">${uniq([...PR_SEGMENTS[list], ...prOf(cid).map(x=>x.segment)]).filter(Boolean).map(s=>`<option value="${esc(s)}">`).join('')}</datalist></div>
+      <div class="field"><label>Status</label><select id="prSt">${PR_STATUS.map(s=>`<option ${(p?.status||'New')===s?'selected':''}>${s}</option>`).join('')}</select></div>
+      <div class="field"><label>VA assigned</label><select id="prVa">${uniq([...(p?[p.va]:[]), ...team, PERSON]).filter(k=>PEOPLE[k]).map(k=>`<option value="${k}" ${(p?.va||(team.includes(PERSON)?PERSON:team[0]))===k?'selected':''}>${esc(pname(k))}</option>`).join('')}</select></div></div>
+    <div class="field"><label>Notes</label><textarea id="prNotes" rows="2">${esc(p?.notes||'')}</textarea></div>
+    <div class="hint" id="prFolHint" style="margin-bottom:10px"></div>
+    <button class="btn primary" style="width:100%" onclick="prSaveEdit(${p?`'${p.id}'`:'null'},'${list}')">${p?'Save changes':'Add profile'}</button>`);
+  prFolHint(list);
+}
+function prFolHint(list){ const h = el('prFolHint'); if(!h) return; const f = prFollowers(el('prFol').value); const d = prListFor(f);
+  h.innerHTML = el('prFol').value.trim() && f==null ? '<span style="color:var(--bad)">Type a number such as 8,400, 12.5K or 1.2M</span>'
+    : d && d!==list ? `This profile has ${prFmt(f)} followers, so it will go to the <b>${PR_LISTS[d].name}</b> (${PR_LISTS[d].range}).` : f==null ? 'No follower count yet — you can add it later.' : `✓ ${prFmt(f)} followers fits the ${PR_LISTS[list].name}.`; }
+function prSaveEdit(id, list){
+  const link = el('prLink').value.trim(); if(!link) return toast('Add the profile link');
+  if(!/^(https?:\/\/)?[\w-]+(\.[\w-]+)+\/?\S*$/i.test(link)) return toast('That doesn’t look like a link');
+  if(list==='creator' && !normLI(link)) return toast('Creator List entries need a LinkedIn profile link (linkedin.com/in/…)');
+  const fRaw = el('prFol').value.trim(); const f = prFollowers(fRaw); if(fRaw && f==null) return toast('Follower count must be a number such as 8,400 or 22K');
+  const data = {linkedin:link, name:el('prName').value, company:el('prCo').value, industry:el('prInd').value, followers:f, title:el('prTitle')?.value||'', size:el('prSize')?.value||'', location:el('prLoc')?.value||'',
+    segment:el('prSeg').value, status:el('prSt').value, va:el('prVa').value, notes:el('prNotes').value};
+  if(!id){ const r = prAdd(PR.client, [data], list, 'Manual'); if(!r.added) return toast('This profile is already in '+cname(PR.client)+'’s lists');
+    closeModal(); if(r.moved){ PR.list = prListFor(f); } RENDER.prospects(); return prResultToast(r, list); }
+  const p = PROSPECTS.find(x=>x.id===id); const k = prKey(link);
+  if(prOf(p.client).some(x=>x.id!==id && prKey(x.linkedin)===k)) return toast('Another entry in this client’s lists already has that link');
+  const before = p.list; Object.assign(p, {...data, linkedin:normLI(link)?liURL(link):prHref(link), name:data.name.trim(), company:data.company.trim(), industry:data.industry.trim(), title:data.title.trim(), size:data.size.trim(), location:data.location.trim(), segment:data.segment.trim(), notes:data.notes.trim(), updatedAt:nowISO()});
+  const d = prListFor(f); if(d && d!==before) p.list = d;
+  recordChange(); closeModal(); RENDER.prospects();
+  toast(p.list!==before ? `Saved — moved to the ${PR_LISTS[p.list].name} (${prFmt(f)} followers)` : 'Saved');
+}
+
+/* ---------- review step (search results & file uploads) ---------- */
+function prReview(cid, list, cands, source, failed){
+  const have = new Set(prOf(cid).map(p=>prKey(p.linkedin)));
+  PR.rev = {cid, list, source, failed:failed||[], cands:cands.map(c=>({...c, followers:prFollowers(c.followers) ?? prFollowersFromText(c.snippet), dup:have.has(prKey(c.linkedin||c.url)), include:!have.has(prKey(c.linkedin||c.url))}))};
+  prDrawReview();
+}
+function prDrawReview(){
+  const R = PR.rev; if(!R) return; const n = R.cands.filter(c=>c.include).length; const dups = R.cands.filter(c=>c.dup).length;
+  const toC = R.cands.filter(c=>c.include && prListFor(c.followers)==='creator').length, toI = R.cands.filter(c=>c.include && prListFor(c.followers)==='icp').length, unk = R.cands.filter(c=>c.include && c.followers==null).length;
+  openModal(`Review — ${R.source}`, `<div class="hint" style="margin-bottom:10px">${R.cands.length} profile${R.cands.length===1?'':'s'} found for <b>${esc(cname(R.cid))}</b>${dups?` · ${dups} already in this client’s lists (unticked)`:''}${R.failed.length?` · ${R.failed.length} row${R.failed.length===1?'':'s'} could not be used`:''}. Check the follower counts — they decide the list.</div>
+    <div class="pr-rev-sum"><span>ICP List (under 15K): <b>${toI}</b></span><span>Creator List (15K+): <b>${toC}</b></span><span>Follower count unknown: <b>${unk}</b> → ${PR_LISTS[R.list].name}</span></div>
+    <div class="tbl-wrap" style="max-height:52vh;overflow:auto"><table class="tbl"><thead><tr><th><input type="checkbox" ${n===R.cands.filter(c=>!c.dup).length&&n?'checked':''} onchange="PR.rev.cands.forEach(c=>{ if(!c.dup) c.include=this.checked; });prDrawReview()"></th><th>Profile</th><th>Name</th><th>Title · Company</th><th>Followers</th><th>Goes to</th></tr></thead><tbody>
+      ${R.cands.map((c,i)=>{ const d = prListFor(c.followers) || R.list; const u = c.linkedin||c.url; return `<tr style="${c.dup?'opacity:.5':''}"><td><input type="checkbox" ${c.include?'checked':''} ${c.dup?'disabled':''} onchange="PR.rev.cands[${i}].include=this.checked;prDrawReview()"></td>
+        <td><a class="pr-link" href="${esc(prHref(u))}" target="_blank" rel="noopener">${esc((normLI(u)?'in/'+normLI(u).split('/').pop():u.replace(/^https?:\/\/(www\.)?/,'')).slice(0,34))} ↗</a>${c.dup?'<div class="hint">already listed</div>':''}</td>
+        <td><input value="${esc(c.name||'')}" onchange="PR.rev.cands[${i}].name=this.value" style="width:150px"></td><td class="hint" style="max-width:260px">${esc([c.title, c.company].filter(Boolean).join(' · ')||'—')}</td>
+        <td><input value="${c.followers??''}" placeholder="?" style="width:80px" onchange="PR.rev.cands[${i}].followers=prFollowers(this.value);prDrawReview()"></td>
+        <td><span class="badge ${d==='creator'?'b-scheduled':'b-progress'}">${PR_LISTS[d].short}</span></td></tr>`; }).join('')}
+    </tbody></table></div>
+    ${R.failed.length?`<details style="margin-top:10px"><summary class="hint" style="cursor:pointer">${R.failed.length} could not be used</summary>${R.failed.slice(0,50).map(f=>`<div class="hint">${esc(f.where||'')} — ${esc(String(f.value||'').slice(0,80))}: ${esc(f.reason)}</div>`).join('')}</details>`:''}
+    <button class="btn primary" style="width:100%;margin-top:12px" onclick="prCommitReview()" ${n?'':'disabled'}>Add ${n} profile${n===1?'':'s'}</button>`, true);
+}
+function prCommitReview(){
+  const R = PR.rev; if(!R) return; const pick = R.cands.filter(c=>c.include && !c.dup);
+  const r = prAdd(R.cid, pick.map(c=>({...c, notes:c.notes || c.context || (R.source.startsWith('System search') ? 'Found by system search — confirm on LinkedIn' : '')})), R.list, R.source);
+  PR.rev = null; closeModal(); RENDER.prospects(); prResultToast(r, R.list);
+}
+
+/* ---------- file upload (Excel, CSV, Word, PDF, text, HTML, JSON) ---------- */
+function prUpload(){
+  if(!prCan(PR.client)) return toast('Choose one of your clients first');
+  const i = document.createElement('input'); i.type = 'file'; i.accept = IMPORT_ACCEPT; i.onchange = () => prFile(i.files[0]); i.click();
+}
+async function prFile(f){
+  if(!f) return; const cid = PR.client, list = PR.list; const max = (BACKEND?.mode==='live'?50:40)*1024*1024;
+  if(f.size > max) return toast(`That file is larger than ${max/1048576} MB — split it into smaller files`);
+  openModal('Reading file', `<div id="limMsg" class="hint"><span class="spinner" style="display:inline-block;vertical-align:middle"></span> Reading ${esc(f.name)}…</div>`);
+  const ext = f.name.split('.').pop().toLowerCase(); const libs = {xlsx:absURL(XLSX_SRC), mammoth:absURL(MAMMOTH_SRC)};
+  try{
+    let res;
+    if(['xlsx','xls','xlsm','ods','csv','tsv'].includes(ext)) res = await limRun({kind:'sheet', buf:await f.arrayBuffer(), name:f.name, have:[], libs, any:true});
+    else if(ext==='docx') res = await limRun({kind:'docx', buf:await f.arrayBuffer(), name:f.name, have:[], libs, any:true});
+    else if(ext==='pdf'){ const text = await limPdfText(f, el('limMsg')); res = await limRun({kind:'pdf', text, have:[], libs, any:true}); }
+    else if(['html','htm'].includes(ext)) res = await limRun({kind:'html', text:await f.text(), have:[], libs, any:true});
+    else if(ext==='json') res = await limRun({kind:'json', text:await f.text(), have:[], libs, any:true});
+    else res = await limRun({kind:'text', text:await f.text(), have:[], libs, any:true});
+    if(!res.cands.length){ el('limMsg').innerHTML = `<span style="color:var(--bad)">No profile links were found in ${esc(f.name)}.</span>${res.failed.length?`<div class="hint" style="margin-top:6px">${res.failed.length} rows had no usable link (first: ${esc(res.failed[0].reason)}).</div>`:''}`; return; }
+    prReview(cid, list, res.cands.map(c=>({name:c.name, title:c.title, company:c.company, location:c.location, linkedin:c.linkedin, url:c.url, followers:c.followers, industry:c.industry, size:c.size, segment:c.segment, context:c.context})), `File: ${f.name}`, res.failed.filter(x=>!x.dupFile));
+  }catch(e){ if(el('limMsg')) el('limMsg').innerHTML = `<span style="color:var(--bad)">Could not read this file: ${esc(e.message)}</span>`; }
+}
+
+/* ---------- system search (public LinkedIn profiles through the search provider) ---------- */
+function prSearch(){
+  const cid = PR.client; if(!prCan(cid)) return toast('Choose one of your clients first');
+  const c = client(cid); const list = PR.list; const cr = {...DEFAULT_CRITERIA, ...(LEADCFG.find(x=>x.id===cid)?.criteria||{})};
+  const links = prClientLinks(cid);
+  openModal(`System search — ${PR_LISTS[list].name}`, `
+    <div class="hint" style="margin-bottom:10px">Finds public LinkedIn profiles for <b>${esc(c.name)}</b>. ${list==='creator'?'Creator searches look for people who publish content and have a following in the niche.':'ICP searches look for the people ' + esc(c.name) + ' wants to reach.'} Follower counts are read from the search results when shown — confirm them on LinkedIn.</div>
+    <div class="grid cols-2">
+      <div class="field"><label>Start from the client’s link</label><select id="psLink" onchange="prsPreview()"><option value="">— don’t use a link —</option>${links.map(l=>`<option value="${esc(l.url)}">${esc(l.label)} · ${esc(l.url.replace(/^https?:\/\/(www\.)?/,'').slice(0,40))}</option>`).join('')}</select></div>
+      <div class="field"><label>${list==='creator'?'Niche / topic':'Industry or keywords'}</label><input id="psInd" value="${esc(cr.industry || c.industry || '')}" oninput="prsPreview()"></div>
+      ${list==='icp'?`<div class="field"><label>Job titles (comma-separated)</label><input id="psTitles" value="${esc(cr.titles||'')}" oninput="prsPreview()" placeholder="e.g. Founder, Marketing Manager"></div>`:''}
+      <div class="field"><label>Location</label><input id="psLoc" value="${esc(cr.location||'')}" oninput="prsPreview()" placeholder="e.g. Philippines, Sydney"></div>
+      <div class="field"><label>How many</label><select id="psCount">${[10,20,30,50].map(n=>`<option ${n===20?'selected':''}>${n}</option>`).join('')}</select></div>
+      <div class="field"><label>Search results from</label><select id="psGl">${SEARCH_COUNTRIES.map(([k,v])=>`<option value="${k}" ${cr.gl===k?'selected':''}>${v}</option>`).join('')}</select></div></div>
+    <div class="field"><label>Search that will run</label><div class="calc" id="psQuery" style="display:block;white-space:normal;word-break:break-word"></div></div>
+    <div class="card" style="margin-bottom:12px"><div class="card-b" id="psStatus" style="font-size:12.5px"><span class="spinner" style="display:inline-block;vertical-align:middle"></span> Checking system search…</div></div>
+    <button class="btn primary" id="psGo" style="width:100%;justify-content:center" onclick="prRunSearch('${list}')" disabled>🔍 Search</button><div id="psMsg" class="hint" style="margin-top:10px"></div>
+    <details style="margin-top:14px" ${BACKEND.mode!=='live'?'open':''}><summary style="cursor:pointer;font-size:13px;font-weight:600">Search on Google instead</summary>
+      <div class="hint" style="margin:8px 0">Opens the same search in a new tab. Copy the results page (⌘/Ctrl + A, then copy) and paste it here — every LinkedIn profile link is picked up for review.</div>
+      <button class="btn" onclick="window.open('https://www.google.com/search?num=50&q='+encodeURIComponent(prsQuery()),'_blank','noopener')">Open on Google ↗</button>
+      <textarea id="psPaste" rows="4" style="width:100%;margin-top:8px" placeholder="Paste the results page or any text with LinkedIn profile links"></textarea>
+      <button class="btn" style="margin-top:8px" onclick="prsFromPaste('${list}')">Find profiles in pasted text</button></details>`, true);
+  prsPreview();
+  searchStatus().then(st=>{ const box = el('psStatus'); if(!box) return;
+    if(st.configured){ box.innerHTML = `<b style="color:var(--ok)">System search is on</b> · ${providerLabel(st.provider)} · ${st.used||0} of ${st.limit} searches used this month`; el('psGo').disabled = false; }
+    else box.innerHTML = st.demo ? '<b>System search needs the live database.</b> In demo mode, use “Search on Google instead”.' : `<b>System search is not connected yet.</b><div class="hint" style="margin-top:4px">${st.error?esc(st.error)+'. ':''}A company head adds a search key in <b>Administration → Automatic lead search</b>. Until then, use “Search on Google instead”.</div>`; });
+}
+function prsQuery(){
+  const list = el('psTitles') ? 'icp' : 'creator'; const q = v => `"${v.replace(/"/g,'')}"`; const or = a => a.length>1 ? '('+a.map(q).join(' OR ')+')' : a.length ? q(a[0]) : '';
+  const ind = splitList(el('psInd').value), loc = splitList(el('psLoc').value), titles = el('psTitles') ? splitList(el('psTitles').value) : [];
+  const slug = prLinkSlug(el('psLink').value); const kw = uniq([...ind, ...(slug ? [slug] : [])]);
+  const parts = ['site:linkedin.com/in', or(kw), list==='icp' ? or(titles) : '("creator" OR "top voice" OR "content creator" OR "speaker" OR "author") "followers"', or(loc)];
+  return parts.filter(Boolean).join(' ');
+}
+function prsPreview(){ const b = el('psQuery'); if(b) b.textContent = prsQuery(); }
+async function prRunSearch(list){
+  const cid = PR.client; const q = prsQuery(); const count = +el('psCount').value || 20; const gl = el('psGl').value;
+  if(!splitList(el('psInd').value).length && !el('psLink').value && !(el('psTitles') && splitList(el('psTitles').value).length)) return toast('Add a keyword, job title or pick the client’s link');
+  const st = SEARCH_ST || {}; const per = st.provider==='serper'||!st.provider ? 10 : 20; const pages = Math.min(5, Math.ceil(count*1.5/per));
+  el('psGo').disabled = true; el('psMsg').innerHTML = `<span class="spinner" style="display:inline-block;vertical-align:middle"></span> Searching ${providerLabel(st.provider)}…`;
+  try{
+    const r = await leadFn('lead_search', st.provider==='tavily' ? {queries:[q], pages:1, gl} : {query:q, pages, gl});
+    SEARCH_ST = {...st, used:r.used, limit:r.limit};
+    const cands = (r.results||[]).map(h=>({...parseHit(h), followers:prFollowersFromText((h.snippet||'')+' '+(h.title||''))})).filter(c=>normLI(c.linkedin)).slice(0, count);
+    if(!cands.length){ el('psGo').disabled = false; el('psMsg').textContent = 'No LinkedIn profiles matched. Try fewer keywords or a broader location.'; return; }
+    prReview(cid, list, cands, `System search · ${providerLabel(r.provider)}`);
+  }catch(e){ el('psGo').disabled = false; el('psMsg').innerHTML = `<span style="color:var(--bad)">${esc(e.message)}</span>`; }
+}
+async function prsFromPaste(list){
+  const t = el('psPaste').value; if(!t.trim()) return toast('Paste the results first');
+  const res = await limRun({kind:'text', text:t, have:[], libs:{}});
+  if(!res.cands.length) return toast('No LinkedIn profile links found in that text');
+  const lines = t.split(/\n+/);
+  prReview(PR.client, list, res.cands.slice(0, 200).map(c=>{ const slug = normLI(c.linkedin).split('/').pop(); const i = lines.findIndex(l=>l.toLowerCase().includes(slug));
+    const f = i<0 ? null : [lines[i].slice(lines[i].toLowerCase().indexOf(slug)), lines[i+1], lines[i-1]].map(prFollowersFromText).find(x=>x!=null) ?? null;
+    return {...c, followers:f, context:''}; }), 'Google search (pasted)');
 }
 
 CC_BOOT();

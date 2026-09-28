@@ -8,6 +8,10 @@
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#E39312">
 <link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Cross Core">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -1198,6 +1202,33 @@ body.view-chat .cora-fab > span:not(:first-child){display:none}
 .call-ring{animation:ringin .45s cubic-bezier(.2,.9,.25,1)}
 @keyframes ringin{from{opacity:0;transform:translate(-50%,calc(-100% - 12px))}to{opacity:1;transform:translate(-50%,0)}}
 .call-ring{top:calc(8px + env(safe-area-inset-top,0px));z-index:141}
+
+/* ===== Install the app (phones & tablets) ===== */
+.inst-wrap{position:fixed;inset:0;z-index:150;display:flex;align-items:flex-end;justify-content:center;background:rgba(15,10,3,0);transition:background .3s ease;padding:0}
+.inst-wrap.in{background:rgba(15,10,3,.48)}
+.inst-sheet{position:relative;width:100%;max-width:460px;background:var(--panel);color:var(--ink);border-radius:22px 22px 0 0;padding:22px 20px calc(20px + env(safe-area-inset-bottom,0px));box-shadow:0 -20px 50px -20px rgba(0,0,0,.45);text-align:center;transform:translateY(100%);transition:transform .38s cubic-bezier(.2,.9,.25,1)}
+.inst-wrap.in .inst-sheet{transform:none}
+.inst-wrap.out{background:rgba(15,10,3,0)}.inst-wrap.out .inst-sheet{transform:translateY(100%)}
+.inst-logo{width:64px;height:64px;border-radius:16px;box-shadow:0 10px 24px -10px rgba(90,52,4,.55);margin:2px auto 12px;display:block}
+.inst-sheet h3{font-size:19px;margin:6px 0 6px;text-wrap:balance}
+.inst-sheet p{font-size:13.5px;color:var(--ink-2);margin:0 0 14px;line-height:1.45}
+.inst-main{width:100%;justify-content:center;padding:12px 16px;font-size:14.5px}
+.inst-sub{width:100%;justify-content:center;margin-top:6px}
+.inst-x{position:absolute;top:10px;right:12px;width:32px;height:32px;border-radius:10px;color:var(--ink-3);font-size:13px}
+.inst-x:hover{background:var(--panel-2)}
+.inst-steps{display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:10px;font-size:11.5px;font-weight:600;color:var(--ink-3)}
+.inst-steps span{display:flex;align-items:center;gap:5px}.inst-steps b{width:22px;height:1px;background:var(--line)}
+.inst-steps i{font-style:normal;width:20px;height:20px;border-radius:99px;display:grid;place-items:center;font-size:10.5px;border:1.5px solid var(--line)}
+.inst-steps .on{color:var(--ink)}.inst-steps .on i{border-color:var(--brand-2);background:var(--brand-2);color:#1A1206}
+.inst-steps .ok{color:var(--ok)}.inst-steps .ok i{border-color:var(--ok);background:var(--ok);color:#fff}
+.inst-ios{list-style:none;margin:0 0 12px;padding:0;text-align:left;display:flex;flex-direction:column;gap:9px}
+.inst-ios li{display:flex;align-items:center;gap:10px;font-size:13.5px;line-height:1.35;background:var(--panel-2);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+.inst-n{width:24px;height:24px;border-radius:99px;flex-shrink:0;display:grid;place-items:center;background:var(--brand-2);color:#1A1206;font-weight:800;font-size:12px}
+.inst-ic{width:18px;height:18px;vertical-align:-4px;color:#0A84FF}
+.inst-plus{display:inline-grid;place-items:center;width:20px;height:20px;border:1.5px solid var(--ink-2);border-radius:5px;font-size:13px;line-height:1}
+.inst-warn{background:var(--bad-bg);color:var(--bad)!important;border-radius:10px;padding:9px 11px;font-size:12.5px!important}
+@media (min-width:600px){.inst-wrap{align-items:center;padding:20px}.inst-sheet{border-radius:22px;transform:translateY(24px) scale(.97);opacity:0;transition:transform .32s cubic-bezier(.2,.9,.25,1),opacity .25s}.inst-wrap.in .inst-sheet{opacity:1}.inst-wrap.out .inst-sheet{opacity:0;transform:translateY(24px) scale(.97)}}
+@media (prefers-reduced-motion:reduce){.inst-sheet{transition:none}}
 </style>
 </head>
 <body>
@@ -1429,7 +1460,7 @@ let EMPLOYEES = [
 {"id":"francis","name":"Francis Michael S. Rivera","role":"Content Planner · Graphics","dept":"Creative Studio","level":"Regular","tier":"Regular","email":"mikko.crosscore@gmail.com","phone":"+63 998 575 0210","empType":"Part-time","status":"Resigned","start":"Mar 2025","supervisor":"JA","group":"Resigned (Glaze)","color":"#188A4E","clients":[],"work":["Captions","Content Planning","Graphics","Reporting","Video Editing"],"assigned":2,"done":0,"overdue":0,"score":86,"resp":"8m"},
 {"id":"jennifer","name":"Jennifer Piñon","role":"Graphics — Stills & Video","dept":"Creative Studio","level":"Regular","tier":"Regular","email":"jenn.crosscore@gmail.com","phone":"+63 956 553 9950","empType":"Part-time","status":"Resigned","start":"—","supervisor":"JA","group":"Resigned (Glaze)","color":"#6C3BC9","clients":[],"work":["Graphics","Video Editing"],"assigned":2,"done":1,"overdue":0,"score":93,"resp":"13m"},
 {"id":"christian","name":"Christian M. Naperi","role":"Content Planner","dept":"Content","level":"Regular","tier":"Regular","email":"christian.crosscore@gmail.com","phone":"+63 994 245 0492","empType":"Part-time","status":"On Probation","start":"Jun 2026","supervisor":"—","group":"New VAs — Nov 2025","color":"#C93B3B","clients":[],"work":["Captions","Content Planning","Reporting"],"assigned":2,"done":0,"overdue":0,"score":82,"resp":"18m"},
-{"id":"pj","name":"PJ Martinez Bacolod","role":"Leadgen (Engagement, ICP)","dept":"Growth","level":"Regular","tier":"Regular","email":"nica.crosscore2@gmail.com","phone":"+63 965 286 2109","empType":"Part-time","status":"Active","start":"Jun 2026","supervisor":"—","group":"New VAs — Nov 2025","color":"#B97509","clients":[],"work":["Creator Research","Engagement","ICP Research","Lead Generation"],"assigned":2,"done":0,"overdue":1,"score":89,"resp":"23m"},
+{"id":"pj","name":"Nica Martinez","role":"Leadgen (Engagement, ICP)","dept":"Growth","level":"Regular","tier":"Regular","email":"nica.crosscore2@gmail.com","phone":"+63 965 286 2109","empType":"Part-time","status":"Active","start":"Jun 2026","supervisor":"—","group":"New VAs — Nov 2025","color":"#B97509","clients":[],"work":["Creator Research","Engagement","ICP Research","Lead Generation"],"assigned":2,"done":0,"overdue":1,"score":89,"resp":"23m"},
 {"id":"joemar","name":"Joemar Delantar","role":"Leadgen (Engagement, ICP)","dept":"Growth","level":"Regular","tier":"Regular","email":"joemar.crosscore@gmail.com","phone":"+63 967 177 5418","empType":"Part-time","status":"Active","start":"Jun 2026","supervisor":"—","group":"New VAs — Nov 2025","color":"#31718C","clients":[],"work":["Creator Research","Engagement","ICP Research","Lead Generation"],"assigned":2,"done":1,"overdue":0,"score":78,"resp":"28m"}
 ];
 let EMP_LOG = [
@@ -12696,6 +12727,128 @@ drawTiles = function(){
     clearInterval(CSTAGE.loop); CSTAGE.loop = null; return r; }; }
 /* keep the floating window inside the screen when the browser is resized */
 window.addEventListener('resize', ()=>{ if(CALL && el('callPanel')) drawTiles(); });
+
+/* ===== 36_install.js ===== */
+/* ================= INSTALL THE PORTAL ON PHONES & TABLETS =================
+   After signing in on a phone or tablet:
+     1. Portal not installed on this device (first login, or it was deleted) → invite them to install it.
+        • Android / Chrome / Edge / Samsung: one-tap "Install" (the browser's own install dialog).
+          The browser only offers this when the app is NOT installed, so a deleted app is detected automatically.
+        • iPhone / iPad: step-by-step "Share → Add to Home Screen" guide (Apple offers no install button or
+          install check to websites).
+     2. Once installed (opened from the home screen) → ask to turn on notifications for that device.
+     3. Installed + notifications on → never asked again on that device.
+   Everything is remembered per device (this phone / tablet), not per account. Desktop computers are not affected. */
+const INST = {evt:null, shown:false, installedApi:null, key:'cc-install'};
+const UA = navigator.userAgent || '';
+const instIOS = () => /iphone|ipad|ipod/i.test(UA) || (navigator.platform==='MacIntel' && navigator.maxTouchPoints > 1);
+const instAndroid = () => /android/i.test(UA);
+const instMobile = () => instIOS() || instAndroid() || /mobile|tablet|silk|kindle|playbook/i.test(UA) || (window.matchMedia?.('(pointer:coarse)').matches && Math.min(screen.width, screen.height) <= 1024);
+const instStandalone = () => !!(window.matchMedia?.('(display-mode: standalone)').matches || window.matchMedia?.('(display-mode: fullscreen)').matches || window.matchMedia?.('(display-mode: minimal-ui)').matches || navigator.standalone === true);
+function instState(){ try{ return JSON.parse(localStorage.getItem(INST.key) || '{}') || {}; }catch(e){ return {}; } }
+function instSave(patch){ const s = {...instState(), ...patch}; try{ localStorage.setItem(INST.key, JSON.stringify(s)); }catch(e){} return s; }
+const instNotifOn = () => !!(typeof PUSH!=='undefined' && PUSH.supported && Notification.permission==='granted' && typeof pushThisDevice==='function' && pushThisDevice());
+
+/* the browser tells us the portal can be installed = it is NOT installed on this device right now */
+window.addEventListener('beforeinstallprompt', e=>{ e.preventDefault(); INST.evt = e; instSave({installed:false, canPrompt:true});
+  if(PEOPLE[PERSON] && el('login')?.style.display==='none') setTimeout(instCheck, 400); });
+window.addEventListener('appinstalled', ()=>{ INST.evt = null; instSave({installed:true, installedAt:nowISO()}); if(el('instSheet')) instDraw('installed'); });
+/* Chrome on Android can also confirm an installed copy of this web app */
+async function instDetect(){
+  if(INST.installedApi!==null) return INST.installedApi;
+  try{ if(navigator.getInstalledRelatedApps){ const L = await navigator.getInstalledRelatedApps(); INST.installedApi = L.some(a=>a.platform==='webapp'); } else INST.installedApi = false; }catch(e){ INST.installedApi = false; }
+  return INST.installedApi;
+}
+
+/* decide what (if anything) to show after sign-in */
+async function instCheck(force){
+  if(!PEOPLE[PERSON] || ROLE==='client' || el('login')?.style.display!=='none') return;
+  if(!force && !instMobile()) return;
+  if(el('annGate') && getComputedStyle(el('annGate')).display!=='none'){ setTimeout(()=>instCheck(force), 2500); return; }   /* urgent announcement first */
+  if(el('pwGate') && el('pwGate').style.display==='grid'){ setTimeout(()=>instCheck(force), 2500); return; }
+  if(el('instSheet')) return;
+  const s = instState(); const now = Date.now();
+  if(instStandalone()){
+    /* running as the installed app */
+    if(!s.installed) instSave({installed:true, installedAt:nowISO()});
+    if(instNotifOn()) return instSave({done:true});
+    if(typeof PUSH==='undefined' || !PUSH.supported) return;                       /* this device can't do notifications */
+    if(!force && (s.notifSnooze||0) > now) return;
+    if(Notification.permission==='granted'){ pushEnable(true).then(ok=>{ if(ok) instSave({done:true}); }); return; }
+    if(Notification.permission==='denied' && !force) return;
+    return instDraw('notify');
+  }
+  /* in the browser */
+  if(INST.evt){ if(!force && (s.snooze||0) > now) return; return instDraw('install'); }            /* not installed (or deleted) */
+  if(await instDetect()){ instSave({installed:true}); return; }                                        /* installed — don't ask */
+  if(instIOS()){
+    if(!force && ((s.snooze||0) > now || (s.iosConfirmed||0) > now)) return;
+    return instDraw('ios');
+  }
+  if(instAndroid() && !s.installed){
+    if(!INST.waited){ INST.waited = true; setTimeout(()=>instCheck(force), 3500); return; }        /* give the browser a moment to offer its install button */
+    if(INST.evt) return instCheck(force);
+    if(!force && ((s.snooze||0) > now || (s.iosConfirmed||0) > now)) return; return instDraw('manual'); }  /* browser without an install button */
+}
+
+const INST_STEPS = ['Install', 'Notifications'];
+function instDraw(mode){
+  let d = el('instSheet');
+  if(!d){ d = document.createElement('div'); d.id = 'instSheet'; d.className = 'inst-wrap'; d.setAttribute('role','dialog'); d.setAttribute('aria-modal','true'); d.setAttribute('aria-labelledby','instTitle'); document.body.appendChild(d); requestAnimationFrame(()=>d.classList.add('in')); }
+  d.dataset.mode = mode;
+  const step = ['notify','done'].includes(mode) ? 1 : 0;
+  const dots = `<div class="inst-steps">${INST_STEPS.map((t,i)=>`<span class="${i<step?'ok':i===step?'on':''}"><i>${i<step?'✓':i+1}</i>${t}</span>`).join('<b></b>')}</div>`;
+  const logo = `<img class="inst-logo" src="${typeof LOGO_B64!=='undefined'?LOGO_B64:'icon-192.png'}" alt="">`;
+  const ios = instIOS() && !/crios|fxios|edgios/i.test(UA) ? 'Safari' : 'your browser';
+  const body = {
+    install: `<h3 id="instTitle">Install the Cross Core app</h3><p>Add the portal to your ${instIOS()?'Home Screen':'phone'} for one-tap access, full-screen use and notifications — no app store needed.</p>
+      <button class="btn primary inst-main" onclick="instInstall()">⬇ Install app</button><button class="btn ghost inst-sub" onclick="instLater()">Not now</button>`,
+    ios: `<h3 id="instTitle">Install the Cross Core app</h3><p>Add the portal to your Home Screen for one-tap access and notifications. It takes 10 seconds:</p>
+      <ol class="inst-ios">
+        <li><span class="inst-n">1</span><span class="inst-t">Tap <b>Share</b> <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="inst-ic"><path d="M12 3v12M7 8l5-5 5 5M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/></svg> in ${ios} (bottom${/ipad/i.test(UA)||navigator.maxTouchPoints>1&&navigator.platform==='MacIntel'?' or top':''} of the screen)</span></li>
+        <li><span class="inst-n">2</span><span class="inst-t">Scroll down and tap <b>Add to Home Screen</b> <span class="inst-plus">＋</span></span></li>
+        <li><span class="inst-n">3</span><span class="inst-t">Tap <b>Add</b>, then open <b>Cross Core</b> from your Home Screen and sign in</span></li>
+      </ol>
+      <p class="hint">After that you’ll be asked to turn on notifications inside the app.</p>
+      <button class="btn primary inst-main" onclick="instIosDone()">I’ve added it</button><button class="btn ghost inst-sub" onclick="instLater()">Not now</button>`,
+    manual: `<h3 id="instTitle">Install the Cross Core app</h3><p>Open your browser menu <b>⋮</b> and choose <b>Install app</b> or <b>Add to Home screen</b>. Then open <b>Cross Core</b> from your home screen and sign in.</p>
+      <button class="btn primary inst-main" onclick="instIosDone()">Done</button><button class="btn ghost inst-sub" onclick="instLater()">Not now</button>`,
+    installed: `<h3 id="instTitle">Installed ✓</h3><p>Cross Core is on your home screen. Turn on notifications so messages, tasks and approvals reach you even when the portal is closed.</p>
+      ${typeof PUSH!=='undefined' && PUSH.supported ? `<button class="btn primary inst-main" onclick="instNotify()">🔔 Turn on notifications</button>` : `<p class="hint">Open Cross Core from your home screen to turn on notifications.</p>`}<button class="btn ghost inst-sub" onclick="instClose()">Later</button>`,
+    notify: `<h3 id="instTitle">Turn on notifications</h3><p>Get new messages, @mentions, thread replies, tasks, approvals and announcements on this ${instIOS()?(/ipad/i.test(UA)||navigator.platform==='MacIntel'?'iPad':'iPhone'):'device'} — even when the app is closed. You can choose which ones in ⚙ Settings.</p>
+      ${Notification.permission==='denied' ? `<p class="inst-warn">Notifications are blocked for Cross Core. Open your device <b>Settings → Notifications → Cross Core</b> (or the browser’s site settings) and allow them, then come back.</p>` : ''}
+      <button class="btn primary inst-main" onclick="instNotify()">🔔 Turn on notifications</button><button class="btn ghost inst-sub" onclick="instNotifLater()">Not now</button>`,
+    done: `<h3 id="instTitle">You’re all set 🎉</h3><p>Cross Core is installed and notifications are on for this device. You won’t be asked again here.</p><button class="btn primary inst-main" onclick="instClose()">Done</button>`,
+  }[mode];
+  d.innerHTML = `<div class="inst-sheet"><button class="inst-x" onclick="${mode==='notify'?'instNotifLater()':mode==='done'||mode==='installed'?'instClose()':'instLater()'}" aria-label="Close">✕</button>${logo}${mode==='done'?'':dots}${body}</div>`;
+  INST.shown = true;
+}
+function instClose(){ const d = el('instSheet'); if(!d) return; d.classList.remove('in'); d.classList.add('out'); setTimeout(()=>d.remove(), 280); }
+async function instInstall(){
+  if(!INST.evt){ return instDraw(instIOS() ? 'ios' : 'manual'); }
+  const e = INST.evt; INST.evt = null;
+  try{ await e.prompt(); const c = await e.userChoice; if(c?.outcome==='accepted'){ instSave({installed:true, installedAt:nowISO()}); instDraw('installed'); } else { instLater(); } }
+  catch(err){ instDraw('manual'); }
+}
+/* "Not now": ask again in 3 days if the portal still isn't installed on this device */
+function instLater(){ instSave({snooze:Date.now()+3*864e5}); instClose(); toast('You can install the app any time from 👤 My profile & settings'); }
+/* iPhone / other browsers can't be checked from the website — trust the person and stop asking for 30 days */
+function instIosDone(){ instSave({iosConfirmed:Date.now()+30*864e5}); instClose(); toast('Open Cross Core from your Home Screen and sign in — you’ll be asked to turn on notifications there'); }
+async function instNotify(){
+  const ok = await pushEnable();
+  if(ok){ instSave({done:true, notifAt:nowISO()}); instDraw('done'); setTimeout(instClose, 2600); }
+  else instDraw('notify');
+}
+function instNotifLater(){ instSave({notifSnooze:Date.now()+3*864e5}); instClose(); toast('You can turn notifications on any time from the bell → ⚙ Settings'); }
+
+/* the general "Get notified" card is replaced by this guided flow on phones and tablets */
+{ const _pi = pushInvite; pushInvite = function(){ if(instMobile()) return; return _pi.apply(this, arguments); }; }
+{ const _sp = setPerson; setPerson = function(p){ _sp.apply(this, arguments); if(PEOPLE[p] && ROLE!=='client') setTimeout(()=>instCheck(), 1800); }; }
+/* also reachable from My profile & settings */
+{ const _am = accountModal; accountModal = function(){ _am.apply(this, arguments);
+    const b = el('modalBody'); if(!b || !instMobile()) return;
+    const st = instStandalone() ? 'Installed on this device ✓' : 'Not installed on this device';
+    b.insertAdjacentHTML('beforeend', `<div class="acct-sec"><div class="acct-h">Cross Core app</div><p class="hint" style="margin-bottom:8px">${st}${instStandalone() && instNotifOn() ? ' · notifications on ✓' : ''}</p>${instStandalone() ? (instNotifOn() ? '' : `<button class="btn" onclick="closeModal();instDraw('notify')">🔔 Turn on notifications</button>`) : `<button class="btn primary" onclick="closeModal();instCheck(true).then(()=>{ if(!el('instSheet')) instDraw(instIOS()?'ios':INST.evt?'install':'manual'); })">⬇ Install the app</button>`}</div>`); }; }
 
 CC_BOOT();
 </script>

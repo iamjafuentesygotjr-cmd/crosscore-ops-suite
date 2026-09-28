@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Cross Core Ops — Social Media Operations</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#E39312">
+<link rel="apple-touch-icon" href="icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -927,6 +930,23 @@ body.es-open{overflow:hidden}
 .pr-st{padding:4px 6px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--ink);font:inherit;font-size:12px}
 .pr-note{display:inline-block;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink-2)}
 .pr-rev-sum{display:flex;gap:14px;flex-wrap:wrap;font-size:12.5px;margin-bottom:10px;padding:8px 12px;border:1px solid var(--line);border-radius:10px;background:var(--panel-2)}
+</style>
+<style>
+/* ---------- Device notifications ---------- */
+.push-invite{position:fixed;right:20px;bottom:88px;z-index:80;width:min(400px,calc(100vw - 32px));display:flex;gap:12px;align-items:flex-start;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px;box-shadow:var(--shadow-lg);animation:pushIn .25s ease-out}
+@keyframes pushIn{from{transform:translateY(12px);opacity:0}to{transform:none;opacity:1}}
+.push-inv-ico{font-size:26px;line-height:1}
+.push-inv-b{display:flex;flex-direction:column;gap:5px;min-width:0}
+.push-inv-b b{font-size:14px}.push-inv-b span{font-size:12.5px;color:var(--ink-2);line-height:1.45}
+.push-inv-acts{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+.push-sec{border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:12px}
+.push-row{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:6px 0}
+.push-row + .push-row{border-top:1px solid var(--line-2)}
+.push-row b{font-size:13px}
+.push-switch{appearance:none;-webkit-appearance:none;width:40px;height:22px;border-radius:99px;background:var(--line);position:relative;cursor:pointer;flex-shrink:0;transition:background .15s}
+.push-switch::after{content:'';position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.25);transition:left .15s}
+.push-switch:checked{background:var(--ok)}.push-switch:checked::after{left:21px}
+@media (max-width:640px){.push-invite{right:16px;bottom:80px}}
 </style>
 </head>
 <body>
@@ -10470,7 +10490,11 @@ function paAdmSave(){
    Online / Away comes from the live connection (Supabase Realtime presence; between tabs in demo mode).
    On Break and Off Duty come from the person's own attendance actions (Start Break / End Break / Time Out).
    Presence is display-only: it never creates or changes an attendance (payroll) record. */
-const PRES = {map:{}, live:false, idle:false, lastAct:Date.now(), ch:null, bc:null, key:null, t:null};
+const PRES = {map:{}, live:false, idle:false, hid:document.hidden, pa:false, lastAct:Date.now(), ch:null, bc:null, key:null, t:null};
+/* "active" for push notifications: the portal is visible and was used in the last 3 minutes */
+const PRES_PUSH_MS = 3*60*1000;
+const presPayload = () => ({idle:PRES.idle, hid:PRES.hid, pa:PRES.pa, at:Date.now()});
+const presMine = () => ({at:Date.now(), idle:PRES.idle, act:!PRES.idle && !PRES.hid && !PRES.pa});
 const PRES_LABEL = {online:'Online', away:'Away — inactive', break:'On Break', offduty:'Off Duty', offline:'Offline'};
 const PRES_IDLE_MS = 10*60*1000;
 function presConnected(k){ const x = PRES.map[k]; if(!x) return null; if(!PRES.live && Date.now()-x.at > 70000) return null; return x; }
@@ -10495,26 +10519,27 @@ async function presStart(){
     PRES.live = true;
     const ch = BACKEND.sb.channel('cc-presence', {config:{presence:{key:PERSON}}}); PRES.ch = ch;
     ch.on('presence', {event:'sync'}, ()=>{ const st = ch.presenceState(); const m = {};
-      Object.entries(st).forEach(([k, arr])=>{ m[k] = {at:Date.now(), idle:(arr||[]).every(x=>x.idle)}; }); PRES.map = m; presChanged(); });
-    ch.subscribe(async s=>{ if(s==='SUBSCRIBED') await ch.track({idle:PRES.idle, at:Date.now()}); });
+      Object.entries(st).forEach(([k, arr])=>{ m[k] = {at:Date.now(), idle:(arr||[]).every(x=>x.idle), act:(arr||[]).some(x=>!x.idle && !x.hid && !x.pa)}; }); PRES.map = m; presChanged(); });
+    ch.subscribe(async s=>{ if(s==='SUBSCRIBED') await ch.track(presPayload()); });
   } else if('BroadcastChannel' in window){
     PRES.live = false; PRES.bc = new BroadcastChannel('cc-presence');
-    PRES.bc.onmessage = e => { const d = e.data||{}; if(!d.k) return; if(d.gone) delete PRES.map[d.k]; else PRES.map[d.k] = {at:Date.now(), idle:!!d.idle}; if(d.hello) presBeat(); presChanged(); };
+    PRES.bc.onmessage = e => { const d = e.data||{}; if(!d.k) return; if(d.gone) delete PRES.map[d.k]; else PRES.map[d.k] = {at:Date.now(), idle:!!d.idle, act:!d.idle && !d.hid && !d.pa}; if(d.hello) presBeat(); presChanged(); };
     presBeat(true);
   }
-  PRES.map[PERSON] = {at:Date.now(), idle:PRES.idle};
+  PRES.map[PERSON] = presMine();
 }
-function presBeat(hello){ if(PRES.bc && PRES.key){ PRES.map[PRES.key] = {at:Date.now(), idle:PRES.idle}; PRES.bc.postMessage({k:PRES.key, idle:PRES.idle, hello:!!hello}); } }
+function presBeat(hello){ if(PRES.bc && PRES.key){ PRES.map[PRES.key] = presMine(); PRES.bc.postMessage({k:PRES.key, idle:PRES.idle, hid:PRES.hid, pa:PRES.pa, hello:!!hello}); } }
 function presStop(){
   if(PRES.ch){ try{ PRES.ch.untrack(); BACKEND.sb.removeChannel(PRES.ch); }catch(e){} PRES.ch = null; }
   if(PRES.bc){ try{ PRES.bc.postMessage({k:PRES.key, gone:true}); PRES.bc.close(); }catch(e){} PRES.bc = null; }
   if(PRES.key) delete PRES.map[PRES.key]; PRES.key = null;
 }
-function presSetIdle(v){ if(PRES.idle===v) return; PRES.idle = v; if(PRES.key) PRES.map[PRES.key] = {at:Date.now(), idle:v};
-  if(PRES.ch) PRES.ch.track({idle:v, at:Date.now()}).catch(()=>{}); presBeat(); presChanged(); }
-['mousemove','keydown','mousedown','touchstart','scroll'].forEach(ev=>window.addEventListener(ev, ()=>{ PRES.lastAct = Date.now(); if(PRES.idle) presSetIdle(false); }, {passive:true, capture:true}));
-document.addEventListener('visibilitychange', ()=>{ if(!document.hidden){ PRES.lastAct = Date.now(); presSetIdle(false); } });
-setInterval(()=>{ if(!PRES.key) return; if(Date.now()-PRES.lastAct > PRES_IDLE_MS) presSetIdle(true); presBeat();
+function presSetIdle(v){ if(PRES.idle===v) return; PRES.idle = v; presRetrack(); }
+function presRetrack(){ if(PRES.key) PRES.map[PRES.key] = presMine(); if(PRES.ch) PRES.ch.track(presPayload()).catch(()=>{}); presBeat(); presChanged(); }
+['mousemove','keydown','mousedown','touchstart','scroll'].forEach(ev=>window.addEventListener(ev, ()=>{ PRES.lastAct = Date.now(); if(PRES.idle) presSetIdle(false); if(PRES.pa){ PRES.pa = false; presRetrack(); } }, {passive:true, capture:true}));
+document.addEventListener('visibilitychange', ()=>{ PRES.hid = document.hidden; if(!document.hidden){ PRES.lastAct = Date.now(); PRES.pa = false; if(PRES.idle){ presSetIdle(false); return; } } presRetrack(); });
+setInterval(()=>{ if(!PRES.key) return; if(Date.now()-PRES.lastAct > PRES_IDLE_MS) presSetIdle(true);
+  const pa = Date.now()-PRES.lastAct > PRES_PUSH_MS; if(pa!==PRES.pa){ PRES.pa = pa; presRetrack(); } presBeat();
   Object.keys(PRES.map).forEach(k=>{ if(!PRES.live && Date.now()-PRES.map[k].at > 70000){ delete PRES.map[k]; presChanged(); } }); }, 15000);
 window.addEventListener('pagehide', ()=>presStop());
 /* start / switch whenever the signed-in person changes */
@@ -11606,6 +11631,203 @@ async function prsFromPaste(list){
     const f = i<0 ? null : [lines[i].slice(lines[i].toLowerCase().indexOf(slug)), lines[i+1], lines[i-1]].map(prFollowersFromText).find(x=>x!=null) ?? null;
     return {...c, followers:f, context:''}; }), 'Google search (pasted)');
 }
+
+/* ===== 32_push.js ===== */
+/* ================= DEVICE / BROWSER PUSH NOTIFICATIONS — extends the existing notification center =================
+   In-app notifications (the bell) work exactly as before. On top of them:
+   • Each person can turn on device notifications (browser or installed app). The portal registers a small
+     service worker (sw.js) and saves the device's push subscription (collection 'pushsubs', visible only to them).
+   • When someone creates a notification or sends a chat message, the portal checks the live presence of each
+     recipient. People who are actively using the portal (visible and used in the last 3 minutes) see it in-app as
+     usual; everyone else is sent a push through the cc-admin server function, which re-checks that the
+     notification is real, unread and allowed by the person's Notification Settings, groups a conversation into one
+     notification, and never sends the same item twice.
+   • Clicking a device notification opens the exact chat / task / client / approval and marks it read.
+   • Reading something in the portal clears its device notification. */
+let PUSHSUBS = [];
+COLL.pushsubs = {get:()=>PUSHSUBS, set:v=>PUSHSUBS=v, aud:s=>[s.person]};
+
+const PUSH_CATS = [
+  ['message','Direct messages & @mentions','When someone messages you or tags you'],
+  ['chat','Group chat messages','New messages in your group chats — grouped per chat'],
+  ['assignment','Task assignments','New tasks and lead assignments for you'],
+  ['submission','Submissions & reviews','Work submitted to you for review'],
+  ['approval','Approvals','Approvals, payslips and decisions'],
+  ['revision','Revisions requested','Changes requested on your work'],
+  ['announcement','Announcements & trainings','Company announcements and new trainings'],
+  ['hr','HR & documents','Contracts to sign, HR documents, evaluations'],
+  ['attendance','Attendance & schedule','Time in / time out and schedule alerts'],
+  ['reminder','Reminders','Follow-ups and reminders from assistants and PMs'],
+  ['report','Reports','Reports shared with you'],
+  ['system','Clients, organizations & other updates','Client onboarding, organization changes and system updates'],
+];
+const PUSH = {sw:null, key:null, busy:false, queue:[], t:null, done:new Set(), supported:'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window, asked:false};
+const pushPrefs = () => { const p = typeof myPrefs==='function' ? myPrefs() : (PREFS.find(x=>x.id===PERSON) || (PREFS.push({id:PERSON, lastRead:{}}), PREFS.find(x=>x.id===PERSON)));
+  p.push = p.push || {on:true, cats:{}, quiet:{on:false, from:'22:00', to:'07:00'}}; p.push.cats = p.push.cats || {}; p.push.quiet = p.push.quiet || {on:false, from:'22:00', to:'07:00'}; return p.push; };
+const pushDeviceId = () => { try{ let d = localStorage.getItem('cc-push-device'); if(!d){ d = 'D'+Math.random().toString(36).slice(2,10); localStorage.setItem('cc-push-device', d); } return d; }catch(e){ return 'D-unknown'; } };
+function pushDeviceName(){ const u = navigator.userAgent;
+  const br = /Edg\//.test(u) ? 'Edge' : /OPR\//.test(u) ? 'Opera' : /Firefox\//.test(u) ? 'Firefox' : /CriOS|Chrome\//.test(u) ? 'Chrome' : /Safari\//.test(u) ? 'Safari' : 'Browser';
+  const os = /iPhone|iPad/.test(u) ? 'iPhone/iPad' : /Android/.test(u) ? 'Android' : /Mac OS X/.test(u) ? 'Mac' : /Windows/.test(u) ? 'Windows' : /Linux/.test(u) ? 'Linux' : 'device';
+  return `${br} on ${os}`; }
+const pushMine = () => PUSHSUBS.filter(s=>s.person===PERSON);
+const pushThisDevice = () => pushMine().find(s=>s.device===pushDeviceId());
+const pushPerm = () => PUSH.supported ? Notification.permission : 'unsupported';
+const b64uToBytes = s => { s = s.replace(/-/g,'+').replace(/_/g,'/'); while(s.length % 4) s += '='; const b = atob(s); return Uint8Array.from(b, c=>c.charCodeAt(0)); };
+
+/* ---------- service worker + subscription ---------- */
+async function pushRegister(){
+  if(!PUSH.supported) return null; if(PUSH.sw) return PUSH.sw;
+  try{ PUSH.sw = await navigator.serviceWorker.register('sw.js', {scope:'./'}); await navigator.serviceWorker.ready; }catch(e){ console.warn('Service worker not available', e); PUSH.sw = null; }
+  return PUSH.sw;
+}
+async function pushServerKey(){
+  if(PUSH.key) return PUSH.key; if(BACKEND?.mode!=='live') return null;
+  try{ const d = await aiInvoke({action:'push_config'}); PUSH.key = d.publicKey || null; }catch(e){ PUSH.keyErr = e.message; }
+  return PUSH.key;
+}
+async function pushEnable(quiet){
+  if(!PUSH.supported) return quiet ? false : (toast(/iPhone|iPad/.test(navigator.userAgent) ? 'On iPhone/iPad, first add the portal to your Home Screen (Share → Add to Home Screen), then open it from there and turn notifications on' : 'This browser does not support device notifications'), false);
+  let perm = Notification.permission;
+  if(perm==='default' && !quiet) perm = await Notification.requestPermission();
+  if(perm!=='granted'){ if(!quiet) toast(perm==='denied' ? 'Notifications are blocked for this site — allow them in your browser’s site settings, then try again' : 'Notifications were not turned on'); pushRedrawSettings(); return false; }
+  const reg = await pushRegister(); if(!reg){ if(!quiet) toast('Could not start the notification service in this browser'); return false; }
+  const pp = pushPrefs(); if(!quiet && pp.on===false){ pp.on = true; recordChange(); }
+  if(BACKEND?.mode!=='live'){ pushSaveSub({endpoint:'demo:'+pushDeviceId(), keys:{}}); if(!quiet) toast('Device notifications are on for this browser (demo mode shows them only while the portal is open in the background)'); pushRedrawSettings(); return true; }
+  const key = await pushServerKey(); if(!key){ if(!quiet) toast('Could not reach the notification server — update the cc-admin function ('+(PUSH.keyErr||'no key')+')'); return false; }
+  try{
+    let sub = await reg.pushManager.getSubscription();
+    if(sub && sub.options?.applicationServerKey){ const cur = new Uint8Array(sub.options.applicationServerKey); const want = b64uToBytes(key); if(cur.length!==want.length || cur.some((b,i)=>b!==want[i])){ await sub.unsubscribe(); sub = null; } }
+    if(!sub) sub = await reg.pushManager.subscribe({userVisibleOnly:true, applicationServerKey:b64uToBytes(key)});
+    pushSaveSub(sub.toJSON());
+    if(!quiet) toast('Device notifications are on ✓');
+  }catch(e){ if(!quiet) toast('Could not turn on notifications: '+e.message); return false; }
+  pushRedrawSettings(); return true;
+}
+function pushSaveSub(j){
+  const dev = pushDeviceId(); let s = PUSHSUBS.find(x=>x.person===PERSON && x.device===dev);
+  if(s && s.endpoint===j.endpoint && s.keys?.p256dh===j.keys?.p256dh) { s.seenAt = nowISO(); recordChange(); return s; }
+  PUSHSUBS = PUSHSUBS.filter(x=>!(x.person===PERSON && x.device===dev) && x.endpoint!==j.endpoint);
+  s = {id:'PS-'+PERSON+'-'+dev, person:PERSON, device:dev, name:pushDeviceName(), endpoint:j.endpoint, keys:j.keys||{}, at:nowISO(), seenAt:nowISO()};
+  PUSHSUBS.push(s); recordChange(); return s;
+}
+async function pushDisableDevice(id){
+  const s = PUSHSUBS.find(x=>x.id===id); if(!s) return;
+  if(s.device===pushDeviceId() && PUSH.sw){ try{ const sub = await PUSH.sw.pushManager.getSubscription(); await sub?.unsubscribe(); }catch(e){} }
+  PUSHSUBS = PUSHSUBS.filter(x=>x.id!==id); recordChange(); pushRedrawSettings(); toast('Device removed — it won’t get notifications');
+}
+async function pushTest(){
+  if(!pushThisDevice()) return toast('Turn on notifications for this device first');
+  if(BACKEND?.mode!=='live'){ const r = await pushRegister(); r?.showNotification('Cross Core · test', {body:'Device notifications work on this browser.', tag:'cc-test', data:{link:{view:'dashboard'}}}); return; }
+  try{ const d = await aiInvoke({action:'push_test'}); toast(d.sent ? `Test sent to ${d.sent} device${d.sent===1?'':'s'} — it can take a few seconds` : 'No device could be reached — turn notifications on again'); }
+  catch(e){ toast('Test failed: '+e.message); }
+}
+
+/* ---------- who needs a push: recipients not actively using the portal ---------- */
+function pushIsActive(k){ const x = typeof presConnected==='function' ? presConnected(k) : null; if(!x) return false; return x.act ?? !x.idle; }
+function pushCollect(ups){
+  if(BACKEND?.mode!=='live' || !PEOPLE[PERSON]) return;
+  const items = [];
+  ups.forEach(r=>{
+    if(PUSH.done.has(r.collection+'|'+r.id)) return;
+    if(r.collection==='notifs'){ const d = r.data; if(d.by!==PERSON || !d.to || d.to===PERSON || d.read) return; PUSH.done.add('notifs|'+r.id); if(!pushIsActive(d.to)) items.push({kind:'notif', id:r.id}); }
+    if(r.collection==='messages'){ const d = r.data; if(d.by!==PERSON) return; PUSH.done.add('messages|'+r.id);
+      const c = CHATS.find(x=>x.id===d.chat); if(!c || c.kind==='dm') return;                    /* DMs already create a notification */
+      const to = (c.members||[]).filter(k=>k!==PERSON && PEOPLE[k] && !(d.mentions||[]).includes(k) && !pushIsActive(k));   /* @mentions already create one */
+      if(to.length) items.push({kind:'msg', id:r.id, to}); }
+  });
+  if(!items.length) return;
+  PUSH.queue.push(...items); clearTimeout(PUSH.t); PUSH.t = setTimeout(pushFlush, 900);
+}
+async function pushFlush(){
+  if(PUSH.busy || !PUSH.queue.length) return; PUSH.busy = true;
+  const items = PUSH.queue.splice(0, 150);
+  try{ await aiInvoke({action:'push_dispatch', items, fromName:pname(PERSON)}); }
+  catch(e){ if(!/Unknown action/i.test(e.message)) console.warn('Push dispatch failed', e.message); }
+  PUSH.busy = false; if(PUSH.queue.length) pushFlush();
+}
+/* hook into the sync engine: after records are saved on the server, dispatch pushes for the new ones */
+if(typeof LiveBackend!=='undefined'){ const _w = LiveBackend.write; LiveBackend.write = async function(ups, dels){ const r = await _w.call(this, ups, dels); try{ pushCollect(ups||[]); }catch(e){ console.warn(e); } return r; }; }
+
+/* ---------- opening a device notification → the exact place in the portal ---------- */
+function pushOpen(d){
+  if(!d) return;
+  if(d.nid){ const n = NOTIFS2.find(x=>x.id===d.nid && x.to===PERSON); if(n && !n.read){ n.read = true; recordChange(); } }
+  if(d.link) followLink(d.link); else if(!el('drawer').classList.contains('open')) toggleDrawer();
+  updateBadges(); renderNotifs(); pushClearRead();
+}
+if(PUSH.supported) navigator.serviceWorker.addEventListener('message', e=>{ const d = e.data||{}; if(d.type==='cc-open') pushOpen(d); });
+function pushFromHash(){
+  const m = location.hash.match(/#cc=([^&]+)/); if(!m) return;
+  let d = null; try{ d = JSON.parse(decodeURIComponent(m[1])); }catch(e){}
+  try{ history.replaceState(null, '', location.pathname + location.search); }catch(e){}
+  if(d) setTimeout(()=>pushOpen(d), 400);
+}
+/* reading something in the portal clears its device notification (on this device) */
+async function pushClearRead(){
+  if(!PUSH.sw || !PEOPLE[PERSON]) return;
+  try{ const L = await PUSH.sw.getNotifications();
+    L.forEach(n=>{ const d = n.data||{}; if(d.person && d.person!==PERSON) return;
+      const nr = d.nid && NOTIFS2.find(x=>x.id===d.nid)?.read;
+      const chatRead = d.chat && (chatLastRead(d.chat) >= (d.at||'')) ;
+      if(nr || chatRead || (d.nid && !NOTIFS2.some(x=>x.id===d.nid))) n.close(); }); }catch(e){}
+}
+{ const _om = openNotif; openNotif = function(id){ _om(id); pushClearRead(); }; }
+{ const _ma = markAllNotifs; markAllNotifs = function(){ _ma(); pushClearRead(); }; }
+{ const _mr = markChatRead; markChatRead = function(id){ _mr(id); pushClearRead(); }; }
+document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) pushClearRead(); });
+
+/* demo mode: no push server, so show a device notification for new in-app ones while the portal is in the background */
+{ const _ore = onRemoteEvent; onRemoteEvent = function(ev){ _ore(ev);
+  if(BACKEND?.mode==='live' || ev.coll!=='notifs' || !ev.isNew || !document.hidden || !PUSH.supported || !pushThisDevice() || Notification.permission!=='granted') return;
+  const n = ev.obj; if(!n || n.to!==PERSON || n.read || PUSH.done.has('shown|'+n.id)) return; PUSH.done.add('shown|'+n.id);
+  pushRegister().then(r=>r?.showNotification('Cross Core', {body:n.text.replace(/<[^>]+>/g,''), tag:n.link?.view==='chat'?'chat:'+n.link.arg:'n:'+n.id, data:{link:n.link, nid:n.id, person:PERSON}})); }; }
+
+/* ---------- first sign-in: invite people to turn on device notifications ---------- */
+function pushInvite(){
+  if(!PEOPLE[PERSON] || ROLE==='client' || PUSH.asked) return; PUSH.asked = true;
+  if(!PUSH.supported || document.getElementById('pushInvite')) return;
+  const perm = Notification.permission;
+  if(perm==='granted'){ if(!pushThisDevice() || BACKEND?.mode==='live') pushEnable(true); return; }
+  if(perm==='denied') return;
+  let snooze = 0; try{ snooze = +localStorage.getItem('cc-push-snooze-'+PERSON) || 0; }catch(e){}
+  if(Date.now() < snooze) return;
+  const d = document.createElement('div'); d.id = 'pushInvite'; d.className = 'push-invite';
+  d.innerHTML = `<div class="push-inv-ico">🔔</div><div class="push-inv-b"><b>Get notified when you’re away</b><span>Turn on device notifications for new messages, @mentions, tasks and approvals — even when the portal is closed. You choose which ones.</span>
+    <div class="push-inv-acts"><button class="btn primary" onclick="document.getElementById('pushInvite')?.remove();pushEnable()">Turn on notifications</button><button class="btn ghost" onclick="pushSnooze()">Not now</button><button class="btn ghost" onclick="document.getElementById('pushInvite')?.remove();pushSettings()">Settings</button></div></div>`;
+  document.body.appendChild(d);
+}
+function pushSnooze(){ try{ localStorage.setItem('cc-push-snooze-'+PERSON, String(Date.now()+7*864e5)); }catch(e){} document.getElementById('pushInvite')?.remove(); toast('You can turn notifications on any time from the bell → ⚙ Settings'); }
+
+/* ---------- Notification Settings ---------- */
+function pushSettings(){
+  const pp = pushPrefs(); const perm = pushPerm(); const mine = pushMine(); const here = pushThisDevice();
+  const status = perm==='unsupported' ? `<span class="badge b-draft">Not supported in this browser</span>${/iPhone|iPad/.test(navigator.userAgent)?'<div class="hint" style="margin-top:4px">On iPhone/iPad: Share → Add to Home Screen, open the portal from the Home Screen, then turn notifications on.</div>':''}`
+    : perm==='denied' ? `<span class="badge b-missed">Blocked in this browser</span><div class="hint" style="margin-top:4px">Click the lock icon next to the address → Notifications → Allow, then reload.</div>`
+    : here && perm==='granted' ? `<span class="badge b-approved">On for this device</span>` : `<span class="badge b-draft">Off for this device</span>`;
+  openModal('Notification settings', `
+    <div class="push-sec"><div class="push-row"><div><b>This device</b><div class="hint">${esc(pushDeviceName())}</div></div><div style="text-align:right">${status}</div></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">${perm!=='unsupported' && perm!=='denied' && !(here && perm==='granted') ? `<button class="btn primary" onclick="pushEnable()">Turn on device notifications</button>` : ''}
+        ${here ? `<button class="btn" onclick="pushTest()">Send a test notification</button><button class="btn ghost" onclick="pushDisableDevice('${here.id}')">Turn off on this device</button>` : ''}</div></div>
+    <div class="push-sec"><label class="push-row" style="cursor:pointer"><div><b>Device notifications</b><div class="hint">Sent only when you’re not actively using the portal. The bell in the portal always keeps everything.</div></div>
+      <input type="checkbox" id="psOn" ${pp.on!==false?'checked':''} onchange="pushSet('on', this.checked)" class="push-switch"></label></div>
+    <div class="push-sec"><div class="nav-label" style="padding:0 0 8px">Send me device notifications for</div>
+      ${PUSH_CATS.map(([k,l,h])=>`<label class="push-row" style="cursor:pointer"><div><b>${l}</b><div class="hint">${h}</div></div><input type="checkbox" class="push-switch" ${pp.cats[k]!==false?'checked':''} onchange="pushSetCat('${k}', this.checked)"></label>`).join('')}</div>
+    <div class="push-sec"><label class="push-row" style="cursor:pointer"><div><b>Quiet hours</b><div class="hint">No device notifications during these hours (Manila time). They wait in the bell.</div></div><input type="checkbox" class="push-switch" ${pp.quiet.on?'checked':''} onchange="pushSetQuiet('on', this.checked)"></label>
+      <div class="grid cols-2" style="margin-top:8px"><div class="field"><label>From</label><input type="time" value="${esc(pp.quiet.from)}" onchange="pushSetQuiet('from', this.value)"></div><div class="field"><label>To</label><input type="time" value="${esc(pp.quiet.to)}" onchange="pushSetQuiet('to', this.value)"></div></div></div>
+    ${mine.length?`<div class="push-sec"><div class="nav-label" style="padding:0 0 8px">Your devices</div>${mine.map(s=>`<div class="push-row"><div><b>${esc(s.name||'Device')}</b>${s.device===pushDeviceId()?' <span class="badge b-new">This device</span>':''}<div class="hint">Added ${dstr(s.at)}</div></div><button class="btn ghost" onclick="pushDisableDevice('${s.id}')">Remove</button></div>`).join('')}</div>`:''}
+    <div class="hint">Several messages from the same chat are grouped into one notification, and you’re never notified twice about the same item. Opening a notification takes you straight to it and marks it read.</div>`);
+}
+function pushRedrawSettings(){ if(el('modal')?.classList.contains('open') && el('modalTitle')?.textContent==='Notification settings') pushSettings(); }
+function pushSet(k, v){ pushPrefs()[k] = v; recordChange(); toast(v ? 'Device notifications on' : 'Device notifications paused — the bell still shows everything'); }
+function pushSetCat(k, v){ pushPrefs().cats[k] = v; recordChange(); }
+function pushSetQuiet(k, v){ pushPrefs().quiet[k] = v; recordChange(); }
+
+/* the bell gets a settings button */
+{ const h = document.querySelector('#drawer .drawer-h span'); if(h && !document.getElementById('pushGear')){ const b = document.createElement('button'); b.id = 'pushGear'; b.className = 'btn ghost'; b.style.cssText = 'padding:6px 9px;font-size:12px'; b.textContent = '⚙ Settings'; b.onclick = () => { closeOverlays(); pushSettings(); }; h.insertBefore(b, h.firstChild); } }
+
+/* start after sign-in */
+{ const _sp = setPerson; setPerson = function(p){ _sp(p); if(PEOPLE[p] && ROLE!=='client'){ PUSH.asked = false; setTimeout(()=>{ if(PUSH.supported && Notification.permission==='granted') pushRegister().then(pushClearRead); pushFromHash(); }, 300);
+  setTimeout(()=>{ if(el('login').style.display==='none' && el('pwGate').style.display!=='grid') pushInvite(); }, 2500); } }; }
 
 CC_BOOT();
 </script>

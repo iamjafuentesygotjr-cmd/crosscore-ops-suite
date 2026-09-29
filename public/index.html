@@ -1264,6 +1264,171 @@ body.view-chat .cora-fab > span:not(:first-child){display:none}
 .lg-li-bar .lg-seg-k{padding-top:0}
 .lg-wf summary{cursor:pointer;font-weight:600;font-size:12.5px}
 @media (max-width:700px){.lg-seg-row{grid-template-columns:1fr;gap:6px}.lg-seg-k{padding-top:0}}
+/* ===== OPS UPDATE: confirmations, collapsible sidebar, back button, attendance log, motion ===== */
+.cf-body{font-size:13.5px;line-height:1.55;color:var(--ink-2)}
+.cf-body b{color:var(--ink)}
+.cf-acts{display:flex;justify-content:flex-end;gap:8px;margin-top:18px;flex-wrap:wrap}
+.btn.danger{background:var(--bad);border-color:var(--bad);color:#fff}
+.btn.danger:hover{box-shadow:0 6px 18px -8px rgba(201,59,59,.6)}
+.btn:disabled{opacity:.55;cursor:default;transform:none!important}
+.del-link{background:none;border:none;color:var(--bad);font-size:11.5px;font-weight:600;cursor:pointer;padding:0}
+.del-link:hover{text-decoration:underline}
+.clickable-row{cursor:pointer;transition:background .15s}
+.clickable-row:hover{background:var(--panel-2)}
+.att-switch{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:10px}
+.att-switch .chip{cursor:pointer;transition:background .15s,border-color .15s}
+.att-switch .chip.on{background:var(--warn-bg);border-color:var(--brand-2);font-weight:600}
+.att-per{display:flex;flex-direction:column;gap:2px;margin-bottom:6px}
+/* sidebar: hide / peek (desktop) */
+.nav-toggle{position:absolute;top:16px;right:10px;width:26px;height:26px;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--ink-3);display:grid;place-items:center;cursor:pointer;z-index:2;transition:color .15s,border-color .15s,transform .25s}
+.nav-toggle svg{width:14px;height:14px}
+.nav-toggle:hover{color:var(--ink);border-color:var(--brand-2)}
+.nav-edge{display:none}
+.nav-backdrop{display:none}
+@media(min-width:861px){
+  .sidebar{position:relative}
+  .app{transition:grid-template-columns .28s cubic-bezier(.4,0,.2,1)}
+  .sidebar{transition:transform .28s cubic-bezier(.4,0,.2,1),box-shadow .28s}
+  body.nav-collapsed .app{grid-template-columns:0 1fr}
+  body.nav-collapsed .main{grid-column:2}
+  body.nav-collapsed .sidebar{position:fixed;left:0;top:0;bottom:0;width:236px;z-index:66;transform:translateX(-100%)}
+  body.nav-collapsed.nav-peek .sidebar{transform:none;box-shadow:var(--shadow-lg)}
+  body.nav-collapsed .nav-toggle{transform:rotate(180deg)}
+  body.nav-collapsed .nav-edge{display:block;position:fixed;left:0;top:0;bottom:0;width:14px;z-index:64;cursor:pointer}
+  .nav-edge span{position:absolute;left:0;top:50%;transform:translateY(-50%);width:16px;height:46px;border-radius:0 10px 10px 0;background:var(--panel);border:1px solid var(--line);border-left:none;box-shadow:var(--shadow);display:grid;place-items:center;color:var(--ink-3);transition:width .18s,color .18s}
+  .nav-edge span svg{width:12px;height:12px}
+  .nav-edge:hover span{width:22px;color:var(--brand-2)}
+}
+@media(max-width:860px){
+  .app{height:100vh;height:100dvh}
+  .nav-toggle{display:none}
+  .sidebar{transition:left .26s cubic-bezier(.4,0,.2,1)}
+  .nav-backdrop{display:block;position:fixed;inset:0;background:rgba(10,8,4,.35);z-index:64;opacity:0;pointer-events:none;transition:opacity .22s}
+  body.nav-open .nav-backdrop{opacity:1;pointer-events:auto}
+  .topbar .icon-btn{width:36px;height:36px;flex:none}
+  .topbar{gap:6px!important}
+  .topbar .crumb{display:none}
+  .topbar{flex-wrap:wrap;row-gap:6px}
+  .topbar h1{font-size:15.5px;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .topbar > div:has(#pageTitle){order:10;flex:1 1 100%;min-width:0}
+}
+.nav-back{transition:opacity .15s,border-color .15s}
+.nav-back:disabled{opacity:.35;cursor:default}
+.nav-back:not(:disabled):hover{border-color:var(--brand-2)}
+.nav-back svg{width:18px;height:18px}
+/* subtle motion */
+.modal.open .box{animation:popIn .2s cubic-bezier(.2,.8,.3,1)}
+@keyframes popIn{from{opacity:0;transform:translateY(8px) scale(.985)}to{opacity:1;transform:none}}
+.card{transition:box-shadow .2s,border-color .2s}
+.chip,.badge{transition:background .15s,color .15s}
+@media (prefers-reduced-motion:reduce){.app,.sidebar,.nav-toggle,.nav-backdrop{transition:none!important}}
+/* ===== calls update: movable window, live mini view, add people ===== */
+.call-audio{display:none}
+.call-panel .cp-head{cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none}
+.call-panel.big .cp-head{cursor:default}
+.call-panel.dragging{transition:none!important;opacity:.96}
+.call-panel.dragging .cp-head{cursor:grabbing}
+.call-panel.mini{width:min(300px,calc(100vw - 24px))!important;height:auto!important;background:#15171c;box-shadow:0 16px 40px -10px rgba(0,0,0,.6);border-radius:14px}
+.call-panel.mini .cp-head{padding:7px 8px;gap:6px;font-size:12px}
+.call-panel.mini .cp-head b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;flex:1}
+.call-panel.mini .cp-q,.call-panel.mini .cp-strip,.call-panel.mini .cp-notice:not(.cp-ringing),.call-panel.mini .cp-present-note{display:none!important}
+.call-panel.mini .cp-grid{min-height:0;padding:5px;display:block}
+.call-panel.mini .cp-stage{height:150px;flex:none}
+.call-panel.mini .cp-ctrl{padding:6px 8px;gap:5px}
+.call-panel.mini .cp-ctrl > button:not([onclick^="toggleMic"]):not(.leave){display:none}
+.call-panel.mini .cp-ctrl button{padding:5px 10px;font-size:11.5px}
+.call-panel.mini .cp-ringing{margin:4px 6px 0;font-size:11.5px;padding:6px 9px}
+.call-panel.mini.in-meet .cp-meet{padding:12px}.call-panel.mini.in-meet .cp-meet p,.call-panel.mini.in-meet .cp-meet .hint{display:none}
+.cp-ringing{animation:crPulse 1.6s ease-in-out infinite}
+@keyframes crPulse{50%{opacity:.6}}
+.ca-list{max-height:min(46vh,380px);overflow-y:auto;display:flex;flex-direction:column;gap:2px;border:1px solid var(--line);border-radius:10px;padding:4px}
+.ca-row{display:flex;align-items:center;gap:10px;padding:7px 8px;border-radius:8px;cursor:pointer;font-size:13px}
+.ca-row:hover{background:var(--panel-2)}
+.ca-row .avatar{width:30px;height:30px;font-size:11px;flex:none}
+.call-ring.invite{border-left:4px solid var(--brand-2)}
+@media(max-width:600px){.call-panel.mini .cp-stage{height:128px}}
+/* ===== messages update: multi-line composer, formatting, edit/delete, recording, mark-up ===== */
+textarea#chatMsg,textarea#thrMsg{flex:1;min-width:0;resize:none;line-height:1.45;max-height:168px;overflow-y:auto;min-height:38px;padding:9px 11px}
+.fmt-bar{display:flex;align-items:center;gap:2px;padding:6px 10px 0;flex-wrap:wrap;background:var(--panel);border-top:1px solid var(--line)}
+.fmt-bar + .chat-input{border-top:none;padding-top:6px}
+.fmt-bar button{border:none;background:none;padding:4px 8px;border-radius:7px;font-size:12px;color:var(--ink-2);min-width:28px;transition:background .15s,color .15s}
+.fmt-bar button:hover{background:var(--panel-2);color:var(--ink)}
+.fmt-sep{width:1px;height:16px;background:var(--line);margin:0 4px;display:inline-block}
+.fmt-hint{margin-left:auto;font-size:11px;color:var(--ink-3)}
+@media(max-width:700px){.fmt-hint{display:none}.fmt-bar{padding:4px 6px 0}.fmt-bar button{padding:4px 6px}}
+.msg .bubble b{font-weight:700}.msg .bubble .mb{font-weight:700;margin-right:1px}
+.msg-edited{font-size:10.5px;opacity:.65;font-style:italic;white-space:nowrap}
+.msg-deleted{opacity:.7;font-size:12.5px}
+.msg.is-deleted .bubble{background:transparent!important;border:1px dashed var(--line)!important;color:var(--ink-3)!important}
+.msg-act{border:none;background:none;font-size:11px;color:var(--ink-3);padding:0 3px;cursor:pointer;opacity:0;transition:opacity .15s,color .15s}
+.msg:hover .msg-act,.msg-act:focus{opacity:1}
+.msg-act:hover{color:var(--ink)}.msg-act.del:hover{color:var(--bad)}
+@media(hover:none){.msg-act{opacity:.8}}
+.bubble.editing{background:var(--panel)!important;border:1px solid var(--brand-2)!important;color:var(--ink)!important;min-width:min(420px,70vw)}
+.msg-edit{width:100%;resize:vertical;min-height:54px;line-height:1.45}
+.msg-edit-acts{display:flex;gap:6px;align-items:center;justify-content:flex-end;margin-top:6px;flex-wrap:wrap}
+.msg-edit-acts .hint{margin-right:auto;font-size:11px}
+.msg-edit-acts .btn{padding:5px 11px;font-size:12px}
+.rec-bar{position:fixed;left:50%;top:14px;transform:translateX(-50%);z-index:130;display:flex;align-items:center;gap:10px;background:#15171c;color:#fff;border-radius:99px;padding:7px 8px 7px 16px;box-shadow:0 14px 34px -10px rgba(0,0,0,.55);font-size:13px;animation:popIn .2s ease}
+.rec-bar .hint{color:#aab}.rec-bar .btn{padding:6px 14px;border-radius:99px}
+.rec-time{font-variant-numeric:tabular-nums;color:#ddd}
+.rec-dot{width:10px;height:10px;border-radius:50%;background:#ff4d4d;animation:recBlink 1.2s ease-in-out infinite}
+@keyframes recBlink{50%{opacity:.25}}
+.mr-prev{background:#0d0f13;border-radius:12px;overflow:hidden;display:grid;place-items:center;max-height:60vh}
+.mr-prev video,.mr-prev img{max-width:100%;max-height:60vh;display:block}
+.mr-acts{display:flex;flex-wrap:wrap;gap:8px}
+.ann-tools{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.ann-tools .chip{cursor:pointer}.ann-tools .chip.on{background:var(--warn-bg);border-color:var(--brand-2);font-weight:600}
+.ann-col{width:22px;height:22px;border-radius:50%;border:2px solid var(--line);cursor:pointer;padding:0}
+.ann-col.on{outline:2px solid var(--brand-2);outline-offset:2px}
+.ann-wrap{position:relative;background:#0d0f13;border-radius:12px;overflow:hidden;display:grid;place-items:center}
+.ann-wrap canvas{max-width:100%;max-height:62vh;display:block;cursor:crosshair;touch-action:none}
+.ann-txt{position:absolute;min-width:160px;font-weight:700;font-size:15px;background:rgba(255,255,255,.95);border:2px solid var(--brand-2);border-radius:8px;padding:4px 8px}
+/* ===== assistant quick actions, reminders, support tickets, fixed banner ===== */
+.pa-quick{display:flex;gap:6px;flex-wrap:wrap;padding:8px 12px 0}
+.pa-quick .chip{cursor:pointer;font-size:12px;padding:5px 11px}
+.pa-quick .chip:hover{border-color:var(--brand-2)}
+.pa-edit{display:block;margin:-4px 0 6px auto;border:none;background:none;font-size:11px;color:var(--ink-3);cursor:pointer;opacity:0;transition:opacity .15s}
+.cora-m.user:hover + .pa-edit,.pa-edit:hover,.pa-edit:focus{opacity:1}
+@media(hover:none){.pa-edit{opacity:.8}}
+.cora-m.user.editing{background:var(--panel)!important;color:var(--ink)!important;border:1px solid var(--brand-2);min-width:min(420px,80%)}
+.rem-row.done b{text-decoration:line-through;opacity:.6}
+.rem-row.late b{color:var(--bad)}
+.rem-row input[type=checkbox]{width:auto}
+.tk-st,.tk-pri{display:inline-block;font-size:11px;font-weight:700;padding:2px 9px;border-radius:99px;white-space:nowrap}
+.tk-submitted{background:var(--info-bg);color:var(--info)}
+.tk-inprogress{background:var(--warn-bg);color:var(--warn)}
+.tk-fortesting{background:var(--violet-bg);color:var(--violet)}
+.tk-resolved{background:var(--ok-bg);color:var(--ok)}
+.tk-closed{background:var(--line-2);color:var(--ink-2)}
+.tk-p-critical{background:var(--bad);color:#fff}.tk-p-high{background:var(--bad-bg);color:var(--bad)}
+.tk-p-medium{background:var(--warn-bg);color:var(--warn)}.tk-p-low{background:var(--line-2);color:var(--ink-2)}
+.tk-flag{font-size:10.5px;font-weight:700;color:var(--warn);background:var(--warn-bg);border-radius:6px;padding:1px 6px;margin-left:4px;white-space:nowrap}
+.tk-flag.sys{color:var(--info);background:var(--info-bg)}.tk-flag.late{color:var(--bad);background:var(--bad-bg)}
+.tk-tbl td{vertical-align:top}
+.tk-pipe{display:flex;gap:4px;margin-bottom:12px;flex-wrap:wrap}
+.tk-pipe span{flex:1;min-width:84px;text-align:center;font-size:11px;font-weight:600;padding:6px 4px;border-radius:8px;background:var(--panel-2);color:var(--ink-3);border:1px solid var(--line);transition:background .2s}
+.tk-pipe span.done{background:var(--ok-bg);color:var(--ok);border-color:transparent}
+.tk-pipe span.now{background:var(--grad);color:#1A1206;border-color:transparent}
+.tk-meta{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+.tk-desc{background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:13px;line-height:1.55;margin-bottom:10px}
+.tk-clarify{background:var(--warn-bg);color:var(--warn);border-radius:10px;padding:9px 12px;font-size:12.5px;margin-bottom:10px}
+.tk-res{background:var(--ok-bg);color:var(--ok);border-radius:10px;padding:9px 12px;font-size:12.5px;margin-bottom:10px}
+.tk-kv{margin:8px 0}.tk-kv select{padding:5px 8px;font-size:12.5px}
+.tk-acts{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:10px 0;padding:10px 12px;border:1px dashed var(--line);border-radius:10px}
+.tk-thread{display:flex;flex-direction:column;gap:10px;max-height:320px;overflow-y:auto}
+.tk-c{display:flex;gap:9px;font-size:13px;line-height:1.5}.tk-c .avatar{width:28px;height:28px;font-size:10.5px;flex:none}
+.tk-c.me > div{background:var(--panel-2);border-radius:10px;padding:6px 10px}
+.tk-reply{margin-top:10px;display:flex;flex-direction:column;gap:6px}.tk-reply textarea{width:100%;resize:vertical}
+.tk-hist{margin-top:12px}.tk-hist summary{cursor:pointer;font-size:12.5px;font-weight:600;color:var(--ink-2)}
+.tk-check{display:flex;gap:8px;align-items:center;font-size:13px;margin-top:6px;cursor:pointer}.tk-check input{width:auto}
+.tk-flow{padding-left:18px;display:flex;flex-direction:column;gap:6px;font-size:13px;line-height:1.5}
+.fix-banner{display:flex;flex-direction:column;gap:1px;background:var(--ok);animation:popIn .3s ease}
+.fix-row{display:flex;gap:12px;align-items:center;padding:9px 24px;background:linear-gradient(90deg,var(--ok-bg),var(--panel));border-bottom:1px solid var(--line)}
+.fix-ico{font-size:18px}.fix-row b{font-size:13px}.fix-txt{font-size:12px;color:var(--ink-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fix-row .btn{padding:5px 11px;font-size:12px}
+@media(max-width:860px){.fix-row{padding:8px 14px;gap:8px}.fix-txt{white-space:normal}}
+.tk-team{display:inline-block;font-size:11px;font-weight:700;padding:2px 9px;border-radius:99px;background:var(--info-bg);color:var(--info);white-space:nowrap}
 </style>
 </head>
 <body>
@@ -2228,6 +2393,8 @@ const DemoBackend = {
   read(){ try{ return JSON.parse(localStorage.getItem(this.key)||'null'); }catch(e){ return null; } },
   async loadAll(){ const db=this.read(); if(!db || !db.employees || !Object.keys(db.employees).length) return null;   /* no / partial copy (e.g. cleared mid-save) → start from the starter data */ const rows=[]; Object.entries(db).forEach(([c,m])=>Object.entries(m).forEach(([id,data])=>rows.push({collection:c,id,data}))); return rows; },
   async write(ups, dels){
+    /* tabs of the demo share one browser copy: take a cross-tab lock so two tabs saving at once never overwrite each other */
+    if(navigator.locks?.request && !this._locked) return navigator.locks.request('cc-v8-db-write', ()=>{ this._locked = true; try{ return this.write(ups, dels); } finally{ this._locked = false; } });
     const db = this.read()||{};
     ups.forEach(r=>{ (db[r.collection]=db[r.collection]||{})[r.id]=r.data; });
     dels.forEach(r=>{ if(db[r.collection]) delete db[r.collection][r.id]; });
@@ -4637,6 +4804,9 @@ function findDup(l, pool=LEADS){
 }
 const leadOwnerPM = l => l.mgr || pmsOf(l.client)[0] || 'tricia';
 const canManageLeads = () => ROLE!=='employee';
+/* VAs can delete the leads and ICP entries assigned to them; PMs, HR and heads can delete any they can see */
+const canDelLead = l => !!l && (canManageLeads() || l.am===PERSON || l.by===PERSON);
+const canDelICP = i => !!i && (canManageLeads() || i.assignee===PERSON || i.by===PERSON);
 function logLeadEvent(l, kind){ LEADEVENTS.push({id:uid('LE'), person:PERSON, date:manilaDate(), kind, lead:l.id, client:l.client, at:nowISO()}); if(LEADEVENTS.length>6000) LEADEVENTS.splice(0, LEADEVENTS.length-6000); }
 const eventsToday = (who, kind) => LEADEVENTS.filter(e=>e.date===manilaDate() && (who==='team' ? true : Array.isArray(who) ? who.includes(e.person) : e.person===who) && e.kind===kind).length;
 function setOutreach(l, st, evKind, note){
@@ -4749,7 +4919,7 @@ function leadCard(l){
       ${second}
       ${l.approval==='Pending'&&canManageLeads()?`<div style="display:flex;gap:6px"><button class="btn primary" style="flex:1;justify-content:center" onclick="approveLead('${l.id}',true)">✓ Approve</button><button class="btn" style="flex:1;justify-content:center;color:var(--bad)" onclick="approveLead('${l.id}',false)">Reject</button></div>`:''}
     </div>
-    <div class="foot"><span>Assigned · ${dtstr(l.assignedAt)} by ${esc(first(l.assignedBy||leadOwnerPM(l)))}${ROLE!=='employee'?' · to '+esc(first(l.am)):''} · ${esc(cname(l.client))}</span><a href="#" onclick="openLead('${l.id}');return false" style="color:var(--info)">Details and history</a></div>
+    <div class="foot"><span>Assigned · ${dtstr(l.assignedAt)} by ${esc(first(l.assignedBy||leadOwnerPM(l)))}${ROLE!=='employee'?' · to '+esc(first(l.am)):''} · ${esc(cname(l.client))}</span><span style="display:flex;gap:10px;align-items:center"><a href="#" onclick="openLead('${l.id}');return false" style="color:var(--info)">Details and history</a>${canDelLead(l)?`<a href="#" class="del-link" onclick="event.stopPropagation();delLead('${l.id}');return false" title="Delete this lead">Delete</a>`:''}</span></div>
     <div class="hint" style="margin-top:4px">Source: ${esc(l.source||'Manual')}</div>
   </div>`;
 }
@@ -4760,7 +4930,7 @@ function leadTable(L){
     <td>${av(P(l.am))} ${esc(first(l.am))}</td><td>${l.follow?(l.follow<=TODAY?'<span style="color:var(--bad);font-weight:600">Due</span>':fmt(l.follow)):'—'}</td>
     <td style="text-align:right;white-space:nowrap"><button class="btn" style="padding:5px 10px;font-size:12px" onclick="openLead('${l.id}')">Open</button>
     <button class="btn" style="padding:5px 10px;font-size:12px" onclick="archLead('${l.id}')">${l.archived?'Restore':'Archive'}</button>
-    ${canManageLeads()?`<button class="btn" style="padding:5px 10px;font-size:12px;color:var(--bad)" onclick="delLead('${l.id}')">Delete</button>`:''}</td></tr>`).join('') || '<tr><td colspan="8" class="empty">No leads match.</td></tr>'}</tbody></table></div>`;
+    ${canDelLead(l)?`<button class="btn" style="padding:5px 10px;font-size:12px;color:var(--bad)" onclick="delLead('${l.id}')">Delete</button>`:''}</td></tr>`).join('') || '<tr><td colspan="8" class="empty">No leads match.</td></tr>'}</tbody></table></div>`;
 }
 function leadOpened(id){ const l=LEADS.find(x=>x.id===id); if(!l) return; if(l.outreach==='Assigned') setOutreach(l,'Profile opened','opened'); else logLeadEvent(l,'opened'); recordChange(); setTimeout(()=>RENDER[CURRENT]?.(),300); }
 function leadStep(id, st, ev){ const l=LEADS.find(x=>x.id===id); if(!l) return; setOutreach(l, st, ev); if(st==='Follow-up') l.follow = addD(3); recordChange(); RENDER[CURRENT]?.(); toast(`${l.name} → ${st}`); }
@@ -4834,6 +5004,7 @@ function openLead(id){
       <button class="btn" style="flex:1" onclick="leadEdit('${l.id}')">Edit details</button>
       <button class="btn" style="flex:1" onclick="leadComments('${l.id}')">💬 Comments</button>
       <button class="btn" style="flex:1" onclick="archLead('${l.id}');closeModal()">${l.archived?'Restore':'Archive'}</button>
+      ${canDelLead(l)?`<button class="btn" style="flex:1;color:var(--bad)" onclick="delLead('${l.id}')">Delete</button>`:''}
     </div>`);
 }
 function addActivity(id){
@@ -4874,7 +5045,9 @@ function saveLeadEdit(id){
   recordChange(); closeModal(); RENDER[CURRENT]?.(); toast('Lead updated');
 }
 function archLead(id){ const l=LEADS.find(x=>x.id===id); l.archived=!l.archived; recordChange(); RENDER[CURRENT]?.(); toast(l.archived?'Lead archived':'Lead restored'); }
-function delLead(id){ if(!confirm('Delete this lead permanently? Archiving is usually safer.')) return; LEADS = LEADS.filter(x=>x.id!==id); recordChange(); RENDER[CURRENT]?.(); toast('Lead deleted'); }
+function delLead(id){ const l = LEADS.find(x=>x.id===id); if(!canDelLead(l)) return toast('You can delete only the leads assigned to you');
+  confirmModal('Delete this lead?', `<b>${esc(l.name||'This lead')}</b>${l.company?' · '+esc(l.company):''} will be removed from ${esc(cname(l.client))} for everyone. This can’t be undone — use Archive if you may need it later.`, 'Delete lead', ()=>{
+    LEADS = LEADS.filter(x=>x.id!==id); audit(`Deleted lead ${l.name||l.id} (${cname(l.client)})`); recordChange(); closeModal(); RENDER[CURRENT]?.(); toast('Lead deleted'); }); }
 function nextLeadId(){ return 'L-'+Date.now().toString(36).toUpperCase()+Math.random().toString(36).slice(2,4).toUpperCase(); }
 function newLead(base){
   const c = client(base.client);
@@ -5175,7 +5348,7 @@ function clientLeadsTab(c){
       <td><span class="badge ${i.priority==='High'?'b-missed':i.priority==='Medium'?'b-scheduled':'b-draft'}">${esc(i.priority)}</span></td>
       <td>${av(P(i.assignee))} ${esc(first(i.assignee))}</td>
       <td style="text-align:right;white-space:nowrap"><button class="btn" style="padding:5px 10px;font-size:12px" onclick="icpModal('${c.id}','${i.id}')">Edit</button>
-      <button class="btn" style="padding:5px 10px;font-size:12px" onclick="archICP('${i.id}')">Archive</button></td></tr>`).join('') || '<tr><td colspan="6" class="empty">No ICP entries — define target companies for outreach.</td></tr>'}
+      <button class="btn" style="padding:5px 10px;font-size:12px" onclick="archICP('${i.id}')">Archive</button>${canDelICP(i)?` <button class="btn" style="padding:5px 10px;font-size:12px;color:var(--bad)" onclick="delICP('${i.id}')">Delete</button>`:''}</td></tr>`).join('') || '<tr><td colspan="6" class="empty">No ICP entries — define target companies for outreach.</td></tr>'}
       </tbody></table></div>
     ${typeof prOf==='function' && navAllowed(NAV.find(n=>n.id==='prospects')) ? `<div class="card" style="margin-top:16px"><div class="card-h"><h3>ICP profiles & LinkedIn creators</h3><span class="sub">ICP List (0–15K followers): ${prOf(c.id,'icp').length} · Creator List (15K+): ${prOf(c.id,'creator').length}</span></div>
       <div class="card-b" style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" onclick="PR.client='${c.id}';PR.list='icp';go('prospects')">Open ICP List</button><button class="btn" onclick="PR.client='${c.id}';PR.list='creator';go('prospects')">Open Creator List</button></div></div>` : ''}`;
@@ -5209,6 +5382,9 @@ function saveICP(cid, id){
   else { ICPS.unshift({id:uid('ICP'), client:cid, mgr:client(cid).mgr, archived:false, ...data}); toast('ICP company added'); }
   recordChange(); closeModal(); if(CURRENT==='clientws') RENDER.clientws();
 }
+function delICP(id){ const i = ICPS.find(x=>x.id===id); if(!canDelICP(i)) return toast('You can delete only the ICP entries assigned to you');
+  confirmModal('Delete this ICP entry?', `<b>${esc(i.company||'This company')}</b> will be removed from the ${esc(cname(i.client))} ICP list for everyone. This can’t be undone — use Archive if you may need it later.`, 'Delete ICP entry', ()=>{
+    ICPS = ICPS.filter(x=>x.id!==id); audit(`Deleted ICP entry ${i.company||i.id} (${cname(i.client)})`); recordChange(); closeModal(); RENDER[CURRENT]?.(); toast('ICP entry deleted'); }); }
 function archICP(id){ const i=ICPS.find(x=>x.id===id); i.archived=!i.archived; recordChange(); if(CURRENT==='clientws') RENDER.clientws(); toast(i.archived?'ICP archived':'ICP restored'); }
 function exportICP(cid){
   const rows = ICPS.filter(i=>!cid||i.client===cid);
@@ -6992,7 +7168,7 @@ RENDER.chat = (force) => {
           <button class="btn" title="Attach photos, screenshots, videos or files" onclick="chatPick()">📎</button>
           ${emojiBtn('chatMsg')}
           <div class="mention-box" id="mentionBox"></div>
-          <input id="chatMsg" autocomplete="off" placeholder="Message ${esc(chatTitle(c))}…${c.kind!=='dm'?' Type @ to tag someone':''} (paste a screenshot with Ctrl/⌘+V)" oninput="mentionSuggest()" onkeydown="chatKey(event)" onblur="setTimeout(()=>mentionClose(),150)" onpaste="chatPaste(event)">
+          <textarea id="chatMsg" rows="1" autocomplete="off" placeholder="Message ${esc(chatTitle(c))}…${c.kind!=='dm'?' Type @ to tag someone':''}" oninput="mentionSuggest();composerGrow(this)" onkeydown="chatKey(event)" onblur="setTimeout(()=>mentionClose(),150)" onpaste="chatPaste(event)"></textarea>
           <button class="btn primary" id="chatSend" onclick="sendChat()">Send</button>
         </div>`}
         <div class="drop-hint" id="dropHint">Drop files to attach</div>`:'<div class="empty" style="margin:auto">Pick a conversation or start a private message.</div>'}
@@ -7044,7 +7220,7 @@ async function sendChat(){
   if(c.kind==='dm') notify(c.members.filter(k=>k!==PERSON), 'message', `💬 <b>${esc(first(PERSON))}</b>: ${esc(what)}`, {view:'chat', arg:c.id});
   else if(mentions.length) notify(mentions, 'message', `${esc(first(PERSON))} tagged you in <b>${esc(chatTitle(c))}</b>: ${esc(what)}`, {view:'chat', arg:c.id});
   myPrefs().lastRead[c.id] = m.at;
-  recordChange(); inp.value=''; drawPending();
+  recordChange(); inp.value=''; if(typeof composerGrow==='function') composerGrow(inp); drawPending();
   const sc = el('chatScroll'); updateMessages(c); el('chatList').innerHTML = chatListHTML(); if(sc) sc.scrollTop = sc.scrollHeight; inp.focus();
 }
 function chatMembersModal(id){
@@ -7125,7 +7301,8 @@ function chatKey(e){
   if(open && (e.key==='ArrowDown'||e.key==='ArrowUp')){ e.preventDefault(); MENTION.i=(MENTION.i+(e.key==='ArrowDown'?1:-1)+MENTION.list.length)%MENTION.list.length; mentionSuggest(); return; }
   if(open && (e.key==='Enter'||e.key==='Tab')){ e.preventDefault(); mentionPick(MENTION.i); return; }
   if(open && e.key==='Escape'){ e.stopPropagation(); mentionClose(); return; }
-  if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); sendChat(); }
+  /* Enter adds a new line; Ctrl/⌘+Enter sends (the Send button works too) */
+  if(e.key==='Enter' && (e.ctrlKey || e.metaKey)){ e.preventDefault(); sendChat(); }
 }
 
 /* ===== 15b_calls.js ===== */
@@ -7722,7 +7899,7 @@ function finReconcile(){
     want.filter(k=>!act.some(a=>a.emp===k)).forEach(k=>{
       const prev = (f.assignments||[]).filter(a=>a.emp===k && a.rate!=null).slice(-1)[0];
       const role = pmsOf(c.id).includes(k) ? 'Project manager' : (c.resp?.[k]||P(k)?.sub||'Team member');
-      f.assignments.push({id:uid('AS'), emp:k, role, isPm:pmsOf(c.id).includes(k), rate:prev?prev.rate:null, from:start, to:null});
+      (f.assignments = f.assignments||[]).push({id:uid('AS'), emp:k, role, isPm:pmsOf(c.id).includes(k), rate:prev?prev.rate:null, from:start, to:null});
       finHist(f, `${pname(k)} added as ${role}`, `${onboarding?'during onboarding ':''}by ${who} · from ${dLong(start)}${prev?' · previous agreed rate carried over — confirm':' · agreed rate needed'}`); changed = true; });
     act.filter(a=>want.includes(a.emp)).forEach(a=>{ const role = pmsOf(c.id).includes(a.emp)?'Project manager':(c.resp?.[a.emp]||a.role);
       if(role && role!==a.role){ finHist(f, `${pname(a.emp)}'s role changed`, `${a.role} → ${role}`); a.role=role; changed=true; } });
@@ -9924,7 +10101,11 @@ function coraLocal(q, ctx, web=[], lo={}){
     t += `\nSOP: ${sop}`;
     if(/rate|price|package|fee|pay|bayad|sahod/.test(ql)) t += typeof finAuth==='function' && finAuth() ? `\n${coraFinance(c.id)||'No package rate on file.'}` : `\n${tl?'Ang package rates ay para lang sa Finance at company heads.':'Package rates are restricted to Finance and company heads.'}`;
     L.push(t); });
-  if(!ctx.clients.length){ const top = (ctx.hits||[]).filter(d=>!['company','team'].includes(d.id) && d.type!=='Client' && d.rare>0).slice(0,3);
+  if(!ctx.clients.length){ let top = (ctx.hits||[]).filter(d=>!['company','team'].includes(d.id) && d.type!=='Client' && d.rare>0).slice(0,3);
+    /* a named thing (e.g. “Zorblax Industries”) that appears nowhere in our records → say so instead of showing loose matches */
+    const names = String(q).split(/(?<=[.!?])\s+/).flatMap(sn=>sn.trim().split(/\s+/).slice(1)).filter(w=>/^\p{Lu}[\p{L}'’-]{2,}/u.test(w)).map(w=>w.replace(/[^\p{L}'’-]/gu,'').toLowerCase()).filter(w=>w.length>2 && !CORA_STOP.has(w));
+    if(names.length && top.length){ const corpus = (typeof kbDocs==='function' ? kbDocs() : []).map(d=>String((d.title||'')+' '+(d.text||d.body||'')).toLowerCase()).join(' ');
+      if(names.some(w=>!corpus.includes(w))) top = []; }
     top.forEach(d=>L.push(`**${d.title}** — [[${d.ref}]]\n${kbSnippet(d, q)}`)); }
   const lm = (ctx.leadHits||[]); if(lm.length) L.push('**Matching leads**\n'+lm.map(l=>`- [[L:${l.client}:${l.id}|${l.name}]] · ${[l.title,l.company].filter(Boolean).join(' · ')} · ${cname(l.client)}`).join('\n'));
   if(/cross ?core|company|history|about us|who are we|ceo|coo|founder|kumpanya/.test(ql) && !ctx.clients.length){ const co = coraCompany(); L.push(`**The Cross Core OPC** — [[PAGE:knowledge|Company profile]]\n${co.about}${co.history?'\n'+co.history:''}\nLeadership: ${co.leaders}`); }
@@ -11849,7 +12030,7 @@ RENDER.prospects = () => {
     const st = `<select class="pr-st" onclick="event.stopPropagation()" onchange="prSet('${p.id}','status',this.value)">${PR_STATUS.map(s=>`<option ${p.status===s?'selected':''}>${s}</option>`).join('')}</select>`;
     const cells = isC ? [link, `<b>${esc(p.name)}</b>`, esc(p.company), esc(p.industry), fol, esc(p.segment), st, esc(first(p.va)), dstr(p.at), `<span class="pr-note">${esc(p.notes)}</span>`]
       : [link, `<b>${esc(p.name)}</b>`, esc(p.company), esc(p.industry), esc(p.title), esc(p.size), esc(p.location), fol, esc(p.segment), st, esc(first(p.va)), dstr(p.at), `<span class="pr-note">${esc(p.notes)}</span>`];
-    return `<tr><td>${cells.join('</td><td>')}</td><td style="white-space:nowrap"><button class="btn ghost" style="padding:4px 8px;font-size:12px" onclick="prEdit('${p.id}')">Edit</button>${prCanDelete(p)?`<button class="btn ghost" style="padding:4px 8px;font-size:12px;color:var(--bad)" onclick="prDelete('${p.id}')">✕</button>`:''}</td></tr>`; };
+    return `<tr><td>${cells.join('</td><td>')}</td><td style="white-space:nowrap"><button class="btn ghost" style="padding:4px 8px;font-size:12px" onclick="prEdit('${p.id}')">Edit</button>${prCanDelete(p)?`<button class="btn ghost" style="padding:4px 8px;font-size:12px;color:var(--bad)" onclick="prDelete('${p.id}')" title="Delete">🗑 Delete</button>`:''}</td></tr>`; };
   el('v-prospects').innerHTML = `<div class="page-head"><div><h2>ICP & Creator Lists</h2><p>Two separate lists per client: the <b>ICP List</b> for profiles with 0–15K followers and the <b>LinkedIn Creator List</b> for creators with 15K+ followers.</p></div>
       <div class="field" style="margin:0;min-width:220px"><select onchange="PR.client=this.value;PR.show=200;RENDER.prospects()">${C.map(x=>`<option value="${x.id}" ${x.id===cid?'selected':''}>${esc(x.name)}</option>`).join('')}</select></div></div>
     ${links.length?`<div class="pr-clinks"><span class="hint">${esc(c.name)}’s accounts:</span>${links.map(l=>`<a class="cl-link" href="${esc(prHref(l.url))}" target="_blank" rel="noopener">${esc(l.label)} ↗</a>`).join('')}</div>`:''}
@@ -11869,8 +12050,9 @@ RENDER.prospects = () => {
   if(keep){ const i = el('prQ'); i.focus(); i.setSelectionRange(i.value.length, i.value.length); }
 };
 function prSet(id, f, v){ const p = PROSPECTS.find(x=>x.id===id); if(!p) return; p[f] = v; p.updatedAt = nowISO(); recordChange(); }
-function prDelete(id){ const p = PROSPECTS.find(x=>x.id===id); if(!p || !prCanDelete(p)) return; if(!confirm(`Remove ${p.name||'this profile'} from the ${PR_LISTS[p.list].name}?`)) return;
-  PROSPECTS = PROSPECTS.filter(x=>x.id!==id); recordChange(); RENDER.prospects(); toast('Removed'); }
+function prDelete(id){ const p = PROSPECTS.find(x=>x.id===id); if(!p || !prCanDelete(p)) return toast('You can delete only the profiles assigned to you');
+  confirmModal('Delete this profile?', `<b>${esc(p.name||'This profile')}</b> will be removed from the ${esc(PR_LISTS[p.list].name)} for ${esc(cname(p.client))}. This can’t be undone.`, 'Delete profile', ()=>{
+    PROSPECTS = PROSPECTS.filter(x=>x.id!==id); recordChange(); closeModal(); RENDER.prospects(); toast('Profile deleted'); }); }
 function prExport(){
   const cid = PR.client; const isC = PR.list==='creator'; const L = prFiltered(cid);
   const head = isC ? ['LinkedIn profile','Name','Company','Niche / industry','Followers','Segment','Status','VA','Date added','Notes'] : ['Profile link','Name','Company','Industry','Job title','Company size','Location','Followers','Segment','Status','VA','Date added','Notes'];
@@ -12449,7 +12631,7 @@ function threadHTML(root){
       ${R.map((r,i)=>`<div class="mwrap thr-r" id="tr-${r.id}">${msgCore(r, i?R[i-1]:root, {inThread:true})}</div>`).join('')}
     </div>
     ${chatReadOnly(c) ? `<div class="chat-input ended-ro">🔒 This chat is read-only.</div>` : `<div class="thr-input">
-      <input id="thrMsg" autocomplete="off" placeholder="Reply in thread…${c&&c.kind!=='dm'?' (type @Name to tag)':''}" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendThreadReply()}">
+      <textarea id="thrMsg" rows="1" autocomplete="off" placeholder="Reply in thread…${c&&c.kind!=='dm'?' (type @Name to tag)':''} Ctrl/⌘+Enter to send" oninput="composerGrow(this)" onkeydown="if(event.key==='Enter'&&(event.ctrlKey||event.metaKey)){event.preventDefault();sendThreadReply()}"></textarea>
       ${typeof emojiBtn==='function'?emojiBtn('thrMsg'):''}<button class="btn primary" onclick="sendThreadReply()">Reply</button></div>`}`;
 }
 function drawThread(focusId){
@@ -12491,7 +12673,7 @@ function sendThreadReply(){
   if(to.length) notify(to, 'message', `↪ <b>${esc(first(PERSON))}</b> replied in a thread${c.kind==='dm'?'':` in <b>${esc(chatTitle(c))}</b>`}: ${what}`, link);
   if(mentions.length) notify(mentions, 'message', `${esc(first(PERSON))} tagged you in a thread in <b>${esc(chatTitle(c))}</b>: ${what}`, link);
   myPrefs().lastRead[c.id] = m.at;
-  recordChange(); inp.value = '';
+  recordChange(); inp.value = ''; if(typeof composerGrow==='function') composerGrow(inp);
   const sc = el('thrScroll'); if(sc) sc.dataset.stick = '1';
   drawThread(); updateMessages(c); const cl = el('chatList'); if(cl) cl.innerHTML = chatListHTML(); el('thrMsg')?.focus();
 }
@@ -12882,10 +13064,11 @@ function instDraw(mode){
     installed: `<h3 id="instTitle">Installed ✓</h3><p>Cross Core is on your home screen. Turn on notifications so messages, tasks and approvals reach you even when the portal is closed.</p>
       ${typeof PUSH!=='undefined' && PUSH.supported ? `<button class="btn primary inst-main" onclick="instNotify()">🔔 Turn on notifications</button>` : `<p class="hint">Open Cross Core from your home screen to turn on notifications.</p>`}<button class="btn ghost inst-sub" onclick="instClose()">Later</button>`,
     notify: `<h3 id="instTitle">Turn on notifications</h3><p>Get new messages, @mentions, thread replies, tasks, approvals and announcements on this ${instIOS()?(/ipad/i.test(UA)||navigator.platform==='MacIntel'?'iPad':'iPhone'):'device'} — even when the app is closed. You can choose which ones in ⚙ Settings.</p>
-      ${Notification.permission==='denied' ? `<p class="inst-warn">Notifications are blocked for Cross Core. Open your device <b>Settings → Notifications → Cross Core</b> (or the browser’s site settings) and allow them, then come back.</p>` : ''}
+      ${typeof Notification!=='undefined' && Notification.permission==='denied' ? `<p class="inst-warn">Notifications are blocked for Cross Core. Open your device <b>Settings → Notifications → Cross Core</b> (or the browser’s site settings) and allow them, then come back.</p>` : ''}
       <button class="btn primary inst-main" onclick="instNotify()">🔔 Turn on notifications</button><button class="btn ghost inst-sub" onclick="instNotifLater()">Not now</button>`,
     done: `<h3 id="instTitle">You’re all set 🎉</h3><p>Cross Core is installed and notifications are on for this device. You won’t be asked again here.</p><button class="btn primary inst-main" onclick="instClose()">Done</button>`,
   }[mode];
+  d.onclick = e => { if(e.target===d){ const x = d.querySelector('.inst-x'); x ? x.click() : d.remove(); } };   /* tap outside = Not now */
   d.innerHTML = `<div class="inst-sheet"><button class="inst-x" onclick="${mode==='notify'?'instNotifLater()':mode==='done'||mode==='installed'?'instClose()':'instLater()'}" aria-label="Close">✕</button>${logo}${mode==='done'?'':dots}${body}</div>`;
   INST.shown = true;
 }
@@ -12915,6 +13098,8 @@ function instNotifLater(){ instSave({notifSnooze:Date.now()+3*864e5}); instClose
     const b = el('modalBody'); if(!b || !instMobile()) return;
     const st = instStandalone() ? 'Installed on this device ✓' : 'Not installed on this device';
     b.insertAdjacentHTML('beforeend', `<div class="acct-sec"><div class="acct-h">Cross Core app</div><p class="hint" style="margin-bottom:8px">${st}${instStandalone() && instNotifOn() ? ' · notifications on ✓' : ''}</p>${instStandalone() ? (instNotifOn() ? '' : `<button class="btn" onclick="closeModal();instDraw('notify')">🔔 Turn on notifications</button>`) : `<button class="btn primary" onclick="closeModal();instCheck(true).then(()=>{ if(!el('instSheet')) instDraw(instIOS()?'ios':INST.evt?'install':'manual'); })">⬇ Install the app</button>`}</div>`); }; }
+/* never leave a dimmed, empty overlay on screen if a device lacks an API (e.g. iPhone Safari has no Notification) */
+{ const _d = instDraw; instDraw = function(m){ try{ return _d(m); }catch(e){ console.warn('install prompt', e); el('instSheet')?.remove(); } }; }
 
 /* ===== 37_roster.js ===== */
 /* ================= ACTIVE CLIENT ROSTER — integration, monitoring & one-time cleanup =================
@@ -13427,6 +13612,1127 @@ function rosterFillLinkedIn(){
   if(n){ recordChange(); if(CURRENT==='clientws') RENDER.clientws(); }
 }
 { const _sp3 = setPerson; setPerson = function(){ const out = _sp3.apply(this, arguments); setTimeout(()=>{ try{ rosterFillLinkedIn(); }catch(e){ console.warn(e); } }, 1800); return out; }; }
+
+/* ===== 38_ops.js ===== */
+/* ================= OPS UPDATE (Oct 2026) — navigation, sidebar, confirmations, attendance log, presence =================
+   • confirmModal(): in-app confirmation (used by the new Delete buttons for leads, ICP entries and profiles).
+   • Collapsible sidebar: arrow to hide, peeks back when the cursor reaches the left edge, remembered per device;
+     tap-friendly menu + backdrop on phones.
+   • Back button (F3): returns to the previous page / client tab; the phone's own Back gesture works too.
+   • Attendance (B2, F9): completed time logs open in a detailed view (per-client time), and people with more than
+     one client switch clients with one tap.
+   • Presence (B3): leaving the portal (tab hidden, phone locked, app in background) signs your status out the same
+     way on phones and desktops — Offline with “last active”, back to Online when you return. */
+
+/* ---------- confirmation dialog ---------- */
+function confirmModal(title, html, okLabel, onOk, opts={}){
+  openModal(title, `<div class="cf-body">${html}</div>
+    <div class="cf-acts"><button class="btn" onclick="closeModal()">Cancel</button><button class="btn ${opts.primary?'primary':'danger'}" id="cfOk">${esc(okLabel||'Confirm')}</button></div>`);
+  const b = el('cfOk'); if(b){ b.onclick = () => { b.disabled = true; try{ onOk(); }catch(e){ console.error(e); toast(e.message); } }; setTimeout(()=>b.focus(), 30); }
+}
+
+/* ---------- collapsible sidebar ---------- */
+const NAVC = {peekT:null};
+const navCollapsed = () => document.body.classList.contains('nav-collapsed');
+function setNavCollapsed(on, save=true){
+  document.body.classList.toggle('nav-collapsed', !!on); document.body.classList.remove('nav-peek');
+  if(save){ try{ localStorage.setItem('cc-nav-collapsed', on?'1':'0'); }catch(e){} }
+  const t = el('navToggle'); if(t){ t.setAttribute('aria-expanded', on?'false':'true'); t.title = on ? 'Show the sidebar' : 'Hide the sidebar'; }
+}
+function navPeek(on){
+  clearTimeout(NAVC.peekT);
+  if(on){ if(navCollapsed()) document.body.classList.add('nav-peek'); }
+  else NAVC.peekT = setTimeout(()=>document.body.classList.remove('nav-peek'), 280);
+}
+(function navSetup(){
+  const sb = document.querySelector('.sidebar'); if(!sb || el('navToggle')) return;
+  const tg = document.createElement('button'); tg.id = 'navToggle'; tg.className = 'nav-toggle'; tg.setAttribute('aria-label','Hide or show the sidebar');
+  tg.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg>';
+  tg.onclick = e => { e.stopPropagation(); setNavCollapsed(!navCollapsed()); };
+  sb.appendChild(tg);
+  const edge = document.createElement('div'); edge.id = 'navEdge'; edge.className = 'nav-edge'; edge.title = 'Show the sidebar';
+  edge.innerHTML = '<span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M9 18l6-6-6-6"/></svg></span>';
+  edge.addEventListener('mouseenter', ()=>navPeek(true)); edge.addEventListener('click', ()=>setNavCollapsed(false));
+  document.body.appendChild(edge);
+  sb.addEventListener('mouseenter', ()=>navPeek(true)); sb.addEventListener('mouseleave', ()=>navPeek(false));
+  const bd = document.createElement('div'); bd.id = 'navBackdrop'; bd.className = 'nav-backdrop'; bd.onclick = () => document.body.classList.remove('nav-open');
+  document.body.appendChild(bd);
+  let saved = '0'; try{ saved = localStorage.getItem('cc-nav-collapsed') || '0'; }catch(e){}
+  setNavCollapsed(saved==='1', false);
+  /* phones: swipe from the left edge opens the menu, swipe left closes it */
+  let sx = null, sy = 0;
+  document.addEventListener('touchstart', e=>{ const t = e.touches[0]; sx = t.clientX; sy = t.clientY; }, {passive:true});
+  document.addEventListener('touchend', e=>{ if(sx==null) return; const t = e.changedTouches[0]; const dx = t.clientX - sx, dy = Math.abs(t.clientY - sy);
+    if(innerWidth<=860 && dy<60){ if(sx<24 && dx>70) document.body.classList.add('nav-open'); else if(document.body.classList.contains('nav-open') && dx<-70) document.body.classList.remove('nav-open'); }
+    sx = null; }, {passive:true});
+  document.addEventListener('keydown', e=>{ if(e.key==='Escape' && document.body.classList.contains('nav-open')) document.body.classList.remove('nav-open'); });
+})();
+
+/* ---------- Back button + browser / phone history ---------- */
+const NAVH = {restoring:false, depth:0, last:null};
+function navState(){ return CURRENT==='clientws' ? {v:'clientws', c:WS.client, t:WS.tab} : {v:CURRENT}; }
+const navKey = s => s ? [s.v, s.c||'', s.t||''].join('|') : '';
+function navPush(){
+  if(NAVH.restoring || !PEOPLE[PERSON]) return;
+  const s = navState(); if(navKey(s)===navKey(NAVH.last)) return;
+  try{ if(!NAVH.last) history.replaceState({cc:s, d:0}, ''); else { NAVH.depth++; history.pushState({cc:s, d:NAVH.depth}, ''); } }catch(e){}
+  NAVH.last = s; navBackUI();
+}
+function navBackUI(){ const b = el('navBack'); if(b) b.disabled = NAVH.depth<=0; }
+function navBack(){ if(NAVH.depth>0) history.back(); }
+window.addEventListener('popstate', e=>{
+  const s = e.state?.cc; if(!s || !PEOPLE[PERSON]) return;
+  NAVH.restoring = true; NAVH.depth = Math.max(0, e.state.d||0);
+  try{ if(el('modal')?.classList.contains('open')) closeModal();
+    if(s.v==='clientws' && s.c && client(s.c)){ openClient(s.c); if(s.t && s.t!==WS.tab){ WS.tab = s.t; RENDER.clientws(); } }
+    else go(s.v||'dashboard'); }
+  finally{ NAVH.restoring = false; NAVH.last = s; navBackUI(); }
+});
+{ const _go = go; go = function(id){ const r = _go.apply(this, arguments); navPush(); return r; }; }
+{ const _oc = openClient; openClient = function(id){ const r = _oc.apply(this, arguments); navPush(); return r; }; }
+{ const _cw = RENDER.clientws; RENDER.clientws = function(){ const r = _cw.apply(this, arguments); if(CURRENT==='clientws') navPush(); return r; }; }
+(function backSetup(){
+  const tb = document.querySelector('.topbar'); if(!tb || el('navBack')) return;
+  const b = document.createElement('button'); b.id = 'navBack'; b.className = 'icon-btn nav-back'; b.title = 'Back'; b.setAttribute('aria-label','Back'); b.disabled = true;
+  b.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>';
+  b.onclick = navBack;
+  const menu = tb.querySelector('.menu-btn'); (menu ? menu.after(b) : tb.prepend(b));
+})();
+
+/* ---------- attendance: completed time log + one-tap client switch ---------- */
+function attSegments(r){
+  const E = (r?.events||[]).slice().sort((a,b)=>String(a.t).localeCompare(String(b.t)));
+  const per = {}; let cur = null, from = null, brk = false, working = false;
+  const add = t => { if(working && !brk && from){ const k = cur||''; per[k] = (per[k]||0) + Math.max(0, (toMs(t)-toMs(from))/60000); } from = t; };
+  E.forEach(ev=>{ const t = ev.t;
+    if(ev.kind==='Time in'){ working = true; cur = ev.client||''; from = t; brk = false; }
+    else if(ev.kind==='Switched work'){ add(t); cur = ev.client||''; }
+    else if(ev.kind==='Break start'){ add(t); brk = true; }
+    else if(ev.kind==='Break end'){ brk = false; from = t; }
+    else if(ev.kind==='Time out'){ add(t); working = false; } });
+  if(working && !r.out) add(nowISO());
+  return per;
+}
+function attLogModal(k, date){
+  const r = attRec(k, date); if(!r) return toast('No time log for that day');
+  const per = attSegments(r); const [st, cls] = attState(r);
+  openModal(`Time log — ${k===PERSON?'you':pname(k)} · ${date}`, `
+    <div class="kv" style="margin-bottom:12px"><span class="k">Status</span><span><span class="badge ${cls}">${st}</span>${isLate(r)?' <span class="badge b-scheduled">Late</span>':''}</span>
+      <span class="k">Time in</span><span>${showT(r.in)}</span><span class="k">Time out</span><span>${r.out?showT(r.out):'—'}</span>
+      <span class="k">Breaks</span><span>${(r.breaks||[]).length} · ${Math.round(breakMins(r))} min</span><span class="k">Worked</span><span><b>${hm(workedMins(r))}</b></span></div>
+    ${Object.keys(per).length?`<div class="nav-label" style="padding:4px 0">Time per client</div><div class="att-per">${Object.entries(per).sort((a,b)=>b[1]-a[1]).map(([c,m])=>`<div class="list-row"><b style="flex:1;font-size:12.5px">${c?esc(cname(c)):'Internal / general'}</b><span>${hm(m)}</span></div>`).join('')}</div>`:''}
+    <div class="nav-label" style="padding:10px 0 4px">Timeline</div>
+    <div class="timeline">${(r.events||[]).slice().reverse().map(ev=>`<div class="ti"><b>${esc(ev.kind)}</b> · ${clock(ev.t)}${ev.client?' · '+esc(cname(ev.client)):''}${ev.project?' · '+esc(ev.project):''}</div>`).join('')||'<div class="hint">No events recorded.</div>'}</div>
+    ${r.corrected?`<div class="hint" style="margin-top:8px">Corrected: ${esc(r.corrected.reason||'')}</div>`:''}`);
+}
+function attQuickSwitch(cid){ const s = el('attClient'); if(s) s.value = cid; attAct('switch'); }
+{ const _ra = RENDER.attendance; RENDER.attendance = function(){
+    _ra.apply(this, arguments);
+    const v = el('v-attendance'); if(!v) return;
+    const today = manilaDate(); const mine = attRec(PERSON, today);
+    /* today's log is always viewable — also after Time Out */
+    const btns = v.querySelector('.att-btns');
+    if(btns && mine?.in && !el('attViewLog')){ const b = document.createElement('button'); b.id = 'attViewLog'; b.className = 'btn ghost'; b.textContent = '🧾 View today’s time log'; b.onclick = () => attLogModal(PERSON, today); btns.appendChild(b); }
+    /* one-tap client switch for people with more than one client */
+    const assigned = (EMPLOYEES.find(e=>e.id===PERSON)?.clients)||[]; const cl = visClients().filter(c=>c.status==='Active' && assigned.includes(c.id));
+    if(btns && mine?.in && !mine.out && cl.length>1 && !el('attSwitchRow')){
+      const row = document.createElement('div'); row.id = 'attSwitchRow'; row.className = 'att-switch';
+      row.innerHTML = `<span class="hint">Working on</span>${[{id:'', name:'General'}, ...cl].map(c=>`<button class="chip ${((mine.client||'')===c.id)?'on':''}" onclick="attQuickSwitch('${c.id}')">${esc(c.name)}</button>`).join('')}`;
+      btns.after(row);
+    }
+    /* recent records open the full log */
+    [...v.querySelectorAll('.card')].filter(c=>/Your recent records/.test(c.querySelector('.card-h h3')?.textContent||'')).forEach(card=>{
+      card.querySelectorAll('tbody tr').forEach(tr=>{ const d = tr.querySelector('td b')?.textContent; if(!d || !/^\d{4}-\d{2}-\d{2}$/.test(d)) return;
+        tr.classList.add('clickable-row'); tr.title = 'Open the time log'; tr.onclick = () => attLogModal(PERSON, d); }); });
+  }; }
+
+/* ---------- presence: leaving the portal shows Offline on every device ---------- */
+const PRES_AWAY_MS = 90*1000;
+let PRES_HIDE_T = null;
+function presHibernate(){ if(!PRES.key) return; try{ presSaveSeen?.(PRES.lastAct); SYNC.flush?.(); }catch(e){} presStop(); PRES.hibernated = true; presChanged(); }
+function presWake(){ if(!PRES.hibernated) return; PRES.hibernated = false; if(PEOPLE[PERSON] && ROLE!=='client') presStart(); }
+document.addEventListener('visibilitychange', ()=>{
+  clearTimeout(PRES_HIDE_T);
+  if(document.hidden) PRES_HIDE_T = setTimeout(presHibernate, PRES_AWAY_MS);
+  else presWake();
+});
+document.addEventListener('freeze', presHibernate);     /* phones suspend background tabs */
+document.addEventListener('resume', presWake);
+window.addEventListener('pageshow', e=>{ if(e.persisted) presWake(); });
+
+/* ===== 39_callsplus.js ===== */
+/* ================= CALLS UPDATE (Oct 2026) =================
+   • B4: the call window can be dragged anywhere (grab the title bar), on desktop and phones. Minimising keeps a small
+     live video window instead of a pill, and audio keeps playing — each person's sound now runs through its own
+     player outside the window, so minimising, resizing or re-drawing the call never cuts the audio.
+   • F4: the caller hears a ringback tone while the call connects (until someone joins, 45 s max, or Leave).
+     Incoming calls keep ringing while the pop-up is showing (respects “Incoming call” sound setting).
+   • F5: “➕ Add people” during a live call rings anyone in the team — also people outside the chat. They get a
+     ringing pop-up + notification and join the same call directly. The built-in call still moves to Google Meet when
+     more people join than it supports (Administration → Calls → maximum people). */
+const CALLX = {aud:{}, rb:null, drag:null, seenInv:new Set()};
+
+/* ---------- audio that survives minimising ---------- */
+function callAudioDrop(sid){ const a = CALLX.aud[sid]; if(a){ try{ a.pause(); a.srcObject = null; a.remove(); }catch(e){} } delete CALLX.aud[sid]; }
+function callAudioSync(){
+  if(!CALL || CALL.inMeet){ Object.keys(CALLX.aud).forEach(callAudioDrop); return; }
+  Object.entries(CALL.peers).forEach(([sid,p])=>{
+    if(!p.stream) return;
+    let a = CALLX.aud[sid];
+    if(!a){ a = document.createElement('audio'); a.autoplay = true; a.setAttribute('playsinline',''); a.className = 'call-audio'; a.dataset.sid = sid; document.body.appendChild(a); CALLX.aud[sid] = a; }
+    if(a.srcObject!==p.stream) a.srcObject = p.stream;
+    if(a.paused) a.play?.().catch(()=>{});
+  });
+  Object.keys(CALLX.aud).forEach(sid=>{ if(!CALL.peers[sid]) callAudioDrop(sid); });
+}
+{ const _dt = drawTiles; drawTiles = function(){
+    const r = _dt.apply(this, arguments);
+    /* the videos stay silent — sound comes from the players above, so it never stops when the window changes */
+    document.querySelectorAll('#callPanel .tile video').forEach(v=>{ if(!v.muted) v.muted = true; });
+    callAudioSync();
+    if(CALL && CALLX.rb && Object.values(CALL.peers).some(p=>p.pc.connectionState==='connected')) ringbackStop(true);
+    return r; }; }
+
+/* ---------- movable window + live mini view ---------- */
+function callPlace(d){
+  d = d || el('callPanel'); if(!d || !CALL) return;
+  if(CALL.ui==='big' || !CALL.pos){ d.style.left = d.style.top = d.style.right = d.style.bottom = ''; return; }
+  const r = d.getBoundingClientRect();
+  const x = Math.min(Math.max(8, CALL.pos.x), Math.max(8, innerWidth - r.width - 8));
+  const y = Math.min(Math.max(8, CALL.pos.y), Math.max(8, innerHeight - r.height - 8));
+  d.style.left = x+'px'; d.style.top = y+'px'; d.style.right = 'auto'; d.style.bottom = 'auto';
+}
+{ const _dc = drawCall; drawCall = function(){
+    if(!CALL) return _dc.apply(this, arguments);
+    const mini = CALL.ui==='mini';
+    if(mini) CALL.ui = 'full';
+    try{ _dc.apply(this, arguments); } finally{ if(mini && CALL) CALL.ui = 'mini'; }
+    const d = el('callPanel'); if(!d || !CALL) return;
+    d.classList.toggle('mini', mini); d.classList.toggle('full', !mini && CALL.ui==='full'); d.classList.toggle('guest', !!CALL.guest);
+    const head = d.querySelector('.cp-head');
+    if(head){
+      head.title = CALL.ui==='big' ? '' : 'Drag to move the call window';
+      if(CALL.guest){ const t = head.querySelector('b'); if(t) t.textContent = '📹 '+(CALL.title||'Video call'); head.querySelector('button[title="Show chat"]')?.remove(); }
+      const minB = head.querySelector('button[title="Minimize"]'), bigB = head.querySelector('button[title="Bigger"],button[title="Smaller"]');
+      if(mini){ if(minB){ minB.title = 'Expand'; minB.textContent = '⤢'; minB.onclick = e=>{ e.stopPropagation(); CALL.ui = 'full'; drawCall(); }; } bigB?.remove(); }
+    }
+    const ctrl = d.querySelector('.cp-ctrl');
+    if(ctrl && !CALL.inMeet && !ctrl.querySelector('.cp-add')){
+      const b = document.createElement('button'); b.className = 'cp-add'; b.title = 'Ring someone into this call'; b.textContent = '➕ Add people'; b.onclick = callAddModal;
+      const meetB = [...ctrl.children].find(x=>/Google Meet/.test(x.textContent)); meetB ? ctrl.insertBefore(b, meetB) : ctrl.appendChild(b);
+    }
+    if(CALLX.rb && CALL.notice==='') { const g = d.querySelector('.cp-grid'); if(g && !d.querySelector('.cp-ringing')) g.insertAdjacentHTML('afterend', `<div class="cp-notice cp-ringing">🔔 Ringing… waiting for others to join</div>`); }
+    callPlace(d); callAudioSync();
+  }; }
+document.addEventListener('pointerdown', e=>{
+  const d = el('callPanel'); if(!d || !CALL || CALL.ui==='big') return;
+  const h = e.target.closest('#callPanel .cp-head'); if(!h || e.target.closest('button,input,a,select,textarea')) return;
+  const r = d.getBoundingClientRect(); CALLX.drag = {dx:e.clientX-r.left, dy:e.clientY-r.top, moved:false};
+  d.classList.add('dragging'); try{ h.setPointerCapture?.(e.pointerId); }catch(err){} e.preventDefault();
+});
+document.addEventListener('pointermove', e=>{ if(!CALLX.drag || !CALL) return; CALLX.drag.moved = true; CALL.pos = {x:e.clientX-CALLX.drag.dx, y:e.clientY-CALLX.drag.dy}; callPlace(); });
+const callDragEnd = () => { if(!CALLX.drag) return; CALLX.drag = null; el('callPanel')?.classList.remove('dragging'); };
+document.addEventListener('pointerup', callDragEnd); document.addEventListener('pointercancel', callDragEnd);
+window.addEventListener('resize', ()=>callPlace());
+
+/* ---------- ringback while connecting (caller) ---------- */
+function ringbackStart(){
+  ringbackStop();
+  try{ if(typeof sndPrefs==='function' && !sndPrefs().call) return; }catch(e){}
+  try{
+    const ac = new (window.AudioContext||window.webkitAudioContext)(); const g = ac.createGain(); g.gain.value = 0; g.connect(ac.destination);
+    const osc = [440,480].map(f=>{ const o = ac.createOscillator(); o.frequency.value = f; o.connect(g); o.start(); return o; });
+    const cycle = () => { const t = ac.currentTime; g.gain.cancelScheduledValues(t); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.05, t+0.04); g.gain.setValueAtTime(0.05, t+2); g.gain.linearRampToValueAtTime(0, t+2.05); };
+    cycle(); ac.resume?.();
+    CALLX.rb = {ac, osc, t:setInterval(cycle, 6000), until:setTimeout(()=>ringbackStop(true), 45000), at:Date.now()};
+  }catch(e){ CALLX.rb = null; }
+}
+function ringbackStop(redraw){
+  const r = CALLX.rb; if(!r) return; CALLX.rb = null;
+  clearInterval(r.t); clearTimeout(r.until); try{ r.osc.forEach(o=>o.stop()); r.ac.close(); }catch(e){}
+  el('callPanel')?.querySelector('.cp-ringing')?.remove();
+}
+{ const _sc = startCall; startCall = function(){ CALLX.ringNext = true; try{ return _sc.apply(this, arguments); } finally{ setTimeout(()=>{ CALLX.ringNext = false; }, 4000); } }; }
+{ const _jc = joinCall; joinCall = async function(id){
+    const ring = CALLX.ringNext; CALLX.ringNext = false;
+    const r = await _jc.apply(this, arguments);
+    if(ring && CALL && CALL.msgId===id && !Object.values(CALL.peers).some(p=>p.pc.connectionState==='connected')){ ringbackStart(); drawCall(); }
+    return r; }; }
+{ const _lc = leaveCall; leaveCall = function(){ ringbackStop(); const r = _lc.apply(this, arguments); Object.keys(CALLX.aud).forEach(callAudioDrop); return r; }; }
+{ const _em = enterMeet; enterMeet = function(){ ringbackStop(); const r = _em.apply(this, arguments); callAudioSync(); return r; }; }
+/* incoming call pop-up keeps ringing while it is on screen */
+setInterval(()=>{ const r = el('callRing'); if(!r || CALL || r.classList.contains('meet')) return;
+  const n = +(r.dataset.rings||0)+1; r.dataset.rings = n; if(n>1 && n<=11) ringTone(); }, 4000);
+
+/* ---------- add people to a live call ---------- */
+function callPeopleIn(){ return new Set([PERSON, ...Object.values(CALL?.peers||{}).map(p=>p.person)]); }
+function callAddModal(){
+  if(!CALL || CALL.inMeet) return;
+  const inCall = callPeopleIn(); const c = CHATS.find(x=>x.id===CALL.chatId);
+  const staff = Object.keys(PEOPLE).filter(k=>k!==PERSON && PEOPLE[k] && PEOPLE[k].role!=='client' && !/inactive|ended|resign|terminat|separat/i.test(PEOPLE[k].status||'') && !inCall.has(k));
+  const rows = staff.sort((a,b)=>pname(a).localeCompare(pname(b))).map(k=>{ const member = c?.members?.includes(k);
+    return `<label class="ca-row" data-q="${esc((pname(k)+' '+(P(k)?.sub||'')).toLowerCase())}"><input type="checkbox" value="${k}"> ${av(P(k))}<span style="flex:1;min-width:0"><b>${esc(pname(k))}</b><small class="hint" style="display:block">${esc(P(k)?.sub||'')}${member?' · in this chat':''}</small></span></label>`; }).join('');
+  const max = callCfg().maxPeople, now = inCall.size;
+  openModal('Add people to the call', `
+    <input id="caSearch" placeholder="Search people…" oninput="document.querySelectorAll('.ca-row').forEach(r=>r.hidden=!r.dataset.q.includes(this.value.toLowerCase()))" style="width:100%;margin-bottom:8px">
+    <div class="ca-list">${rows || '<div class="hint">Everyone is already in the call.</div>'}</div>
+    <div class="hint" style="margin-top:8px">They get a ringing pop-up and a notification, and join this call directly — even if they are not in this chat. ${now} in the call now · the built-in call holds up to ${max}; with more people it moves to Google Meet automatically.</div>
+    <div class="cf-acts"><button class="btn" onclick="closeModal()">Cancel</button><button class="btn primary" onclick="callInviteSel()">Ring selected</button></div>`);
+  setTimeout(()=>el('caSearch')?.focus(), 40);
+}
+function callInviteSel(){ const ks = [...document.querySelectorAll('.ca-list input:checked')].map(i=>i.value); if(!ks.length) return toast('Pick at least one person'); callInvite(ks); closeModal(); }
+function callInvite(keys){
+  if(!CALL) return; const c = CHATS.find(x=>x.id===CALL.chatId); const m = MESSAGES.find(x=>x.id===CALL.msgId);
+  const title = CALL.guest ? (CALL.title||'Video call') : (c ? (c.kind==='dm' ? 'Call with '+first(PERSON) : chatTitle(c)) : 'Video call');
+  const link = {view:'callinvite', callId:CALL.callId, msgId:CALL.msgId, chat:CALL.chatId, title, from:PERSON};
+  notify(keys, 'call-invite', `📹 <b>${esc(first(PERSON))}</b> is asking you to join a video call${c && c.kind!=='dm' && !CALL.guest ? ` in <b>${esc(chatTitle(c))}</b>` : ''} — tap to join`, link);
+  if(m && !CALL.guest){ m.invited = uniq([...(m.invited||[]), ...keys]); }
+  recordChange();
+  toast(`Ringing ${keys.map(k=>first(k)).join(', ')}…`);
+}
+function callInviteFor(){ const cut = new Date(Date.now()-90e3).toISOString();
+  return NOTIFS2.filter(n=>n.to===PERSON && n.type==='call-invite' && !n.read && n.at>cut && n.link?.callId && !CALLX.seenInv.has(n.id) && CALL?.callId!==n.link.callId)[0] || null; }
+function checkCallInvites(){
+  if(!PEOPLE[PERSON] || el('callRing')) return;
+  const n = callInviteFor(); if(!n) return;
+  CALLX.seenInv.add(n.id);
+  const d = document.createElement('div'); d.id = 'callRing'; d.className = 'call-ring invite'; d.dataset.id = n.id;
+  d.innerHTML = `<div class="cr-av">${av(P(n.link.from||n.by))}</div><div style="flex:1;min-width:0"><b>${esc(pname(n.link.from||n.by))}</b><div class="hint">📹 is adding you to a call · ${esc(n.link.title||'Video call')}</div></div>
+    <button class="btn" id="crDecline">Decline</button><button class="btn primary" id="crJoin">Join</button>`;
+  document.body.appendChild(d); ringTone();
+  d.querySelector('#crDecline').onclick = () => { n.read = true; recordChange(); d.remove(); };
+  d.querySelector('#crJoin').onclick = () => { n.read = true; recordChange(); d.remove(); joinInvite(n.link); };
+  setTimeout(()=>d.remove(), 45000);
+}
+function joinInvite(link){
+  if(!link?.callId) return;
+  const m = myChats().some(c=>c.id===link.chat) ? MESSAGES.find(x=>x.id===link.msgId) : null;
+  if(m){ if(m.status==='ended') return toast('This call has ended'); return joinCall(m.id); }
+  return joinGuestCall(link);
+}
+/* people outside the chat join by the call id they were rung with */
+async function joinGuestCall(link){
+  el('callRing')?.remove();
+  if(CALL){ if(CALL.callId===link.callId){ CALL.ui = 'full'; return drawCall(); } leaveCall(); }
+  if(!window.RTCPeerConnection) return toast('This browser does not support built-in calls — please use Chrome, Edge or Safari');
+  CALL = {msgId:link.msgId, chatId:link.chat, callId:link.callId, guest:true, title:link.title, sid:PERSON+'-'+Math.random().toString(36).slice(2,8), peers:{}, local:null, screen:null, mic:true, cam:true, ui:'full', here:0, startedAt:Date.now(), notice:'Connecting…'};
+  drawCall();
+  const stream = await getMedia(); if(!CALL || CALL.callId!==link.callId){ stream?.getTracks().forEach(t=>t.stop()); return; } CALL.local = stream;
+  CALL.cam = !!CALL.local?.getVideoTracks().length; CALL.mic = !!CALL.local?.getAudioTracks().length;
+  CALL.bus = callBus(link.callId, onSignal); await CALL.bus.ready;
+  CALL.bus.send({t:'join', from:CALL.sid, person:PERSON});
+  CALL.notice = ''; drawCall();
+  CALL.tick = setInterval(callTick, 1000); CALL.health = setInterval(callHealth, 3000);
+  window.addEventListener('beforeunload', callUnload);
+  const id = link.callId;
+  setTimeout(()=>{ if(CALL?.guest && CALL.callId===id && !Object.keys(CALL.peers).length){ toast('Nobody is in that call any more'); leaveCall(true); } }, 15000);
+}
+{ const _ct = callTick; callTick = function(){
+    if(CALL?.guest){ const t = el('cpTime'); if(t) t.textContent = fmtDur(Date.now()-CALL.startedAt); return; }
+    return _ct.apply(this, arguments); }; }
+{ const _sw = switchToMeet; switchToMeet = function(){ if(CALL?.guest) return; return _sw.apply(this, arguments); }; }
+{ const _ci = checkIncomingCalls; checkIncomingCalls = function(){ const r = _ci.apply(this, arguments); try{ checkCallInvites(); }catch(e){ console.warn(e); } return r; }; }
+{ const _fl = followLink; followLink = function(link){ if(link?.view==='callinvite'){ closeOverlays(); return joinInvite(link); } return _fl.apply(this, arguments); }; }
+
+/* ===== 40_msgplus.js ===== */
+/* ================= MESSAGES UPDATE (Oct 2026) =================
+   • F6  Edit or delete your own message within 30 minutes of sending. Edited messages show “(edited)”;
+         deleted ones show “This message was deleted” for everyone. The live database enforces the same rule.
+   • F10 Enter adds a new line, Ctrl/⌘+Enter sends. Bold / Italic / Strikethrough / Bullets toolbar
+         (and Ctrl/⌘+B, Ctrl/⌘+I, Ctrl/⌘+Shift+X, Ctrl/⌘+Shift+8). The formatting stays in the sent message.
+   • F7  Screen recording with sound (screen audio + your microphone): start / stop, replay, then attach it to
+         a message, a task / delegation, or a support ticket — or download it.
+   • F8  Screenshot tool: capture a screen, window or tab and mark it up with arrows, circles, boxes and text.
+         On phones (no screen capture in mobile browsers) you can mark up a photo or a screenshot you took. */
+
+/* ---------- composer helpers ---------- */
+function composerGrow(t){ if(!t || t.tagName!=='TEXTAREA') return; t.style.height = 'auto'; t.style.height = Math.min(t.scrollHeight + 2, 168) + 'px'; }
+function fmtWrap(id, mark){
+  const t = el(id); if(!t) return; const a = t.selectionStart, b = t.selectionEnd, v = t.value;
+  const sel = v.slice(a, b);
+  if(sel && sel.startsWith(mark) && sel.endsWith(mark) && sel.length > 2*mark.length){ const inner = sel.slice(mark.length, -mark.length); t.value = v.slice(0,a)+inner+v.slice(b); t.setSelectionRange(a, a+inner.length); }
+  else { const s = sel || 'text'; t.value = v.slice(0,a)+mark+s+mark+v.slice(b); t.setSelectionRange(a+mark.length, a+mark.length+s.length); }
+  t.focus(); composerGrow(t);
+}
+function fmtBullets(id){
+  const t = el(id); if(!t) return; const v = t.value;
+  const a = v.lastIndexOf('\n', Math.max(0, t.selectionStart-1)) + 1; let b = v.indexOf('\n', t.selectionEnd); if(b<0) b = v.length;
+  const lines = v.slice(a, b).split('\n'); const all = lines.every(l=>/^• /.test(l));
+  const out = lines.map(l=>all ? l.replace(/^• /,'') : (/^• /.test(l) ? l : '• '+l.replace(/^[-*] /,''))).join('\n');
+  t.value = v.slice(0,a)+out+v.slice(b); t.focus(); t.setSelectionRange(a+out.length, a+out.length); composerGrow(t);
+}
+document.addEventListener('keydown', e=>{
+  const t = e.target; if(!t || t.tagName!=='TEXTAREA' || !['chatMsg','thrMsg'].includes(t.id) || e.defaultPrevented) return;
+  const mod = e.ctrlKey || e.metaKey;
+  if(mod && !e.shiftKey && (e.key==='b'||e.key==='B')){ e.preventDefault(); return fmtWrap(t.id, '*'); }
+  if(mod && !e.shiftKey && (e.key==='i'||e.key==='I')){ e.preventDefault(); return fmtWrap(t.id, '_'); }
+  if(mod && e.shiftKey && (e.key==='x'||e.key==='X')){ e.preventDefault(); return fmtWrap(t.id, '~'); }
+  if(mod && e.shiftKey && (e.key==='8'||e.key==='*')){ e.preventDefault(); return fmtBullets(t.id); }
+  /* Enter inside a bullet list continues the list; Enter on an empty bullet ends it */
+  if(e.key==='Enter' && !mod && !e.shiftKey){
+    const v = t.value, p = t.selectionStart; const ls = v.lastIndexOf('\n', p-1)+1; const line = v.slice(ls, p);
+    if(/^• /.test(line)){ e.preventDefault();
+      if(line.trim()==='•'){ t.value = v.slice(0, ls) + v.slice(p); t.setSelectionRange(ls, ls); }
+      else { t.value = v.slice(0,p)+'\n• '+v.slice(t.selectionEnd); t.setSelectionRange(p+3, p+3); }
+      composerGrow(t); }
+  }
+});
+document.addEventListener('input', e=>{ if(e.target?.id==='thrMsg' || e.target?.id==='chatMsg') composerGrow(e.target); });
+
+/* ---------- rendering: *bold* _italic_ ~strike~ and bullets ---------- */
+function fmtHTML(h){
+  h = h.replace(/(^|<br>)(?:[-*•]) /g, '$1<span class="mb">•</span> ');
+  const parts = h.split(/(<a\b[^>]*>[\s\S]*?<\/a>|<[^>]+>)/);
+  const B = (re, tag) => s => s.replace(re, `$1<${tag}>$2</${tag}>`);
+  const bold = B(/(^|[\s(>"'])\*(?=\S)([^*<\n]*?\S)\*(?=$|[\s).,!?:;"'<])/g, 'b');
+  const ital = B(/(^|[\s(>"'])_(?=\S)([^_<\n]*?\S)_(?=$|[\s).,!?:;"'<])/g, 'i');
+  const strk = B(/(^|[\s(>"'])~(?=\S)([^~<\n]*?\S)~(?=$|[\s).,!?:;"'<])/g, 's');
+  return parts.map((p,i)=> i%2 ? p : strk(ital(bold(p)))).join('');
+}
+
+/* ---------- edit / delete within 30 minutes ---------- */
+const MSG_EDIT_MS = 30*60*1000;
+const msgEditable = m => !!m && m.by===PERSON && !m.kind && !m.sys && !m.deleted && !isAssistantKey(m.by) && (Date.now() - Date.parse(m.at||0)) < MSG_EDIT_MS;
+{ const _mt = msgText; msgText = function(m){
+    if(m?.deleted) return '<i class="msg-deleted">🚫 This message was deleted</i>';
+    const h = fmtHTML(_mt.apply(this, arguments));
+    return m?.editedAt ? h + ` <span class="msg-edited" title="Edited ${esc(dstr(m.editedAt)+' '+clock(m.editedAt))}">(edited)</span>` : h; }; }
+{ const _mc = msgCore; msgCore = function(m, prev, o){
+    if(m && m.deleted && !m.kind) return _mc.call(this, {...m, text:'​', files:[], mentions:[]}, prev, o).replace('class="msg ', 'class="msg is-deleted ');
+    return _mc.apply(this, arguments); }; }
+{ const _rb = reactBtnHTML; reactBtnHTML = function(m){
+    if(m?.deleted) return '';
+    const base = _rb.apply(this, arguments);
+    if(!msgEditable(m)) return base;
+    const left = Math.max(1, Math.ceil((MSG_EDIT_MS - (Date.now()-Date.parse(m.at)))/60000));
+    return base + ` <button class="msg-act" onclick="msgEdit('${m.id}', this)" title="Edit (${left} min left)">✎ Edit</button> <button class="msg-act del" onclick="msgDelete('${m.id}')" title="Delete for everyone (${left} min left)">🗑 Delete</button>`; }; }
+{ const _sg = msgSig; msgSig = (m, prev) => _sg(m, prev) + '|' + (m.editedAt||'') + '|' + (m.deleted?1:0) + '|' + (msgEditable(m)?1:0); }
+{ const _mp = msgPreview; msgPreview = function(m){ return m?.deleted ? 'Message deleted' : _mp.apply(this, arguments); }; }
+function msgRefresh(m){
+  const c = CHATS.find(x=>x.id===m.chat); if(!c) return;
+  const n = el('mw-'+m.id); if(n) n.dataset.sig = '';
+  if(CURRENT==='chat' && CHAT_OPEN===c.id){ updateMessages(c); if(typeof THREAD_OPEN!=='undefined' && THREAD_OPEN) drawThread(); const cl = el('chatList'); if(cl) cl.innerHTML = chatListHTML(); }
+}
+function msgEdit(id, btn){
+  const m = MESSAGES.find(x=>x.id===id);
+  if(!msgEditable(m)) return toast('Messages can be edited only within 30 minutes of sending');
+  const b = btn?.closest('.msg')?.querySelector('.bubble') || document.querySelector(`[data-mid="${id}"] .bubble`); if(!b) return;
+  b.classList.add('editing');
+  b.innerHTML = `<textarea class="msg-edit" rows="2">${esc(m.text||'')}</textarea><div class="msg-edit-acts"><span class="hint">Ctrl/⌘+Enter to save · Esc to cancel</span><button class="btn" data-a="x">Cancel</button><button class="btn primary" data-a="ok">Save</button></div>`;
+  const t = b.querySelector('textarea'); composerGrow(t); t.focus(); t.setSelectionRange(t.value.length, t.value.length);
+  const done = save => { if(save){ const v = t.value.trim(); if(!v && !(m.files||[]).length) return toast('Type a message, or delete it instead'); msgSaveEdit(id, v); } else msgRefresh(m); };
+  b.querySelector('[data-a="x"]').onclick = () => done(false);
+  b.querySelector('[data-a="ok"]').onclick = () => done(true);
+  t.oninput = () => composerGrow(t);
+  t.onkeydown = e => { if(e.key==='Escape'){ e.preventDefault(); done(false); } else if(e.key==='Enter' && (e.ctrlKey||e.metaKey)){ e.preventDefault(); done(true); } };
+}
+function msgSaveEdit(id, text){
+  const m = MESSAGES.find(x=>x.id===id); if(!msgEditable(m)) return toast('The 30-minute editing window has passed');
+  if(text===m.text){ msgRefresh(m); return; }
+  const c = CHATS.find(x=>x.id===m.chat);
+  const before = m.mentions||[]; const mentions = c && c.kind!=='dm' ? findMentions(text, c) : [];
+  m.text = text; m.editedAt = nowISO(); if(mentions.length) m.mentions = mentions; else delete m.mentions;
+  const added = mentions.filter(k=>!before.includes(k));
+  if(added.length) notify(added, 'message', `${esc(first(PERSON))} tagged you in <b>${esc(chatTitle(c))}</b>: ${esc(text.slice(0,90))}`, {view:'chat', arg:c.id, ...(m.thread?{thread:m.thread, msg:m.id}:{})});
+  recordChange(); msgRefresh(m); toast('Message edited');
+}
+function msgDelete(id){
+  const m = MESSAGES.find(x=>x.id===id);
+  if(!msgEditable(m)) return toast('Messages can be deleted only within 30 minutes of sending');
+  confirmModal('Delete this message?', `It will be removed for everyone in this chat and replaced with “This message was deleted”. Attachments in it are removed too. This can’t be undone.`, 'Delete message', ()=>{
+    if(!msgEditable(m)){ closeModal(); return toast('The 30-minute window has passed'); }
+    m.deleted = true; m.deletedAt = nowISO(); m.text = ''; m.files = []; delete m.mentions;
+    recordChange(); closeModal(); msgRefresh(m); toast('Message deleted'); });
+}
+/* the Edit / Delete buttons disappear on their own after 30 minutes */
+setInterval(()=>{ if(CURRENT!=='chat' || !CHAT_OPEN || document.querySelector('.bubble.editing')) return; const c = CHATS.find(x=>x.id===CHAT_OPEN); if(c) updateMessages(c); }, 60000);
+
+/* ---------- toolbar above the chat box ---------- */
+const canCapture = () => !!navigator.mediaDevices?.getDisplayMedia && !/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+function fmtBarHTML(id){
+  return `<div class="fmt-bar" data-for="${id}">
+    <button type="button" title="Bold (Ctrl/⌘+B)" onmousedown="event.preventDefault()" onclick="fmtWrap('${id}','*')"><b>B</b></button>
+    <button type="button" title="Italic (Ctrl/⌘+I)" onmousedown="event.preventDefault()" onclick="fmtWrap('${id}','_')"><i>I</i></button>
+    <button type="button" title="Strikethrough (Ctrl/⌘+Shift+X)" onmousedown="event.preventDefault()" onclick="fmtWrap('${id}','~')"><s>S</s></button>
+    <button type="button" title="Bullet list (Ctrl/⌘+Shift+8)" onmousedown="event.preventDefault()" onclick="fmtBullets('${id}')">• List</button>
+    <span class="fmt-sep"></span>
+    ${canCapture() ? `<button type="button" title="Record your screen with sound, then attach it" onclick="recStart({kind:'chat'})">🎥 Record screen</button>
+    <button type="button" title="Take a screenshot and mark it up" onclick="shotStart({kind:'chat'})">✂️ Screenshot</button>`
+    : `<button type="button" title="Mark up a photo or screenshot, then attach it" onclick="shotStart({kind:'chat'})">✏️ Mark up image</button>`}
+    <span class="fmt-hint">Enter = new line · Ctrl/⌘+Enter = send</span></div>`;
+}
+{ const _rc = RENDER.chat; RENDER.chat = function(){
+    const r = _rc.apply(this, arguments);
+    const ci = document.querySelector('#v-chat .chat-input:not(.ended-ro)');
+    if(ci && !ci.previousElementSibling?.classList.contains('fmt-bar')) ci.insertAdjacentHTML('beforebegin', fmtBarHTML('chatMsg'));
+    return r; }; }
+
+/* ---------- screen recording ---------- */
+const REC_MAX_MS = 6*60*1000;
+let REC = {mr:null};
+async function recStart(target){
+  if(REC.mr) return toast('A recording is already running');
+  if(!canCapture()) return toast('Screen recording works on a computer (Chrome, Edge, Firefox or Safari). On a phone, use its built-in screen recorder and attach the video.');
+  if(!window.MediaRecorder) return toast('This browser cannot record — please use Chrome, Edge or Firefox');
+  let disp; try{ disp = await navigator.mediaDevices.getDisplayMedia({video:{frameRate:{ideal:15}}, audio:true}); }catch(e){ return toast('Screen recording cancelled'); }
+  let mic = null; try{ mic = await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true, noiseSuppression:true}}); }catch(e){ toast('Microphone not available — recording the screen sound only'); }
+  const tracks = [...disp.getVideoTracks()]; let ac = null;
+  const ins = [disp, mic].filter(s=>s && s.getAudioTracks().length);
+  if(ins.length===1) tracks.push(ins[0].getAudioTracks()[0]);
+  else if(ins.length>1){ ac = new (window.AudioContext||window.webkitAudioContext)(); const dest = ac.createMediaStreamDestination(); ins.forEach(s=>ac.createMediaStreamSource(s).connect(dest)); tracks.push(dest.stream.getAudioTracks()[0]); }
+  const type = ['video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm','video/mp4'].find(t=>MediaRecorder.isTypeSupported?.(t)) || '';
+  let mr; try{ mr = new MediaRecorder(new MediaStream(tracks), type ? {mimeType:type, videoBitsPerSecond:1000000, audioBitsPerSecond:64000} : {}); }
+  catch(e){ [disp, mic].forEach(s=>s?.getTracks().forEach(t=>t.stop())); return toast('Recording could not start: '+e.message); }
+  REC = {mr, chunks:[], streams:[disp, mic].filter(Boolean), ac, t0:Date.now(), target, type:mr.mimeType || type || 'video/webm', sound:ins.length};
+  mr.ondataavailable = e=>{ if(e.data?.size) REC.chunks.push(e.data); };
+  mr.onstop = recDone;
+  disp.getVideoTracks()[0].addEventListener('ended', recStop);
+  mr.start(1000); recBar(); REC.timer = setInterval(recBar, 500);
+  REC.cap = setTimeout(()=>{ toast('Recording stopped at the 6-minute limit'); recStop(); }, REC_MAX_MS);
+}
+function recBar(){
+  let b = el('recBar'); if(!REC.mr){ b?.remove(); return; }
+  if(!b){ b = document.createElement('div'); b.id = 'recBar'; b.className = 'rec-bar';
+    b.innerHTML = `<span class="rec-dot"></span><b>Recording</b><span id="recTime" class="rec-time">0:00</span><span class="hint">${REC.sound?'with sound':'no sound'}</span><button class="btn danger" id="recStopB">■ Stop</button>`;
+    document.body.appendChild(b); el('recStopB').onclick = recStop; }
+  const t = el('recTime'); if(t) t.textContent = fmtDur(Date.now()-REC.t0) + ' / 6:00';
+}
+function recStop(){ if(REC.mr && REC.mr.state!=='inactive'){ try{ REC.mr.requestData?.(); }catch(e){} REC.mr.stop(); } }
+function recStamp(){ return new Date().toLocaleString('en-CA',{timeZone:'Asia/Manila',hour12:false}).replace(/[/:]/g,'.').replace(', ',' at '); }
+function recDone(){
+  const R = REC; clearInterval(R.timer); clearTimeout(R.cap);
+  R.streams.forEach(s=>s.getTracks().forEach(t=>t.stop())); try{ R.ac?.close(); }catch(e){}
+  REC = {mr:null}; el('recBar')?.remove();
+  const type = (R.type||'video/webm').split(';')[0]; const ext = type.includes('mp4') ? 'mp4' : 'webm';
+  const blob = new Blob(R.chunks, {type});
+  if(!blob.size) return toast('Nothing was recorded');
+  mediaReview(new File([blob], `Screen recording ${recStamp()}.${ext}`, {type}), R.target, {secs:Math.round((Date.now()-R.t0)/1000)});
+}
+
+/* ---------- review → attach ---------- */
+let MEDIA_PENDING = null;
+function mediaReview(file, target, info={}){
+  MEDIA_PENDING = {file, target};
+  const url = URL.createObjectURL(file); const vid = /^video\//.test(file.type);
+  const mb = (file.size/1048576).toFixed(file.size>1048576?1:2);
+  const tgt = target?.kind;
+  const chatName = (tgt==='chat' || CURRENT==='chat') && CHAT_OPEN ? chatTitle(CHATS.find(c=>c.id===CHAT_OPEN)||{}) : '';
+  openModal(vid ? 'Your screen recording' : 'Your screenshot', `
+    <div class="mr-prev">${vid ? `<video src="${url}" controls playsinline></video>` : `<img src="${url}" alt="Screenshot">`}</div>
+    <div class="hint" style="margin:6px 0 12px">${esc(file.name)} · ${mb} MB${info.secs?` · ${fmtDur(info.secs*1000)}`:''}${vid?' · press ▶ to replay':''}</div>
+    <div class="mr-acts">
+      ${tgt==='ticket' ? `<button class="btn primary" onclick="mediaUse('ticket')">Add to the ticket</button>` : ''}
+      ${chatName ? `<button class="btn ${tgt==='chat'?'primary':''}" onclick="mediaUse('chat')">💬 Attach to message — ${esc(chatName)}</button>` : `<button class="btn" onclick="mediaUse('pickchat')">💬 Attach to a message…</button>`}
+      <button class="btn" onclick="mediaUse('task')">📋 Attach to a task / delegation…</button>
+      ${tgt!=='ticket' && typeof ticketModal==='function' ? `<button class="btn" onclick="mediaUse('newticket')">🎫 Report in a support ticket</button>` : ''}
+      <button class="btn ghost" onclick="mediaUse('download')">⬇ Download</button>
+      <button class="btn ghost" style="color:var(--bad)" onclick="mediaUse('discard')">Discard</button></div>`, true);
+}
+function mediaTasks(){
+  const done = /^(done|published|approved|archived|cancel)/i;
+  return TASKS.filter(t=>!done.test(t.status||'') && (t.assignee===PERSON || t.by===PERSON || t.assignedBy===PERSON || (ROLE!=='employee' && visClients().some(c=>c.id===t.client))))
+    .sort((a,b)=>String(a.due||'').localeCompare(String(b.due||''))).slice(0,60);
+}
+async function mediaUse(how){
+  const P0 = MEDIA_PENDING; if(!P0) return closeModal();
+  const f = P0.file;
+  if(how==='discard'){ MEDIA_PENDING = null; closeModal(); return toast('Discarded'); }
+  if(how==='download'){ const a = document.createElement('a'); a.href = URL.createObjectURL(f); a.download = f.name; document.body.appendChild(a); a.click(); a.remove(); return toast('Downloading '+f.name); }
+  if(how==='ticket'){ MEDIA_PENDING = null; closeModal(); return P0.target.cb?.(f); }
+  if(how==='newticket'){ MEDIA_PENDING = null; closeModal(); return ticketModal({files:[f]}); }
+  if(how==='chat'){ MEDIA_PENDING = null; closeModal(); if(CURRENT!=='chat') go('chat'); attachFiles([f]); setTimeout(()=>el('chatMsg')?.focus(), 60); return toast('Attached — add a note and press Send'); }
+  if(how==='pickchat'){
+    const C = myChats().filter(c=>!chatReadOnly(c));
+    openModal('Attach to which chat?', `<div class="ca-list">${C.map(c=>`<button class="ca-row" style="text-align:left;width:100%;background:none;border:none" onclick="CHAT_OPEN='${c.id}';mediaUse('chat')"><b style="flex:1">${esc(chatTitle(c))}</b><span class="hint">${c.kind==='dm'?'private':c.kind}</span></button>`).join('')}</div>`);
+    return;
+  }
+  if(how==='task'){
+    const T = mediaTasks();
+    openModal('Attach to a task / delegation', T.length ? `<div class="hint" style="margin-bottom:8px">Tasks you own or assigned to someone. The file is added to the task’s reference files and the other person is notified.</div>
+      <div class="ca-list">${T.map(t=>`<button class="ca-row" style="text-align:left;width:100%;background:none;border:none" onclick="mediaToTask('${t.id}')"><span style="flex:1;min-width:0"><b>${esc(t.title)}</b><small class="hint" style="display:block">${esc(cname(t.client))} · ${t.assignee===PERSON?'yours':'assigned to '+esc(first(t.assignee))}${t.due?' · due '+esc(dstr(t.due)):''}</small></span><span class="badge">${esc(t.status||'')}</span></button>`).join('')}</div>` : '<div class="empty">No open tasks to attach to.</div>');
+    return;
+  }
+}
+async function mediaToTask(id){
+  const P0 = MEDIA_PENDING; const t = TASKS.find(x=>String(x.id)===String(id)); if(!P0 || !t) return;
+  toast('Uploading…'); const ref = await storeFile(P0.file); if(!ref) return;
+  t.refs = [...(t.refs||[]), ref]; t.updated = nowISO();
+  const other = t.assignee===PERSON ? (t.by||t.assignedBy) : t.assignee;
+  if(other) notify([other], 'assignment', `📎 <b>${esc(first(PERSON))}</b> added ${/^video/.test(P0.file.type)?'a screen recording':'a screenshot'} to <b>${esc(t.title)}</b>`, {view:'content', task:t.id});
+  audit(`Attached ${P0.file.name} to task ${t.title}`);
+  MEDIA_PENDING = null; recordChange(); closeModal(); toast('Added to the task'); setTimeout(()=>openTask(t.id), 120);
+}
+
+/* ---------- screenshot + mark-up ---------- */
+async function shotStart(target){
+  if(!canCapture()) return shotPick(target);
+  let s; try{ s = await navigator.mediaDevices.getDisplayMedia({video:true, audio:false}); }catch(e){ return toast('Screenshot cancelled'); }
+  try{
+    const v = document.createElement('video'); v.srcObject = s; v.muted = true; v.playsInline = true; await v.play();
+    await new Promise(r=>setTimeout(r, 400));
+    const c = document.createElement('canvas'); c.width = v.videoWidth || 1280; c.height = v.videoHeight || 720; c.getContext('2d').drawImage(v, 0, 0, c.width, c.height);
+    annotOpen(c, target);
+  } finally { s.getTracks().forEach(t=>t.stop()); }
+}
+function shotPick(target){
+  const i = document.createElement('input'); i.type = 'file'; i.accept = 'image/*';
+  i.onchange = () => { const f = i.files?.[0]; if(f) annotFromFile(f, target); }; i.click();
+}
+function annotFromFile(f, target){
+  const img = new Image(); img.onload = () => { const max = 2400, k = Math.min(1, max/Math.max(img.width, img.height)); const c = document.createElement('canvas'); c.width = Math.round(img.width*k); c.height = Math.round(img.height*k); c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); annotOpen(c, target); };
+  img.src = URL.createObjectURL(f);
+}
+const ANN = {base:null, shapes:[], tool:'arrow', color:'#E53935', drag:null, target:null};
+function annotOpen(base, target){
+  Object.assign(ANN, {base, shapes:[], tool:'arrow', drag:null, target});
+  openModal('Mark up screenshot', `
+    <div class="ann-tools">
+      ${[['arrow','↗ Arrow'],['circle','◯ Circle'],['box','▭ Box'],['text','T Text'],['pen','✎ Pen']].map(([k,l])=>`<button class="chip ${k==='arrow'?'on':''}" data-tool="${k}" onclick="annotTool('${k}')">${l}</button>`).join('')}
+      <span class="fmt-sep"></span>
+      ${['#E53935','#F2B440','#1E88E5','#43A047','#111111','#FFFFFF'].map(c=>`<button class="ann-col ${c==='#E53935'?'on':''}" data-col="${c}" style="background:${c}" title="Colour" onclick="annotColor('${c}')"></button>`).join('')}
+      <span class="fmt-sep"></span>
+      <button class="chip" onclick="annotUndo()">↶ Undo</button><button class="chip" onclick="ANN.shapes=[];annotDraw()">Clear</button></div>
+    <div class="ann-wrap" id="annWrap"><canvas id="annCv"></canvas></div>
+    <div class="hint" style="margin:6px 0 10px">Drag to draw an arrow, circle or box · click to place text.</div>
+    <div class="cf-acts"><button class="btn" onclick="closeModal()">Cancel</button><button class="btn primary" onclick="annotDone()">Done</button></div>`, true);
+  const cv = el('annCv'); cv.width = base.width; cv.height = base.height; annotDraw();
+  const pt = e => { const r = cv.getBoundingClientRect(); return {x:(e.clientX-r.left)*cv.width/r.width, y:(e.clientY-r.top)*cv.height/r.height}; };
+  cv.onpointerdown = e => { e.preventDefault(); const p = pt(e);
+    if(ANN.tool==='text') return annotText(p, e);
+    ANN.drag = {type:ANN.tool, color:ANN.color, x1:p.x, y1:p.y, x2:p.x, y2:p.y, pts:[p]}; cv.setPointerCapture?.(e.pointerId); };
+  cv.onpointermove = e => { if(!ANN.drag) return; const p = pt(e); ANN.drag.x2 = p.x; ANN.drag.y2 = p.y; if(ANN.drag.type==='pen') ANN.drag.pts.push(p); annotDraw(); };
+  cv.onpointerup = () => { const d = ANN.drag; ANN.drag = null; if(d && (Math.hypot(d.x2-d.x1, d.y2-d.y1) > 6 || d.pts.length>3)) ANN.shapes.push(d); annotDraw(); };
+}
+function annotTool(k){ ANN.tool = k; document.querySelectorAll('.ann-tools [data-tool]').forEach(b=>b.classList.toggle('on', b.dataset.tool===k)); }
+function annotColor(c){ ANN.color = c; document.querySelectorAll('.ann-col').forEach(b=>b.classList.toggle('on', b.dataset.col===c)); }
+function annotUndo(){ ANN.shapes.pop(); annotDraw(); }
+function annotText(p, e){
+  const wrap = el('annWrap'), cv = el('annCv'); const r = cv.getBoundingClientRect(), wr = wrap.getBoundingClientRect();
+  el('annTxt')?.remove();
+  const i = document.createElement('input'); i.id = 'annTxt'; i.className = 'ann-txt'; i.placeholder = 'Type, then Enter';
+  i.style.left = (e.clientX - wr.left) + 'px'; i.style.top = (e.clientY - wr.top - 14) + 'px'; i.style.color = ANN.color;
+  wrap.appendChild(i); i.focus(); setTimeout(()=>{ if(document.activeElement!==i) i.focus(); }, 30);
+  let done = false;
+  const commit = () => { if(done) return; done = true; const v = i.value.trim(); i.onblur = null; i.remove(); if(v){ ANN.shapes.push({type:'text', color:ANN.color, x1:p.x, y1:p.y, text:v}); annotDraw(); } };
+  i.onkeydown = ev => { if(ev.key==='Enter'){ ev.preventDefault(); commit(); } if(ev.key==='Escape'){ ev.stopPropagation(); done = true; i.onblur = null; i.remove(); } };
+  i.onblur = commit;
+}
+function annotDraw(){
+  const cv = el('annCv'); if(!cv || !ANN.base) return; const g = cv.getContext('2d');
+  g.clearRect(0,0,cv.width,cv.height); g.drawImage(ANN.base, 0, 0);
+  const lw = Math.max(3, Math.round(Math.max(cv.width, cv.height)/320));
+  [...ANN.shapes, ...(ANN.drag?[ANN.drag]:[])].forEach(s=>{
+    g.strokeStyle = s.color; g.fillStyle = s.color; g.lineWidth = lw; g.lineCap = 'round'; g.lineJoin = 'round';
+    g.shadowColor = 'rgba(0,0,0,.35)'; g.shadowBlur = lw;
+    if(s.type==='arrow'){ const a = Math.atan2(s.y2-s.y1, s.x2-s.x1), h = lw*4.5;
+      g.beginPath(); g.moveTo(s.x1, s.y1); g.lineTo(s.x2 - Math.cos(a)*h*0.6, s.y2 - Math.sin(a)*h*0.6); g.stroke();
+      g.beginPath(); g.moveTo(s.x2, s.y2); g.lineTo(s.x2 - h*Math.cos(a-0.45), s.y2 - h*Math.sin(a-0.45)); g.lineTo(s.x2 - h*Math.cos(a+0.45), s.y2 - h*Math.sin(a+0.45)); g.closePath(); g.fill(); }
+    else if(s.type==='circle'){ g.beginPath(); g.ellipse((s.x1+s.x2)/2, (s.y1+s.y2)/2, Math.abs(s.x2-s.x1)/2 || 1, Math.abs(s.y2-s.y1)/2 || 1, 0, 0, Math.PI*2); g.stroke(); }
+    else if(s.type==='box'){ g.strokeRect(Math.min(s.x1,s.x2), Math.min(s.y1,s.y2), Math.abs(s.x2-s.x1), Math.abs(s.y2-s.y1)); }
+    else if(s.type==='pen'){ g.beginPath(); s.pts.forEach((p,i)=>i?g.lineTo(p.x,p.y):g.moveTo(p.x,p.y)); g.stroke(); }
+    else if(s.type==='text'){ const fs = lw*6; g.font = `700 ${fs}px Inter, system-ui, sans-serif`; g.textBaseline = 'middle'; g.lineWidth = Math.max(2, lw*0.8);
+      g.shadowBlur = 0; g.strokeStyle = s.color==='#111111' ? '#fff' : 'rgba(0,0,0,.65)'; g.strokeText(s.text, s.x1, s.y1); g.fillText(s.text, s.x1, s.y1); }
+    g.shadowBlur = 0;
+  });
+}
+function annotDone(){
+  el('annTxt')?.blur(); annotDraw();
+  const cv = el('annCv'); if(!cv) return;
+  const limit = BACKEND.mode==='live' ? 45*1048576 : 1.4*1048576;
+  const finish = (blob, ext) => { const f = new File([blob], `Screenshot ${recStamp()}.${ext}`, {type:blob.type}); mediaReview(f, ANN.target); };
+  cv.toBlob(b=>{ if(b && b.size <= limit) return finish(b, 'png'); cv.toBlob(j=>finish(j, 'jpg'), 'image/jpeg', 0.85); }, 'image/png');
+}
+
+/* ===== 41_assist.js ===== */
+/* ================= ASSISTANT & REMINDERS UPDATE (Oct 2026) — F2 “Yam's Assistant” =================
+   The PM assistants (Tricia's Assistant, Yam's Assistant) already keep a history of conversations you can reopen
+   and continue, and start a new one. This update adds:
+   • ✎ Edit & resend on any of your earlier messages (the conversation continues from the edited message).
+   • Quick actions: ＋ Task / delegation, ⏰ Reminder, 📋 Due today & overdue, 🗓️ Reminders.
+   • Plain requests work too: “remind me to call Ziba at 3pm”, “remind @Nica Martinez tomorrow to send the report”,
+     “create a task …”, “delegate … to …”, “what’s due today?”, “show my reminders”.
+   • Reminders: personal or for a teammate (a delegation follow-up). They pop up with a notification at the time
+     set, on whichever device the person is using; the assistant also sees them when answering. */
+let REMINDERS = [];
+COLL.reminders = {get:()=>REMINDERS, set:v=>REMINDERS=v, aud:r=>uniq([r.owner, r.to].filter(Boolean))};
+
+/* ---------- reminders ---------- */
+const remMine = () => REMINDERS.filter(r=>r.owner===PERSON || r.to===PERSON).sort((a,b)=>String(a.due).localeCompare(String(b.due)));
+function remFmt(iso){ const d = new Date(iso); return d.toLocaleString('en-US',{timeZone:'Asia/Manila', month:'short', day:'numeric', hour:'numeric', minute:'2-digit'}); }
+function remLocalInput(iso){ const d = new Date(new Date(iso).getTime()+8*3600e3); return d.toISOString().slice(0,16); }  /* Manila wall-clock for <input type=datetime-local> */
+function remFromInput(v){ return v ? new Date(v+':00+08:00').toISOString() : null; }
+/* “at 3pm”, “tomorrow 9am”, “in 2 hours”, “on Friday”, “at 14:30” → ISO (Manila time) */
+function remParseWhen(q){
+  const s = String(q||'').toLowerCase(); const now = new Date();
+  const mnl = new Date(now.getTime()+8*3600e3); let y = mnl.getUTCFullYear(), mo = mnl.getUTCMonth(), d = mnl.getUTCDate(), h = null, mi = 0;
+  let m = s.match(/\bin (\d+) ?(min|minute|minutes|mins|hour|hours|hr|hrs|day|days)\b/);
+  if(m){ const n = +m[1]; const ms = /^min/.test(m[2]) ? n*60e3 : /^(hour|hr)/.test(m[2]) ? n*3600e3 : n*86400e3; return new Date(now.getTime()+ms).toISOString(); }
+  if(/\btomorrow\b/.test(s)) d += 1;
+  const days = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];
+  const dm = s.match(/\b(?:on |next )?(sunday|monday|tuesday|wednesday|thursday|friday|saturday)\b/);
+  if(dm){ const want = days.indexOf(dm[1]); const cur = mnl.getUTCDay(); d += ((want - cur + 7) % 7) || 7; }
+  const tm = s.match(/\b(?:at |by |@ ?)?(\d{1,2})(?::(\d{2}))? ?(am|pm)\b/) || s.match(/\bat (\d{1,2}):(\d{2})\b/);
+  if(tm){ h = +tm[1] % 12 + (tm[3]==='pm' ? 12 : 0); if(!tm[3]) h = +tm[1]; mi = +(tm[2]||0); }
+  else if(/\bnoon\b/.test(s)) h = 12; else if(/\b(this )?evening\b/.test(s)) h = 18; else if(/\b(this )?afternoon\b/.test(s)) h = 14; else if(/\bmorning\b/.test(s)) h = 9;
+  if(h==null && !/\btomorrow\b/.test(s) && !dm) return null;
+  if(h==null) h = 9;
+  const iso = new Date(Date.UTC(y, mo, d, h-8, mi)).toISOString();
+  return new Date(iso) < now && !/\btomorrow\b/.test(s) && !dm ? new Date(new Date(iso).getTime()+86400e3).toISOString() : iso;
+}
+function remModal(pre={}){
+  const ppl = activePeople().filter(k=>PEOPLE[k]?.role!=='client').sort((a,b)=>pname(a).localeCompare(pname(b)));
+  const due = pre.due || new Date(Date.now()+3600e3).toISOString();
+  openModal(pre.id ? 'Edit reminder' : 'New reminder', `
+    <div class="field"><label>Remind about *</label><textarea id="remText" rows="2" placeholder="e.g. Follow up with Ziba’s VA on the lead list">${esc(pre.text||'')}</textarea></div>
+    <div class="grid cols-2">
+      <div class="field"><label>When (Manila time) *</label><input id="remDue" type="datetime-local" value="${remLocalInput(due)}"></div>
+      <div class="field"><label>Who gets the reminder</label><select id="remTo">${ppl.map(k=>`<option value="${k}" ${k===(pre.to||PERSON)?'selected':''}>${k===PERSON?'Me':esc(pname(k))}</option>`).join('')}</select></div></div>
+    <div class="hint">Reminders for a teammate work as a delegation follow-up: they get a pop-up and a notification at that time; you see it in your reminders list.</div>
+    <div class="cf-acts"><button class="btn" onclick="closeModal()">Cancel</button><button class="btn primary" onclick="remSave(${pre.id?`'${pre.id}'`:'null'})">${pre.id?'Save':'Set reminder'}</button></div>`);
+  setTimeout(()=>el('remText')?.focus(), 40);
+}
+function remSave(id){
+  const text = el('remText').value.trim(); const due = remFromInput(el('remDue').value); const to = el('remTo').value || PERSON;
+  if(!text) return toast('What should the reminder say?'); if(!due) return toast('Pick a date and time');
+  let r = id ? REMINDERS.find(x=>x.id===id) : null;
+  if(r){ Object.assign(r, {text, due, to, notified:false}); }
+  else { r = {id:uid('RM'), owner:PERSON, to, text, due, at:nowISO(), done:false, notified:false}; REMINDERS.push(r); }
+  if(to!==PERSON) notify([to], 'reminder', `⏰ <b>${esc(first(PERSON))}</b> set a reminder for you on ${esc(remFmt(due))}: ${esc(text.slice(0,90))}`, {view:'pa'});
+  recordChange(); closeModal(); toast(`Reminder set for ${remFmt(due)}${to!==PERSON?' · '+first(to):''}`);
+  if(CURRENT==='pa') RENDER.pa();
+  return r;
+}
+function remDone(id){ const r = REMINDERS.find(x=>x.id===id); if(!r) return; r.done = !r.done; r.doneAt = r.done ? nowISO() : null; recordChange(); remListModal(); }
+function remDel(id){ REMINDERS = REMINDERS.filter(x=>x.id!==id); recordChange(); remListModal(); }
+function remListModal(){
+  const L = remMine(); const open = L.filter(r=>!r.done), done = L.filter(r=>r.done).slice(-10).reverse();
+  const row = r => `<div class="list-row rem-row ${r.done?'done':''} ${!r.done && r.due<nowISO()?'late':''}"><input type="checkbox" ${r.done?'checked':''} onchange="remDone('${r.id}')" title="Done">
+    <div style="flex:1;min-width:0"><b style="font-size:13px">${esc(r.text)}</b><div class="hint">${esc(remFmt(r.due))}${r.to!==PERSON?' · for '+esc(pname(r.to)):''}${r.owner!==PERSON?' · from '+esc(pname(r.owner)):''}</div></div>
+    ${r.owner===PERSON?`<button class="btn ghost" style="padding:4px 8px" onclick="remModal(REMINDERS.find(x=>x.id==='${r.id}'))">Edit</button><button class="btn ghost" style="padding:4px 8px;color:var(--bad)" onclick="remDel('${r.id}')">✕</button>`:''}</div>`;
+  openModal('Reminders', `${open.length ? open.map(row).join('') : '<div class="empty">No upcoming reminders.</div>'}
+    ${done.length?`<div class="nav-label" style="padding:12px 0 4px">Done</div>${done.map(row).join('')}`:''}
+    <div class="cf-acts"><button class="btn primary" onclick="remModal()">＋ New reminder</button></div>`);
+}
+/* fire due reminders on the device of the person they are for */
+function remTick(){
+  if(!PEOPLE[PERSON] || ROLE==='client') return; const now = nowISO(); let changed = false;
+  REMINDERS.filter(r=>r.to===PERSON && !r.done && !r.notified && r.due<=now).forEach(r=>{
+    r.notified = true; r.notifiedAt = now; changed = true;
+    NOTIFS2.unshift({id:uid('N'), to:PERSON, type:'reminder', text:`⏰ Reminder${r.owner!==PERSON?' from <b>'+esc(first(r.owner))+'</b>':''}: ${esc(r.text)}`, link:{view:'pa'}, by:r.owner, at:now, read:false});
+    toast('⏰ '+r.text); try{ sndPlay?.('notify', 'rem:'+r.id, true); }catch(e){}
+    if(r.owner!==PERSON) notify([r.owner], 'reminder', `✅ ${esc(first(PERSON))} got your reminder: ${esc(r.text.slice(0,80))}`, {view:'pa'});
+  });
+  if(changed){ recordChange(); renderNotifs(); }
+}
+setInterval(remTick, 30000); setTimeout(remTick, 4000);
+
+/* ---------- tasks & deadlines summary ---------- */
+function paDueSummary(a){
+  const today = manilaDate(); const done = /^(approved|completed|published|done)/i;
+  const C = a ? paClients(a).map(c=>c.id) : visClients().map(c=>c.id);
+  const T = TASKS.filter(t=>C.includes(t.client) && !done.test(t.status||'') && t.due);
+  const dk = t => dayKey(t.due);
+  const over = T.filter(t=>dk(t) < today), dueT = T.filter(t=>dk(t)===today), soon = T.filter(t=>dk(t) > today && dk(t) <= manilaDate(addD(3)));
+  const line = t => `- **${t.title}** — ${cname(t.client)} · @${pname(t.assignee)} · ${t.status}${dk(t)<today?' · due '+dk(t):''}`;
+  const R = remMine().filter(r=>!r.done);
+  return `**Due today (${dueT.length})**\n${dueT.map(line).join('\n')||'- Nothing due today'}\n\n**Overdue (${over.length})**\n${over.map(line).join('\n')||'- None'}\n\n**Next 3 days (${soon.length})**\n${soon.slice(0,12).map(t=>line(t)+' · due '+dk(t)).join('\n')||'- None'}\n\n**Your reminders (${R.length})**\n${R.slice(0,10).map(r=>`- ${remFmt(r.due)} — ${r.text}${r.to!==PERSON?' (for @'+pname(r.to)+')':''}`).join('\n')||'- None set'}`;
+}
+{ const _pc = paContext; paContext = function(a){
+    const R = REMINDERS.filter(r=>!r.done && (r.owner===a.pm || r.to===a.pm || r.owner===PERSON));
+    return _pc.apply(this, arguments) + (R.length ? `\n## Reminders\n${R.map(r=>`- ${remFmt(r.due)} · ${r.text} · for ${pname(r.to)} (set by ${pname(r.owner)})`).join('\n')}` : ''); }; }
+
+/* ---------- plain-language actions in the assistant chat ---------- */
+function paFindPerson(q){ const ks = activePeople().filter(k=>PEOPLE[k]?.role!=='client').sort((a,b)=>pname(b).length-pname(a).length);
+  const s = q.toLowerCase(); return ks.find(k=>s.includes('@'+pname(k).toLowerCase())) || ks.find(k=>s.includes('@'+first(k).toLowerCase())) || ks.find(k=>new RegExp('\\b(to|for|remind) '+reEsc(first(k).toLowerCase())+'\\b').test(s)) || null; }
+function paIntent(a, q){
+  const s = q.trim(); const l = s.toLowerCase();
+  if(/^(show|list|check|what are|see)\b.*\breminders?\b/.test(l) || /^my reminders\??$/.test(l)) return {reply:`**Your reminders**\n${remMine().filter(r=>!r.done).map(r=>`- ${remFmt(r.due)} — ${r.text}${r.to!==PERSON?' (for @'+pname(r.to)+')':''}`).join('\n')||'- None set'}`, open:'reminders'};
+  if(/^remind\b/.test(l)){
+    const who = /^remind me\b/.test(l) ? PERSON : (paFindPerson(s) || PERSON);
+    const due = remParseWhen(s);
+    let text = s.replace(/^remind\s+(me|@?[\w .'-]+?)\s+(to|about|that)\s+/i, '').replace(/\b(at|by)\s+\d{1,2}(:\d{2})?\s*(am|pm)?\b/ig,'').replace(/\b(tomorrow|today|tonight|this (morning|afternoon|evening)|in \d+ ?\w+|on \w+day|next \w+day|noon)\b/ig,'').replace(/\s{2,}/g,' ').trim().replace(/[.,]$/,'');
+    if(!text || /^remind/i.test(text)) text = s.replace(/^remind\s+\w+\s*/i,'');
+    return {action:()=>remModal({text:text.charAt(0).toUpperCase()+text.slice(1), due:due||undefined, to:who}), reply:`Setting a reminder${who!==PERSON?' for @'+pname(who):''}${due?' on '+remFmt(due):''}: “${text}”. Check the details and press **Set reminder**.`};
+  }
+  if(/^(create|add|make|new|open)\s+(a\s+)?(task|delegation)\b|^delegate\b/.test(l)){
+    const who = paFindPerson(s); const title = s.replace(/^(create|add|make|new|open)\s+(a\s+)?(task|delegation)\s*(for|to)?\s*/i,'').replace(/^delegate\s*/i,'').replace(/\s+(to|for)\s+@?[\w .'-]+$/i,'').trim();
+    const named = paClients(a).find(c=>l.includes(c.name.toLowerCase().split(/[\s(]/)[0]));
+    return {action:()=>{ newTaskModal({client:named?.id, assignee:who||undefined}); setTimeout(()=>{ const t = el('ntTitle'); if(t && title) t.value = title.charAt(0).toUpperCase()+title.slice(1); }, 60); },
+      reply:`Opening a new task${who?' delegated to @'+pname(who):''}${named?' for '+named.name:''}. Fill in the details and save — ${who?first(who):'the owner'} is notified.`};
+  }
+  if(/\b(due|deadline|overdue)s?\b.*\b(today|this week|now)?\b/.test(l) && /^(what|which|show|list|any|check)/.test(l)) return {reply: paDueSummary(a)};
+  return null;
+}
+{ const _ask = paAsk; paAsk = async function(q){
+    const a = paSel(); if(!paCan(a) || PA.busy) return;
+    const text = (q ?? el('paIn')?.value ?? '').trim(); if(!text) return;
+    const it = paIntent(a, text);
+    if(!it) return _ask.call(this, text);
+    let conv = paConv(a); if(!conv.id){ conv = aiNewConv(a.id, {title:text.slice(0,60)}); PA.conv = conv; }
+    conv.msgs.push({role:'user', text, at:nowISO()});
+    if(it.reply) conv.msgs.push({role:'assistant', text:it.reply, at:nowISO()});
+    if(el('paIn')) el('paIn').value = ''; aiSaveConv(conv); RENDER.pa();
+    if(it.action) it.action(); else if(it.open==='reminders') remListModal();
+  }; }
+
+/* ---------- edit & resend + quick actions ---------- */
+function paEditResend(i){
+  const a = paSel(); const conv = paConv(a); const m = conv.msgs[i]; if(!m || m.role!=='user' || PA.busy) return;
+  const n = document.querySelector(`#paBody .cora-m.user[data-i="${i}"]`); if(!n) return;
+  n.classList.add('editing');
+  n.innerHTML = `<textarea class="msg-edit" rows="2">${esc(m.text)}</textarea><div class="msg-edit-acts"><span class="hint">Resending replaces the answers after this message</span><button class="btn" data-a="x">Cancel</button><button class="btn primary" data-a="ok">Resend</button></div>`;
+  const t = n.querySelector('textarea'); composerGrow?.(t); t.focus(); t.setSelectionRange(t.value.length, t.value.length);
+  const go_ = () => { const v = t.value.trim(); if(!v) return; conv.msgs = conv.msgs.slice(0, i); if(i===0) conv.title = v.slice(0,60); aiSaveConv(conv); paAsk(v); };
+  n.querySelector('[data-a="x"]').onclick = () => RENDER.pa();
+  n.querySelector('[data-a="ok"]').onclick = go_;
+  t.onkeydown = e => { if(e.key==='Escape'){ e.preventDefault(); RENDER.pa(); } else if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); go_(); } };
+}
+{ const _rp = RENDER.pa; RENDER.pa = function(){
+    const r = _rp.apply(this, arguments);
+    if(PA.tab!=='chat') return r;
+    const a = paSel(); if(!a) return r; const conv = paConv(a);
+    const U = conv.msgs.map((m,i)=>m.role==='user'?i:-1).filter(i=>i>=0);
+    document.querySelectorAll('#paBody .cora-m.user').forEach((n,j)=>{ const i = U[j]; if(i==null) return; n.dataset.i = i;
+      if(!PA.busy){ const b = document.createElement('button'); b.className = 'pa-edit'; b.title = 'Edit and resend'; b.textContent = '✎ Edit & resend'; b.onclick = () => paEditResend(i); n.after(b); } });
+    const inp = document.querySelector('#v-pa .cora-in');
+    if(inp && !document.querySelector('#v-pa .pa-quick')) inp.insertAdjacentHTML('beforebegin', `<div class="pa-quick">
+      <button class="chip" onclick="newTaskModal({})">＋ Task / delegation</button>
+      <button class="chip" onclick="remModal()">⏰ Reminder</button>
+      <button class="chip" onclick="paAsk('What is due today and overdue?')">📋 Due today & overdue</button>
+      <button class="chip" onclick="remListModal()">🗓️ Reminders${remMine().filter(r=>!r.done).length?' ('+remMine().filter(r=>!r.done).length+')':''}</button></div>`);
+    const ta = el('paIn'); if(ta && !ta.dataset.hint){ ta.dataset.hint = 1; ta.placeholder = `Ask ${a.name} — or say “remind me to … at 3pm”, “create a task …”, “what’s due today?”`; }
+    return r; }; }
+
+/* ===== 42_tickets.js ===== */
+/* ================= SYSTEM OPS SUPPORT — support tickets (Oct 2026) — F1 + support-team proposal =================
+   Team name: System Ops Support. JA, Yam and Chan are always on the team; every new ticket is tagged / assigned
+   to all three and each of them gets an immediate portal notification (pop-up + bell, and a device push when away).
+   • Anyone (VAs, PMs, HR, heads) reports a bug or gives feedback with screenshots, screen recordings or files.
+   • Every new ticket is tagged to System Ops Support (JA, Yam, Chan) and notifies each of them right away,
+     plus the related PM. The person who reported it is notified on every status change and every reply.
+   • Status: Submitted → In Progress → For Testing → Resolved → Closed (“Submitted” = “Open” in the QA document;
+     For Testing and Closed are the team's test / JA-approval steps).
+   • When a system-wide bug is resolved, a prominent “✅ Fixed” announcement with a short explanation is published
+     automatically across all staff portals (optionally the client portal too).
+   • Response targets follow the proposal (support hours 10 AM – 12 midnight PH).
+   • The QA feedback items (B1–B5, F1–F11) are tracked as tickets with their progress and open questions. */
+let TICKETS = [];
+COLL.tickets = {get:()=>TICKETS, set:v=>TICKETS=v, aud:t=>uniq([t.by, t.assignee, ...(t.assignees||[]), t.pm, ...tkTeam(), ...HEADS].filter(Boolean))};
+const TK_STATUSES = ['Submitted','In Progress','For Testing','Resolved','Closed'];
+const TK_TYPES = ['Bug','Feedback','Feature request','Account / access','Question'];
+const TK_PRI = {Critical:'System unusable', High:'Blocks daily work', Medium:'Needed, has a workaround', Low:'Nice to have'};
+const TK_SLA = {Critical:{reply:60, replyL:'1 hour', fixD:0, fixL:'Same day'}, High:{reply:120, replyL:'2 hours', fixD:2, fixL:'2 working days'},
+  Medium:{reply:'day', replyL:'Same day', fixD:7, fixL:'1 week'}, Low:{reply:'2d', replyL:'2 working days', fixD:null, fixL:'Next update, when time allows'}};
+const TK_HOURS = {from:10, to:24};   /* support hours, Manila time */
+const TK_TEAM_NAME = 'System Ops Support';
+const TK_CORE = ['ja','yam','christian'];   /* JA, Yam, Chan — always on System Ops Support */
+function tkTeam(){ const extra = (typeof S==='function' && S().supportTeam) || []; return uniq([...TK_CORE, ...extra]).filter(k=>PEOPLE[k]); }
+const tkTagged = t => uniq([...(t?.assignees||[]), ...(t?.assignee?[t.assignee]:[])]);
+const tkLead = () => (typeof S==='function' && S().supportLead) || 'ja';
+const tkIsTeam = (k=PERSON) => tkTeam().includes(k) || HEADS.includes(k);
+const tkCanWork = (t, k=PERSON) => tkIsTeam(k) || tkTagged(t).includes(k);
+const tkCanClose = (k=PERSON) => k===tkLead() || HEADS.includes(k);
+const tkVisible = () => TICKETS.filter(t=>tkIsTeam() || t.by===PERSON || tkTagged(t).includes(PERSON) || t.pm===PERSON);
+const tkUrl = id => ({view:'support', ticket:id});
+let TK = {tab:'mine', status:'open', q:''}, TK_DRAFT = null, TK_CDRAFT = null;
+
+/* ---------- support-hours clock (for the response targets) ---------- */
+const mnlParts = ms => { const d = new Date(ms + 8*3600e3); return {y:d.getUTCFullYear(), m:d.getUTCMonth(), d:d.getUTCDate(), h:d.getUTCHours()+d.getUTCMinutes()/60}; };
+const mnlAt = (y,m,d,h) => Date.UTC(y,m,d,0,0) - 8*3600e3 + h*3600e3;
+function tkNextOpen(ms){ const p = mnlParts(ms); if(p.h < TK_HOURS.from) return mnlAt(p.y,p.m,p.d,TK_HOURS.from); if(p.h >= TK_HOURS.to) return mnlAt(p.y,p.m,p.d+1,TK_HOURS.from); return ms; }
+function tkAddSupportMins(ms, mins){ let t = tkNextOpen(ms), left = mins;
+  for(let i=0;i<60 && left>0;i++){ const p = mnlParts(t); const end = mnlAt(p.y,p.m,p.d,TK_HOURS.to); const room = (end - t)/60000;
+    if(left <= room) return t + left*60000; left -= room; t = mnlAt(p.y,p.m,p.d+1,TK_HOURS.from); }
+  return t; }
+function tkEndOfSupportDay(ms, extraDays=0){ const t = tkNextOpen(ms); const p = mnlParts(t); return mnlAt(p.y,p.m,p.d+extraDays,TK_HOURS.to); }
+function tkTargets(t){
+  const s = TK_SLA[t.priority] || TK_SLA.Medium; const at = Date.parse(t.at);
+  const reply = typeof s.reply==='number' ? tkAddSupportMins(at, s.reply) : s.reply==='day' ? tkEndOfSupportDay(at) : tkEndOfSupportDay(at, 1);
+  const fix = s.fixD==null ? null : s.fixD===0 ? tkEndOfSupportDay(at) : tkEndOfSupportDay(at, s.fixD - 1);
+  const firstReply = (t.history||[]).concat(t.comments||[]).filter(h=>h.by && h.by!==t.by && tkIsTeam(h.by)).map(h=>Date.parse(h.at)).sort()[0] || null;
+  return {reply, fix, firstReply, replyLate: !firstReply && Date.now()>reply && !['Resolved','Closed'].includes(t.status), fixLate: fix && Date.now()>fix && !['Resolved','Closed'].includes(t.status)};
+}
+const tkWhen = ms => ms ? new Date(ms).toLocaleString('en-US',{timeZone:'Asia/Manila', month:'short', day:'numeric', hour:'numeric', minute:'2-digit'}) : '—';
+
+const tkSettings = () => { let g = SETTINGS.find(x=>x.id==='global'); if(!g){ g = JSON.parse(JSON.stringify({...DEFAULT_SETTINGS, id:'global'})); SETTINGS.push(g); } return g; };
+/* ---------- nav + page ---------- */
+{ const at = NAV.findIndex(n=>n.id==='knowledge'); if(!NAV.some(n=>n.id==='support')) NAV.splice(at+1, 0, {id:'support', name:'System Ops Support', roles:ALLR, ico:'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20ZM9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3M12 17h.01'}); }
+if(!el('v-support')){ const v = document.createElement('div'); v.id = 'v-support'; v.className = 'view'; (el('v-monitor')||document.querySelector('.content .view:last-child'))?.after(v); }
+{ const _bn = buildNav; buildNav = function(){ const r = _bn.apply(this, arguments);
+    const b = document.querySelector(`#nav .nav-item[onclick="go('support')"]`);
+    if(b && PEOPLE[PERSON]){ const n = tkIsTeam() ? TICKETS.filter(t=>t.status==='Submitted' && !t.qa).length : TICKETS.filter(t=>t.by===PERSON && t.unreadBy?.includes(PERSON)).length; if(n) b.insertAdjacentHTML('beforeend', `<span class="pill">${n}</span>`); }
+    return r; }; }
+const tkBadge = s => `<span class="tk-st tk-${String(s).toLowerCase().replace(/[^a-z]/g,'')}">${esc(s)}</span>`;
+const tkPri = p => `<span class="tk-pri tk-p-${String(p).toLowerCase()}">${esc(p)}</span>`;
+function tkPipeline(t){ const i = TK_STATUSES.indexOf(t.status); return `<div class="tk-pipe">${TK_STATUSES.map((s,j)=>`<span class="${j<i?'done':j===i?'now':''}">${s}</span>`).join('')}</div>`; }
+RENDER.support = () => {
+  const v = el('v-support'); if(!v) return;
+  const team = tkIsTeam(); if(!team && ['all','qa'].includes(TK.tab)) TK.tab = 'mine';
+  const base = TK.tab==='mine' ? TICKETS.filter(t=>t.by===PERSON || tkTagged(t).includes(PERSON)) : TK.tab==='qa' ? TICKETS.filter(t=>t.qa) : tkVisible().filter(t=>!t.qa);
+  const open = s => !['Resolved','Closed'].includes(s);
+  const fl = base.filter(t=>TK.status==='all' ? true : TK.status==='open' ? open(t.status) : t.status===TK.status)
+    .filter(t=>!TK.q || (t.id+' '+t.title+' '+(t.desc||'')+' '+pname(t.by)).toLowerCase().includes(TK.q.toLowerCase()))
+    .sort((a,b)=> TK.tab==='qa' ? String(a.qa).localeCompare(String(b.qa), undefined, {numeric:true}) : String(b.updated||b.at).localeCompare(String(a.updated||a.at)));
+  const cnt = s => base.filter(t=>s==='open'?open(t.status):s==='all'?true:t.status===s).length;
+  const tabs = [['mine','My tickets'], ...(team?[['all','All tickets'],['qa','QA tracker']]:[]), ['how','How it works']];
+  v.innerHTML = `<div class="page-head"><div><h2>System Ops Support</h2><p>Report a bug or share feedback — the System Ops Support team is notified right away. Support hours: 10 AM – 12 midnight (PH time).</p></div>
+      <span style="display:flex;gap:8px;flex-wrap:wrap">${HEADS.includes(PERSON)?'<button class="btn" onclick="tkTeamModal()">⚙ Team</button>':''}<button class="btn primary" onclick="ticketModal()">🐞 Report a problem</button></span></div>
+    <div class="tabs">${tabs.map(([k,l])=>`<button class="tab ${TK.tab===k?'on':''}" onclick="TK.tab='${k}';RENDER.support()">${l}${k!=='how'&&k!=='mine'?'':''}</button>`).join('')}</div>
+    ${TK.tab==='how' ? tkHowHTML() : `
+    <div class="card"><div class="card-h" style="flex-wrap:wrap;gap:8px"><div class="pill-row">${[['open','Open'],...TK_STATUSES.map(s=>[s,s]),['all','All']].map(([k,l])=>`<button class="chip ${TK.status===k?'on':''}" onclick="TK.status='${k}';RENDER.support()">${l} <b>${cnt(k)}</b></button>`).join('')}</div>
+      <input placeholder="Search tickets…" value="${esc(TK.q)}" oninput="TK.q=this.value;clearTimeout(TK.qt);TK.qt=setTimeout(()=>{RENDER.support();const i=document.querySelector('#v-support .card-h input');i?.focus();i?.setSelectionRange(i.value.length,i.value.length)},250)" style="min-width:200px"></div>
+      ${TK.tab==='qa' ? `<div class="hint" style="padding:10px 16px 0">From “THE CROSS CORE · OPS SUITE — QA Feedback” (Sep 30, 2026). Test each item marked <b>For Testing</b>, then move it to Resolved (or back to In Progress with a note). Items marked ⚠ need a decision.</div>` : ''}
+      <div class="tbl-wrap"><table class="tbl tk-tbl"><thead><tr><th>ID</th><th>Title</th><th>Type</th><th>Priority</th><th>Status</th><th>Reported by</th><th>Assigned</th><th>Updated</th></tr></thead><tbody>
+      ${fl.map(t=>{ const g = tkTargets(t); return `<tr class="clickable-row" onclick="tkOpen('${t.id}')"><td><b>${esc(t.qa||t.id)}</b></td><td style="min-width:220px"><b style="font-size:13px">${esc(t.title)}</b>${t.clarify?' <span class="tk-flag" title="Needs clarification">⚠ needs decision</span>':''}${t.systemWide?' <span class="tk-flag sys">system-wide</span>':''}${g.replyLate?' <span class="tk-flag late">reply overdue</span>':g.fixLate?' <span class="tk-flag late">past fix target</span>':''}<div class="hint">${esc((t.area||'')+(t.comments?.length?` · 💬 ${t.comments.length}`:'')+((t.files||[]).length?` · 📎 ${t.files.length}`:''))}</div></td>
+        <td>${esc(t.type)}</td><td>${tkPri(t.priority)}</td><td>${tkBadge(t.status)}</td><td>${esc(first(t.by))}</td><td>${t.assignee?esc(first(t.assignee)):(t.assignees||[]).length?'<span class="tk-team">System Ops Support</span>':'<span class="hint">—</span>'}</td><td class="hint">${esc(ago(t.updated||t.at))}</td></tr>`; }).join('') || `<tr><td colspan="8" class="empty">${TK.tab==='mine'?'You have no tickets here. Found a problem? Press “Report a problem”.':'No tickets match.'}</td></tr>`}
+      </tbody></table></div></div>`}`;
+};
+function tkTeamLabel(){ return TK_TEAM_NAME; }
+const tkNick = k => k==='christian' ? 'Chan' : k==='yam' ? 'Yam' : first(k);
+function tkTagsHTML(t){ return `<span class="tk-team">${TK_TEAM_NAME}</span> ${tkTagged(t).filter(k=>PEOPLE[k]).map(k=>`<span class="mention" title="${esc(pname(k))}">@${esc(tkNick(k))}</span>`).join(' ')}`; }
+function tkHowHTML(){
+  return `<div class="grid cols-2">
+    <div class="card"><div class="card-h"><h3>How a problem gets handled</h3></div><div class="card-b">
+      <ol class="tk-flow"><li><b>Report</b> — anyone reports a problem with a screenshot or recording.</li><li><b>Sort</b> — the team sets the priority and assigns it (Submitted → In Progress).</li><li><b>Fix</b> — fixed by the team, or passed to the developer.</li><li><b>Test</b> — the team tests the fix (For Testing).</li><li><b>Approve</b> — ${esc(first(tkLead()))} approves, then it is closed (Resolved → Closed).</li></ol>
+      <p class="hint">You are notified every time your ticket changes status or gets a reply. When a problem that affected everyone is fixed, a “✅ Fixed” announcement is posted to all portals.</p></div></div>
+    <div class="card"><div class="card-h"><h3>How fast we respond</h3><span class="hint">during support hours · 10 AM – 12 MN PH</span></div><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Priority</th><th>Meaning</th><th>First reply within</th><th>Aim to fix within</th></tr></thead><tbody>
+      ${Object.entries(TK_SLA).map(([p,s])=>`<tr><td>${tkPri(p)}</td><td class="hint">${esc(TK_PRI[p])}</td><td>${esc(s.replyL)}</td><td>${esc(s.fixL)}</td></tr>`).join('')}</tbody></table></div>
+      <div class="card-b hint">Team: ${tkTeam().map(k=>`<b>${esc(pname(k))}</b>${k===tkLead()?' (lead — approves fixes)':''}`).join(' · ')}</div></div></div>`;
+}
+function tkTeamModal(){
+  if(!HEADS.includes(PERSON)) return;
+  const ppl = activePeople().filter(k=>PEOPLE[k]?.role!=='client').sort((a,b)=>pname(a).localeCompare(pname(b))); const cur = tkTeam();
+  openModal('System Ops Support team', `<div class="hint" style="margin-bottom:8px">Every new ticket is tagged to these people and each of them is notified right away. They can move tickets through the statuses; the lead approves fixes and closes tickets. JA, Yam and Chan are always on the team.</div>
+    <div class="ca-list">${ppl.map(k=>`<label class="ca-row"><input type="checkbox" class="tkTm" value="${k}" ${cur.includes(k)?'checked':''} ${TK_CORE.includes(k)?'disabled title="Always on System Ops Support"':''}> ${av(P(k))}<span style="flex:1"><b>${esc(pname(k))}</b><small class="hint" style="display:block">${esc(P(k).sub||'')}</small></span><input type="radio" name="tkLead" value="${k}" ${k===tkLead()?'checked':''} title="Lead"> <small class="hint">lead</small></label>`).join('')}</div>
+    <div class="cf-acts"><button class="btn" onclick="closeModal()">Cancel</button><button class="btn primary" onclick="tkTeamSave()">Save team</button></div>`);
+}
+function tkTeamSave(){ const t = uniq([...TK_CORE, ...[...document.querySelectorAll('.tkTm:checked')].map(x=>x.value)]); const lead = document.querySelector('input[name="tkLead"]:checked')?.value;
+  if(!t.length) return toast('Pick at least one person'); const s = tkSettings(); s.supportTeam = t; s.supportLead = t.includes(lead) ? lead : t[0];
+  audit(`System Ops Support team set to ${t.map(pname).join(', ')}`); recordChange(); closeModal(); RENDER.support(); toast('Support team saved'); }
+
+/* ---------- report a problem ---------- */
+function tkDevice(){ const u = navigator.userAgent; const br = /Edg\//.test(u)?'Edge':/Chrome\//.test(u)&&!/Chromium/.test(u)?'Chrome':/Firefox\//.test(u)?'Firefox':/Safari\//.test(u)?'Safari':'Browser';
+  const os = /iPhone|iPad/.test(u)?'iOS':/Android/.test(u)?'Android':/Mac OS X/.test(u)?'Mac':/Windows/.test(u)?'Windows':/Linux|CrOS/.test(u)?'Linux / ChromeOS':'Other';
+  return `${br} · ${os} · ${innerWidth}×${innerHeight}${/Mobile|iPhone|Android/.test(u)?' · phone':''}`; }
+function tkPMs(){ return Object.keys(PEOPLE).filter(k=>PEOPLE[k].role==='manager' && activePeople().includes(k)); }
+function tkMyPM(){ if(ROLE==='manager') return PERSON; const cl = EMPLOYEES.find(e=>e.id===PERSON)?.clients||[]; for(const c of cl){ const p = (typeof pmsOf==='function' ? pmsOf(c) : []).find(k=>tkPMs().includes(k)); if(p) return p; } return ''; }
+function tkCurrentArea(){ const n = NAV.find(x=>x.id===CURRENT); return CURRENT==='clientws' ? 'Client workspace — '+cname(WS.client) : n?.name || CURRENT; }
+function ticketModal(pre={}){
+  const d = TK_DRAFT = TK_DRAFT && !pre.fresh ? TK_DRAFT : {type:'Bug', priority:'Medium', title:'', desc:'', area:tkCurrentArea(), pm:tkMyPM(), systemWide:false, files:[]};
+  (pre.files||[]).forEach(f=>tkAddFile(f, true));
+  const cap = typeof canCapture==='function' && canCapture();
+  openModal('Report a problem', `
+    <div class="grid cols-2">
+      <div class="field"><label>Type</label><select id="tkType">${TK_TYPES.map(x=>`<option ${x===d.type?'selected':''}>${x}</option>`).join('')}</select></div>
+      <div class="field"><label>Priority</label><select id="tkPri">${Object.entries(TK_PRI).map(([p,m])=>`<option value="${p}" ${p===d.priority?'selected':''}>${p} — ${m}</option>`).join('')}</select></div></div>
+    <div class="field"><label>Title *</label><input id="tkTitle" value="${esc(d.title)}" placeholder="e.g. Time log won’t open after Time Out"></div>
+    <div class="field"><label>What happened? *</label><textarea id="tkDesc" rows="4" placeholder="What you did, what you expected, and what happened instead.">${esc(d.desc)}</textarea></div>
+    <div class="grid cols-2">
+      <div class="field"><label>Where</label><input id="tkArea" value="${esc(d.area)}"></div>
+      <div class="field"><label>Related PM (notified)</label><select id="tkPm"><option value="">— none —</option>${tkPMs().map(k=>`<option value="${k}" ${k===d.pm?'selected':''}>${esc(pname(k))}</option>`).join('')}</select></div></div>
+    <div class="field"><label>Screenshots, recordings or files</label><div id="tkFiles">${fileChips(d.files, 'tkRmFile')}</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px"><button class="btn" style="padding:5px 10px;font-size:12px" onclick="tkPick()">📎 Add files</button>
+      ${cap?`<button class="btn" style="padding:5px 10px;font-size:12px" onclick="tkSaveDraft();shotStart({kind:'ticket', cb:f=>tkAddFile(f)})">✂️ Screenshot</button><button class="btn" style="padding:5px 10px;font-size:12px" onclick="tkSaveDraft();recStart({kind:'ticket', cb:f=>tkAddFile(f)})">🎥 Record screen</button>`
+        :`<button class="btn" style="padding:5px 10px;font-size:12px" onclick="tkSaveDraft();shotStart({kind:'ticket', cb:f=>tkAddFile(f)})">✏️ Mark up a screenshot</button>`}</div></div>
+    <label class="tk-check"><input type="checkbox" id="tkSys" ${d.systemWide?'checked':''}> This affects everyone (not just me) — a system-wide problem</label>
+    <div class="hint" style="margin-top:6px">Sent to the System Ops Support team${d.pm?' and '+esc(first(d.pm)):''} — they are tagged on the ticket and notified right away. Device details are added automatically: ${esc(tkDevice())}.</div>
+    <div class="cf-acts"><button class="btn" onclick="TK_DRAFT=null;closeModal()">Cancel</button><button class="btn primary" id="tkSend" onclick="tkSubmit()">Submit ticket</button></div>`);
+  setTimeout(()=>{ if(!d.title) el('tkTitle')?.focus(); }, 40);
+}
+function tkSaveDraft(){ if(!TK_DRAFT || !el('tkTitle')) return; Object.assign(TK_DRAFT, {type:el('tkType').value, priority:el('tkPri').value, title:el('tkTitle').value, desc:el('tkDesc').value, area:el('tkArea').value, pm:el('tkPm').value, systemWide:el('tkSys').checked}); }
+function tkPick(){ tkSaveDraft(); const i = document.createElement('input'); i.type = 'file'; i.multiple = true; i.onchange = () => [...i.files].forEach(f=>tkAddFile(f)); i.click(); }
+async function tkAddFile(f, quiet){
+  if(!TK_DRAFT) TK_DRAFT = {type:'Bug', priority:'Medium', title:'', desc:'', area:tkCurrentArea(), pm:tkMyPM(), systemWide:false, files:[]};
+  if(el('tkTitle')) tkSaveDraft();
+  const tmp = {name:'Uploading '+f.name+'…', uploading:true}; TK_DRAFT.files.push(tmp);
+  if(!quiet) ticketModal(); else if(el('tkFiles')) el('tkFiles').innerHTML = fileChips(TK_DRAFT.files, 'tkRmFile');
+  const ref = await storeFile(f); const i = TK_DRAFT.files.indexOf(tmp);
+  if(i>=0){ if(ref) TK_DRAFT.files[i] = ref; else TK_DRAFT.files.splice(i,1); }
+  if(el('tkFiles')) el('tkFiles').innerHTML = fileChips(TK_DRAFT.files, 'tkRmFile');
+}
+function tkRmFile(i){ tkSaveDraft(); TK_DRAFT.files.splice(i,1); el('tkFiles').innerHTML = fileChips(TK_DRAFT.files, 'tkRmFile'); }
+function tkNewId(){ const n = TICKETS.filter(t=>!t.qa).reduce((m,t)=>Math.max(m, +String(t.id).replace(/\D/g,'')||0), 0) + 1; return 'TK-'+String(n).padStart(4,'0')+(BACKEND.mode==='live'?'-'+Date.now().toString(36).slice(-3):''); }
+async function tkSubmit(){
+  tkSaveDraft(); const d = TK_DRAFT; if(!d) return;
+  if(!d.title.trim()) return toast('Give the ticket a short title'); if(!d.desc.trim()) return toast('Describe what happened');
+  if(d.files.some(f=>f.uploading)){ toast('Waiting for uploads…'); for(let i=0;i<300 && d.files.some(f=>f.uploading);i++) await new Promise(r=>setTimeout(r,200)); }
+  const t = {id:tkNewId(), title:d.title.trim(), desc:d.desc.trim(), type:d.type, priority:d.priority, area:d.area, pm:d.pm||null, systemWide:!!d.systemWide,
+    files:d.files.filter(f=>!f.uploading), device:tkDevice(), portal:PEOPLE[PERSON]?.sub||ROLE, by:PERSON, at:nowISO(), updated:nowISO(), status:'Submitted', assignee:null, assignees:tkTeam(), team:TK_TEAM_NAME,
+    history:[{at:nowISO(), by:PERSON, to:'Submitted', note:'Ticket submitted'}, {at:nowISO(), by:PERSON, to:'Submitted', note:`Assigned to ${TK_TEAM_NAME} — ${tkTeam().map(k=>'@'+tkNick(k)).join(' ')}`}], comments:[]};
+  TICKETS.unshift(t); TK_DRAFT = null;
+  /* immediate portal notification to every System Ops Support member (they are all tagged), plus the related PM */
+  const team = t.assignees.filter(k=>k!==PERSON);
+  notify(team, 'system', `🎫 <b>New ${esc(t.priority==='Critical'?'CRITICAL ':'')}${esc(t.type.toLowerCase())} ticket</b> ${esc(t.id)} from ${esc(first(PERSON))}: “${esc(t.title)}” — you’re tagged as <b>${TK_TEAM_NAME}</b>`, tkUrl(t.id));
+  if(t.pm && !team.includes(t.pm) && t.pm!==PERSON) notify([t.pm], 'system', `🎫 New ticket ${esc(t.id)} from ${esc(first(PERSON))} (you’re the related PM): “${esc(t.title)}”`, tkUrl(t.id));
+  const to = uniq([...team, t.pm].filter(k=>k && k!==PERSON));
+  audit(`Submitted support ticket ${t.id} — ${t.title}`);
+  recordChange(); closeModal(); toast(`Ticket ${t.id} submitted — ${TK_TEAM_NAME} has been tagged and notified`);
+  TK.tab = 'mine'; TK.status = 'open'; go('support'); setTimeout(()=>tkOpen(t.id), 80);
+}
+
+/* ---------- ticket details ---------- */
+function tkOpen(id){
+  const t = TICKETS.find(x=>x.id===id); if(!t) return toast('That ticket is no longer available');
+  if(t.unreadBy?.includes(PERSON)){ t.unreadBy = t.unreadBy.filter(k=>k!==PERSON); recordChange(); }
+  const work = tkCanWork(t), g = tkTargets(t);
+  const idx = TK_STATUSES.indexOf(t.status);
+  const next = {Submitted:['In Progress'], 'In Progress':['For Testing','Resolved'], 'For Testing':['Resolved','In Progress'], Resolved:tkCanClose()?['Closed','In Progress']:['In Progress'], Closed:['In Progress']}[t.status]||[];
+  const cd = TK_CDRAFT && TK_CDRAFT.id===id ? TK_CDRAFT : (TK_CDRAFT = {id, text:'', files:[]});
+  const cap = typeof canCapture==='function' && canCapture();
+  openModal(`${t.qa?t.qa+' · ':''}${t.id} — ${t.title}`, `
+    ${tkPipeline(t)}
+    <div class="tk-meta">${tkPri(t.priority)} ${tkBadge(t.status)} <span class="chip">${esc(t.type)}</span>${t.systemWide?' <span class="tk-flag sys">system-wide</span>':''}
+      <span class="hint">Reported by <b>${esc(pname(t.by))}</b> · ${esc(dstr(t.at))} ${esc(clock(t.at))}${t.area?' · '+esc(t.area):''}</span></div>
+    ${t.clarify?`<div class="tk-clarify">⚠ <b>Needs clarification:</b> ${esc(t.clarify)}</div>`:''}
+    <div class="tk-desc">${fmtHTML ? fmtHTML(linkify(t.desc||'')) : linkify(t.desc||'')}</div>
+    ${(t.files||[]).length?`<div class="field"><label>Attachments</label><div>${fileChips(t.files)}</div></div>`:''}
+    ${t.resolution?`<div class="tk-res">✅ <b>Resolution</b> (${esc(first(t.resolution.by))}, ${esc(dstr(t.resolution.at))}): ${esc(t.resolution.text)}${t.annId?` <a href="#" onclick="closeModal();openAnn('${t.annId}');return false">View announcement</a>`:''}</div>`:''}
+    <div class="kv tk-kv"><span class="k">Assigned to</span><span>${tkTagsHTML(t)}</span>
+      <span class="k">Lead on this ticket</span><span>${work?`<select id="tkAsg" onchange="tkAssign('${t.id}', this.value)"><option value="">— whole team —</option>${uniq([...tkTeam(), ...(t.assignee?[t.assignee]:[])]).map(k=>`<option value="${k}" ${k===t.assignee?'selected':''}>${esc(pname(k))}</option>`).join('')}</select>`:(t.assignee?esc(pname(t.assignee)):'Whole team')}</span>
+      <span class="k">Related PM</span><span>${work?`<select onchange="tkField('${t.id}','pm',this.value)"><option value="">— none —</option>${tkPMs().map(k=>`<option value="${k}" ${k===t.pm?'selected':''}>${esc(pname(k))}</option>`).join('')}</select>`:(t.pm?esc(pname(t.pm)):'—')}</span>
+      ${work?`<span class="k">Priority</span><span><select onchange="tkField('${t.id}','priority',this.value)">${Object.keys(TK_PRI).map(p=>`<option ${p===t.priority?'selected':''}>${p}</option>`).join('')}</select> <label class="tk-check" style="display:inline-flex;margin-left:8px"><input type="checkbox" ${t.systemWide?'checked':''} onchange="tkField('${t.id}','systemWide',this.checked)"> system-wide</label></span>`:''}
+      <span class="k">First reply</span><span>${g.firstReply?'✓ '+esc(tkWhen(g.firstReply)):`target ${esc(tkWhen(g.reply))}${g.replyLate?' <span class="tk-flag late">overdue</span>':''}`}</span>
+      <span class="k">Aim to fix by</span><span>${g.fix?esc(tkWhen(g.fix)):'next update'}${g.fixLate?' <span class="tk-flag late">past target</span>':''}</span>
+      <span class="k">Device</span><span class="hint">${esc(t.device||'—')}</span></div>
+    ${work && next.length ? `<div class="tk-acts"><span class="hint">Move to</span>${next.map(s=>`<button class="btn ${s==='Resolved'||s==='Closed'?'primary':''}" onclick="tkMove('${t.id}','${s}')">${s==='In Progress'&&idx>1?'↩ Back to In Progress':s==='Closed'?'Approve & close':s}</button>`).join('')}</div>` : ''}
+    ${!work && t.by===PERSON && t.status==='Resolved' ? `<div class="tk-acts"><span class="hint">Is it fixed for you?</span><button class="btn primary" onclick="tkConfirm('${t.id}',true)">Yes, it’s fixed</button><button class="btn" onclick="tkConfirm('${t.id}',false)">No, still happening</button></div>` : ''}
+    <div class="nav-label" style="padding:14px 0 6px">Conversation</div>
+    <div class="tk-thread">${(t.comments||[]).map(c=>`<div class="tk-c ${c.by===PERSON?'me':''}">${av(P(c.by))}<div><div class="hint"><b>${esc(c.by===PERSON?'You':pname(c.by))}</b> · ${esc(dstr(c.at))} ${esc(clock(c.at))}${tkIsTeam(c.by)?' · support team':''}</div><div>${fmtHTML ? fmtHTML(linkify(c.text||'')) : linkify(c.text||'')}</div>${(c.files||[]).length?`<div style="margin-top:4px">${fileChips(c.files)}</div>`:''}</div></div>`).join('') || '<div class="hint">No replies yet.</div>'}</div>
+    ${t.status!=='Closed' || work ? `<div class="tk-reply"><textarea id="tkCm" rows="2" placeholder="${work?'Reply to '+esc(first(t.by))+' or add a note…':'Add details or reply to the support team…'}" oninput="TK_CDRAFT.text=this.value">${esc(cd.text)}</textarea>
+      <div id="tkCmFiles">${fileChips(cd.files, 'tkCmRm')}</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center"><button class="btn ghost" style="padding:5px 9px" onclick="tkCmPick()">📎</button>${cap?`<button class="btn ghost" style="padding:5px 9px" title="Screenshot" onclick="shotStart({kind:'ticket', cb:f=>tkCmAdd(f)})">✂️</button><button class="btn ghost" style="padding:5px 9px" title="Record screen" onclick="recStart({kind:'ticket', cb:f=>tkCmAdd(f)})">🎥</button>`:''}<span style="flex:1"></span><button class="btn primary" onclick="tkComment('${t.id}')">Send reply</button></div></div>` : ''}
+    <details class="tk-hist"><summary>History (${(t.history||[]).length})</summary><div class="timeline" style="margin-top:8px">${(t.history||[]).slice().reverse().map(h=>`<div class="ti"><b>${esc(h.to||'')}</b> · ${esc(first(h.by))} · ${esc(dstr(h.at))} ${esc(clock(h.at))}${h.note?' — '+esc(h.note):''}</div>`).join('')}</div></details>`, true);
+}
+function tkTouch(t, note, to){ t.updated = nowISO(); t.history = [...(t.history||[]), {at:nowISO(), by:PERSON, to:to||t.status, note}]; }
+function tkNotifyParties(t, text, also=[]){
+  const to = uniq([t.by, t.assignee, t.pm, ...also].filter(k=>k && k!==PERSON));
+  notify(to, 'system', text, tkUrl(t.id));
+  if(t.by!==PERSON) t.unreadBy = uniq([...(t.unreadBy||[]), t.by]);
+}
+function tkAssign(id, k){ const t = TICKETS.find(x=>x.id===id); if(!t || !tkCanWork(t)) return; t.assignee = k||null; tkTouch(t, k?'Assigned to '+pname(k):'Unassigned');
+  if(k && k!==PERSON) notify([k], 'assignment', `🎫 <b>${esc(first(PERSON))}</b> assigned ticket ${esc(t.id)} to you: “${esc(t.title)}”`, tkUrl(t.id));
+  if(t.status==='Submitted'){ t.status = 'In Progress'; tkTouch(t, 'Work started', 'In Progress'); tkNotifyParties(t, `🎫 Your ticket ${esc(t.id)} “${esc(t.title)}” is now <b>In Progress</b>${k?' · '+esc(first(k))+' is on it':''}`); }
+  recordChange(); tkOpen(id); RENDER.support(); }
+function tkField(id, f, v){ const t = TICKETS.find(x=>x.id===id); if(!t || !tkCanWork(t)) return; const old = t[f]; t[f] = v===''?null:v;
+  tkTouch(t, f==='pm'?`Related PM: ${v?pname(v):'none'}`:f==='priority'?`Priority ${old} → ${v}`:`System-wide: ${v?'yes':'no'}`);
+  if(f==='pm' && v && v!==PERSON) notify([v], 'system', `🎫 You were added as the related PM on ticket ${esc(t.id)}: “${esc(t.title)}”`, tkUrl(t.id));
+  recordChange(); tkOpen(id); RENDER.support(); }
+function tkMove(id, status){
+  const t = TICKETS.find(x=>x.id===id); if(!t || !tkCanWork(t)) return;
+  if(status==='Closed' && !tkCanClose()) return toast(`${first(tkLead())} approves fixes and closes tickets`);
+  if(status==='Resolved') return tkResolveModal(id);
+  const note = status==='For Testing' ? 'Fix ready — testing' : status==='In Progress' && TK_STATUSES.indexOf(t.status)>1 ? 'Reopened' : status==='Closed' ? 'Approved and closed' : '';
+  tkSetStatus(t, status, note); recordChange(); tkOpen(id); RENDER.support();
+}
+function tkSetStatus(t, status, note){
+  const from = t.status; t.status = status; tkTouch(t, note, status);
+  if(status==='In Progress' && !t.assignee && tkIsTeam()) t.assignee = PERSON;
+  tkNotifyParties(t, `🎫 Your ticket ${esc(t.id)} “${esc(t.title)}” moved from ${esc(from)} to <b>${esc(status)}</b>${note?' — '+esc(note):''}`, status==='Resolved'?[tkLead()]:[]);
+}
+function tkResolveModal(id){
+  const t = TICKETS.find(x=>x.id===id); if(!t) return;
+  openModal(`Resolve ${t.id}`, `<div class="field"><label>Short explanation of the fix *</label><textarea id="tkResT" rows="3" placeholder="e.g. The workspace no longer turns grey on iPhone Safari — the install tip was fixed.">${esc(t.resolution?.text||'')}</textarea></div>
+    <label class="tk-check"><input type="checkbox" id="tkResSys" ${t.systemWide?'checked':''}> System-wide bug — publish a “✅ Fixed” announcement to everyone</label>
+    <label class="tk-check" style="margin-left:22px"><input type="checkbox" id="tkResCli"> Also show it in client portals</label>
+    <div class="hint" style="margin-top:8px">${esc(first(t.by))} is notified. ${esc(first(tkLead()))} approves and closes it afterwards.</div>
+    <div class="cf-acts"><button class="btn" onclick="tkOpen('${t.id}')">Cancel</button><button class="btn primary" onclick="tkResolve('${t.id}')">Mark resolved</button></div>`);
+  setTimeout(()=>el('tkResT')?.focus(), 40);
+}
+function tkResolve(id){
+  const t = TICKETS.find(x=>x.id===id); if(!t) return;
+  const text = el('tkResT').value.trim(); if(!text) return toast('Add a short explanation of the fix');
+  const sys = el('tkResSys').checked, cli = el('tkResCli').checked;
+  t.resolution = {text, by:PERSON, at:nowISO()}; t.systemWide = sys;
+  tkSetStatus(t, 'Resolved', text);
+  if(sys){ const {a} = publishAnnouncement({title:`✅ Fixed: ${t.title}`, body:`${text}\n\nThis was reported in ticket ${t.id}. If you still see the problem, reply on the ticket or report it again in System Ops Support.`, priority:'High', target:{type:'all'}, expiresDays:14, link:'',
+      note:{text:`✅ <b>Fixed:</b> ${esc(t.title)} — ${esc(text.slice(0,110))}`, link:{view:'announce', ann:null}}});
+    a.kind = 'fix'; a.ticket = t.id; a.clients = !!cli; t.annId = a.id;
+    NOTIFS2.filter(n=>n.link?.view==='announce' && n.link.ann===null && n.by===PERSON).forEach(n=>n.link.ann = a.id);
+  }
+  recordChange(); tkOpen(id); RENDER.support(); if(typeof fixBanner==='function') fixBanner();
+  toast(sys ? 'Resolved — the fix was announced to everyone' : 'Resolved — '+first(t.by)+' was notified');
+}
+function tkConfirm(id, fixed){
+  const t = TICKETS.find(x=>x.id===id); if(!t || t.by!==PERSON) return;
+  if(fixed){ t.confirmedBy = PERSON; t.confirmedAt = nowISO(); tkTouch(t, 'Reporter confirmed it is fixed'); notify(uniq([tkLead(), t.assignee].filter(k=>k&&k!==PERSON)), 'system', `✅ ${esc(first(PERSON))} confirmed ticket ${esc(t.id)} is fixed — ready to close`, tkUrl(t.id)); toast('Thanks! The team will close it.'); }
+  else { t.status = 'In Progress'; tkTouch(t, 'Reporter says it is still happening', 'In Progress'); notify(uniq([...tkTagged(t), ...tkTeam()].filter(k=>k&&k!==PERSON)), 'system', `↩ ${esc(first(PERSON))} reopened ticket ${esc(t.id)} — still happening: “${esc(t.title)}”`, tkUrl(t.id)); toast('Reopened — the team was notified'); }
+  recordChange(); tkOpen(id); RENDER.support();
+}
+function tkCmPick(){ const i = document.createElement('input'); i.type = 'file'; i.multiple = true; i.onchange = () => [...i.files].forEach(f=>tkCmAdd(f, true)); i.click(); }
+async function tkCmAdd(f, inPlace){ const d = TK_CDRAFT; if(!d) return; const tmp = {name:'Uploading '+f.name+'…', uploading:true}; d.files.push(tmp);
+  if(!inPlace) tkOpen(d.id); else if(el('tkCmFiles')) el('tkCmFiles').innerHTML = fileChips(d.files, 'tkCmRm');
+  const ref = await storeFile(f); const i = d.files.indexOf(tmp); if(i>=0){ if(ref) d.files[i] = ref; else d.files.splice(i,1); }
+  if(el('tkCmFiles')) el('tkCmFiles').innerHTML = fileChips(d.files, 'tkCmRm'); }
+function tkCmRm(i){ TK_CDRAFT.files.splice(i,1); el('tkCmFiles').innerHTML = fileChips(TK_CDRAFT.files, 'tkCmRm'); }
+async function tkComment(id){
+  const t = TICKETS.find(x=>x.id===id); const d = TK_CDRAFT; if(!t || !d) return;
+  const text = (el('tkCm')?.value||'').trim(); if(!text && !d.files.length) return toast('Type a reply');
+  if(d.files.some(f=>f.uploading)){ toast('Waiting for uploads…'); for(let i=0;i<300 && d.files.some(f=>f.uploading);i++) await new Promise(r=>setTimeout(r,200)); }
+  t.comments = [...(t.comments||[]), {id:uid('TC'), by:PERSON, at:nowISO(), text, files:d.files.filter(f=>!f.uploading)}]; t.updated = nowISO();
+  const to = tkIsTeam() ? [t.by, t.assignee, t.pm] : [t.assignee, ...(t.assignee?[]:(t.assignees||tkTeam()))];
+  notify(uniq(to.filter(k=>k && k!==PERSON)), 'system', `💬 <b>${esc(first(PERSON))}</b> replied on ticket ${esc(t.id)}: ${esc(text.slice(0,90))}`, tkUrl(t.id));
+  if(t.by!==PERSON) t.unreadBy = uniq([...(t.unreadBy||[]), t.by]);
+  TK_CDRAFT = null; recordChange(); tkOpen(id); RENDER.support();
+}
+{ const _fl = followLink; followLink = function(link){ if(link?.view==='support'){ closeOverlays(); if(link.ticket){ const t = TICKETS.find(x=>x.id===link.ticket); if(t && t.qa) TK.tab='qa'; else if(t && t.by!==PERSON && tkIsTeam()) TK.tab='all'; } go('support'); if(link.ticket) setTimeout(()=>tkOpen(link.ticket), 60); return; } return _fl.apply(this, arguments); }; }
+
+/* ---------- “✅ Fixed” banner across every portal ---------- */
+function fixDismissed(id){ try{ return (JSON.parse(localStorage.getItem('cc-fix-seen')||'[]')).includes(id); }catch(e){ return false; } }
+function fixDismiss(id){ try{ const l = JSON.parse(localStorage.getItem('cc-fix-seen')||'[]'); l.push(id); localStorage.setItem('cc-fix-seen', JSON.stringify(l.slice(-50))); }catch(e){} if(ROLE!=='client') try{ setAnnRead(id); recordChange(); }catch(e){} fixBanner(); }
+function fixBanner(){
+  const box = el('fixBanner');
+  if(!PEOPLE[PERSON]){ box?.remove(); return; }
+  const cut = new Date(Date.now()-14*86400e3).toISOString();
+  const A = ANNOUNCEMENTS.filter(a=>a.kind==='fix' && !a.archived && a.at>cut && (ROLE!=='client' || a.clients) && !fixDismissed(a.id)).slice(0,2);
+  if(!A.length){ box?.remove(); return; }
+  let b = box; if(!b){ b = document.createElement('div'); b.id = 'fixBanner'; b.className = 'fix-banner'; const tb = document.querySelector('.topbar'); tb ? tb.after(b) : document.body.prepend(b); }
+  b.innerHTML = A.map(a=>`<div class="fix-row"><span class="fix-ico">✅</span><div style="flex:1;min-width:0"><b>${esc(a.title.replace(/^✅\s*/,''))}</b><div class="fix-txt">${esc(String(a.body||'').split('\n')[0].slice(0,180))}</div></div>
+    ${ROLE!=='client'?`<button class="btn" onclick="openAnn('${a.id}')">Details</button>`:''}<button class="btn ghost" onclick="fixDismiss('${a.id}')" title="Dismiss">✕</button></div>`).join('');
+}
+{ const _cu = checkUrgentAnns; checkUrgentAnns = function(){ try{ fixBanner(); }catch(e){ console.warn(e); } return _cu.apply(this, arguments); }; }
+
+/* ---------- QA feedback tracker (THE CROSS CORE · OPS SUITE — Sep 30, 2026) ---------- */
+const QA_ITEMS = [
+  ['B1','Bug','Critical','Mobile','Workspace greyed out on mobile','On mobile Safari and Google Chrome, the workspace loads but turns grey and does not respond.','For Testing','Cause found: on iPhone Safari the “Add to Home Screen” tip used a browser feature phones don’t have, crashed, and left an invisible grey layer over the page. Fixed and made crash-proof; tapping outside any leftover layer now closes it. Test on iPhone Safari and Android Chrome.'],
+  ['B2','Bug','High','Attendance','Time log not viewable or clickable after Time Out','After timing out, users should still be able to open and view their completed time log. This affects VAs with multiple roles or clients.','For Testing','“🧾 View today’s time log” stays after Time Out and opens the full log (time per client, breaks, timeline). Rows in “Your recent records” open the log for that day.'],
+  ['B3','Bug','High','Mobile','Auto logout not working on mobile','Auto logout works on desktop/Mac but not on mobile. Both should behave the same.','In Progress','Phones now sign your status out the same way as desktops: when the portal is in the background or the phone is locked for 90 seconds you show as Offline (“last active …”), and Online again when you come back.', 'Please confirm what “auto logout” means: (a) your status changes to Offline when you leave — done; or (b) the account signs out completely after a period of no activity (how many minutes?), or (c) an automatic Time Out in Attendance at the end of the shift.'],
+  ['B4','Bug','Medium','Calls','Video window cannot be moved','Make the video window movable. When minimized, audio should keep working and the call should stay visible if possible.','For Testing','Drag the call window by its title bar (mouse or finger). Minimise now keeps a small live video window you can move anywhere; sound plays through its own player so it never cuts out when minimising, resizing or switching pages.'],
+  ['B5','Bug','Low','Navigation','Sidebar cannot be collapsed','Add a way to close and reopen the left sidebar.','For Testing','Arrow at the top of the sidebar hides it (remembered per device). Move the cursor to the left edge or click the edge tab to bring it back. Phones: ☰ menu, swipe from the left edge, tap outside to close.'],
+  ['F1','Feature request','High','Support','Issue / Bug ticket','Anyone can report a problem to the support team with description, screenshot or video, type, priority, assignee and related PM (notified). Status: Open → In Progress → For Testing → Resolved → Closed.','For Testing','This System Ops Support page. New tickets are tagged to System Ops Support (JA, Yam and Chan), who are notified right away, plus the related PM; reporters are notified on every status change and reply; system-wide fixes post a “✅ Fixed” announcement to all portals; response targets follow the proposal.', 'Status names: the request said Submitted / In Progress / Resolved and the QA document says Open → In Progress → For Testing → Resolved → Closed. Both are covered (“Submitted” = Open). Confirm the naming, and that “Chan” is Christian M. Naperi.'],
+  ['F2','Feature request','Medium','AI Assistant','Yam’s Assistant (for PMs)','Ask about tasks, deadlines, reminders, team assignments and project updates; create or check reminders, tasks and delegations; view and continue old chats, start a new chat, edit then resend a message.','For Testing','Assistant chat keeps history and new conversations; added ✎ Edit & resend, quick actions (task / delegation, reminder, due today & overdue, reminders) and plain requests like “remind me to … at 3pm”. Reminders pop up at the set time.'],
+  ['F3','Feature request','Medium','Navigation','Back button','Go back to the page or tab you opened before.','For Testing','← Back button in the top bar (also the phone’s Back gesture) returns to the previous page, client or tab.'],
+  ['F4','Feature request','Medium','Calls','Ringtone when calling','Play a ringing sound while a call is connecting, so it is not silent.','For Testing','Caller hears a ringback tone with “Ringing…” until someone joins (45 s max). Incoming calls keep ringing while the pop-up is showing.'],
+  ['F5','Feature request','Medium','Calls','Add someone to a live call','Invite another person while a call is ongoing.','For Testing','“➕ Add people” in the call rings anyone in the team, including people outside that chat; they join the same call from the pop-up or notification.'],
+  ['F6','Feature request','Medium','Messages','Edit and delete messages','Allowed only within 30 minutes of sending. Edited messages show an “edited” label.','For Testing','✎ Edit / 🗑 Delete on your own messages for 30 minutes; “(edited)” label; deleted messages show “This message was deleted”. The live database enforces the 30-minute rule (run the SQL update).'],
+  ['F7','Feature request','Medium','Tools','Screen recording','Record the screen with sound. Start and stop, quick replay before sending, then attach to a message, task or delegation.','For Testing','🎥 Record screen (chat toolbar, tickets): screen sound + microphone, Stop bar, replay preview, attach to a message, a task / delegation or a ticket, or download. Up to 6 minutes. Computers only — phone browsers can’t record the screen.', 'Who can view screen recordings? Today a recording is visible to whoever can see the message, task or ticket it is attached to. Confirm, or name who should (e.g. PMs and heads only).'],
+  ['F8','Feature request','Medium','Tools','Screenshot tool','Capture part of the screen, add arrows, circles or text, and send it in a message, task or delegation.','For Testing','✂️ Screenshot captures a screen, window or tab, then mark it up with arrows, circles, boxes, text and pen before attaching. Phones: “✏️ Mark up image” on a photo or screenshot.'],
+  ['F9','Feature request','Medium','Attendance','Switch clients in Attendance','Let users switch between clients in Attendance & Time Logs (for VAs with more than one role or client).','For Testing','One-tap client chips under the time buttons for people with more than one client; each switch is logged and the time log shows time per client.'],
+  ['F10','Feature request','Medium','Messages','Message writing: new lines and formatting','Enter adds a new line; send with Ctrl + Enter (Cmd + Enter on Mac). Bold, Italic, Strikethrough, Bulleted lists — formatting stays after sending.','For Testing','Done in chats and threads, with a formatting toolbar and shortcuts (Ctrl/⌘+B, I, Shift+X, Shift+8). Bullet lists continue on Enter.'],
+  ['F11','Feature request','Low','Calls','Video call for up to 30 people','Allow up to 30 participants in one call. Still pending, to be confirmed.','Submitted','Built-in calls connect people directly and stay reliable up to about 6 people; above the limit (Administration → Calls) the call moves to Google Meet automatically, which already handles 30+ people.', 'Is 30 people a must or a goal? For 30 in the built-in call we would need a paid video service (a media server), otherwise Google Meet covers it today.'],
+  ['JA-TEAM','Feedback','Medium','Support','Proposal: support team — System Ops Support','JA leads and approves every fix; Yamille receives reports, sorts them and updates PMs; Chan troubleshoots and works with the developer. Support hours 10 AM – 12 midnight (PH). Response targets per priority.','In Progress','Team name decided: System Ops Support (JA, Yam, Chan). Every new ticket is tagged to all three and they are notified right away. Hours and response targets are set up in System Ops Support.', 'Still to discuss: Chan’s and Yam’s exact roles, an early 5–6 AM start and who covers 12–1 AM.'],
+];
+function tkSeedQA(){
+  if(!PEOPLE[PERSON] || !tkIsTeam() || (S().qaSeed||'')==='ops-2026-09-30') return;
+  const by = PEOPLE.ja ? 'ja' : PERSON; const at0 = '2026-09-30T02:00:00.000Z';
+  QA_ITEMS.forEach(([qa, type, pri, area, title, desc, status, note, clarify])=>{
+    const id = 'TK-QA-'+qa; if(TICKETS.some(t=>t.id===id)) return;
+    const h = [{at:at0, by, to:'Submitted', note:'From the QA feedback document (Sep 30, 2026)'}];
+    if(status!=='Submitted') h.push({at:nowISO(), by:PERSON, to:'In Progress', note:'Work started'});
+    if(status==='For Testing') h.push({at:nowISO(), by:PERSON, to:'For Testing', note});
+    TICKETS.push({id, qa, title, desc, type, priority:pri, area, pm:null, systemWide:['B1','B3'].includes(qa), files:[], device:'', portal:'QA document', by, at:at0, updated:nowISO(), status,
+      assignee:PEOPLE.yam ? 'yam' : null, assignees:tkTeam(), team:TK_TEAM_NAME, history:h, comments:[{id:uid('TC'), by:PERSON, at:nowISO(), text:note + (clarify ? '\n\n⚠ Needs clarification: '+clarify : ''), files:[]}], clarify:clarify||null, source:'THE CROSS CORE · OPS SUITE — QA Feedback (PDF)'});
+  });
+  tkSettings().qaSeed = 'ops-2026-09-30'; recordChange();
+}
+/* tickets created before the team was named: tag System Ops Support on them too */
+function tkMigrateTeam(){
+  if(!PEOPLE[PERSON] || !tkIsTeam()) return; let n = 0; const team = tkTeam();
+  TICKETS.forEach(t=>{ const missing = team.filter(k=>!(t.assignees||[]).includes(k));
+    if(missing.length || t.team!==TK_TEAM_NAME){ t.assignees = uniq([...(t.assignees||[]), ...team]); t.team = TK_TEAM_NAME; n++; }
+    if(t.id==='TK-QA-JA-TEAM' && /final team name/.test(t.clarify||'')){ const q = QA_ITEMS.find(x=>x[0]==='JA-TEAM'); t.title = q[4]; t.clarify = q[8]; t.comments = [...(t.comments||[]), {id:uid('TC'), by:PERSON, at:nowISO(), text:q[7], files:[]}]; t.updated = nowISO(); n++; } });
+  if(n) recordChange();
+}
+{ const _sp = setPerson; setPerson = function(){ const r = _sp.apply(this, arguments); setTimeout(()=>{ try{ tkSeedQA(); tkMigrateTeam(); fixBanner(); buildNav(); }catch(e){ console.warn('tickets', e); } }, 1200); return r; }; }
 
 CC_BOOT();
 </script>

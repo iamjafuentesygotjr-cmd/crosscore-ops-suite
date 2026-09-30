@@ -1636,6 +1636,18 @@ table.tbl-pin thead th{position:sticky;top:0;z-index:2;background:var(--panel);b
 .bg-load span{position:absolute;right:14px;top:6px;font-size:11px;color:var(--ink-3);background:var(--panel);border:1px solid var(--line);border-radius:99px;padding:2px 9px;box-shadow:var(--shadow);pointer-events:none}
 .bg-load.done{opacity:0;transition:opacity .5s}
 @media(max-width:860px){.bg-load span{display:none}}
+/* pinned Today's targets (Lead Generation) */
+.stk-tgt{display:flex;flex-direction:column;line-height:1.15}
+.stk-tgt small{font-size:10.5px;font-weight:600;color:var(--ink-3);text-transform:none}
+.stk-client{color:var(--ink-2)}
+.stk-t.bump b,.lg-targets [data-k].bump .lgt-n{animation:tgtBump .6s ease}
+@keyframes tgtBump{30%{color:var(--ok);transform:scale(1.18)}}
+.stk-t b,.lg-targets .lgt-n{display:inline-block}
+.stk-top{padding:5px 9px!important;flex-shrink:0}
+.stk-bar .stk-acts + .stk-top{margin-left:6px}
+@media(max-width:860px){.stk-bar .stk-tabs,.stk-bar .stk-client,.stk-bar .stk-client + .stk-tabs{display:none}}
+.stk-bar .stk-acts{margin-left:auto}
+.lg-ins,.lg-ins a,.card-b a[href^="http"]{overflow-wrap:anywhere;word-break:break-word}
 </style>
 </head>
 <body>
@@ -5152,6 +5164,33 @@ function myLeadPool(){
   if(LG.client!=='all') L = L.filter(l=>l.client===LG.client);
   return L;
 }
+/* ---- Today's targets: one model for the panel and its pinned (sticky) copy, refreshed live ---- */
+function lgTargetsModel(){
+  const who = ROLE==='employee' ? PERSON : (LG.who==='me'||LG.who==='all') ? (LG.who==='all'?'team':overseenBy(PERSON)) : LG.who;
+  const T = S().targets||DEFAULT_SETTINGS.targets;
+  const mult = who==='team' ? Math.max(1, uniq(LEADS.map(l=>l.am)).length) : Array.isArray(who) ? Math.max(1, who.length) : 1;
+  const scope = who==='team' ? 'whole team' : Array.isArray(who) ? 'your team' : who!==PERSON ? pname(who) : 'you';
+  return {who, scope, title:`Today’s targets${who==='team'?' — whole team':Array.isArray(who)?' — your team':who!==PERSON?' — '+pname(who):''}`,
+    rows:TARGET_DEFS.map(([k,label])=>{ const n = eventsToday(who,k), t = (T[k]||0)*mult; return {k, label, n, t, pct:t?Math.min(100,Math.round(n/t*100)):0}; })};
+}
+function lgTargetsHTML(){
+  const m = lgTargetsModel();
+  return `<div class="card lg-targets" id="lgTargets" style="margin-bottom:16px"><div class="card-h"><h3>${esc(m.title)}</h3><span class="sub">Live · days reset at midnight, Asia/Manila time</span></div>
+    <div class="card-b"><div class="targets">${m.rows.map(r=>`<div data-k="${r.k}"><div class="t-row"><span>${r.label}</span><span><b class="lgt-n">${r.n}</b> / <span class="lgt-t">${r.t}</span></span></div><div class="bar ${r.pct>=100?'ok':''}"><i style="width:${r.pct}%"></i></div></div>`).join('')}</div></div></div>`;
+}
+/* update the numbers in place (also while someone is typing in a search box, when the page itself is not re-drawn) */
+function lgTargetsLive(){
+  if(CURRENT!=='leads' || !PEOPLE[PERSON]) return;
+  const nodes = document.querySelectorAll('#lgTargets [data-k], .stk-bar .stk-t[data-k]'); if(!nodes.length) return;
+  const m = lgTargetsModel(); const by = Object.fromEntries(m.rows.map(r=>[r.k, r]));
+  nodes.forEach(d=>{ const r = by[d.dataset.k]; if(!r) return;
+    const n = d.querySelector('.lgt-n'); if(n && n.textContent!==String(r.n)){ n.textContent = r.n; d.classList.remove('bump'); void d.offsetWidth; d.classList.add('bump'); }
+    const t = d.querySelector('.lgt-t'); if(t) t.textContent = r.t;
+    const i = d.querySelector('.bar i'); if(i) i.style.width = r.pct+'%'; d.querySelector('.bar')?.classList.toggle('ok', r.pct>=100);
+    if(d.classList.contains('stk-t')){ d.style.setProperty('--p', r.pct+'%'); d.classList.toggle('ok', r.pct>=100); } });
+}
+{ const _sr = scheduleRender; scheduleRender = function(){ const r = _sr.apply(this, arguments); setTimeout(lgTargetsLive, 200); return r; }; }
+setInterval(lgTargetsLive, 15000);
 RENDER.leads = () => {
   const lgc = lgClients();
   if(LG.client===null || (LG.client!=='all' && !lgc.some(c=>c.id===LG.client))) LG.client = (ROLE==='employee' || lgc.length===1) && lgc[0] ? lgc[0].id : 'all';
@@ -5182,9 +5221,7 @@ RENDER.leads = () => {
       </div>
     </div>
     ${lgClientBar()}
-    <div class="card" style="margin-bottom:16px"><div class="card-h"><h3>Today’s targets${who==='team'?' — whole team':Array.isArray(who)?' — your team':who!==PERSON?' — '+esc(pname(who)):''}</h3><span class="sub">Days reset at midnight, Asia/Manila time</span></div>
-      <div class="card-b"><div class="targets">${TARGET_DEFS.map(([k,label])=>{ const n=eventsToday(who,k), t=(T[k]||0)*mult; const pct=t?Math.min(100,Math.round(n/t*100)):0;
-        return `<div><div class="t-row"><span>${label}</span><span><b>${n}</b> / ${t}</span></div><div class="bar ${pct>=100?'ok':''}"><i style="width:${pct}%"></i></div></div>`; }).join('')}</div></div></div>
+    ${lgTargetsHTML()}
     ${jobs.length?`<div class="card" style="margin-bottom:16px"><div class="card-h"><h3>Lead assignments</h3><span class="sub">${jobs.length} open</span></div><div class="card-b" style="padding-top:4px">
       ${jobs.map(j=>{ const got = LEADS.filter(l=>l.job===j.id).length; const pct=j.criteria?.count?Math.min(100,Math.round(got/j.criteria.count*100)):0; return `<div class="list-row" style="flex-wrap:wrap">
         <div style="flex:1;min-width:240px"><b style="font-size:13px">${esc(j.title)}</b> ${jobRowExtra(j).badge} <span class="hint">· ${esc(cname(j.client))} · by ${esc(first(j.by))}${j.due?' · due '+dstr(j.due):''}</span>
@@ -15273,13 +15310,20 @@ function stkSpec(){
     return {src, html:`${tg?`<span class="stk-l">Today’s targets</span>${stkTargetsFrom(tg)}<span class="stk-sep"></span>`:''}${stkAtt()}`};
   }
   if(CURRENT==='leads'){
-    const tg = byH3(v, /^Today.s targets/);
-    if(tg && (!LG.client || LG.client==='all')) return {src:tg, html:`<span class="stk-l">Today’s targets</span>${stkTargetsFrom(tg)}<span class="stk-sep"></span><span class="stk-acts">${stkClone([...v.querySelectorAll('.page-head .btn')].slice(-3))}</span>`};
-    const cid = LG.client; if(!cid || cid==='all') return null;
-    const head = v.querySelector('.card .tabs')?.closest('.card'); if(!head) return null;
-    let m = null; try{ m = typeof lgMetrics==='function' ? lgMetrics(cid) : null; }catch(e){}
-    const nums = m && !m.loading ? `<span class="stk-t ${m.goal?.daily && m.todayN>=m.goal.daily?'ok':''}"><span>Today</span><b>${m.todayN}${m.goal?.daily?' / '+m.goal.daily:''}</b><i style="--p:${m.goal?.daily?Math.min(100,m.todayN/m.goal.daily*100):0}%"></i></span><span class="stk-t"><span>This week</span><b>${m.weekN}</b></span><span class="stk-state">${esc(m.state||'')}</span>` : '';
-    return {src:head, html:`<span class="stk-l">${esc(cname(cid))}</span>${nums}<span class="stk-sep"></span><span class="stk-tabs">${stkClone([...head.querySelectorAll('.tabs .tab')])}</span><span class="stk-acts">${stkClone([head.querySelector('.btn.primary')])}</span>`};
+    /* Today's targets stay in view: the live numbers pin to the top as soon as the panel scrolls away */
+    const tg = el('lgTargets') || byH3(v, /^Today.s targets/);
+    const cid = LG.client && LG.client!=='all' ? LG.client : null;
+    const head = cid ? v.querySelector('.card .tabs')?.closest('.card') : null;
+    const short = l => l.replace(/^Connection requests sent$/,'Requests').replace(/^Connections accepted$/,'Accepted').replace(/^Profiles opened$/,'Profiles').replace(/^Meetings booked$/,'Meetings').replace(/^Follow-ups sent$/,'Follow-ups');
+    if(tg && typeof lgTargetsModel==='function'){
+      const m = lgTargetsModel();
+      const chips = m.rows.map(r=>`<span class="stk-t ${r.pct>=100?'ok':''}" data-k="${r.k}" style="--p:${r.pct}%" title="${esc(r.label)}: ${r.n} of ${r.t}"><span>${esc(short(r.label))}</span><b><span class="lgt-n">${r.n}</span> / <span class="lgt-t">${r.t}</span></b><i></i></span>`).join('');
+      const tail = head ? `<span class="stk-sep"></span><span class="stk-l stk-client">${esc(cname(cid))}</span><span class="stk-tabs">${stkClone([...head.querySelectorAll('.tabs .tab')])}</span><span class="stk-acts">${stkClone([head.querySelector('.btn.primary')])}</span>`
+        : `<span class="stk-sep"></span><span class="stk-acts">${stkClone([...v.querySelectorAll('.page-head .btn')].slice(-3))}</span>`;
+      return {src:tg, html:`<span class="stk-l stk-tgt">Today’s targets<small>${esc(m.scope)} · live</small></span>${chips}${tail}<button class="btn ghost stk-top" title="Back to the top" onclick="document.querySelector('.content').scrollTo({top:0,behavior:'smooth'})">↑</button>`};
+    }
+    if(!cid || !head) return null;
+    return {src:head, html:`<span class="stk-l">${esc(cname(cid))}</span><span class="stk-tabs">${stkClone([...head.querySelectorAll('.tabs .tab')])}</span><span class="stk-acts">${stkClone([head.querySelector('.btn.primary')])}</span>`};
   }
   if(CURRENT==='prospects'){
     const bar = v.querySelector('.pr-bar'); if(!bar) return null;
@@ -15299,7 +15343,11 @@ function stkEnsure(){
   const spec = stkSpec();
   let w = v?.querySelector(':scope > .stk-wrap');
   if(!spec){ w?.remove(); STK.spec = null; return; }
-  if(!w){ w = document.createElement('div'); w.className = 'stk-wrap'; w.innerHTML = '<div class="stk-bar" role="region" aria-label="Pinned summary"></div>'; v.prepend(w); }
+  /* one persistent bar: when the page re-draws (live data), the same bar is put back — no flicker or re-animation */
+  if(!w){ w = STK.el && STK.view===CURRENT ? STK.el : null;
+    if(!w){ w = document.createElement('div'); w.className = 'stk-wrap'; w.innerHTML = '<div class="stk-bar" role="region" aria-label="Pinned summary"></div>'; }
+    v.prepend(w); }
+  STK.el = w; STK.view = CURRENT;
   const bar = w.firstChild; if(bar.dataset.h!==spec.html && !bar.contains(document.activeElement)){ bar.innerHTML = spec.html; bar.dataset.h = spec.html; }
   STK.spec = spec; stkScroll();
 }
@@ -15321,7 +15369,10 @@ function stkTables(){
 function stkRun(){ clearTimeout(STK.t); STK.t = setTimeout(()=>{ try{ stkTables(); stkEnsure(); }catch(e){ console.warn('sticky', e); } }, 60); }
 (function stkSetup(){
   const c = document.querySelector('.content'); if(!c) return;
-  new MutationObserver(muts=>{ if(muts.every(m=>m.target.closest?.('.stk-wrap'))) return; stkRun(); }).observe(c, {childList:true, subtree:true});
+  new MutationObserver(muts=>{ if(muts.every(m=>m.target.closest?.('.stk-wrap'))) return;
+    /* put the pinned bar back straight away after a re-draw, then refresh its contents */
+    if(STK.el && STK.view===CURRENT && STK.spec){ const v = el('v-'+CURRENT); if(v && !v.contains(STK.el)) v.prepend(STK.el); }
+    stkRun(); }).observe(c, {childList:true, subtree:true});
   let raf = 0; c.addEventListener('scroll', ()=>{ if(raf) return; raf = requestAnimationFrame(()=>{ raf = 0; stkScroll(); }); }, {passive:true});
   window.addEventListener('resize', stkRun);
 })();

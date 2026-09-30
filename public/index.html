@@ -1648,6 +1648,159 @@ table.tbl-pin thead th{position:sticky;top:0;z-index:2;background:var(--panel);b
 @media(max-width:860px){.stk-bar .stk-tabs,.stk-bar .stk-client,.stk-bar .stk-client + .stk-tabs{display:none}}
 .stk-bar .stk-acts{margin-left:auto}
 .lg-ins,.lg-ins a,.card-b a[href^="http"]{overflow-wrap:anywhere;word-break:break-word}
+/* ===== 201 Files (Oct 2026) ===== */
+.h201{display:grid;grid-template-columns:300px minmax(0,1fr);gap:14px;align-items:start}
+.h201-list{position:sticky;top:0;max-height:calc(100vh - 150px);display:flex;flex-direction:column;overflow:hidden}
+.h201-filters{padding:12px;display:flex;flex-direction:column;gap:8px;border-bottom:1px solid var(--line)}
+.h201-filters input,.h201-filters select{width:100%;font-size:12.5px}
+.h201-filters select{flex:1;min-width:0;padding:6px 8px}
+.h201-people{overflow-y:auto;padding:6px}
+.h201-p{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:none;border:0;border-radius:10px;padding:8px;cursor:pointer;color:var(--ink);position:relative;transition:background .15s}
+.h201-p:hover{background:var(--panel-2)}
+.h201-p.on{background:var(--brand-bg,#FFF4DC)}
+.h201-p span:not(.avatar){display:flex;flex-direction:column;min-width:0;flex:1}
+.h201-p b{font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.h201-p small{font-size:11px;color:var(--ink-3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.h201-p em{font-style:normal;font-size:11px;font-weight:700;color:var(--ink-2);background:var(--line-2);border-radius:20px;padding:1px 7px}
+.h201-p em:empty{display:none}
+.h201-former{position:absolute;right:8px;bottom:3px;font-style:normal;font-size:9.5px;color:var(--bad);text-transform:uppercase;letter-spacing:.04em}
+.h201-pane{min-width:0;padding:16px}
+.h201-head{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+.h201-head h3{font-size:16px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.h201-head .avatar{width:42px;height:42px;font-size:14px}
+.h201-back{display:none}
+.h201-folders{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.h201-f{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--panel);border-radius:999px;padding:6px 12px;font-size:12px;font-weight:600;color:var(--ink-2);cursor:pointer;transition:all .15s}
+.h201-f em{font-style:normal;font-size:10.5px;background:var(--line-2);border-radius:20px;padding:0 6px;color:var(--ink-2)}
+.h201-f:hover{border-color:var(--brand-2,#E39312);color:var(--ink)}
+.h201-f.on{background:var(--ink);color:var(--panel);border-color:var(--ink)}
+.h201-f.on em{background:rgba(255,255,255,.18);color:inherit}
+.h201-f.add{border-style:dashed}
+.h201-f.drop{outline:2px dashed var(--brand-2,#E39312);outline-offset:2px}
+.h201-bar{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px}
+.h201-files{border:1px solid var(--line);border-radius:12px;min-height:120px;transition:background .15s,border-color .15s}
+.h201-files.lib{border:0;border-radius:0}
+.h201-files.drag{background:var(--brand-bg,#FFF4DC);border-color:var(--brand-2,#E39312);border-style:dashed}
+.h201-file{display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid var(--line-2)}
+.h201-file:last-child{border-bottom:0}
+.h201-file:hover{background:var(--panel-2)}
+.h201-ico{font-size:20px;width:30px;text-align:center;flex:none}
+.h201-fm{flex:1;min-width:0;cursor:pointer}
+.h201-fm b{font-size:13px;word-break:break-word}
+.h201-fm small{display:block;font-size:11px;color:var(--ink-3);margin-top:2px}
+.h201-fm .badge{font-size:10.5px;vertical-align:1px}
+.h201-acts{display:flex;gap:2px;flex:none}
+.h201-acts .btn{padding:4px 8px;font-size:12px;min-width:30px;justify-content:center}
+.h201-del:hover{color:var(--bad)}
+.h201-empty{display:flex;flex-direction:column;gap:4px;align-items:center;padding:34px 16px;text-align:center}
+.h201-empty span{font-size:12.5px;color:var(--ink-3);max-width:460px}
+.h201-libbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.h201-libbar input{flex:1;min-width:200px}
+.h201-libbar select{max-width:280px}
+.h201-prev{background:var(--panel-2);border:1px solid var(--line);border-radius:12px;overflow:hidden;display:flex;justify-content:center}
+.h201-prev img{max-width:100%;max-height:70vh;object-fit:contain}
+.h201-prev video{max-width:100%;max-height:70vh}
+.h201-prev iframe{width:100%;height:70vh;border:0;background:#fff}
+.h201-imp{max-height:52vh;overflow:auto}
+.h201-imp select{max-width:280px;font-size:12px;padding:5px 7px}
+.h201-imp tr.grp td{background:var(--panel-2);font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3)}
+.h201-nolink{opacity:.55}
+.h201-tabs .badge{font-size:10.5px;margin-left:4px}
+@media (max-width:860px){
+  .h201{grid-template-columns:1fr}
+  .h201-list{position:static;max-height:none}
+  .h201-people{max-height:none}
+  .h201.mob-pane .h201-list{display:none}
+  .h201:not(.mob-pane) .h201-pane{display:none}
+  .h201-back{display:inline-flex}
+  .h201-pane{padding:12px}
+  .h201-file{flex-wrap:wrap}
+  .h201-acts{width:100%;justify-content:flex-end}
+  .h201-folders{flex-wrap:nowrap;overflow-x:auto;padding-bottom:4px;-webkit-overflow-scrolling:touch}
+  .h201-f{flex:none}
+}
+/* ===== Glass buttons (Oct 2026) — soft transparent glass, clear pressed state, light & fast (no backdrop blur) ===== */
+:root{
+  --gl-bg:linear-gradient(180deg,rgba(255,255,255,.96) 0%,rgba(250,249,246,.78) 55%,rgba(240,238,232,.72) 100%);
+  --gl-bg-h:linear-gradient(180deg,#fff 0%,rgba(255,255,255,.9) 55%,rgba(244,242,236,.85) 100%);
+  --gl-bg-a:linear-gradient(180deg,rgba(232,230,224,.9),rgba(246,245,241,.95));
+  --gl-bd:rgba(20,18,12,.10); --gl-hi:rgba(255,255,255,.95); --gl-lo:rgba(20,18,12,.06);
+  --gl-sh:0 1px 1px rgba(20,18,12,.06),0 3px 8px -4px rgba(20,18,12,.16);
+  --gl-sh-h:0 2px 3px rgba(20,18,12,.07),0 8px 18px -8px rgba(20,18,12,.24);
+  --gl-pr-bg:linear-gradient(180deg,#FFD98A 0%,#F6BB4B 48%,#EDA126 100%);
+  --gl-pr-bd:rgba(176,108,8,.35); --gl-pr-hi:rgba(255,246,222,.95); --gl-pr-sh:0 1px 1px rgba(150,90,0,.18),0 6px 16px -7px rgba(227,147,18,.6);
+  --gl-ring:0 0 0 3px rgba(242,180,64,.45);
+}
+[data-theme="dark"]{
+  --gl-bg:linear-gradient(180deg,rgba(255,255,255,.11) 0%,rgba(255,255,255,.05) 100%);
+  --gl-bg-h:linear-gradient(180deg,rgba(255,255,255,.16) 0%,rgba(255,255,255,.07) 100%);
+  --gl-bg-a:linear-gradient(180deg,rgba(0,0,0,.25),rgba(255,255,255,.04));
+  --gl-bd:rgba(255,255,255,.13); --gl-hi:rgba(255,255,255,.16); --gl-lo:rgba(0,0,0,.25);
+  --gl-sh:0 1px 1px rgba(0,0,0,.35),0 4px 10px -5px rgba(0,0,0,.5); --gl-sh-h:0 2px 3px rgba(0,0,0,.4),0 10px 20px -8px rgba(0,0,0,.6);
+}
+.btn,.icon-btn{-webkit-tap-highlight-color:transparent;touch-action:manipulation;
+  background:var(--gl-bg);border:1px solid var(--gl-bd);
+  box-shadow:inset 0 1px 0 var(--gl-hi),inset 0 -1px 2px var(--gl-lo),var(--gl-sh);
+  transition:transform .12s cubic-bezier(.3,.7,.4,1),box-shadow .16s ease,background .16s ease,border-color .16s ease,opacity .16s ease}
+.btn{text-shadow:0 1px 0 rgba(255,255,255,.55)}
+[data-theme="dark"] .btn{text-shadow:0 1px 0 rgba(0,0,0,.35)}
+.btn:hover,.icon-btn:hover{background:var(--gl-bg-h);transform:translateY(-1px);box-shadow:inset 0 1px 0 var(--gl-hi),inset 0 -1px 2px var(--gl-lo),var(--gl-sh-h)}
+.btn:active,.icon-btn:active,.btn.pressing,.icon-btn.pressing{background:var(--gl-bg-a);transform:translateY(1px) scale(.965);transition-duration:.06s;
+  box-shadow:inset 0 2px 5px rgba(20,18,12,.16),inset 0 -1px 0 var(--gl-hi),0 0 0 rgba(0,0,0,0)}
+.btn:focus-visible,.icon-btn:focus-visible{outline:none;box-shadow:inset 0 1px 0 var(--gl-hi),var(--gl-ring),var(--gl-sh)}
+/* primary — amber glass */
+.btn.primary{background:var(--gl-pr-bg);border:1px solid var(--gl-pr-bd);color:#1A1206;text-shadow:0 1px 0 rgba(255,240,205,.6);
+  box-shadow:inset 0 1px 0 var(--gl-pr-hi),inset 0 -2px 3px rgba(170,95,0,.22),var(--gl-pr-sh)}
+.btn.primary:hover{background:linear-gradient(180deg,#FFE09A 0%,#F8C35A 48%,#F0A92F 100%);box-shadow:inset 0 1px 0 var(--gl-pr-hi),inset 0 -2px 3px rgba(170,95,0,.2),0 2px 3px rgba(150,90,0,.18),0 10px 22px -8px rgba(227,147,18,.7)}
+.btn.primary:active,.btn.primary.pressing{background:linear-gradient(180deg,#E9A232,#F4B84A);box-shadow:inset 0 2px 6px rgba(120,66,0,.35),inset 0 -1px 0 rgba(255,236,190,.6)}
+/* ghost — clear until touched */
+.btn.ghost{background:transparent;border-color:transparent;box-shadow:none;text-shadow:none}
+.btn.ghost:hover{background:var(--gl-bg-h);border-color:var(--gl-bd);box-shadow:inset 0 1px 0 var(--gl-hi),var(--gl-sh)}
+.btn.ghost:active,.btn.ghost.pressing{background:var(--gl-bg-a);box-shadow:inset 0 2px 5px rgba(20,18,12,.14)}
+/* danger — red glass */
+.btn.danger{background:linear-gradient(180deg,#EF7B72 0%,#D94B40 55%,#C83A30 100%);border:1px solid rgba(140,30,20,.35);color:#fff;text-shadow:0 1px 0 rgba(120,20,10,.35);
+  box-shadow:inset 0 1px 0 rgba(255,210,205,.7),inset 0 -2px 3px rgba(120,20,10,.25),0 6px 16px -8px rgba(201,59,59,.6)}
+.btn.danger:active,.btn.danger.pressing{background:linear-gradient(180deg,#C0392E,#D9564B);box-shadow:inset 0 2px 6px rgba(90,10,5,.4)}
+/* keep special brand buttons (LinkedIn, Google Meet) in their colors, with the same press */
+.btn.li,.btn.meet-btn{text-shadow:none;box-shadow:inset 0 1px 0 rgba(255,255,255,.25),0 4px 12px -6px rgba(0,0,0,.35)}
+/* disabled & loading */
+.btn:disabled,.btn[aria-disabled="true"],.icon-btn:disabled{opacity:.5;cursor:not-allowed;transform:none!important;box-shadow:inset 0 1px 0 var(--gl-hi);filter:saturate(.6)}
+.btn.is-loading,.btn[aria-busy="true"]{position:relative;pointer-events:none;color:transparent!important;text-shadow:none}
+.btn.is-loading > *,.btn[aria-busy="true"] > *{visibility:hidden}
+.btn.is-loading::after,.btn[aria-busy="true"]::after{content:"";position:absolute;inset:0;margin:auto;width:15px;height:15px;border-radius:50%;border:2px solid rgba(20,18,12,.25);border-top-color:#1A1206;animation:glspin .7s linear infinite}
+.btn.primary.is-loading::after{border-color:rgba(26,18,6,.25);border-top-color:#1A1206}
+.btn.danger.is-loading::after{border-color:rgba(255,255,255,.35);border-top-color:#fff}
+[data-theme="dark"] .btn:not(.primary).is-loading::after{border-color:rgba(255,255,255,.25);border-top-color:#fff}
+@keyframes glspin{to{transform:rotate(360deg)}}
+/* segmented controls and chips stay flat; tabs untouched */
+.seg button,.tab,.chip,.nav-item,.chat-item,.h201-p,.h201-f{text-shadow:none}
+@media (prefers-reduced-motion:reduce){.btn,.icon-btn{transition:none}.btn:hover,.icon-btn:hover,.btn:active,.icon-btn:active{transform:none}}
+@media (hover:none){.btn:hover,.icon-btn:hover{transform:none}}
+
+/* ===== onboarding hand-off + group photos + edit actions ===== */
+.ob-bar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:0 12px 8px;padding:10px 12px;border-radius:12px;background:var(--warn-bg);border:1px solid rgba(227,147,18,.25)}
+.ob-bar > div{flex:1;min-width:220px;display:flex;flex-direction:column;gap:2px}
+.ob-bar b{font-size:13px}.ob-bar span{font-size:12px;color:var(--ink-2)}
+.ob-preview{background:var(--panel-2);border:1px solid var(--line);border-radius:12px;padding:12px 14px;font-size:13px;line-height:1.55;white-space:pre-wrap}
+.avatar.ga{background:transparent!important;border-radius:30%;overflow:hidden}
+.avatar.ga img{width:100%;height:100%;object-fit:cover;border-radius:inherit;display:block}
+.avatar.ga.photo{border-radius:50%}
+.ga-edit{cursor:pointer;position:relative}
+.ga-edit::after{content:"✎";position:absolute;right:-3px;bottom:-3px;width:15px;height:15px;border-radius:50%;background:var(--panel);border:1px solid var(--line);font-size:9px;display:grid;place-items:center;color:var(--ink-2);opacity:0;transition:opacity .15s}
+.ga-edit:hover::after,.ga-edit:focus::after{opacity:1}
+.ga-top{display:flex;gap:16px;align-items:center}
+.ga-big{width:96px;height:96px;border-radius:30%;overflow:hidden;flex:none;box-shadow:0 8px 22px -12px rgba(0,0,0,.4)}
+.ga-big img{width:100%;height:100%;object-fit:cover}
+.lead-acts{display:flex;gap:6px;justify-content:flex-end;margin-top:8px}
+.lead-acts .btn{padding:5px 10px;font-size:12px}
+.lead-del:hover{color:var(--bad)}
+.ce-ver{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--panel-2);border:1px solid var(--line);border-radius:12px;padding:8px 12px;margin-bottom:12px;font-size:12.5px}
+.ce-vbadge{background:var(--ink);color:var(--panel);font-weight:700;font-size:11px;border-radius:20px;padding:2px 8px}
+.ce-hist{width:100%;font-size:12px}
+.ce-hist summary{cursor:pointer;color:var(--info);font-weight:600}
+.ce-hrow{border-top:1px solid var(--line-2);padding:8px 0}
+.ce-snap{display:flex;flex-direction:column;gap:4px;margin-top:4px}
+.ce-snap small{display:block;font-size:10.5px;color:var(--ink-3);text-transform:uppercase;letter-spacing:.05em}
 </style>
 </head>
 <body>
@@ -2119,7 +2272,7 @@ const HEADS = ['paul','ja','norman'];
 const CONTENT_TYPES = ['Research','Theme / idea','Brief','Caption','Design','Video / reel','Campaign','Task'];
 const SERVICE_TAGS = ['Content planning','Lead generation','Graphics','Video editing','Marketing','Social media management','Captions & copywriting','Community engagement','Creator / influencer research','ICP research','Paid ads','Email marketing','Website','Reporting'];
 const CLIENT_CATEGORIES = ['Personal brand','E-commerce','Coaching & courses','B2B / SaaS','Healthcare','Real estate','F&B','Beauty & wellness','Sports & fitness','Consulting','Agency — internal','Other'];
-const HRDOC_KINDS = ['Announcement','Notice','Memo','Letter','New contract','Contract renewal'];
+const HRDOC_KINDS = ['Announcement','Notice','Memo','Warning letter','Letter','New contract','Contract renewal'];
 const OUTREACH = ['Assigned','Profile opened','Connection sent','Connected','Conversation','Follow-up','Meeting booked','Not a fit','Closed'];
 const NEXT_ACTION = {
   'Assigned':'Open the LinkedIn profile and check the fit',
@@ -2226,8 +2379,8 @@ const COLL = {
   chats:       {get:()=>CHATS,         set:v=>CHATS=v, aud:c=>uniq(c.members)},
   messages:    {get:()=>MESSAGES,      set:v=>MESSAGES=v, scope:m=>m.chat},
   hrdocs:      {get:()=>HRDOCS,        set:v=>HRDOCS=v,
-                aud:d=>uniq([...HR_KEYS(), 'ja', 'paul', d.by, ...(['Sent','Published'].includes(d.status)?(d.sentTo||[]):[])])},
-  docreads:    {get:()=>DOCREADS,      set:v=>DOCREADS=v, aud:r=>uniq([r.person, ...HR_KEYS(), 'ja', 'paul'])},
+                aud:d=>uniq([...HR_KEYS(), ...HEADS, 'ja', 'paul', d.by, ...(['Sent','Published'].includes(d.status)?(d.sentTo||[]):[])])},
+  docreads:    {get:()=>DOCREADS,      set:v=>DOCREADS=v, aud:r=>uniq([r.person, ...HR_KEYS(), ...HEADS, 'ja', 'paul'])},
   briefs:      {get:()=>BRIEFS,        set:v=>BRIEFS=v, aud:b=>b.kind==='registration'&&b.status==='Registered' ? uniq([b.by, ...HEADS]) : uniq([b.by, ...HR_KEYS(), ...HEADS])},
   reports:     {get:()=>REPORTS,       set:v=>REPORTS=v, aud:r=>uniq([r.by, ...HR_KEYS(), ...HEADS])},
   qreports:    {get:()=>QREPORTS,      set:v=>QREPORTS=v, aud:()=>uniq([...HR_KEYS(), ...HEADS])},
@@ -2399,7 +2552,7 @@ const NAV = [
   {id:'schedules', name:'Posting Schedules', roles:LEAD, ico:I.sched},
   {label:'People & Reports'},
   {id:'coo', name:'COO Approvals', roles:['coo','ceo'], ico:I.stamp},
-  {id:'hrdocs', name:'HR Documents', roles:['hr','ceo'], ico:I.doc},
+  {id:'hrdocs', name:'HR Documents', roles:['hr','ceo','coo','creative'], ico:I.doc},
   {id:'employees', name:'Employees & Accounts', roles:['manager','ceo','coo','creative','hr'], ico:I.users},
   {id:'evals', name:'Evaluations', roles:ALLR, ico:I.check},
   {id:'pmreports', name:'PM Reports', roles:['manager','hr','ceo','coo','creative'], ico:I.doc},
@@ -3594,6 +3747,10 @@ const assigneeOptions = cid => {
 };
 const taskApprovers = t => { const p = pmsOf(t.client); return p.length ? p : ['ja']; };
 const canApproveTask = t => isExec() || taskApprovers(t).includes(PERSON);
+/* who may edit a content item: its owner, the approver (PM), company heads, and the client's assigned team, the core team and the Marketing Head */
+const canEditContent = t => !!t && (t.assignee===PERSON || t.createdBy===PERSON || t.handoffFrom===PERSON || canApproveTask(t) || isExec() || isFullAccess()
+  || (client(t.client)?.team||[]).includes(PERSON) || pmsOf(t.client).includes(PERSON) || (typeof isCore==='function' && isCore() && t.core) || PERSON===(S().marketingHead||'kiara'));
+const CONTENT_FIELDS = ['title','type','theme','desc','caption','notes','due','postDate','postTime','sources','refs','outputs'];
 const taskLate = t => t.due && t.due<TODAY && !['Approved','Completed'].includes(t.status);
 function setTaskStatus(t, status, note){
   const prev = t.status; if(prev===status && !note) return;
@@ -3742,10 +3899,10 @@ async function hydrateLogos(root=document){
 }
 function openTask(id){
   const t = TASKS.find(x=>x.id===id); if(!t) return toast('That item is no longer available');
-  TE = JSON.parse(JSON.stringify({sources:t.sources||[], refs:t.refs||[], outputs:t.outputs||[]}));
+  TE = JSON.parse(JSON.stringify({sources:t.sources||[], refs:t.refs||[], outputs:t.outputs||[]})); TE.openedAt = t.updatedAt||''; TE.id = t.id;
   if(t.core && t.handoffTo===PERSON && !t.handoffSeen){ t.handoffSeen=true; recordChange(); }
   const mine = t.assignee===PERSON || t.createdBy===PERSON;
-  const canEdit = mine || canApproveTask(t) || isExec();
+  const canEdit = canEditContent(t);
   const approver = canApproveTask(t);
   const ro = canEdit ? '' : 'disabled';
   const isVisual = /Design|Video/.test(t.type||'') || PEOPLE[PERSON]?.portal==='graphics' || t.stage==='visual';
@@ -3759,18 +3916,23 @@ function openTask(id){
   if(t.core && t.stage==='visual' && (t.assignee===PERSON||isExec()) && t.handoffFrom) actions.push(`<button class="btn" onclick="coreReturn('${t.id}')">↩ Return to ${esc(first(t.handoffFrom))}</button>`);
   if(canEdit && t.client && typeof marcusClients==='function' && marcusClients().some(c=>c.id===t.client) && navAllowed(NAV.find(n=>n.id==='marcus'))) actions.push(`<button class="btn ai-btn" onclick="closeModal();marcusOpen('${t.client}','${t.id}')" title="Draft this caption or copy with Marcus in the client’s voice">${aiAva('marcus',20)} Ask Marcus</button>`);
   const pms = taskApprovers(t);
-  openModal(t.title, `${t.client?clientLinksHTML(t.client, {label:'Open the client account'}):''}
+  openModal(t.title, `${t.client?clientLinksHTML(t.client, {label:'Open the client account'}):''}${typeof ceVersionHTML==='function'?ceVersionHTML(t):''}
   <div class="split">
     <div>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px">${badge(t.status)} ${platTag(t.plat)}
         <span class="hint">${esc(cname(t.client))} · ${esc(t.type||'Task')} · Owner ${esc(pname(t.assignee))} · Approver ${pms.map(k=>esc(first(k))).join(', ')}${t.core?' · <b>Core team</b> ('+(t.stage==='brief'?'research & brief':'visuals')+')':''}</span></div>
       <div class="grid cols-2">
         <div class="field"><label>Title</label><input id="teTitle" value="${esc(t.title)}" ${ro}></div>
-        <div class="field"><label>Owner</label><select id="teWho" ${ro}>${assigneeOptions(t.client).map(k=>`<option value="${k}" ${k===t.assignee?'selected':''}>${esc(pname(k))}</option>`).join('')}</select></div>
+        <div class="field"><label>Owner</label><select id="teWho" ${ro}>${uniq([...assigneeOptions(t.client), t.assignee].filter(k=>k && (PEOPLE[k]||EMPLOYEES.some(e=>e.id===k)))).map(k=>`<option value="${k}" ${k===t.assignee?'selected':''}>${esc(pname(k))}</option>`).join('')}</select></div>
         <div class="field"><label>Type</label><select id="teType" ${ro}>${CONTENT_TYPES.map(x=>`<option ${x===t.type?'selected':''}>${x}</option>`).join('')}</select></div>
         <div class="field"><label>Due date</label><input id="teDue" type="date" value="${t.due?iso(new Date(t.due)):''}" ${ro}></div>
       </div>
+      <div class="grid cols-2">
+        <div class="field"><label>Scheduled post date</label><input id="tePostDate" type="date" value="${t.postDate?iso(new Date(t.postDate)):''}" ${ro}></div>
+        <div class="field"><label>Post time</label><input id="tePostTime" value="${esc(t.postTime||'')}" placeholder="e.g. 6:00 PM" ${ro}></div>
+      </div>
       <div class="field"><label>Theme / content idea</label><input id="teTheme" value="${esc(t.theme||'')}" ${ro}></div>
+      <div class="field"><label>Description</label><textarea id="teDesc" rows="2" ${ro} placeholder="What this post or graphic is about — the angle, key message, call to action">${esc(t.desc||'')}</textarea></div>
       <div class="field"><label>Caption draft</label><textarea id="teCap" rows="4" ${ro}>${esc(t.caption||'')}</textarea></div>
       <div class="field"><label>Notes & brief</label><textarea id="teNotes" rows="3" ${ro}>${esc(t.notes||'')}</textarea></div>
       <div class="field"><label>Source material</label><div id="teSrc">${fileChips(TE.sources, canEdit?'teRm_sources':null)}</div>
@@ -3797,13 +3959,19 @@ function saveTaskEdits(id, silent){
   const t = TASKS.find(x=>x.id===id); if(!t || !el('teTitle') || el('teTitle').disabled) return;
   const newOwner = el('teWho').value;
   const addedOut = TE.outputs.length - (t.outputs||[]).length;
-  Object.assign(t, {title:el('teTitle').value.trim()||t.title, type:el('teType').value, theme:el('teTheme').value, caption:el('teCap').value, notes:el('teNotes').value,
-    due: el('teDue').value ? new Date(el('teDue').value+'T00:00:00') : null, sources:TE.sources, refs:TE.refs, outputs:TE.outputs, updatedAt:nowISO()});
+  const before = JSON.parse(JSON.stringify(Object.fromEntries(CONTENT_FIELDS.map(k=>[k, t[k]??null]))));
+  const newer = TE.id===id && TE.openedAt && t.updatedAt && t.updatedAt!==TE.openedAt && t.updatedBy && t.updatedBy!==PERSON ? t.updatedBy : null;
+  Object.assign(t, {title:el('teTitle').value.trim()||t.title, type:el('teType').value, theme:el('teTheme').value, caption:el('teCap').value, notes:el('teNotes').value, desc:el('teDesc')?.value??t.desc,
+    due: el('teDue').value ? new Date(el('teDue').value+'T00:00:00') : null, postDate: el('tePostDate')?.value ? new Date(el('tePostDate').value+'T00:00:00') : (el('tePostDate') ? null : t.postDate), postTime: el('tePostTime')?.value.trim() ?? t.postTime,
+    sources:TE.sources, refs:TE.refs, outputs:TE.outputs});
+  const after = JSON.parse(JSON.stringify(Object.fromEntries(CONTENT_FIELDS.map(k=>[k, t[k]??null]))));
+  const changed = CONTENT_FIELDS.filter(k=>JSON.stringify(before[k])!==JSON.stringify(after[k]));
+  const info = changed.length && typeof ceRecordVersion==='function' ? ceRecordVersion(t, before, changed, newer) : {};
   if(newOwner!==t.assignee){ t.assignee=newOwner; t.history.push({by:pname(PERSON), who:PERSON, act:'Reassigned to '+pname(newOwner), note:'', when:dtstr(nowISO()), at:nowISO()});
     notify(newOwner,'assignment',`${esc(first(PERSON))} assigned you <b>${esc(t.title)}</b> · ${esc(cname(t.client))}`,{view:'tasks',task:t.id}); }
   if(addedOut>0){ t.history.push({by:pname(PERSON), who:PERSON, act:`Uploaded ${addedOut} output${addedOut>1?'s':''}`, note:'', when:dtstr(nowISO()), at:nowISO()}); }
-  recordChange();
-  if(!silent){ toast('Saved'); RENDER[CURRENT]?.(); openTask(id); }
+  recordChange(); TE.openedAt = t.updatedAt||''; 
+  if(!silent){ toast(!changed.length ? 'No changes to save' : info.reapproval ? `Saved as version ${t.version} — sent back to ${taskApprovers(t).map(first).join(' & ')} for approval` : newer ? `Saved as version ${t.version} — ${first(newer)} had saved changes while you were editing (see version history)` : `Saved — version ${t.version}`); RENDER[CURRENT]?.(); openTask(id); }
 }
 function taskAction(id, status){
   saveTaskEdits(id, true);
@@ -3848,9 +4016,10 @@ let calOffset = 0, calMode = 'month', calShowTasks = true;
 RENDER.calendar = () => {
   const platColor = {fb:'#1877F2', ig:'#E1306C', tt:'#0FB5AE', li:'#0A66C2', yt:'#D91E18', x:'#536471'};
   const evsFor = date => {
-    const posts = vis(POSTS).filter(p=>iso(p.when)===iso(date)).map(p=>`<div class="cal-ev" title="${esc(cname(p.client))} — ${esc(p.time)}" style="background:${platColor[p.plat]}18;color:${platColor[p.plat]};border-left:3px solid ${platColor[p.plat]}">${esc(p.time.replace(':00',''))} ${esc(p.title)}</div>`);
+    const posts = vis(POSTS).filter(p=>iso(p.when)===iso(date)).map(p=>`<div class="cal-ev" onclick="postEdit('${p.id}')" title="${esc(cname(p.client))} — ${esc(p.time)} · click to edit" style="cursor:pointer;background:${platColor[p.plat]}18;color:${platColor[p.plat]};border-left:3px solid ${platColor[p.plat]}">${esc(p.time.replace(':00',''))} ${esc(p.title)}</div>`);
     const tasks = calShowTasks ? vis(TASKS).filter(t=>t.due && iso(new Date(t.due))===iso(date)).map(t=>`<div class="cal-ev" onclick="openTask('${t.id}')" style="cursor:pointer;background:var(--violet-bg);color:var(--violet);border-left:3px solid var(--violet)" title="${esc(t.status)}">◆ ${esc(t.title)}</div>`) : [];
-    return posts.join('')+tasks.join('');
+    const sched = calShowTasks ? vis(TASKS).filter(t=>t.postDate && iso(new Date(t.postDate))===iso(date)).map(t=>`<div class="cal-ev" onclick="openTask('${t.id}')" style="cursor:pointer;background:var(--ok-bg);color:var(--ok);border-left:3px solid var(--ok)" title="Scheduled post · ${esc(t.status)}">📅 ${esc(t.postTime?t.postTime.replace(':00','')+' ':'')}${esc(t.title)}</div>`) : [];
+    return posts.join('')+sched.join('')+tasks.join('');
   };
   let cells='', title='';
   if(calMode==='month'){
@@ -5141,9 +5310,12 @@ function findDup(l, pool=LEADS){
 }
 const leadOwnerPM = l => l.mgr || pmsOf(l.client)[0] || 'tricia';
 const canManageLeads = () => ROLE!=='employee';
-/* VAs can delete the leads and ICP entries assigned to them; PMs, HR and heads can delete any they can see */
-const canDelLead = l => !!l && (canManageLeads() || l.am===PERSON || l.by===PERSON);
-const canDelICP = i => !!i && (canManageLeads() || i.assignee===PERSON || i.by===PERSON);
+/* PMs and VAs can edit and delete leads and ICP entries in the client workspaces they are assigned to (wrong details,
+   duplicates); company heads, HR and PMs can manage any they can see */
+const lgOnTeam = cid => !!cid && ((client(cid)?.team||[]).includes(PERSON) || pmsOf(cid).includes(PERSON) || (PEOPLE[PERSON]?.clients||[]).includes(cid));
+const canDelLead = l => !!l && (canManageLeads() || l.am===PERSON || l.by===PERSON || lgOnTeam(l.client));
+const canEditLead = canDelLead;
+const canDelICP = i => !!i && (canManageLeads() || i.assignee===PERSON || i.by===PERSON || lgOnTeam(i.client));
 function logLeadEvent(l, kind){ LEADEVENTS.push({id:uid('LE'), person:PERSON, date:manilaDate(), kind, lead:l.id, client:l.client, at:nowISO()}); if(LEADEVENTS.length>6000) LEADEVENTS.splice(0, LEADEVENTS.length-6000); }
 const eventsToday = (who, kind) => LEADEVENTS.filter(e=>e.date===manilaDate() && (who==='team' ? true : Array.isArray(who) ? who.includes(e.person) : e.person===who) && e.kind===kind).length;
 function setOutreach(l, st, evKind, note){
@@ -5281,7 +5453,8 @@ function leadCard(l){
       ${second}
       ${l.approval==='Pending'&&canManageLeads()?`<div style="display:flex;gap:6px"><button class="btn primary" style="flex:1;justify-content:center" onclick="approveLead('${l.id}',true)">✓ Approve</button><button class="btn" style="flex:1;justify-content:center;color:var(--bad)" onclick="approveLead('${l.id}',false)">Reject</button></div>`:''}
     </div>
-    <div class="foot"><span>Assigned · ${dtstr(l.assignedAt)} by ${esc(first(l.assignedBy||leadOwnerPM(l)))}${ROLE!=='employee'?' · to '+esc(first(l.am)):''} · ${esc(cname(l.client))}</span><span style="display:flex;gap:10px;align-items:center"><a href="#" onclick="openLead('${l.id}');return false" style="color:var(--info)">Details and history</a>${canDelLead(l)?`<a href="#" class="del-link" onclick="event.stopPropagation();delLead('${l.id}');return false" title="Delete this lead">Delete</a>`:''}</span></div>
+    <div class="foot"><span>Assigned · ${dtstr(l.assignedAt)} by ${esc(first(l.assignedBy||leadOwnerPM(l)))}${ROLE!=='employee'?' · to '+esc(first(l.am)):''} · ${esc(cname(l.client))}</span><span style="display:flex;gap:10px;align-items:center"><a href="#" onclick="openLead('${l.id}');return false" style="color:var(--info)">Details and history</a></span></div>
+    ${canEditLead(l)?`<div class="lead-acts"><button class="btn ghost" onclick="leadEdit('${l.id}')" title="Correct the details or LinkedIn link">✎ Edit</button><button class="btn ghost lead-del" onclick="delLead('${l.id}')" title="Delete this lead">🗑 Delete</button></div>`:''}
     <div class="hint" style="margin-top:4px">Source: ${esc(l.source||'Manual')}</div>
   </div>`;
 }
@@ -5290,7 +5463,7 @@ function leadTable(L){
   <tbody>${L.slice(0,500).map(l=>`<tr><td><b style="cursor:pointer;color:var(--info)" onclick="openLeadLinkedIn('${l.id}')" title="Open LinkedIn profile">${esc(l.name)}${normLI(l.linkedin)?' ↗':''}</b><div class="hint">${esc(l.title)}${l.company?' · '+esc(l.company):''}${findDup(l)?' · <span class="dup-flag">duplicate?</span>':''}</div></td>
     <td>${esc(cname(l.client))}</td><td>${badge(l.outreach)}</td><td>${badge(l.verify||'Unverified')}</td><td class="hint">${esc(l.source||'')}</td>
     <td>${av(P(l.am))} ${esc(first(l.am))}</td><td>${l.follow?(l.follow<=TODAY?'<span style="color:var(--bad);font-weight:600">Due</span>':fmt(l.follow)):'—'}</td>
-    <td style="text-align:right;white-space:nowrap"><button class="btn" style="padding:5px 10px;font-size:12px" onclick="openLead('${l.id}')">Open</button>
+    <td style="text-align:right;white-space:nowrap">${canEditLead(l)?`<button class="btn" style="padding:5px 10px;font-size:12px" onclick="leadEdit('${l.id}')">✎ Edit</button> `:''}<button class="btn" style="padding:5px 10px;font-size:12px" onclick="openLead('${l.id}')">Open</button>
     <button class="btn" style="padding:5px 10px;font-size:12px" onclick="archLead('${l.id}')">${l.archived?'Restore':'Archive'}</button>
     ${canDelLead(l)?`<button class="btn" style="padding:5px 10px;font-size:12px;color:var(--bad)" onclick="delLead('${l.id}')">Delete</button>`:''}</td></tr>`).join('') || '<tr><td colspan="8" class="empty">No leads match.</td></tr>'}</tbody></table></div>`;
 }
@@ -5377,7 +5550,8 @@ function addActivity(id){
 }
 function leadModal(clientId, id){ if(id) return leadEdit(id); addLeadsModal(null, clientId, 'manual'); }
 function leadEdit(id){
-  const l = LEADS.find(x=>x.id===id);
+  const l = LEADS.find(x=>x.id===id); if(!l) return toast('That lead is no longer available'); if(!canEditLead(l)) return toast('You can edit leads in the client workspaces you are assigned to');
+  const lockAm = ROLE==='employee';
   openModal('Edit lead — '+l.name, `
     <div class="grid cols-2">
       <div class="field"><label>Full name *</label><input id="leName" value="${esc(l.name)}"></div>
@@ -5388,23 +5562,26 @@ function leadEdit(id){
       <div class="field"><label>Category / industry</label><input id="leCat" value="${esc(l.category)}"></div>
       <div class="field"><label>Email</label><input id="leEmail" value="${esc(l.email||'')}"></div>
       <div class="field"><label>Phone</label><input id="lePhone" value="${esc(l.phone||'')}"></div>
-      <div class="field"><label>Assigned to</label><select id="leAm">${uniq([...(client(l.client)?.team||[]), l.am]).filter(k=>PEOPLE[k]).map(k=>`<option value="${k}" ${k===l.am?'selected':''}>${esc(pname(k))}</option>`).join('')}</select></div>
+      <div class="field"><label>Assigned to</label><select id="leAm" ${lockAm?'disabled title="Your PM assigns leads"':''}>${uniq([...(client(l.client)?.team||[]), l.am]).filter(k=>PEOPLE[k]).map(k=>`<option value="${k}" ${k===l.am?'selected':''}>${esc(pname(k))}</option>`).join('')}</select></div>
       <div class="field"><label>CRM status</label><select id="leSt">${['New','Contacted','Qualified','Converted','Lost'].map(x=>`<option ${l.status===x?'selected':''}>${x}</option>`).join('')}</select></div>
       <div class="field"><label>Follow-up date</label><input id="leFollow" type="date" value="${l.follow?iso(new Date(l.follow)):''}"></div>
       <div class="field"><label>Verification</label><select id="leVer">${['Unverified','Verified','Invalid'].map(x=>`<option ${l.verify===x?'selected':''}>${x}</option>`).join('')}</select></div>
     </div>
     <div class="field"><label>CRM note</label><textarea id="leNote" rows="2">${esc(l.note||'')}</textarea></div>
-    <button class="btn primary" style="width:100%" onclick="saveLeadEdit('${id}')">Save changes</button>`);
+    <div style="display:flex;gap:8px">${canDelLead(l)?`<button class="btn danger" onclick="delLead('${id}')">🗑 Delete</button>`:''}<button class="btn primary" style="flex:1" onclick="saveLeadEdit('${id}')">Save changes</button></div>`);
+  setTimeout(()=>el('leName')?.focus(), 40);
 }
 function saveLeadEdit(id){
-  const l = LEADS.find(x=>x.id===id); const name=el('leName').value.trim(); if(!name) return toast('Name is required');
+  const l = LEADS.find(x=>x.id===id); if(!l) return toast('That lead was deleted'); if(!canEditLead(l)) return toast('You can edit leads in the client workspaces you are assigned to');
+  const name=el('leName').value.trim(); if(!name) return toast('Name is required');
   const li = el('leLi').value.trim(); if(li && !normLI(li)) return toast('That does not look like a LinkedIn profile URL (linkedin.com/in/…)');
-  const newAm = el('leAm').value;
+  const newAm = el('leAm').disabled ? l.am : el('leAm').value;
+  const dupBefore = !!findDup({...l, linkedin:li?liURL(li):'', name});
   Object.assign(l, {name, linkedin:li?liURL(li):'', title:el('leTitle').value.trim(), company:el('leCo').value.trim(), location:el('leLoc').value.trim(), category:el('leCat').value.trim(),
     email:el('leEmail').value.trim(), phone:el('lePhone').value.trim(), status:el('leSt').value, verify:el('leVer').value, note:el('leNote').value, follow:el('leFollow').value?new Date(el('leFollow').value+'T00:00:00'):null});
   if(newAm!==l.am){ l.am=newAm; l.assignedAt=nowISO(); l.assignedBy=PERSON; notify(newAm,'assignment',`${esc(first(PERSON))} assigned you lead <b>${esc(l.name)}</b>`,{view:'leads'}); }
-  l.history.push({at:nowISO(), by:PERSON, act:'Details edited', note:''});
-  recordChange(); closeModal(); RENDER[CURRENT]?.(); toast('Lead updated');
+  l.history.push({at:nowISO(), by:PERSON, act:'Details edited', note:''}); l.updatedAt = nowISO(); l.updatedBy = PERSON;
+  recordChange(); closeModal(); RENDER[CURRENT]?.(); toast(dupBefore ? 'Lead updated — it still matches another lead (possible duplicate)' : 'Lead updated');
 }
 function archLead(id){ const l=LEADS.find(x=>x.id===id); l.archived=!l.archived; recordChange(); RENDER[CURRENT]?.(); toast(l.archived?'Lead archived':'Lead restored'); }
 function delLead(id){ const l = LEADS.find(x=>x.id===id); if(!canDelLead(l)) return toast('You can delete only the leads assigned to you');
@@ -5736,13 +5913,14 @@ function icpModal(cid, id){
     <button class="btn primary" style="width:100%" onclick="saveICP('${cid}',${i?`'${i.id}'`:'null'})">${i?'Save changes':'Add to ICP list'}</button>`);
 }
 function saveICP(cid, id){
+  if(id && !canDelICP(ICPS.find(x=>x.id===id))) return toast('You can edit ICP entries in the client workspaces you are assigned to');
   const co = el('icCo').value.trim(); if(!co) return toast('Company name is required');
   const data = {company:co, industry:el('icInd').value, size:el('icSize').value, revenue:el('icRev').value, market:el('icMkt').value,
     country:el('icCty').value, decision:el('icDm').value, titles:el('icTi').value, website:el('icWeb').value,
     priority:el('icPr').value, assignee:el('icAs').value, pains:el('icPain').value, goals:el('icNotes').value, notes:''};
-  if(id){ Object.assign(ICPS.find(x=>x.id===id), data); toast('ICP updated'); }
+  if(id){ Object.assign(ICPS.find(x=>x.id===id), data, {updatedAt:nowISO(), updatedBy:PERSON}); toast('ICP updated'); }
   else { ICPS.unshift({id:uid('ICP'), client:cid, mgr:client(cid).mgr, archived:false, ...data}); toast('ICP company added'); }
-  recordChange(); closeModal(); if(CURRENT==='clientws') RENDER.clientws();
+  recordChange(); closeModal(); RENDER[CURRENT]?.();
 }
 function delICP(id){ const i = ICPS.find(x=>x.id===id); if(!canDelICP(i)) return toast('You can delete only the ICP entries assigned to you');
   confirmModal('Delete this ICP entry?', `<b>${esc(i.company||'This company')}</b> will be removed from the ${esc(cname(i.client))} ICP list for everyone. This can’t be undone — use Archive if you may need it later.`, 'Delete ICP entry', ()=>{
@@ -7285,6 +7463,7 @@ const DOC_TEMPLATES = {
   'Announcement':'Hi team,\n\n[What is happening, when, and what everyone needs to do.]\n\nThank you,\nHR — The Cross Core',
   'Notice':'NOTICE\n\nTo: {name}\nDate: {date}\n\n[Details of the notice.]\n\nPlease acknowledge receipt in the portal.\n\nHR — The Cross Core',
   'Memo':'MEMORANDUM\n\nTo: {name}\nFrom: HR\nDate: {date}\nSubject: [Subject]\n\n[Body of the memo.]\n\nHR — The Cross Core',
+  'Warning letter':'WARNING LETTER\n\nTo: {name}\nFrom: HR — The Cross Core\nDate: {date}\nSubject: [Written warning — reason]\n\nThis letter serves as a formal written warning regarding: [describe the incident or behavior, with dates].\n\nThis is in violation of: [policy / section of the Rules and Regulations].\n\nExpected improvement: [what must change, and by when].\n\nPlease be advised that a repeat of this may result in further disciplinary action, up to and including termination of your contract.\n\nPlease acknowledge receipt of this letter in the portal. If you wish to explain your side, reply to HR within [number] days.\n\nHR — The Cross Core',
   'Letter':'{date}\n\nDear {name},\n\n[Body of the letter.]\n\nSincerely,\n\nHR — The Cross Core',
   'New contract':'EMPLOYMENT / SERVICE CONTRACT\n\nThis agreement is made on {date} between The Cross Core ("the Company") and {name} ("the Contractor").\n\n1. Position and scope: [role, clients, deliverables]\n2. Schedule and hours: [schedule]\n3. Compensation: [rate and payment schedule]\n4. Term: [start and end dates]\n5. Confidentiality: [terms]\n\n--- page break ---\n\n6. Signatures\n\nBy signing below, the Contractor confirms they have read and agree to this contract.\n\nSigned by the Contractor, {name}:\n[signature]',
   'Contract renewal':'CONTRACT RENEWAL\n\nDear {name},\n\nWe are pleased to renew your contract with The Cross Core effective {date}.\n\nRenewed term: [start – end]\nChanges from the previous contract: [changes, if any]\n\nPlease review and sign in the portal.\n\nHR — The Cross Core'};
@@ -7299,7 +7478,7 @@ RENDER.hrdocs = () => {
   const rows = by(cur[2]);
   el('v-hrdocs').innerHTML = `
     <div class="page-head"><div><h2>HR Documents</h2><p>Draft announcements, notices, memos, letters, new contracts and renewals. Items that need COO approval go to JA first; once approved you choose who receives them.</p></div>
-      ${hrOrFull()?'<button class="btn primary" onclick="hrDocModal()">+ New document</button>':''}</div>
+      ${hrOrFull()||isExec()?'<button class="btn primary" onclick="hrDocModal()">+ New document</button>':''}</div>
     <div class="grid cols-4" style="margin-bottom:16px">
       <div class="card kpi"><div class="k-label">Drafts</div><div class="k-val">${by(['Draft']).length}</div><div class="hint">${by(['Revisions Needed']).length} need revisions</div></div>
       <div class="card kpi"><div class="k-label">Waiting for JA</div><div class="k-val" style="color:var(--violet)">${by(['Submitted']).length}</div><div class="hint">submitted for COO approval</div></div>
@@ -7354,7 +7533,7 @@ function saveHrDoc(id, submit){
 }
 function openHrDoc(id){
   const d = HRDOCS.find(x=>x.id===id); if(!d) return toast('This document is not available to you');
-  const isHR = ROLE==='hr' || (isExec() && (ROLE!=='coo' || isFullAccess()) && d.by===PERSON);
+  const isHR = ROLE==='hr' || isExec() || isFullAccess();   /* HR, the CEO, the COO and all company heads manage HR documents */
   const isJA = (ROLE==='coo' || ROLE==='ceo') && d.status==='Submitted';
   const recipient = (d.sentTo||[]).includes(PERSON) && !isHR;
   if(recipient){
@@ -11929,7 +12108,7 @@ async function esSubmit(){
       text:ES.text, pages:ES.pages, hash, signedAt, tz:'Asia/Manila', device:navigator.userAgent.slice(0,180), issuedBy:d.by, sentAt:d.sentAt, status:'Signed', locked:true,
       fields:ES.fields.map(f=>({id:f.id, page:f.page, kind:f.kind, inline:f.inline, img:ES.sig[f.id].img, w:ES.sig[f.id].w, h:ES.sig[f.id].h, at:ES.sig[f.id].at}))};
     try{ const pdf = await esPDF(rec); const blob = pdf.output('blob'); const name = esFileName(rec);
-      rec.file = await BACKEND.upload(new File([blob], name, {type:'application/pdf'})); }catch(e){ console.warn('Signed PDF upload failed — it will be generated on download', e); }
+      rec.file = await BACKEND.upload(new File([blob], name, {type:'application/pdf'}), 'hr201/'+PERSON+'/signed'); }catch(e){ console.warn('Signed PDF upload failed — it will be generated on download', e); }
     ESIGN.push(rec);
     const r = docRead(d.id); if(r && !r.ackAt) r.ackAt = signedAt;
     notify(uniq([d.by, ...HR_KEYS()]).filter(k=>k!==PERSON), 'hr', `✍️ <b>${esc(pname(PERSON))}</b> signed <b>${esc(d.title)}</b>${(d.version||1)>1?' (version '+d.version+')':''}`, {view:'hrdocs', doc:d.id});
@@ -11996,11 +12175,11 @@ function esViewSigned(id){
   openModal(`Signed — ${r.docTitle}`, `<div class="es-signed-h"><span class="badge b-approved">Signed · locked</span><span class="hint">${esc(r.personName)} · ${esc(r.account)} · ${esc(esManila(r.signedAt))} · version ${r.version}</span></div>
     <div class="es-view">${html}</div>
     <div class="es-cert"><b>Contract fingerprint (SHA-256)</b><code>${esc(r.hash)}</code><span class="hint">Document ${esc(r.doc)} · ${r.fields.length} signature field${r.fields.length>1?'s':''} · stored in ${r.person===PERSON?'your':esc(first(r.person))+'’s'} HR record</span></div>
-    <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap"><button class="btn primary" onclick="esDownload('${r.id}')">⬇ Download signed PDF</button>${(ROLE==='hr'||isFullAccess()) && HRDOCS.find(x=>x.id===r.doc) && !HRDOCS.find(x=>x.prevVersion===r.doc)?`<button class="btn" onclick="esNewVersion('${r.doc}')">Issue a new version…</button>`:''}</div>`, true);
+    <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap"><button class="btn primary" onclick="esDownload('${r.id}')">⬇ Download signed PDF</button>${(ROLE==='hr'||isFullAccess()||isExec()) && HRDOCS.find(x=>x.id===r.doc) && !HRDOCS.find(x=>x.prevVersion===r.doc)?`<button class="btn" onclick="esNewVersion('${r.doc}')">Issue a new version…</button>`:''}</div>`, true);
 }
 /* HR: changes after sending → a new version for review and signature (the signed one stays locked) */
 function esNewVersion(docId){
-  const d = HRDOCS.find(x=>x.id===docId); if(!d || !(ROLE==='hr' || isFullAccess())) return;
+  const d = HRDOCS.find(x=>x.id===docId); if(!d || !(ROLE==='hr' || isFullAccess() || isExec())) return;
   const nd = {id:uid('HD'), kind:d.kind, title:d.title.replace(/\s*\(v\d+\)$/,'')+` (v${(d.version||1)+1})`, body:d.body, files:[...(d.files||[])], needsCoo:d.needsCoo, sign:d.sign ? {...d.sign} : {required:true, mode:'auto'},
     version:(d.version||1)+1, prevVersion:d.id, by:PERSON, at:nowISO(), updatedAt:nowISO(), status:'Draft', sentTo:[], history:[{at:nowISO(), by:PERSON, act:`New version ${(d.version||1)+1} of ${d.id}`, note:''}]};
   HRDOCS.unshift(nd); d.history = [...(d.history||[]), {at:nowISO(), by:PERSON, act:`New version ${nd.version} started (${nd.id})`, note:''}];
@@ -12395,7 +12574,7 @@ const prKey = u => { const li = normLI(u); return li || String(u||'').toLowerCas
 const prHref = u => !u ? '' : /^https?:\/\//i.test(u) ? u : 'https://'+u.replace(/^\/+/,'');
 const prOf = (cid, list) => PROSPECTS.filter(p=>p.client===cid && (!list || p.list===list));
 const prCan = cid => !!cid && prClients().some(c=>c.id===cid);
-const prCanDelete = p => p.by===PERSON || p.va===PERSON || isExec() || isFullAccess() || pmsOf(p.client).includes(PERSON);
+const prCanDelete = p => p.by===PERSON || p.va===PERSON || isExec() || isFullAccess() || pmsOf(p.client).includes(PERSON) || (typeof lgOnTeam==='function' && lgOnTeam(p.client));
 const prTeam = cid => uniq([...lgVAs(cid), ...(client(cid)?.team||[])]).filter(k=>PEOPLE[k] && !HEADS.includes(k));
 function prClientLinks(cid){ const c = client(cid); const L = [...(c?.links||[]).filter(l=>l.url), ...(LEADCFG.find(x=>x.id===cid)?.links||[]).filter(l=>l.url)];
   return uniq(L.map(l=>l.url)).map(u=>({url:u, label:(L.find(l=>l.url===u)?.platform||'') ? platName(L.find(l=>l.url===u).platform) : u.replace(/^https?:\/\/(www\.)?/,'').split('/')[0]})); }
@@ -12495,7 +12674,7 @@ function prEdit(id){
       <div class="field"><label>VA assigned</label><select id="prVa">${uniq([...(p?[p.va]:[]), ...team, PERSON]).filter(k=>PEOPLE[k]).map(k=>`<option value="${k}" ${(p?.va||(team.includes(PERSON)?PERSON:team[0]))===k?'selected':''}>${esc(pname(k))}</option>`).join('')}</select></div></div>
     <div class="field"><label>Notes</label><textarea id="prNotes" rows="2">${esc(p?.notes||'')}</textarea></div>
     <div class="hint" id="prFolHint" style="margin-bottom:10px"></div>
-    <button class="btn primary" style="width:100%" onclick="prSaveEdit(${p?`'${p.id}'`:'null'},'${list}')">${p?'Save changes':'Add profile'}</button>`);
+    <div style="display:flex;gap:8px">${p&&prCanDelete(p)?`<button class="btn danger" onclick="prDelete('${p.id}')">🗑 Delete</button>`:''}<button class="btn primary" style="flex:1" onclick="prSaveEdit(${p?`'${p.id}'`:'null'},'${list}')">${p?'Save changes':'Add profile'}</button></div>`);
   prFolHint(list);
 }
 function prFolHint(list){ const h = el('prFolHint'); if(!h) return; const f = prFollowers(el('prFol').value); const d = prListFor(f);
@@ -15377,6 +15556,754 @@ function stkRun(){ clearTimeout(STK.t); STK.t = setTimeout(()=>{ try{ stkTables(
   window.addEventListener('resize', stkRun);
 })();
 { const _go = go; go = function(){ const r = _go.apply(this, arguments); stkRun(); return r; }; }
+
+/* ===== 46_hr201.js ===== */
+/* ================= EMPLOYEE 201 FILES (Oct 2026) =================
+   HR Portal → 201 Files: one organised record per employee (current, resigned and pulled-out).
+   • Folders: Resume & Supporting Documents · Contracts & Renewals · Memos, Warnings & Acknowledgments · Evaluations · Other
+     (+ any folder HR adds). Upload files, add links, view, download, rename, move between folders or to another
+     employee, and delete.
+   • Automatic filing: a contract or renewal an employee signs in their portal is saved in Contracts; a memo, warning
+     letter, notice or letter HR sends is saved as the original + the employee's signed / acknowledged copy, with the
+     exact date and time. HR and company heads see the status live.
+   • HR Document Library: company HR records (templates, policies, job descriptions, reports) from the DMS tracker.
+   • Import: HR uploads the existing file-monitoring workbook (DMS) and each row lands under the right employee and category.
+   • Access: HR, the CEO, the COO and all company heads — full access, updated in real time. Employees never see 201 Files;
+     the database only lets an employee add the copy of a document they signed or acknowledged themselves. */
+let HR201 = [], HRFILES = [];
+const H201_LIB = '_lib';
+const H201_FOLDERS = [
+  {id:'resume', name:'Resume & Supporting Documents', ico:'📄', hint:'Resume, IDs, certificates, pre-employment requirements'},
+  {id:'contracts', name:'Contracts & Renewals', ico:'✍️', hint:'Signed contracts and renewals are saved here automatically'},
+  {id:'memos', name:'Memos, Warnings & Acknowledgments', ico:'📌', hint:'Originals and signed / acknowledged copies are saved here automatically'},
+  {id:'evals', name:'Evaluations', ico:'⭐', hint:'Performance evaluations and probation reviews'},
+  {id:'other', name:'Other Documents', ico:'🗂', hint:'Links, images and anything else'}];
+const h201Can = () => ROLE==='hr' || isExec() || isFullAccess() || HEADS.includes(PERSON);
+const h201Aud = () => uniq([...HR_KEYS(), ...HEADS, ...FULL_ACCESS]);
+COLL.hr201 = {get:()=>HR201, set:v=>HR201=v, aud:()=>h201Aud()};
+COLL.hrfiles = {get:()=>HRFILES, set:v=>HRFILES=v, aud:f=>uniq([...h201Aud(), ...(f.share && f.person ? [f.person] : [])])};
+
+/* ---------- people & folders ---------- */
+function h201GroupOf(e){ const g = String(e.group||''); if(/core/i.test(g)) return 'Cross Core Internal'; if(/glaze|lwg/i.test(g)) return 'LWG VAs'; return 'In-house VAs'; }
+const h201Former = s => /resign|terminat|inactive|pull|former|backout/i.test(s||'');
+function h201People(){
+  const map = new Map();
+  Object.entries(LEADERS).forEach(([k,l])=>map.set(k, {id:k, person:k, name:l.name, sub:l.sub, group:'Cross Core Internal', status:'Active', color:l.color}));
+  EMPLOYEES.forEach(e=>map.set(e.id, {...(map.get(e.id)||{}), id:e.id, person:e.id, name:e.name, sub:e.role, group:map.get(e.id)?.group || h201GroupOf(e), status:e.status, color:e.color}));
+  HR201.forEach(m=>{ const x = map.get(m.id);
+    if(x) Object.assign(x, {meta:m, code:m.code||'', drive:m.drive||'', legal:m.legal||'', group:m.group||x.group});
+    else map.set(m.id, {id:m.id, person:null, name:m.name||m.legal||m.id, legal:m.legal||'', sub:m.role||'Former employee', group:m.group||'Former employees', status:m.status||'Former', color:'#9A9AA1', meta:m, code:m.code||'', drive:m.drive||''}); });
+  return [...map.values()];
+}
+const h201Av = p => p.person && (PEOPLE[p.person]||LEADERS[p.person]) ? av(P(p.person)) : av({name:p.name, color:p.color});
+const h201Person = id => h201People().find(x=>x.id===id);
+const h201Meta = id => HR201.find(m=>m.id===id);
+function h201EnsureMeta(id, extra){ let m = h201Meta(id); if(!m){ m = {id, folders:[], at:nowISO(), by:PERSON}; HR201.push(m); } if(extra) Object.assign(m, extra, {updatedAt:nowISO(), updatedBy:PERSON}); return m; }
+const h201Folders = id => [...H201_FOLDERS, ...((h201Meta(id)?.folders)||[]).map(f=>({ico:'📁', ...f, custom:true}))];
+const h201FolderName = (emp, fid) => h201Folders(emp).find(f=>f.id===fid)?.name || 'Other Documents';
+const h201FilesOf = (emp, folder) => HRFILES.filter(f=>f.emp===emp && (!folder || folder==='all' || f.folder===folder));
+const h201Icon = f => f.kind==='link' ? (/docs\.google\.com\/spreadsheets/.test(f.url)?'📊':/docs\.google\.com\/document/.test(f.url)?'📝':/drive\.google\.com\/drive\/folders/.test(f.url)?'📁':'🔗')
+  : f.kind==='doc' ? (f.source==='ack'?'✅':'📄') : /pdf/i.test(f.type||f.file?.type||f.name)?'📕' : /^image\//.test(f.type||f.file?.type||'')?'🖼' : /sheet|excel|csv/i.test(f.type||f.name)?'📊' : /word|doc/i.test(f.type||f.name)?'📝' : /^video\//.test(f.type||'')?'🎬' : '📎';
+const h201Size = n => !n ? '' : n>1048576 ? (n/1048576).toFixed(1)+' MB' : Math.max(1,Math.round(n/1024))+' KB';
+const h201Src = {upload:'Uploaded', link:'Link', import:'Imported from DMS', esign:'Auto-saved · e-signed in the employee portal', ack:'Auto-saved · acknowledged in the employee portal', hrdoc:'Auto-saved · issued through the employee portal', move:'Moved'};
+
+/* ---------- live status of documents issued through the employee portal ---------- */
+function h201DocStatus(docId, k){
+  const d = HRDOCS.find(x=>x.id===docId); const sig = typeof esSig==='function' ? esSig(docId, k) : null; const r = DOCREADS.find(x=>x.doc===docId && x.person===k);
+  if(sig) return {key:'signed', label:'Signed', at:sig.signedAt, cls:'b-approved'};
+  if(d && esNeeds(d)) return d.supersededBy ? {key:'replaced', label:'Replaced by a newer version', cls:'b-draft'} : {key:'awaiting', label:'Awaiting signature', at:null, cls:'b-pending', opened:r?.readAt};
+  if(r?.ackAt) return {key:'ack', label:'Acknowledged', at:r.ackAt, cls:'b-approved'};
+  if(r?.readAt) return {key:'opened', label:'Opened · not yet acknowledged', at:r.readAt, cls:'b-scheduled'};
+  return {key:'awaiting', label:'Awaiting acknowledgment', at:null, cls:'b-pending'};
+}
+const h201DocFolder = d => /contract|renewal/i.test(d?.kind||'') ? 'contracts' : 'memos';
+
+/* ---------- page ---------- */
+const H2 = {tab:'emp', sel:null, folder:'all', q:'', grp:'all', st:'current', libCat:'all', libQ:'', mob:'list'};
+{ const at = NAV.findIndex(n=>n.id==='hrdocs'); if(!NAV.some(n=>n.id==='hr201')) NAV.splice(at+1, 0, {id:'hr201', name:'201 Files', roles:['hr','ceo','coo','creative'], ico:'M4 4h6l2 2h8v13H4zM8 12h8M8 15.5h5'}); }
+if(!el('v-hr201')){ const v = document.createElement('div'); v.id = 'v-hr201'; v.className = 'view'; (el('v-hrdocs')||document.querySelector('.content .view:last-child'))?.after(v); }
+function h201Visible(){
+  const q = H2.q.trim().toLowerCase();
+  return h201People().filter(p=>{
+    if(H2.grp!=='all' && p.group!==H2.grp) return false;
+    const former = h201Former(p.status);
+    if(H2.st==='current' && former) return false; if(H2.st==='former' && !former) return false;
+    return !q || [p.name, p.legal, p.sub, p.code].join(' ').toLowerCase().includes(q);
+  }).sort((a,b)=>a.name.localeCompare(b.name));
+}
+RENDER.hr201 = () => {
+  const v = el('v-hr201'); if(!v) return;
+  if(!h201Can()){ v.innerHTML = '<div class="empty" style="padding:40px">201 Files are available to HR and company heads.</div>'; return; }
+  h201Reconcile();
+  const people = h201People(); const lib = HRFILES.filter(f=>f.emp===H201_LIB);
+  const pend = h201Tracker().filter(r=>r.st.key==='awaiting' || r.st.key==='opened').length;
+  v.innerHTML = `
+    <div class="page-head"><div><h2>201 Files</h2><p>Every employee’s records in one place — resumes, contracts and renewals, memos, warning letters and acknowledgments, evaluations and links. Signed contracts and acknowledged memos are filed automatically.</p></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" onclick="h201ImportStart()">⬆ Import existing records</button>${hrOrFull()||ROLE==='hr'||isExec()?`<button class="btn primary" onclick="H2.tab='emp';go('hrdocs');setTimeout(()=>hrDocModal(),60)">+ Issue memo / contract</button>`:''}</div></div>
+    <div class="tabs h201-tabs">
+      <button class="tab ${H2.tab==='emp'?'on':''}" onclick="H2.tab='emp';RENDER.hr201()">Employees <span class="hint">${people.length}</span></button>
+      <button class="tab ${H2.tab==='status'?'on':''}" onclick="H2.tab='status';RENDER.hr201()">Signatures & acknowledgments ${pend?`<span class="badge b-pending">${pend} waiting</span>`:''}</button>
+      <button class="tab ${H2.tab==='lib'?'on':''}" onclick="H2.tab='lib';RENDER.hr201()">HR Document Library <span class="hint">${lib.length}</span></button></div>
+    ${H2.tab==='status' ? h201StatusHTML() : H2.tab==='lib' ? h201LibHTML() : h201EmpHTML()}`;
+};
+function h201EmpHTML(){
+  const list = h201Visible(); const groups = uniq(h201People().map(p=>p.group));
+  if(!H2.sel || !h201Person(H2.sel)) H2.sel = list[0]?.id || null;
+  const cnt = id => HRFILES.filter(f=>f.emp===id).length;
+  return `<div class="h201 ${H2.mob==='pane'?'mob-pane':''}">
+    <aside class="h201-list card">
+      <div class="h201-filters"><input placeholder="Search name, role or 201 code…" value="${esc(H2.q)}" oninput="H2.q=this.value;clearTimeout(H2.t);H2.t=setTimeout(()=>{RENDER.hr201();const i=document.querySelector('.h201-filters input');i?.focus();i?.setSelectionRange(i.value.length,i.value.length)},200)">
+        <div style="display:flex;gap:6px"><select onchange="H2.grp=this.value;RENDER.hr201()"><option value="all">All groups</option>${groups.map(g=>`<option ${H2.grp===g?'selected':''}>${esc(g)}</option>`).join('')}</select>
+          <select onchange="H2.st=this.value;RENDER.hr201()"><option value="current" ${H2.st==='current'?'selected':''}>Current</option><option value="former" ${H2.st==='former'?'selected':''}>Resigned / pulled out</option><option value="all" ${H2.st==='all'?'selected':''}>Everyone</option></select></div></div>
+      <div class="h201-people">${list.map(p=>`<button class="h201-p ${H2.sel===p.id?'on':''}" onclick="H2.sel='${p.id}';H2.folder='all';H2.mob='pane';RENDER.hr201()">${h201Av(p)}<span><b>${esc(p.name)}</b><small>${esc(p.sub||'')}${p.code?' · '+esc(p.code):''}</small></span><em>${cnt(p.id)||''}</em>${h201Former(p.status)?`<i class="h201-former">${esc(p.status)}</i>`:''}</button>`).join('') || '<div class="empty">No employees match.</div>'}</div>
+    </aside>
+    <section class="h201-pane card">${H2.sel ? h201PaneHTML(H2.sel) : '<div class="empty" style="padding:40px">Choose an employee.</div>'}</section></div>`;
+}
+function h201PaneHTML(id){
+  const p = h201Person(id); if(!p) return '';
+  const folders = h201Folders(id); const all = h201FilesOf(id);
+  const cur = H2.folder!=='all' && !folders.some(f=>f.id===H2.folder) ? (H2.folder='all') : H2.folder;
+  const files = h201FilesOf(id, cur).sort((a,b)=>(b.signedAt||b.ackAt||b.updatedAt||b.at||'').localeCompare(a.signedAt||a.ackAt||a.updatedAt||a.at||''));
+  const fold = cur==='all' ? null : folders.find(f=>f.id===cur);
+  return `<div class="h201-head"><button class="icon-btn h201-back" onclick="H2.mob='list';RENDER.hr201()" aria-label="All employees"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg></button>
+      ${h201Av(p)}<div style="min-width:0;flex:1"><h3>${esc(p.name)} <span class="badge ${h201Former(p.status)?'b-missed':p.status==='On Probation'?'b-scheduled':'b-approved'}">${esc(p.status)}</span></h3>
+      <div class="hint">${esc(p.sub||'')} · ${esc(p.group)}${p.code?` · 201 code <b>${esc(p.code)}</b>`:''}${p.legal&&p.legal.toLowerCase()!==p.name.toLowerCase()?` · on file as ${esc(p.legal)}`:''}</div></div>
+      ${p.drive?`<a class="btn ghost" href="${esc(p.drive)}" target="_blank" rel="noopener" title="Open the Google Drive 201 folder">📁 Drive folder ↗</a>`:''}
+      <button class="btn" onclick="h201Details('${id}')" title="201 code, Drive folder and group">Details</button></div>
+    <div class="h201-folders">
+      <button class="h201-f ${cur==='all'?'on':''}" onclick="H2.folder='all';RENDER.hr201()">🗃 All files <em>${all.length}</em></button>
+      ${folders.map(f=>`<button class="h201-f ${cur===f.id?'on':''}" onclick="H2.folder='${f.id}';RENDER.hr201()" title="${esc(f.hint||f.name)}" ondragover="event.preventDefault();this.classList.add('drop')" ondragleave="this.classList.remove('drop')" ondrop="h201DropOnFolder(event,'${id}','${f.id}')">${f.ico} ${esc(f.name)} <em>${h201FilesOf(id, f.id).length}</em></button>`).join('')}
+      <button class="h201-f add" onclick="h201FolderModal('${id}')">+ Folder</button></div>
+    <div class="h201-bar"><div class="hint">${fold ? esc(fold.hint||'') : 'Drag files here to upload, or drag a file onto a folder to move it.'}</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">${fold?.custom?`<button class="btn ghost" onclick="h201FolderModal('${id}','${fold.id}')">Rename folder</button>`:''}
+        <button class="btn" onclick="h201LinkModal('${id}','${cur==='all'?'other':cur}')">🔗 Add link</button>
+        <button class="btn primary" onclick="h201Upload('${id}','${cur==='all'?h201GuessFolder():cur}')">⬆ Upload files</button></div></div>
+    <div class="h201-files" ondragover="event.preventDefault();this.classList.add('drag')" ondragleave="if(!this.contains(event.relatedTarget))this.classList.remove('drag')" ondrop="h201Drop(event,'${id}','${cur==='all'?'other':cur}')">
+      ${files.map(f=>h201FileRow(f, cur==='all')).join('') || `<div class="empty h201-empty"><b>No files ${fold?'in '+esc(fold.name):'yet'}</b><span>Upload PDFs, images or documents, or add a Google Drive link.${fold?.id==='contracts'?' Contracts the employee signs in their portal appear here automatically.':fold?.id==='memos'?' Memos and warning letters issued through the portal, and their acknowledged copies, appear here automatically.':''}</span></div>`}
+    </div>`;
+}
+const h201GuessFolder = () => 'other';
+function h201FileRow(f, showFolder){
+  let st = '';
+  if(f.source==='hrdoc' && f.doc){ const s = h201DocStatus(f.doc, f.person); st = `<span class="badge ${s.cls}">${esc(s.label)}${s.at?' · '+dtstr(s.at):''}</span>`; }
+  else if(f.source==='esign') st = `<span class="badge b-approved">Signed · ${dtstr(f.signedAt)}</span>`;
+  else if(f.source==='ack') st = `<span class="badge b-approved">Acknowledged · ${dtstr(f.ackAt)}</span>`;
+  const meta = [showFolder?h201FolderName(f.emp, f.folder):'', h201Src[f.source]||'', f.code||'', f.kind==='file'?h201Size(f.size||f.file?.size):f.kind==='link'?(String(f.url||'').replace(/^https?:\/\//,'').split('/')[0]):'PDF generated on download',
+    f.by?`by ${first(f.by)} · ${dstr(f.at)}`:dstr(f.at), f.updatedBy&&f.updatedAt&&f.updatedAt!==f.at?`edited by ${first(f.updatedBy)} ${ago(f.updatedAt)}`:''].filter(Boolean);
+  return `<div class="h201-file" draggable="true" ondragstart="event.dataTransfer.setData('text/h201', '${f.id}')" data-id="${f.id}">
+    <span class="h201-ico">${h201Icon(f)}</span>
+    <div class="h201-fm" onclick="h201Open('${f.id}')"><b>${esc(f.name)}</b> ${st}${f.access?` <span class="chip">${esc(f.access)}</span>`:''}<small>${meta.map(esc).join(' · ')}</small></div>
+    <div class="h201-acts"><button class="btn ghost" onclick="h201Open('${f.id}')" title="View">View</button><button class="btn ghost" onclick="h201Download('${f.id}')" title="${f.kind==='link'?'Open link':'Download'}">${f.kind==='link'?'↗':'⬇'}</button>
+      <button class="btn ghost" onclick="h201Rename('${f.id}')" title="Rename">✎</button><button class="btn ghost" onclick="h201Move('${f.id}')" title="Move">⇄</button><button class="btn ghost h201-del" onclick="h201Delete('${f.id}')" title="Delete">🗑</button></div></div>`;
+}
+
+/* ---------- file actions ---------- */
+const h201Rec = id => HRFILES.find(f=>f.id===id);
+function h201Touch(f){ f.updatedAt = nowISO(); f.updatedBy = PERSON; }
+function h201Changed(msg){ recordChange(); RENDER[CURRENT]?.(); if(msg) toast(msg); }
+async function h201UploadFiles(emp, folder, files){
+  const list = [...(files||[])]; if(!list.length) return;
+  const limitMB = BACKEND.mode==='live' ? 50 : 1.5; let n = 0;
+  const bar = document.querySelector('.h201-bar .btn.primary'); bar?.classList.add('is-loading');
+  for(const f of list){
+    if(f.size > limitMB*1024*1024){ toast(`${f.name} is larger than ${limitMB} MB${BACKEND.mode==='demo'?' (demo limit — the live portal allows 50 MB)':''}`); continue; }
+    try{ const ref = await BACKEND.upload(f, 'hr201/'+(emp===H201_LIB?'library':emp));
+      HRFILES.push({id:uid('HF'), emp, folder, kind:'file', name:f.name, file:ref, type:f.type||'', size:f.size, source:'upload', by:PERSON, at:nowISO()}); n++;
+    }catch(e){ toast('Upload failed: '+e.message); }
+  }
+  bar?.classList.remove('is-loading');
+  if(n){ if(emp!==H201_LIB) h201EnsureMeta(emp); audit(`201 Files: uploaded ${n} file${n>1?'s':''} to ${emp===H201_LIB?'the HR Document Library':pname(emp)+' — '+h201FolderName(emp, folder)}`); h201Changed(`${n} file${n>1?'s':''} uploaded`); }
+}
+function h201Upload(emp, folder){ const i = document.createElement('input'); i.type = 'file'; i.multiple = true; i.accept = '.pdf,.doc,.docx,.xls,.xlsx,.csv,.ppt,.pptx,.txt,image/*,video/*'; i.onchange = () => h201UploadFiles(emp, folder, i.files); i.click(); }
+function h201Drop(e, emp, folder){ e.preventDefault(); e.currentTarget.classList.remove('drag');
+  const moved = e.dataTransfer.getData('text/h201'); if(moved) return;
+  if(e.dataTransfer.files?.length) h201UploadFiles(emp, folder, e.dataTransfer.files); }
+function h201DropOnFolder(e, emp, folder){ e.preventDefault(); e.currentTarget.classList.remove('drop');
+  const id = e.dataTransfer.getData('text/h201'); if(id) return h201DoMove(id, emp, folder);
+  if(e.dataTransfer.files?.length) h201UploadFiles(emp, folder, e.dataTransfer.files); }
+function h201LinkModal(emp, folder){
+  const folders = emp===H201_LIB ? null : h201Folders(emp);
+  openModal('Add a link', `<div class="field"><label>Link *</label><input id="hlUrl" placeholder="https://drive.google.com/… or any web link"></div>
+    <div class="field"><label>Name</label><input id="hlName" placeholder="e.g. NBI clearance (Drive)"></div>
+    ${folders?`<div class="field"><label>Folder</label><select id="hlFolder">${folders.map(f=>`<option value="${f.id}" ${f.id===folder?'selected':''}>${esc(f.name)}</option>`).join('')}</select></div>`
+      :`<div class="field"><label>Category</label><input id="hlCat" list="hlCats" value="${esc(H2.libCat!=='all'?H2.libCat:'Other')}"><datalist id="hlCats">${h201LibCats().map(c=>`<option value="${esc(c)}">`).join('')}</datalist></div>`}
+    <button class="btn primary" style="width:100%" onclick="h201SaveLink('${emp}')">Add link</button>`);
+  setTimeout(()=>el('hlUrl')?.focus(), 40);
+}
+function h201SaveLink(emp){
+  let url = el('hlUrl').value.trim(); if(!url) return toast('Paste a link first'); if(!/^https?:\/\//i.test(url)) url = 'https://'+url;
+  try{ new URL(url); }catch(e){ return toast('That does not look like a web link'); }
+  const name = el('hlName').value.trim() || url.replace(/^https?:\/\//,'').slice(0,70);
+  const rec = {id:uid('HF'), emp, kind:'link', name, url, source:'link', by:PERSON, at:nowISO()};
+  if(emp===H201_LIB){ rec.folder = 'lib'; rec.cat = el('hlCat').value.trim() || 'Other'; } else { rec.folder = el('hlFolder').value; h201EnsureMeta(emp); }
+  HRFILES.push(rec); closeModal(); h201Changed('Link added');
+}
+function h201Rename(id){ const f = h201Rec(id); if(!f) return;
+  openModal('Rename', `<div class="field"><label>File name</label><input id="hrnName" value="${esc(f.name)}" onkeydown="if(event.key==='Enter')h201SaveRename('${id}')"></div>
+    ${f.emp===H201_LIB?`<div class="field"><label>Category</label><input id="hrnCat" list="hlCats2" value="${esc(f.cat||'Other')}"><datalist id="hlCats2">${h201LibCats().map(c=>`<option value="${esc(c)}">`).join('')}</datalist></div>`:''}
+    <button class="btn primary" style="width:100%" onclick="h201SaveRename('${id}')">Save</button>`);
+  setTimeout(()=>{ const i = el('hrnName'); if(i){ i.focus(); const dot = i.value.lastIndexOf('.'); i.setSelectionRange(0, dot>0 && f.kind==='file' ? dot : i.value.length); } }, 40);
+}
+function h201SaveRename(id){ const f = h201Rec(id); const n = el('hrnName').value.trim(); if(!n) return toast('Enter a name');
+  const old = f.name; f.name = n; if(el('hrnCat')) f.cat = el('hrnCat').value.trim() || 'Other'; h201Touch(f);
+  audit(`201 Files: renamed “${old}” to “${n}”`); closeModal(); h201Changed('Renamed'); }
+function h201Move(id){ const f = h201Rec(id); if(!f) return;
+  if(f.emp===H201_LIB) return h201Rename(id);
+  const people = h201People().sort((a,b)=>a.name.localeCompare(b.name));
+  const opts = emp => h201Folders(emp).map(x=>`<option value="${x.id}" ${x.id===f.folder&&emp===f.emp?'selected':''}>${esc(x.name)}</option>`).join('');
+  openModal('Move file', `<p class="hint" style="margin-bottom:10px">${esc(f.name)}</p>
+    <div class="field"><label>Employee</label><select id="hmvEmp" onchange="el('hmvFolder').innerHTML=h201FolderOpts(this.value)">${people.map(p=>`<option value="${p.id}" ${p.id===f.emp?'selected':''}>${esc(p.name)}${h201Former(p.status)?' ('+esc(p.status)+')':''}</option>`).join('')}</select></div>
+    <div class="field"><label>Folder</label><select id="hmvFolder">${opts(f.emp)}</select></div>
+    <button class="btn primary" style="width:100%" onclick="h201DoMove('${id}', el('hmvEmp').value, el('hmvFolder').value)">Move</button>`);
+}
+const h201FolderOpts = emp => h201Folders(emp).map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join('');
+function h201DoMove(id, emp, folder){ const f = h201Rec(id); if(!f) return;
+  if(f.emp===emp && f.folder===folder){ closeModal(); return; }
+  const from = f.emp===emp ? h201FolderName(emp, f.folder) : pname(f.emp);
+  f.emp = emp; f.folder = folder; h201Touch(f); h201EnsureMeta(emp);
+  audit(`201 Files: moved “${f.name}” from ${from} to ${h201Person(emp)?.name||emp} — ${h201FolderName(emp, folder)}`);
+  closeModal(); h201Changed(`Moved to ${h201FolderName(emp, folder)}`); }
+function h201Delete(id){ const f = h201Rec(id); if(!f) return;
+  const auto = ['esign','ack','hrdoc'].includes(f.source);
+  confirmModal('Delete this file?', `<b>${esc(f.name)}</b> will be removed from ${f.emp===H201_LIB?'the HR Document Library':esc(h201Person(f.emp)?.name||'')+'’s 201 file'} for everyone.${auto?' <br><span class="hint">The signed or acknowledged record itself stays locked in HR Documents — only this 201 copy is removed.</span>':''} This can’t be undone.`, 'Delete file', async ()=>{
+    HRFILES = HRFILES.filter(x=>x.id!==id);
+    if(auto){ const m = h201EnsureMeta(f.emp); m.skip = uniq([...(m.skip||[]), id]); }
+    audit(`201 Files: deleted “${f.name}” (${f.emp===H201_LIB?'HR Document Library':pname(f.emp)})`);
+    closeModal(); h201Changed('File deleted');
+    if(BACKEND.mode==='live' && f.file?.path && /^hr201\//.test(f.file.path) && !HRFILES.some(x=>x.file?.path===f.file.path)){ try{ await BACKEND.sb.storage.from('cc-files').remove([f.file.path]); }catch(e){} }
+  }); }
+async function h201Url(f){ return f.kind==='link' ? f.url : BACKEND.fileUrl(f.file); }
+async function h201Open(id){ const f = h201Rec(id); if(!f) return;
+  try{
+    if(f.kind==='link') return window.open(f.url, '_blank', 'noopener');
+    if(f.source==='esign' && !f.file && f.esign) return esViewSigned(f.esign);
+    if(f.kind==='doc'){ const doc = await h201DocPDF(f); const url = URL.createObjectURL(doc.output('blob')); return h201Preview(f, url, 'pdf'); }
+    const url = await h201Url(f); const t = f.type||f.file?.type||'';
+    if(/^image\//.test(t)) return h201Preview(f, url, 'img');
+    if(/pdf/i.test(t)||/\.pdf$/i.test(f.name)) return h201Preview(f, url, 'pdf');
+    if(/^video\//.test(t)) return h201Preview(f, url, 'video');
+    window.open(url, '_blank', 'noopener');
+  }catch(e){ toast('Could not open the file: '+e.message); }
+}
+function h201Preview(f, url, kind){
+  openModal(f.name, `<div class="h201-prev">${kind==='img'?`<img src="${url}" alt="${esc(f.name)}">`:kind==='video'?`<video src="${url}" controls playsinline></video>`:`<iframe src="${url}" title="${esc(f.name)}"></iframe>`}</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px"><button class="btn primary" onclick="h201Download('${f.id}')">⬇ Download</button><a class="btn" href="${url}" target="_blank" rel="noopener">Open in a new tab ↗</a>
+      <span class="hint" style="margin-left:auto;align-self:center">${esc(h201Src[f.source]||'')}${f.signedAt?' · signed '+esc(dtstr(f.signedAt)):f.ackAt?' · acknowledged '+esc(dtstr(f.ackAt)):''}</span></div>`, true);
+}
+async function h201Download(id){ const f = h201Rec(id); if(!f) return;
+  try{
+    if(f.kind==='link') return window.open(f.url, '_blank', 'noopener');
+    if(f.source==='esign' && !f.file && f.esign) return esDownload(f.esign);
+    if(f.kind==='doc') return (await h201DocPDF(f)).save(h201PdfName(f));
+    const url = await h201Url(f);
+    let href = url; try{ const b = await (await fetch(url)).blob(); href = URL.createObjectURL(b); }catch(e){}
+    const a = document.createElement('a'); a.href = href; a.download = f.name; document.body.appendChild(a); a.click(); setTimeout(()=>{ a.remove(); if(href!==url) URL.revokeObjectURL(href); }, 4000);
+  }catch(e){ toast('Could not download: '+e.message); }
+}
+function h201FolderModal(emp, fid){
+  const f = fid ? h201Folders(emp).find(x=>x.id===fid) : null; const empty = f ? !h201FilesOf(emp, fid).length : true;
+  openModal(f?'Rename folder':'New folder', `<div class="field"><label>Folder name</label><input id="hfName" value="${esc(f?.name||'')}" placeholder="e.g. Government IDs & clearances" onkeydown="if(event.key==='Enter')h201SaveFolder('${emp}',${f?`'${fid}'`:'null'})"></div>
+    <div style="display:flex;gap:8px">${f?`<button class="btn danger" ${empty?'':'disabled title="Move or delete the files in this folder first"'} onclick="h201DelFolder('${emp}','${fid}')">Delete folder</button>`:''}<button class="btn primary" style="flex:1" onclick="h201SaveFolder('${emp}',${f?`'${fid}'`:'null'})">${f?'Save':'Create folder'}</button></div>`);
+  setTimeout(()=>el('hfName')?.focus(), 40);
+}
+function h201SaveFolder(emp, fid){ const n = el('hfName').value.trim(); if(!n) return toast('Name the folder');
+  const m = h201EnsureMeta(emp); m.folders = m.folders||[];
+  if(fid){ const f = m.folders.find(x=>x.id===fid); if(f) f.name = n; } else { const id = 'f'+Date.now().toString(36); m.folders.push({id, name:n}); H2.folder = id; }
+  closeModal(); h201Changed(fid?'Folder renamed':'Folder created'); }
+function h201DelFolder(emp, fid){ if(h201FilesOf(emp, fid).length) return toast('Move or delete the files in this folder first');
+  const m = h201EnsureMeta(emp); m.folders = (m.folders||[]).filter(x=>x.id!==fid); H2.folder = 'all'; closeModal(); h201Changed('Folder deleted'); }
+function h201Details(id){ const p = h201Person(id); const m = h201Meta(id)||{};
+  openModal('201 details — '+p.name, `<div class="grid cols-2">
+    <div class="field"><label>201 code</label><input id="hdCode" value="${esc(m.code||'')}" placeholder="e.g. HR-201-IH-0104"></div>
+    <div class="field"><label>Name on file</label><input id="hdLegal" value="${esc(m.legal||'')}" placeholder="SURNAME, Given names"></div>
+    <div class="field"><label>Group</label><input id="hdGroup" list="hdGroups" value="${esc(m.group||p.group)}"><datalist id="hdGroups">${['Cross Core Internal','In-house VAs','LWG VAs','Former employees'].map(g=>`<option value="${g}">`).join('')}</datalist></div>
+    ${p.person?'':`<div class="field"><label>Status</label><input id="hdStatus" value="${esc(m.status||'Resigned')}"></div>`}</div>
+    <div class="field"><label>Google Drive 201 folder</label><input id="hdDrive" value="${esc(m.drive||'')}" placeholder="https://drive.google.com/drive/folders/…"></div>
+    <button class="btn primary" style="width:100%" onclick="h201SaveDetails('${id}')">Save</button>`);
+}
+function h201SaveDetails(id){ const x = {code:el('hdCode').value.trim(), legal:el('hdLegal').value.trim(), group:el('hdGroup').value.trim(), drive:el('hdDrive').value.trim()}; if(el('hdStatus')) x.status = el('hdStatus').value.trim();
+  h201EnsureMeta(id, x); closeModal(); h201Changed('Saved'); }
+
+/* ---------- Signatures & acknowledgments (HR + company heads) ---------- */
+function h201Tracker(){
+  const rows = [];
+  HRDOCS.filter(d=>d.status==='Sent').forEach(d=>(d.sentTo||[]).forEach(k=>rows.push({d, k, st:h201DocStatus(d.id, k)})));
+  return rows.sort((a,b)=>(b.d.sentAt||'').localeCompare(a.d.sentAt||''));
+}
+function h201StatusHTML(){
+  const R = h201Tracker(); const F = H2.stF||'all';
+  const L = R.filter(r=>F==='all' || (F==='waiting' ? ['awaiting','opened'].includes(r.st.key) : ['signed','ack'].includes(r.st.key)));
+  const n = k => R.filter(r=>k==='waiting' ? ['awaiting','opened'].includes(r.st.key) : ['signed','ack'].includes(r.st.key)).length;
+  return `<div class="grid cols-4" style="margin-bottom:14px">
+      <div class="card kpi"><div class="k-label">Issued through the portal</div><div class="k-val">${R.length}</div><div class="hint">contracts, renewals, memos, warnings, letters</div></div>
+      <div class="card kpi"><div class="k-label">Signed / acknowledged</div><div class="k-val" style="color:var(--ok)">${n('done')}</div><div class="hint">copies saved in 201 Files</div></div>
+      <div class="card kpi"><div class="k-label">Waiting</div><div class="k-val" style="color:var(--warn)">${n('waiting')}</div><div class="hint">not yet signed or acknowledged</div></div>
+      <div class="card kpi"><div class="k-label">Files in 201</div><div class="k-val">${HRFILES.filter(f=>f.emp!==H201_LIB).length}</div><div class="hint">${h201People().length} employee records</div></div></div>
+    <div class="card"><div class="card-h"><h3>Signatures & acknowledgments</h3><div class="seg">${[['all','All'],['waiting','Waiting'],['done','Completed']].map(([k,l])=>`<button class="${F===k?'on':''}" onclick="H2.stF='${k}';RENDER.hr201()">${l}</button>`).join('')}</div></div>
+      <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Document</th><th>Employee</th><th>Issued</th><th>Status</th><th>Date & time</th><th></th></tr></thead><tbody>
+      ${L.map(({d,k,st})=>`<tr><td><b>${esc(d.title)}</b><div class="hint">${esc(d.kind)}${(d.version||1)>1?' · v'+d.version:''} · ${d.id}</div></td><td>${av(P(k))} ${esc(pname(k))}</td><td>${dtstr(d.sentAt)}<div class="hint">by ${esc(first(d.by))}</div></td>
+        <td><span class="badge ${st.cls}">${esc(st.label)}</span></td><td>${st.at?esc(esManila(st.at)):st.opened?'<span class="hint">opened '+esc(dtstr(st.opened))+'</span>':'—'}</td>
+        <td style="white-space:nowrap"><button class="btn ghost" onclick="H2.tab='emp';H2.sel='${k}';H2.folder='${h201DocFolder(d)}';H2.mob='pane';RENDER.hr201()">Open 201 →</button></td></tr>`).join('') || '<tr><td colspan="6" class="empty">Nothing issued through the employee portal yet.</td></tr>'}
+      </tbody></table></div></div>`;
+}
+
+/* ---------- HR Document Library (company records) ---------- */
+const H201_CATS = [[/^(OC|GUC)$/,'Operations & admin updates'],[/^(EJO|JOL)$/,'Job orders'],[/^(EF|EM|EVAL)$/,'Evaluations'],[/^(HP|RF|HOP|IR|PR|AR|VAR)$/,'Recruitment & hiring'],
+  [/^(JD|JA)$/,'Job descriptions & analysis'],[/^(MA|IML)$/,'Memorandum agreements'],[/^PL$/,'Probation'],[/^(RL|UL)$/,'Letters & updates from management'],[/^RR$/,'Policies — Rules & Regulations'],
+  [/^SC$/,'Service contracts'],[/^201$/,'201 filing'],[/^(CF|CCLC)$/,'Confidential'],[/^(OTV|TA|PMOT|CPOT|CDOT|LGSOT)$/,'Training & onboarding'],[/^MRO$/,'Monthly reports'],[/^WL$/,'Warning letters & templates']];
+const h201CatOf = code => { const m = String(code||'').toUpperCase().match(/^HR-([A-Z0-9]+)-/); const k = m ? m[1] : ''; return (H201_CATS.find(([re])=>re.test(k))||[])[1] || 'Other'; };
+const h201LibCats = () => uniq([...H201_CATS.map(c=>c[1]), ...HRFILES.filter(f=>f.emp===H201_LIB).map(f=>f.cat||'Other'), 'Other']);
+function h201LibHTML(){
+  const all = HRFILES.filter(f=>f.emp===H201_LIB); const q = H2.libQ.trim().toLowerCase();
+  const L = all.filter(f=>(H2.libCat==='all' || (f.cat||'Other')===H2.libCat) && (!q || [f.name, f.code, f.cat, f.access, f.audience].join(' ').toLowerCase().includes(q)))
+    .sort((a,b)=>(a.cat||'').localeCompare(b.cat||'') || String(a.code||'').localeCompare(String(b.code||''), undefined, {numeric:true}));
+  const cats = uniq(all.map(f=>f.cat||'Other')).sort();
+  const byCat = {}; L.forEach(f=>(byCat[f.cat||'Other'] = byCat[f.cat||'Other']||[]).push(f));
+  return `<div class="card" style="margin-bottom:12px"><div class="card-b h201-libbar">
+      <input placeholder="Search the library — name, code, category…" value="${esc(H2.libQ)}" oninput="H2.libQ=this.value;clearTimeout(H2.t);H2.t=setTimeout(()=>{RENDER.hr201();const i=document.querySelector('.h201-libbar input');i?.focus();i?.setSelectionRange(i.value.length,i.value.length)},200)">
+      <select onchange="H2.libCat=this.value;RENDER.hr201()"><option value="all">All categories (${all.length})</option>${cats.map(c=>`<option ${H2.libCat===c?'selected':''} value="${esc(c)}">${esc(c)} (${all.filter(f=>(f.cat||'Other')===c).length})</option>`).join('')}</select>
+      <button class="btn" onclick="h201LinkModal('${H201_LIB}','lib')">🔗 Add link</button><button class="btn primary" onclick="h201UploadLib()">⬆ Upload files</button></div></div>
+    ${Object.entries(byCat).map(([c, F])=>`<div class="card" style="margin-bottom:12px"><div class="card-h"><h3>${esc(c)} <span class="hint">(${F.length})</span></h3></div><div class="h201-files lib">${F.map(f=>h201FileRow(f)).join('')}</div></div>`).join('')
+      || `<div class="card"><div class="empty h201-empty"><b>The HR Document Library is empty</b><span>Import your DMS tracker (⬆ Import existing records) or add links and files for templates, policies, job descriptions and reports.</span></div></div>`}`;
+}
+function h201UploadLib(){ const i = document.createElement('input'); i.type = 'file'; i.multiple = true; i.onchange = async () => { const before = HRFILES.length; await h201UploadFiles(H201_LIB, 'lib', i.files); HRFILES.slice(before).forEach(f=>{ if(f.emp===H201_LIB) f.cat = H2.libCat!=='all' ? H2.libCat : 'Other'; }); recordChange(); RENDER.hr201(); }; i.click(); }
+
+/* ---------- automatic filing ---------- */
+const h201Title = (kind, title) => String(title||'').toLowerCase().startsWith(String(kind||'').toLowerCase()) ? title : `${kind} — ${title}`;
+const h201Snap = (d, k) => ({title:d.title, kind:d.kind, body:fillDoc(d.body, k, d.sentAt), files:d.files||[], sentAt:d.sentAt, by:d.by, version:d.version||1});
+const h201Skip = (emp, id) => (h201Meta(emp)?.skip||[]).includes(id);
+function h201SaveOriginal(d, k){
+  const id = `HF-DOC-${d.id}-${k}`; if(HRFILES.some(f=>f.id===id) || h201Skip(k, id)) return false;
+  HRFILES.push({id, emp:k, person:k, folder:h201DocFolder(d), kind:'doc', source:'hrdoc', doc:d.id, name:`${h201Title(d.kind, d.title)}${(d.version||1)>1&&!/\(v\d+\)$/.test(d.title)?' (v'+d.version+')':''} · original`, snap:h201Snap(d, k), by:d.by, at:d.sentAt||nowISO()});
+  return true;
+}
+function h201SaveSigned(r){
+  const id = `HF-ES-${r.id}`; if(HRFILES.some(f=>f.id===id) || h201Skip(r.person, id)) return false;
+  const kind = r.docKind||''; const folder = /contract|renewal/i.test(kind) ? 'contracts' : 'memos';
+  HRFILES.push({id, emp:r.person, person:r.person, share:true, folder, kind:r.file?'file':'doc', source:'esign', doc:r.doc, esign:r.id, file:r.file||null, type:'application/pdf', size:r.file?.size||0,
+    name:`${h201Title(kind, r.docTitle)}${r.version>1&&!/\(v\d+\)$/.test(r.docTitle)?' (v'+r.version+')':''} · signed by ${r.personName}.pdf`, signedAt:r.signedAt, status:'Signed', hash:r.hash, by:r.person, at:r.signedAt});
+  return true;
+}
+function h201SaveAck(docId, k){
+  const d = HRDOCS.find(x=>x.id===docId); const r = DOCREADS.find(x=>x.doc===docId && x.person===k); if(!d || !r?.ackAt || esNeeds(d)) return false;
+  const id = `HF-ACK-${docId}-${k}`; if(HRFILES.some(f=>f.id===id) || h201Skip(k, id)) return false;
+  HRFILES.push({id, emp:k, person:k, share:true, folder:h201DocFolder(d), kind:'doc', source:'ack', doc:docId, name:`${h201Title(d.kind, d.title)}${(d.version||1)>1&&!/\(v\d+\)$/.test(d.title)?' (v'+d.version+')':''} · acknowledged by ${pname(k)}`,
+    snap:h201Snap(d, k), ackAt:r.ackAt, readAt:r.readAt, status:'Acknowledged', by:k, at:r.ackAt});
+  return true;
+}
+/* HR / heads: make sure every issued document, signature and acknowledgment has its 201 copy (covers older records, other devices, retries) */
+let H201_REC_T = 0;
+function h201Reconcile(){
+  if(!h201Can() || !PEOPLE[PERSON] || (typeof SYNC!=='undefined' && SYNC.applying)) return 0;
+  let n = 0;
+  HRDOCS.filter(d=>d.status==='Sent').forEach(d=>(d.sentTo||[]).forEach(k=>{ if(h201SaveOriginal(d, k)) n++; if(h201SaveAck(d.id, k)) n++; }));
+  ESIGN.filter(r=>r.status==='Signed').forEach(r=>{ if(h201SaveSigned(r)) n++; });
+  if(n) recordChange();
+  return n;
+}
+{ const _snd = sendHrDoc; sendHrDoc = function(id){ const r = _snd.apply(this, arguments); try{ const d = HRDOCS.find(x=>x.id===id); if(d && d.status==='Sent'){ let n = 0; (d.sentTo||[]).forEach(k=>{ if(h201SaveOriginal(d, k)) n++; }); if(n) recordChange(); } }catch(e){ console.warn('201 filing', e); } return r; }; }
+{ const _ack = ackDoc; ackDoc = function(id){ const r = _ack.apply(this, arguments); try{ if(h201SaveAck(id, PERSON)) recordChange(); }catch(e){ console.warn('201 filing', e); } return r; }; }
+{ const _es = esSubmit; esSubmit = async function(){ const d = ES.doc; const r = await _es.apply(this, arguments); try{ const rec = d && esSig(d.id); if(rec && h201SaveSigned(rec)) recordChange(); }catch(e){ console.warn('201 filing', e); } return r; }; }
+{ const _ore = onRemoteEvent; let t = 0; onRemoteEvent = function(ev){ _ore.apply(this, arguments); if(['esign','docreads','hrdocs'].includes(ev?.coll) && h201Can()){ clearTimeout(t); t = setTimeout(h201Reconcile, 700); } }; }
+setInterval(()=>{ if(PEOPLE[PERSON] && h201Can()) h201Reconcile(); }, 60000);
+
+/* ---------- PDF copies of documents issued through the portal ---------- */
+const h201PdfName = f => `${f.name.replace(/[^\w\- ·().]+/g,'').replace(/\s+/g,' ').slice(0,90)}.pdf`;
+async function h201DocPDF(f){
+  await loadScript(JSPDF_SRC);
+  const s = f.snap || {}; const doc = new window.jspdf.jsPDF({unit:'pt', format:'a4'}); const W = 595, H = 842, M = 56;
+  const k = f.person || f.emp; const st = f.source==='hrdoc' && f.doc ? h201DocStatus(f.doc, k) : null;
+  const head = () => { doc.setFillColor(242,180,64); doc.rect(0,0,W,6,'F'); doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(120); doc.text(`The Cross Core OPC · ${s.kind||'HR document'}${(s.version||1)>1?' · version '+s.version:''}`, M, 30); doc.setTextColor(20); };
+  const foot = () => { doc.setFontSize(7.5); doc.setTextColor(120); doc.text(doc.splitTextToSize(`${f.source==='ack'?'Acknowledged copy':'Original'} · ${pname(k)} · issued ${s.sentAt?esManila(s.sentAt):''}${f.doc?' · '+f.doc:''}`, W-2*M), M, H-30); doc.setTextColor(20); };
+  head(); let y = 70;
+  doc.setFont('helvetica','bold'); doc.setFontSize(15); doc.splitTextToSize(s.title||f.name, W-2*M).forEach(l=>{ doc.text(l, M, y); y += 19; }); y += 6;
+  doc.setFont('helvetica','normal'); doc.setFontSize(10.5);
+  doc.splitTextToSize(String(s.body||''), W-2*M).forEach(l=>{ if(y > H-80){ foot(); doc.addPage(); head(); y = 64; } doc.text(l, M, y); y += 14.5; });
+  if((s.files||[]).length){ y += 8; if(y > H-90){ foot(); doc.addPage(); head(); y = 64; } doc.setFont('helvetica','bold'); doc.text('Attachments', M, y); y += 15; doc.setFont('helvetica','normal'); s.files.forEach(x=>{ doc.text('• '+(x.name||'file'), M, y); y += 14; }); }
+  y += 18; if(y > H-150){ foot(); doc.addPage(); head(); y = 70; }
+  doc.setDrawColor(200); doc.setFillColor(248,246,240); doc.roundedRect(M, y, W-2*M, 96, 6, 6, 'FD'); y += 20;
+  doc.setFont('helvetica','bold'); doc.setFontSize(11);
+  if(f.source==='ack'){ doc.text('Acknowledgment of receipt', M+14, y); y += 17; doc.setFont('helvetica','normal'); doc.setFontSize(9.5);
+    [`Acknowledged electronically by ${pname(k)} in the Cross Core Ops Suite employee portal.`, `Acknowledged on: ${esManila(f.ackAt)}`, `Opened on: ${f.readAt?esManila(f.readAt):'—'}`, `Issued by ${pname(s.by)} on ${s.sentAt?esManila(s.sentAt):'—'}`].forEach(l=>{ doc.text(l, M+14, y); y += 14; }); }
+  else { doc.text('Issued through the employee portal', M+14, y); y += 17; doc.setFont('helvetica','normal'); doc.setFontSize(9.5);
+    [`Issued to ${pname(k)} by ${pname(s.by)} on ${s.sentAt?esManila(s.sentAt):'—'}.`, `Status: ${st?st.label:'—'}${st?.at?' — '+esManila(st.at):''}`, `This is the original document as sent. The signed or acknowledged copy is filed beside it.`].forEach(l=>{ doc.text(doc.splitTextToSize(l, W-2*M-28)[0], M+14, y); y += 14; }); }
+  foot(); return doc;
+}
+
+/* ---------- import the existing DMS / file-monitoring workbook ---------- */
+const H201_IMP = {rows:[], file:''};
+const h201Norm = s => String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9 ]+/g,' ').replace(/\s+/g,' ').trim();
+function h201ParseName(raw){
+  let s = String(raw||'').replace(/\s+201\s*$/i,'').trim(); const role = (s.match(/\(([^)]*)\)/)||[])[1]||''; s = s.replace(/\([^)]*\)/g,'').trim();
+  const [sur, giv] = s.includes(',') ? [s.slice(0, s.indexOf(',')), s.slice(s.indexOf(',')+1)] : [s.split(' ').slice(-1)[0], s.split(' ').slice(0,-1).join(' ')];
+  const surT = h201Norm(sur).split(' ').filter(w=>w && !/^(jr|sr|ii|iii)$/.test(w)), givT = h201Norm(giv).split(' ').filter(w=>w && w.length>1);
+  const pretty = [giv, sur].map(x=>String(x).trim().toLowerCase().replace(/(^|[\s\-.'])\S/g, m=>m.toUpperCase())).join(' ').replace(/\s+/g,' ').trim();
+  return {sur:surT, giv:givT, role, pretty, raw:String(raw||'').trim()};
+}
+function h201Match(raw){
+  const n = h201ParseName(raw); const R = n.role.toLowerCase();
+  if(/\bcoo\b/.test(R)) return 'ja'; if(/\bceo\b/.test(R)) return 'paul'; if(/co-?founder/.test(R) && LEADERS.norman) return 'norman';
+  const cands = [...Object.entries(LEADERS).map(([k,l])=>({k, name:l.name})), ...EMPLOYEES.map(e=>({k:e.id, name:e.name}))];
+  let best = null, bestS = 0, tie = false;
+  cands.forEach(c=>{ const t = h201Norm(c.name.replace(/\([^)]*\)/g,'')).split(' '); let sc = 0;
+    if(n.sur.length && n.sur.every(w=>t.includes(w))) sc += 3; else if(n.sur.some(w=>t.includes(w))) sc += 1; else if(n.sur.length===1 && t.some(x=>h201Near(x, n.sur[0]))) sc += 2;
+    if(n.giv[0] && (t[0]===n.giv[0] || c.k===n.giv[0])) sc += 3; else if(n.giv[0] && t[0] && t[0].slice(0,4)===n.giv[0].slice(0,4)) sc += 1;
+    n.giv.slice(1).forEach(w=>{ if(t.includes(w)) sc += 1; });
+    if(sc > bestS){ best = c.k; bestS = sc; tie = false; } else if(sc===bestS && sc>0 && c.k!==best) tie = true; });
+  return bestS >= 3 && !tie ? best : null;
+}
+function h201Near(a, b){ if(a===b) return true; if(Math.abs(a.length-b.length)>1 || Math.min(a.length,b.length)<4) return false; let i=0, j=0, e=0; while(i<a.length && j<b.length){ if(a[i]===b[j]){ i++; j++; continue; } if(++e>1) return false; if(a.length>b.length) i++; else if(b.length>a.length) j++; else { i++; j++; } } return e + (a.length-i) + (b.length-j) <= 1; }
+const h201Slug = s => 'x-'+h201Norm(s).replace(/ /g,'-').slice(0,40);
+function h201ImportStart(){ const i = document.createElement('input'); i.type = 'file'; i.accept = '.xlsx,.xls,.csv'; i.onchange = () => i.files[0] && h201ImportFile(i.files[0]); i.click(); }
+async function h201ImportFile(file){
+  toast('Reading '+file.name+'…');
+  try{
+    await loadScript(XLSX_SRC); const wb = XLSX.read(await file.arrayBuffer(), {type:'array'}); const rows = [];
+    wb.SheetNames.forEach(sh=>{ const data = XLSX.utils.sheet_to_json(wb.Sheets[sh], {header:1, defval:''}); if(!data.length) return;
+      const hdr = data[0].map(h=>String(h).trim().toLowerCase()); const col = re => hdr.findIndex(h=>re.test(h));
+      const ci = {code:col(/code/), name:col(/file name|name/), type:col(/^type/), status:col(/status/), link:col(/link|url/)}; if(ci.name<0) return;
+      const is201 = /201/.test(sh) && !/section|tracker/i.test(sh); const former = /resign|pull ?out/i.test(sh) ? (/resign/i.test(sh)?'Resigned':'Pulled out') : '';
+      data.slice(1).forEach((r, i)=>{ const name = String(r[ci.name]||'').trim(); if(!name) return;
+        const code = String(r[ci.code]||'').trim(), link = String(ci.link>=0 ? r[ci.link] : '').trim(), type = String(r[ci.type]||'').trim(), access = String(r[ci.status]||'').trim();
+        const row = {sheet:sh, i, code, name, link, type, access, former, is201};
+        if(is201){ const k = h201Match(name); const pn = h201ParseName(name);
+          row.dest = k || h201Slug(pn.pretty); row.destName = k ? pname(k) : pn.pretty; row.matched = !!k; row.legal = pn.raw.replace(/\s+201\s*$/i,'').replace(/\s*\([^)]*\)\s*/g,' ').trim(); row.role = pn.role;
+          row.group = /internal/i.test(sh+type) ? 'Cross Core Internal' : /lwg|glaze/i.test(sh+type) ? 'LWG VAs' : 'In-house VAs'; }
+        else { const ev = name.match(/evaluation for (?:pm )?([a-z]+)/i); const fn = name.match(/\bfor ([a-z]{2,}(?: [a-z]{2,})?)\s*$/i);
+          let k = null; if(ev) k = h201Match(`, ${ev[1]}`) || (Object.keys(LEADERS).find(x=>x===ev[1].toLowerCase())||null);
+          if(!k && fn){ const w = fn[1].split(' '); k = h201Match(`${w.slice(-1)[0]}, ${w[0]}`); }
+          row.dest = k || H201_LIB; row.folder = k ? (ev ? 'evals' : 'memos') : 'lib'; row.cat = h201CatOf(code); row.destName = k ? pname(k) : 'HR Document Library'; row.matched = !!k; }
+        rows.push(row); }); });
+    H201_IMP.rows = rows; H201_IMP.file = file.name; h201ImportReview();
+  }catch(e){ console.warn(e); toast('Could not read that file: '+e.message); }
+}
+function h201ImportReview(){
+  const R = H201_IMP.rows; const people = h201People().sort((a,b)=>a.name.localeCompare(b.name));
+  const e201 = R.filter(r=>r.is201), lib = R.filter(r=>!r.is201);
+  const opt = (r, idx) => `<select onchange="h201ImpSet(${idx}, this.value)"><option value="${r.matched?'':esc(r.dest)}" ${!r.matched?'selected':''}>${r.is201?'➕ New 201 record: '+esc(r.destName):'📚 HR Document Library'}</option>${people.map(p=>`<option value="${p.id}" ${r.matched&&r.dest===p.id?'selected':''}>${esc(p.name)}${h201Former(p.status)?' ('+esc(p.status)+')':''}</option>`).join('')}</select>`;
+  const row = (r, idx) => `<tr class="${r.link?'':'h201-nolink'}"><td class="hint" style="white-space:nowrap;font-size:11px">${esc(r.code||'—')}</td><td><b>${esc(r.name)}</b><div class="hint">${esc(r.sheet)}${r.former?' · '+esc(r.former):''}${r.access?' · '+esc(r.access):''}</div></td>
+    <td>${opt(r, idx)}${r.is201?'':`<div class="hint" style="margin-top:3px">${r.matched?esc(r.folder==='evals'?'Evaluations':'Memos, Warnings & Acknowledgments'):esc(r.cat)}</div>`}</td><td>${r.link?'<span class="badge b-approved">Link</span>':'<span class="badge b-draft">No link — skipped</span>'}</td></tr>`;
+  const idx = r => R.indexOf(r);
+  openModal('Import existing records — '+H201_IMP.file, `<p class="hint" style="margin-bottom:10px">Each employee’s 201 folder is matched to their profile; company records go to the HR Document Library by category. Check the matches, change any that are wrong, then import. Importing again later updates these records instead of adding duplicates.</p>
+    <div class="grid cols-3" style="margin-bottom:12px"><div class="card kpi"><div class="k-label">Employee 201 folders</div><div class="k-val">${e201.length}</div><div class="hint">${e201.filter(r=>r.matched).length} matched to a profile · ${e201.filter(r=>!r.matched).length} new records</div></div>
+      <div class="card kpi"><div class="k-label">Company HR records</div><div class="k-val">${lib.length}</div><div class="hint">${lib.filter(r=>r.matched).length} filed under an employee</div></div>
+      <div class="card kpi"><div class="k-label">To import</div><div class="k-val">${R.filter(r=>r.link).length}</div><div class="hint">${R.filter(r=>!r.link).length} rows have no link yet</div></div></div>
+    <div class="tbl-wrap h201-imp"><table class="tbl"><thead><tr><th>Code</th><th>Record</th><th>Goes to</th><th></th></tr></thead><tbody>
+      ${e201.length?`<tr class="grp"><td colspan="4">Employee 201 folders</td></tr>${e201.map(r=>row(r, idx(r))).join('')}`:''}
+      ${lib.length?`<tr class="grp"><td colspan="4">Company HR records</td></tr>${lib.map(r=>row(r, idx(r))).join('')}`:''}</tbody></table></div>
+    <div style="display:flex;gap:8px;margin-top:12px"><button class="btn" onclick="closeModal()">Cancel</button><button class="btn primary" style="flex:1" onclick="h201ImportRun()">Import ${R.filter(r=>r.link).length} records</button></div>`, true);
+}
+function h201ImpSet(i, v){ const r = H201_IMP.rows[i]; if(!r) return;
+  if(!v || v.startsWith('x-') || v===H201_LIB){ const pn = r.is201 ? h201ParseName(r.name) : null; r.matched = false; r.dest = r.is201 ? h201Slug(pn.pretty) : H201_LIB; r.destName = r.is201 ? pn.pretty : 'HR Document Library'; if(!r.is201) r.folder = 'lib'; }
+  else { r.matched = true; r.dest = v; r.destName = h201Person(v)?.name||v; if(!r.is201) r.folder = /evaluation/i.test(r.name) ? 'evals' : 'memos'; } }
+function h201ImportRun(){
+  const R = H201_IMP.rows.filter(r=>r.link); let people = 0, files = 0, lib = 0;
+  const hid = r => 'HF-IMP-'+h201Norm(r.sheet+' '+r.code+' '+r.name).replace(/ /g,'-').slice(0,90);
+  R.forEach(r=>{
+    if(r.is201){
+      const m = h201EnsureMeta(r.dest, {code:r.code, drive:/drive\.google|docs\.google/.test(r.link)?r.link:'', legal:r.legal, group:r.group, dmsSheet:r.sheet});
+      if(!r.matched){ m.name = r.destName; m.role = r.role || (r.former?'Former VA':''); m.status = r.former || m.status || 'Former'; }
+      people++;
+      const id = hid(r); const ex = HRFILES.find(f=>f.id===id);
+      const rec = {id, emp:r.dest, folder:'other', kind:'link', name:`201 folder (Google Drive)${r.code?' — '+r.code:''}`, url:r.link, code:r.code, access:r.access==='HR Personnel'?'HR personnel only':r.access, source:'import', by:PERSON, at:ex?.at||nowISO()};
+      if(ex) Object.assign(ex, rec, {updatedAt:nowISO(), updatedBy:PERSON}); else HRFILES.push(rec); files++;
+    } else {
+      const id = hid(r); const ex = HRFILES.find(f=>f.id===id);
+      const rec = {id, emp:r.dest, folder:r.folder||'lib', cat:r.cat, kind:'link', name:r.name, url:r.link, code:r.code, access:r.access==='HR Personnel'?'HR personnel only':r.access==='Can Share'?'Can share':r.access, audience:r.type, confidential:/credential|confidential/i.test(r.name), source:'import', by:PERSON, at:ex?.at||nowISO()};
+      if(r.dest!==H201_LIB) h201EnsureMeta(r.dest);
+      if(ex) Object.assign(ex, rec, {updatedAt:nowISO(), updatedBy:PERSON}); else HRFILES.push(rec); r.dest===H201_LIB ? lib++ : files++;
+    }
+  });
+  audit(`201 Files: imported ${R.length} records from ${H201_IMP.file}`);
+  recordChange(); closeModal(); H2.tab = 'emp'; RENDER.hr201();
+  toast(`Imported — ${people} employee 201 folders, ${lib} library records${files-people>0?`, ${files-people} filed under employees`:''}`);
+}
+
+/* ===== 47_groupchat.js ===== */
+/* ================= GROUP CHATS (Oct 2026) — onboarding hand-off + group photos =================
+   1) Onboarding hand-off: HR's welcome message stays in the new client group chat. When HR (Luane) marks onboarding as
+      complete, the closing message below is posted first — and only after the server confirms it was saved does her HR
+      account leave the chat. The PM, VAs, company heads and everyone else stay.
+   2) Group photos: every group chat gets its own cute cartoon avatar, drawn from the client's services and brand colors,
+      so conversations are easy to tell apart. Company heads, the core team, project managers, the Marketing Head and HR
+      can upload, replace or remove a group photo (optimised to a small square image) — it updates everywhere at once. */
+const OB_CLOSE_TEXT = 'Hi, team! Onboarding for our new VA(s) is now complete, and I’ll be leaving this group chat. Your assigned PM will take over coordination and support from here. Thank you, everyone! If you have any HR concerns or need assistance, please feel free to message me directly or reach out through the appropriate HR channel. 😊';
+const obClientOfChat = chatId => CLIENTS.find(c=>c.chatId===chatId);
+const obRegOf = c => c && (BRIEFS.find(b=>b.kind==='registration' && (b.id===c.regId || b.clientId===c.id)) || null);
+/* HR is in this client's group chat only for onboarding (added when the chat was created) */
+function obPending(c, k=PERSON){ return !!c && !isEnded(c) && (c.chatExtra||[]).includes(k) && !c.obClosedAt && (HR_KEYS().includes(k) || (k===PERSON && ROLE==='hr')); }
+const obMine = () => CLIENTS.filter(c=>obPending(c));
+function obBarHTML(c){
+  if(!obPending(c)) return '';
+  const pms = pmsOf(c.id).filter(k=>PEOPLE[k]);
+  return `<div class="ob-bar" id="obBar"><div><b>Onboarding in progress</b><span>When the team is settled, mark onboarding complete — your closing message is posted, then you leave this chat and ${pms.length?esc(pms.map(first).join(' & ')):'the PM'} take${pms.length===1?'s':''} over.</span></div><button class="btn primary" onclick="obCloseStart('${c.id}')">✓ Mark onboarding complete</button></div>`;
+}
+function obCloseStart(cid){
+  const c = client(cid); if(!obPending(c)) return toast('Onboarding for this chat is already complete');
+  confirmModal('Mark onboarding complete?', `<p style="margin-bottom:10px">This message is posted in <b>${esc(c.name)}</b>, then your HR account leaves the group chat. The PM, VAs and everyone else stay.</p>
+    <div class="ob-preview">${esc(OB_CLOSE_TEXT)}</div>`, 'Post message & leave the chat', ()=>obClose(cid), {primary:true});
+}
+/* post → confirm it is saved on the server → only then leave */
+async function obClose(cid){
+  const c = client(cid); if(!obPending(c)) return;
+  const btn = el('cfOk'); if(btn){ btn.classList.add('is-loading'); btn.textContent = 'Posting your message…'; }
+  const m = {id:uid('M'), chat:c.chatId, by:PERSON, text:OB_CLOSE_TEXT, mentions:[], at:nowISO(), files:[], kind:'onboarding-close'};
+  MESSAGES.push(m);
+  try{
+    await BACKEND.write([{collection:'messages', id:m.id, data:JSON.parse(JSON.stringify(m)), audience:null, scope:c.chatId}], []);
+    if(BACKEND.mode==='live'){
+      const {data, error} = await BACKEND.sb.from('cc_records').select('id').eq('collection','messages').eq('id', m.id).maybeSingle();
+      if(error || !data) throw new Error(error?.message || 'the message could not be confirmed');
+    }
+    if(SYNC.last.messages) SYNC.last.messages.set(m.id, JSON.stringify(m));
+  }catch(e){
+    console.warn('closing message', e); recordChange();
+    if(btn){ btn.classList.remove('is-loading'); btn.disabled = false; btn.textContent = 'Post message & leave the chat'; }
+    return toast('Your closing message could not be sent yet — you are still in the chat. Check your connection and try again.');
+  }
+  /* the message is saved: now leave */
+  c.chatExtra = (c.chatExtra||[]).filter(k=>k!==PERSON); c.obClosedAt = nowISO(); c.obClosedBy = PERSON; c.obCloseMsg = m.id;
+  const reg = obRegOf(c); if(reg){ reg.hrClosedAt = c.obClosedAt; if(typeof regHist==='function') regHist(reg, 'Onboarding complete', `${first(PERSON)} posted the closing message and left the group chat`); }
+  ensureChats();
+  notify(uniq([...pmsOf(c.id), ...HEADS]), 'assignment', `${esc(first(PERSON))} completed onboarding for <b>${esc(c.name)}</b> and left the group chat — the PM now leads coordination`, {view:'chat', arg:c.chatId});
+  audit(`Onboarding complete for ${c.name} — HR closing message posted, ${pname(PERSON)} left the group chat`);
+  recordChange(); closeModal();
+  if(CURRENT==='chat'){ CHAT_OPEN = null; RENDER.chat(true); } else RENDER[CURRENT]?.();
+  buildNav(); toast(`Onboarding complete — message posted and you left the ${c.name} chat`);
+}
+{ const _rc = RENDER.chat; RENDER.chat = function(){ const r = _rc.apply(this, arguments);
+    const c = obClientOfChat(CHAT_OPEN); const head = el('chatHead'); const bar = el('obBar'); const want = c ? obBarHTML(c) : '';
+    if(!want) bar?.remove(); else if(!bar) head?.insertAdjacentHTML('afterend', want);
+    return r; }; }
+/* HR dashboard + registration view */
+function obCardHTML(){
+  const L = obMine(); if(!L.length) return '';
+  return `<div class="card ob-card" style="margin-bottom:16px"><div class="card-h"><h3>Onboarding in progress <span class="badge b-scheduled">${L.length}</span></h3><span class="sub">You are in these client group chats until onboarding is complete</span></div>
+    <div class="card-b" style="padding-top:4px">${L.map(c=>`<div class="list-row">${chatAvatar(CHATS.find(x=>x.id===c.chatId)||{kind:'client', client:c.id, name:c.name, id:c.chatId})}<div style="flex:1;min-width:0"><b style="font-size:13px">${esc(c.name)}</b><div class="hint">PM ${esc(pmsOf(c.id).map(first).join(', ')||'—')} · ${(c.team||[]).length} VA${(c.team||[]).length===1?'':'s'}${c.createdAt?' · onboarded '+ago(c.createdAt):''}</div></div>
+      <button class="btn" onclick="CHAT_OPEN='${c.chatId}';go('chat')">💬 Open chat</button><button class="btn primary" onclick="obCloseStart('${c.id}')">✓ Mark complete</button></div>`).join('')}</div></div>`;
+}
+{ const _rd = RENDER.dashboard; RENDER.dashboard = function(){ const r = _rd.apply(this, arguments);
+    if(ROLE==='hr' && obMine().length){ const v = el('v-dashboard'); const at = v?.querySelector('.page-head'); if(at && !v.querySelector('.ob-card')) at.insertAdjacentHTML('afterend', obCardHTML()); }
+    return r; }; }
+if(typeof regView==='function'){ const _rv = regView; regView = function(id){ const r = _rv.apply(this, arguments);
+    const reg = BRIEFS.find(x=>x.id===id); const c = reg?.clientId && client(reg.clientId);
+    const body = el('modalBody'); if(body && c){ if(obPending(c)) body.insertAdjacentHTML('beforeend', `<div class="ob-bar" style="margin-top:12px"><div><b>Onboarding in progress</b><span>Mark it complete to post your closing message and leave the group chat.</span></div><button class="btn primary" onclick="obCloseStart('${c.id}')">✓ Mark onboarding complete</button></div>`);
+      else if(c.obClosedAt) body.insertAdjacentHTML('beforeend', `<div class="hint" style="margin-top:10px">✓ Onboarding completed ${dtstr(c.obClosedAt)} by ${esc(first(c.obClosedBy))} — closing message posted and HR left the group chat.</div>`); }
+    return r; }; }
+
+/* ================= group photos ================= */
+const mktHead = () => S().marketingHead || 'kiara';
+const gaCan = c => !!c && c.kind!=='dm' && (HEADS.includes(PERSON) || isFullAccess() || isExec() || isCore() || ROLE==='manager' || ROLE==='hr' || PERSON===mktHead());
+const gaRec = c => AVATARS.find(a=>a.id==='g:'+c.id);
+function gaHash(s){ let h = 2166136261; for(const ch of String(s)) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); } return h>>>0; }
+const GA_THEMES = [
+  [/lacrosse|sport|athlet|golf|basketball|soccer|football|league/i, 'ball'], [/pet|\bvet\b|dog|\bcat\b|animal/i, 'paw'], [/dental|medical|clinic|doctor|pharma|therap|\bcare\b/i, 'plus'],
+  [/\blaw\b|legal|attorney|compliance/i, 'scale'], [/travel|hotel|tour|resort|airline|hospitality/i, 'plane'], [/coffee|cafe|food|restaurant|bak|kitchen|catering|drink/i, 'cup'],
+  [/beauty|skin|aesthetic|salon|\bspa\b|cosmetic|makeup|nail|lash/i, 'sparkle'], [/real ?estate|property|realty|home|house|mortgage|interior/i, 'house'],
+  [/fitness|gym|wellness|health|yoga|nutrition|diet/i, 'heart'], [/financ|account|tax|insur|invest|bank|wealth|crypto|private equity|m&a/i, 'coin'],
+  [/educat|school|course|coach|train|tutor|academy|learn/i, 'cap'], [/fashion|retail|shop|store|e-?commerce|apparel|boutique|jewel/i, 'bag'],
+  [/podcast|music|media|video|film|radio|stream/i, 'mic'], [/tech|saas|software|\bai\b|\bapp\b|startup|digital|web|data|cyber/i, 'rocket'],
+  [/lead ?gen|linkedin|outreach|sales|b2b|marketing|brand|social|content|agency|substack|newsletter|copy/i, 'mega']];
+function gaTheme(c, ch){
+  const cl = ch.client ? client(ch.client) : null; const txt = [cl?.industry, cl?.category, (cl?.services||[]).join(' '), cl?.summary, cl?.name, ch.name].filter(Boolean).join(' ');
+  if(ch.id==='chat-allva') return 'star'; if(/finance/i.test(ch.id)) return 'coin'; if(/exec|head/i.test(ch.id+ch.name)) return 'crown'; if(/core/i.test(ch.id)) return 'bolt';
+  return (GA_THEMES.find(([re])=>re.test(txt))||[])[1] || ['star','bolt','mega','heart'][gaHash(ch.id)%4];
+}
+const GA_GLYPH = {
+  sparkle:'<path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z" fill="#fff"/><circle cx="18.5" cy="5.5" r="1.4" fill="#fff"/>',
+  house:'<path d="M5 11.5L12 5l7 6.5V19H5z" fill="#fff"/><rect x="10.2" y="13.5" width="3.6" height="5.5" rx=".8" fill="C1"/>',
+  cup:'<path d="M5.5 9h10v5.5a4 4 0 0 1-4 4h-2a4 4 0 0 1-4-4z" fill="#fff"/><path d="M15.5 10.5h1.3a2.2 2.2 0 0 1 0 4.4h-1.5" stroke="#fff" stroke-width="1.8" fill="none"/><path d="M9 5.2c.6.7-.6 1.4 0 2.2M12 5.2c.6.7-.6 1.4 0 2.2" stroke="#fff" stroke-width="1.3" stroke-linecap="round" fill="none"/>',
+  heart:'<path d="M12 19s-7-4.3-7-9.2A3.8 3.8 0 0 1 12 8a3.8 3.8 0 0 1 7 1.8C19 14.7 12 19 12 19z" fill="#fff"/>',
+  rocket:'<path d="M12 4c3 2 4.2 5.3 3.6 9.4l-1.8 2H10.2l-1.8-2C7.8 9.3 9 6 12 4z" fill="#fff"/><circle cx="12" cy="10" r="1.6" fill="C1"/><path d="M10 16.5l2 3 2-3" fill="#fff"/>',
+  coin:'<circle cx="12" cy="12" r="7" fill="#fff"/><path d="M13.8 9.2c-.4-.6-1.1-.9-1.9-.9-1.1 0-1.9.6-1.9 1.4 0 1.9 4 1 4 3 0 .9-.9 1.5-2.1 1.5-.9 0-1.6-.3-2.1-1M12 7.2v1.1M12 14.2v1.2" stroke="C1" stroke-width="1.5" stroke-linecap="round" fill="none"/>',
+  cap:'<path d="M3.5 10L12 6l8.5 4-8.5 4z" fill="#fff"/><path d="M7 12v3.2c0 1.2 2.2 2.3 5 2.3s5-1.1 5-2.3V12l-5 2.4z" fill="#fff"/>',
+  bag:'<path d="M6 9h12l-1 10H7z" fill="#fff"/><path d="M9.3 9V7.8a2.7 2.7 0 0 1 5.4 0V9" stroke="#fff" stroke-width="1.7" fill="none"/>',
+  plane:'<path d="M20 5.5l-3.2 13-3.6-5.2L8 16.6l.6-4.6L4 9.8z" fill="#fff"/>',
+  plus:'<rect x="9.5" y="5" width="5" height="14" rx="1.6" fill="#fff"/><rect x="5" y="9.5" width="14" height="5" rx="1.6" fill="#fff"/>',
+  paw:'<ellipse cx="12" cy="15" rx="3.8" ry="3.2" fill="#fff"/><circle cx="7.2" cy="10.6" r="1.7" fill="#fff"/><circle cx="10" cy="7.8" r="1.7" fill="#fff"/><circle cx="14" cy="7.8" r="1.7" fill="#fff"/><circle cx="16.8" cy="10.6" r="1.7" fill="#fff"/>',
+  mic:'<rect x="9.2" y="4.5" width="5.6" height="10" rx="2.8" fill="#fff"/><path d="M7 11.5a5 5 0 0 0 10 0M12 16.5v3" stroke="#fff" stroke-width="1.7" stroke-linecap="round" fill="none"/>',
+  ball:'<circle cx="12" cy="12" r="7" fill="#fff"/><path d="M6 9.5c3 1 3 4 0 5M18 9.5c-3 1-3 4 0 5" stroke="C1" stroke-width="1.4" fill="none"/>',
+  scale:'<path d="M12 5v13M8 18.5h8M6 8h12" stroke="#fff" stroke-width="1.7" stroke-linecap="round"/><path d="M6 8l-2.4 5a2.4 2.4 0 0 0 4.8 0zM18 8l-2.4 5a2.4 2.4 0 0 0 4.8 0z" fill="#fff"/>',
+  mega:'<path d="M5 10.2h3l7.5-4v11.6l-7.5-4H5z" fill="#fff"/><path d="M8.4 14l1.2 4.2h2l-1-4" fill="#fff"/><path d="M18 9.5c1 .8 1 4.2 0 5" stroke="#fff" stroke-width="1.6" stroke-linecap="round" fill="none"/>',
+  star:'<path d="M12 4.5l2.3 4.7 5.2.8-3.8 3.6.9 5.1L12 16.3l-4.6 2.4.9-5.1-3.8-3.6 5.2-.8z" fill="#fff"/>',
+  bolt:'<path d="M13.5 4L6.5 13.5h4.5L10 20l7-9.5h-4.5z" fill="#fff"/>',
+  crown:'<path d="M4.5 9l3.8 3 3.7-5.5 3.7 5.5 3.8-3-1.6 8.5H6.1z" fill="#fff"/>'};
+const gaHex = h => { h = String(h||'').trim(); if(/^#[0-9a-f]{3}$/i.test(h)) h = '#'+h.slice(1).split('').map(x=>x+x).join(''); return /^#[0-9a-f]{6}$/i.test(h) ? h : null; };
+const gaMix = (a, b, t) => { const p = x=>[1,3,5].map(i=>parseInt(x.slice(i,i+2),16)); const A = p(a), B = p(b); return '#'+A.map((v,i)=>Math.round(v+(B[i]-v)*t).toString(16).padStart(2,'0')).join(''); };
+const GA_PAL = ['#F2B440','#E86A5B','#3D8BD9','#2EAA6E','#8E5BD9','#E3559B','#1FA6A6','#F08A24'];
+const GA_CACHE = new Map();
+function gaSVG(ch, variant=0){
+  const cl = ch.client ? client(ch.client) : null; const h = gaHash(ch.id+'|'+variant);
+  let c1 = gaHex(cl?.colors?.[0]) || GA_PAL[h%GA_PAL.length]; let c2 = gaHex(cl?.colors?.[1]) || GA_PAL[(h>>>3)%GA_PAL.length];
+  if(variant){ c1 = GA_PAL[(h>>>2)%GA_PAL.length]; c2 = GA_PAL[(h>>>6)%GA_PAL.length]; }
+  if(c1===c2) c2 = gaMix(c1, '#000000', .25);
+  const key = [ch.id, variant, c1, c2, gaTheme(null, ch)].join('|'); const hit = GA_CACHE.get(key); if(hit) return hit;
+  const lum = x => { const [r,g,b] = [1,3,5].map(i=>parseInt(x.slice(i,i+2),16)/255); return .2126*r+.7152*g+.0722*b; };
+  /* dark brand color: the brand accent becomes the body (the dark color moves to the badge) so the face stays visible */
+  if(lum(c1) < .42){ if(lum(c2) >= .42 && lum(c2) < .9){ const t = c1; c1 = c2; c2 = t; } else c1 = gaMix(c1, '#FFFFFF', .45); }
+  const theme = gaTheme(null, ch); const bg = gaMix(c1, '#FFFFFF', .78); const body = c1; const dark = '#23180E';
+  const ears = h%4; const eyes = (h>>>4)%3; const mouth = (h>>>7)%3;
+  const earSVG = [
+    `<path d="M17 21l-2-10 8 5zM47 21l2-10-8 5z" fill="${body}"/>`,                                         /* kitty */
+    `<circle cx="18" cy="19" r="5" fill="${body}"/><circle cx="46" cy="19" r="5" fill="${body}"/>`,         /* bear */
+    `<path d="M32 16v-6" stroke="${body}" stroke-width="2.4" stroke-linecap="round"/><circle cx="32" cy="8.5" r="3" fill="${c2}"/>`, /* antenna */
+    `<path d="M32 17c-1-6 3-9 8-9-1 5-4 8-8 9z" fill="${gaMix(c2,'#1B7F4B',.35)}"/>`][ears];            /* sprout */
+  const eyeSVG = [
+    `<circle cx="25" cy="34" r="3" fill="${dark}"/><circle cx="39" cy="34" r="3" fill="${dark}"/><circle cx="26" cy="33" r="1" fill="#fff"/><circle cx="40" cy="33" r="1" fill="#fff"/>`,
+    `<path d="M22 34.5c1.6-2.4 4.4-2.4 6 0M36 34.5c1.6-2.4 4.4-2.4 6 0" stroke="${dark}" stroke-width="2.2" stroke-linecap="round" fill="none"/>`,
+    `<ellipse cx="25" cy="34" rx="2.6" ry="3.4" fill="${dark}"/><ellipse cx="39" cy="34" rx="2.6" ry="3.4" fill="${dark}"/><circle cx="25.8" cy="32.6" r="1" fill="#fff"/><circle cx="39.8" cy="32.6" r="1" fill="#fff"/>`][eyes];
+  const mouthSVG = [`<path d="M28.5 40.5c2 2.2 5 2.2 7 0" stroke="${dark}" stroke-width="2" stroke-linecap="round" fill="none"/>`,
+    `<path d="M28.5 40c1.2 3.4 5.8 3.4 7 0z" fill="${dark}"/><path d="M30.2 41.7c1 .8 2.6.8 3.6 0" stroke="#F07E7E" stroke-width="1.3" fill="none"/>`,
+    `<path d="M29 40.5q1.5 1.6 3 0q1.5 1.6 3 0" stroke="${dark}" stroke-width="1.8" stroke-linecap="round" fill="none"/>`][mouth];
+  const glyph = (GA_GLYPH[theme]||GA_GLYPH.star).replace(/C1/g, gaMix(c2,'#000000',.1));
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="16" fill="${bg}"/><circle cx="52" cy="11" r="3" fill="${gaMix(c2,'#FFFFFF',.35)}"/><circle cx="9" cy="50" r="2" fill="${gaMix(c1,'#FFFFFF',.4)}"/>
+    ${earSVG}<ellipse cx="32" cy="37" rx="19" ry="17.5" fill="${body}"/><ellipse cx="32" cy="41" rx="12" ry="9" fill="#FFFFFF" opacity=".22"/>
+    ${eyeSVG}<ellipse cx="20.5" cy="39.5" rx="3" ry="1.9" fill="#FF8FA3" opacity=".7"/><ellipse cx="43.5" cy="39.5" rx="3" ry="1.9" fill="#FF8FA3" opacity=".7"/>${mouthSVG}
+    <g transform="translate(40 40)"><circle cx="11" cy="11" r="11.5" fill="${c2}" stroke="#fff" stroke-width="2.4"/><g transform="translate(-1 -1)">${glyph}</g></g></svg>`;
+  const url = 'data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg.replace(/\s{2,}/g,' '));
+  GA_CACHE.set(key, url); return url;
+}
+function gaImg(ch){ const r = gaRec(ch); return r?.img || gaSVG(ch, r?.variant||0); }
+{ const _ca = chatAvatar; chatAvatar = function(c){ if(!c || c.kind==='dm') return _ca.apply(this, arguments);
+    const r = gaRec(c); return `<span class="avatar img ga ${r?.img?'photo':''}" title="${esc(chatTitle(c))}"><img src="${gaImg(c)}" alt="" loading="lazy" decoding="async"></span>`; }; }
+/* the avatar in the conversation header opens the group photo settings */
+{ const _ch = chatHeadHTML; chatHeadHTML = function(c){ let h = _ch.apply(this, arguments);
+    if(c && c.kind!=='dm' && gaCan(c)) h = h.replace('<span class="avatar img ga', `<span role="button" tabindex="0" title="Change the group photo" onclick="gaModal('${c.id}')" onkeydown="if(event.key==='Enter')gaModal('${c.id}')" class="ga-edit avatar img ga`);
+    return h; }; }
+let GA = {draft:null, err:''};
+function gaModal(chatId, keep){
+  const c = CHATS.find(x=>x.id===chatId); if(!c || !gaCan(c)) return toast('Only company heads, the core team, PMs, the Marketing Head and HR can change group photos');
+  if(!keep) GA = {draft:null, err:''};
+  const r = gaRec(c); const cur = GA.draft || gaImg(c);
+  openModal('Group photo — '+chatTitle(c), `<div class="ga-top"><span class="ga-big"><img src="${cur}" alt=""></span>
+      <div><b style="font-size:14px">${esc(chatTitle(c))}</b><p class="hint" style="margin-top:4px">${GA.draft?'<b>Preview</b> — save to show it in the chat list and header for everyone.':r?.img?'Custom photo':'Default cartoon — made from the client’s services and brand colors'}</p>${GA.err?`<p class="hint" style="color:var(--bad)">${esc(GA.err)}</p>`:''}</div></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px">
+      ${GA.draft?`<button class="btn primary" onclick="gaSave('${c.id}')">Save photo</button><button class="btn" onclick="GA.draft=null;gaModal('${c.id}',true)">Cancel</button>`
+        :`<button class="btn primary" onclick="gaPick('${c.id}')">${r?.img?'Replace photo':'Upload photo'}</button>${r?.img?`<button class="btn" onclick="gaRemove('${c.id}')">Remove photo</button>`:`<button class="btn" onclick="gaShuffle('${c.id}')">🎲 Another cartoon</button>`}`}</div>
+    <div class="hint" style="margin-top:10px">JPG, PNG, WebP or GIF. It is cropped to a square and made small so it loads fast on phones. Removing a photo brings back the cartoon.</div>`);
+  MODAL_CTX = {ga:chatId};
+}
+function gaPick(chatId){ const i = document.createElement('input'); i.type = 'file'; i.accept = 'image/jpeg,image/png,image/webp,image/gif,image/*'; i.onchange = async ()=>{ GA.err = ''; try{ GA.draft = await photoPrepare(i.files[0]); }catch(e){ GA.draft = null; GA.err = e.message; } gaModal(chatId, true); }; i.click(); }
+function gaUpsert(chatId, patch){ let a = AVATARS.find(x=>x.id==='g:'+chatId); if(!a){ a = {id:'g:'+chatId}; AVATARS.push(a); } Object.assign(a, patch, {at:nowISO(), by:PERSON}); return a; }
+function gaRefresh(){ document.querySelectorAll('#chatScroll .mwrap').forEach(n=>n.dataset.sig=''); if(CURRENT==='chat'){ el('chatList') && (el('chatList').innerHTML = chatListHTML()); el('chatHead') && CHATS.find(x=>x.id===CHAT_OPEN) && (el('chatHead').innerHTML = chatHeadHTML(CHATS.find(x=>x.id===CHAT_OPEN))); } else scheduleRender(); }
+function gaSave(chatId){ if(!GA.draft) return; const c = CHATS.find(x=>x.id===chatId); gaUpsert(chatId, {img:GA.draft}); GA.draft = null; recordChange(); gaRefresh(); closeModal(); audit(`Changed the group photo of ${chatTitle(c)}`); toast('Group photo updated'); }
+function gaRemove(chatId){ gaUpsert(chatId, {img:''}); recordChange(); gaRefresh(); gaModal(chatId); toast('Photo removed — the cartoon is back'); }
+function gaShuffle(chatId){ const a = gaRec({id:chatId}); gaUpsert(chatId, {img:'', variant:((a?.variant)||0)+1}); recordChange(); gaRefresh(); gaModal(chatId); }
+{ const _ore = onRemoteEvent; onRemoteEvent = function(ev){ _ore.apply(this, arguments); if(ev?.coll==='avatars' && String(ev.obj?.id||ev.deleted||'').startsWith('g:')) gaRefresh(); }; }
+
+/* ===== 48_content.js ===== */
+/* ================= CONTENT EDITS (Oct 2026) — content plans, scheduled posts and graphics =================
+   • Assigned team members, PMs, company heads, the core team and the Marketing Head can edit content items:
+     title, description, caption, theme, due and scheduled post dates, brief & notes, links, attachments and outputs.
+   • Every save is a numbered version: the latest saved version (who and when) is shown at the top, with a version history.
+   • Approved content that is changed goes back to the approver (the existing approval workflow) — unless the approver
+     made the change themselves, which is recorded in the history.
+   • Scheduled posts (Publishing Queue / Calendar) and graphics in the Design Studio library can be edited the same way;
+     a changed approved graphic goes back for review as a new version.
+   Everything saves instantly and updates in the employee, PM, Marketing and leadership portals in real time. */
+const CE_LABEL = {title:'Title', type:'Type', theme:'Theme', desc:'Description', caption:'Caption', notes:'Brief & notes', due:'Due date', postDate:'Scheduled date', postTime:'Post time', sources:'Source files & links', refs:'References', outputs:'Graphics / outputs'};
+function ceRecordVersion(t, before, changed, newer){
+  const prevV = t.version || 1;
+  t.versions = [...(t.versions||[]), {v:prevV, at:t.updatedAt||t.at||t.createdAt||null, by:t.updatedBy||t.createdBy||t.assignee||null, data:before}].slice(-15);
+  t.version = prevV + 1; t.updatedAt = nowISO(); t.updatedBy = PERSON;
+  const what = changed.map(k=>CE_LABEL[k]||k).join(', ');
+  t.history = t.history||[]; t.history.push({by:pname(PERSON), who:PERSON, act:`Edited — version ${t.version}`, note:what, when:dtstr(nowISO()), at:nowISO()});
+  const info = {reapproval:false};
+  if(['Approved','Completed'].includes(t.status)){
+    if(canApproveTask(t)) t.history.push({by:pname(PERSON), who:PERSON, act:'Changed after approval by the approver — stays approved', note:what, when:dtstr(nowISO()), at:nowISO()});
+    else { setTaskStatus(t, 'For Approval', `Changed after approval (${what}) — needs re-approval`); info.reapproval = true; }
+  }
+  if(newer) notify(newer, 'assignment', `${esc(first(PERSON))} also edited <b>${esc(t.title)}</b> — saved as version ${t.version}`, {view:'tasks', task:t.id});
+  return info;
+}
+function ceVersionHTML(t){
+  const V = (t.versions||[]).slice().reverse(); const v = t.version || 1;
+  return `<div class="ce-ver"><span class="ce-vbadge">v${v}</span><span><b>Latest saved version</b>${t.updatedBy?` · saved by ${esc(first(t.updatedBy))} ${esc(ago(t.updatedAt))}`:t.createdBy?` · created by ${esc(first(t.createdBy))}`:''}</span>
+    ${V.length?`<details class="ce-hist"><summary>Version history (${V.length})</summary>${V.map(x=>`<div class="ce-hrow"><b>v${x.v}</b> <span class="hint">${x.by?esc(first(x.by))+' · ':''}${x.at?esc(dtstr(x.at)):''}</span>
+      <div class="ce-snap">${x.data?.caption?`<div><small>Caption</small>${esc(String(x.data.caption).slice(0,400))}</div>`:''}${x.data?.title?`<div><small>Title</small>${esc(x.data.title)}</div>`:''}${x.data?.desc?`<div><small>Description</small>${esc(String(x.data.desc).slice(0,300))}</div>`:''}${(x.data?.outputs||[]).length?`<div><small>Outputs</small>${esc(x.data.outputs.map(f=>f.name).join(', '))}</div>`:''}</div></div>`).join('')}</details>`:''}</div>`;
+}
+/* ---------- scheduled posts ---------- */
+const canEditPost = p => !!p && (p.by===PERSON || isExec() || isFullAccess() || pmsOf(p.client).includes(PERSON) || (client(p.client)?.team||[]).includes(PERSON) || PERSON===(S().marketingHead||'kiara') || (typeof isCore==='function' && isCore()));
+let PE_FILES = [];
+function postEdit(id){
+  const p = POSTS.find(x=>x.id===id); if(!p) return toast('That post is no longer available'); const can = canEditPost(p); const ro = can ? '' : 'disabled';
+  PE_FILES = [...(p.files||[])];
+  openModal((can?'Edit post — ':'Post — ')+p.title, `${p.version>1||p.updatedBy?`<div class="ce-ver"><span class="ce-vbadge">v${p.version||1}</span><span><b>Latest saved version</b>${p.updatedBy?` · saved by ${esc(first(p.updatedBy))} ${esc(ago(p.updatedAt))}`:''}</span></div>`:''}
+    <div class="field"><label>Post title</label><input id="peTitle" value="${esc(p.title)}" ${ro}></div>
+    <div class="grid cols-2">
+      <div class="field"><label>Client</label><select id="peClient" ${ro}>${visClients().map(c=>`<option value="${c.id}" ${c.id===p.client?'selected':''}>${esc(c.name)}</option>`).join('')||`<option value="${p.client}">${esc(cname(p.client))}</option>`}</select></div>
+      <div class="field"><label>Platform</label><select id="pePlat" ${ro}>${Object.entries(PLATS).map(([k,v])=>`<option value="${k}" ${k===p.plat?'selected':''}>${v}</option>`).join('')}</select></div>
+      <div class="field"><label>Scheduled date</label><input id="peDate" type="date" value="${p.when?iso(new Date(p.when)):''}" ${ro}></div>
+      <div class="field"><label>Time</label><input id="peTime" value="${esc(p.time||'')}" ${ro}></div>
+    </div>
+    <div class="field"><label>Caption</label><textarea id="peCap" rows="5" ${ro}>${esc(p.caption||'')}</textarea></div>
+    <div class="field"><label>Reference link</label><input id="peLink" value="${esc(p.link||'')}" placeholder="Canva, Drive or post link" ${ro}></div>
+    <div class="field"><label>Notes</label><textarea id="peNotes" rows="2" ${ro}>${esc(p.notes||'')}</textarea></div>
+    <div class="field"><label>Graphics & attachments</label><div id="peFiles">${fileChips(PE_FILES, can?'peRm':null)}</div>${can?`<button class="btn" style="padding:5px 10px;font-size:12px;margin-top:4px" onclick="pickFiles({multiple:true}).then(f=>{PE_FILES.push(...f);el('peFiles').innerHTML=fileChips(PE_FILES,'peRm')})">📎 Add files</button>`:''}</div>
+    ${can?`<div style="display:flex;gap:8px"><button class="btn" onclick="closeModal();previewPost('${p.id}')">Preview</button><button class="btn primary" style="flex:1" onclick="postSave('${p.id}')">Save changes</button></div>`:''}`);
+}
+function peRm(i){ PE_FILES.splice(i,1); el('peFiles').innerHTML = fileChips(PE_FILES,'peRm'); }
+function postSave(id){
+  const p = POSTS.find(x=>x.id===id); if(!p || !canEditPost(p)) return toast('You can edit posts for the clients you are assigned to');
+  const title = el('peTitle').value.trim(); if(!title) return toast('Give the post a title');
+  const before = JSON.stringify([p.title,p.client,p.plat,iso(new Date(p.when)),p.time,p.caption||'',p.link||'',p.notes||'',(p.files||[]).map(f=>f.name)]);
+  Object.assign(p, {title, client:el('peClient').value, plat:el('pePlat').value, when:new Date((el('peDate').value||iso(new Date(p.when)))+'T00:00:00'), time:el('peTime').value.trim()||p.time, caption:el('peCap').value, link:el('peLink').value.trim(), notes:el('peNotes').value, files:PE_FILES});
+  const after = JSON.stringify([p.title,p.client,p.plat,iso(new Date(p.when)),p.time,p.caption||'',p.link||'',p.notes||'',(p.files||[]).map(f=>f.name)]);
+  if(before===after){ closeModal(); return toast('No changes to save'); }
+  p.version = (p.version||1)+1; p.updatedAt = nowISO(); p.updatedBy = PERSON; p.history = [...(p.history||[]).slice(-20), {at:nowISO(), by:PERSON, act:'Edited — version '+p.version}];
+  if(p.by && p.by!==PERSON) notify(p.by, 'assignment', `${esc(first(PERSON))} edited the scheduled post <b>${esc(p.title)}</b>`, {view:'publishing'});
+  recordChange(); closeModal(); RENDER[CURRENT]?.(); toast('Post saved — version '+p.version);
+}
+{ const _pub = RENDER.publishing; RENDER.publishing = function(){ const r = _pub.apply(this, arguments);
+    document.querySelectorAll('#v-publishing tbody tr').forEach(tr=>{ const b = tr.querySelector('button[onclick^="previewPost"]'); if(!b || tr.querySelector('.pe-edit')) return; const id = b.getAttribute('onclick').match(/'([^']+)'/)?.[1]; const p = POSTS.find(x=>x.id===id); if(!p) return;
+      b.insertAdjacentHTML('beforebegin', `<button class="btn pe-edit" style="padding:5px 11px;font-size:12px" onclick="postEdit('${id}')">${canEditPost(p)?'✎ Edit':'View'}</button> `);
+      if(p.version>1) tr.querySelector('td b')?.insertAdjacentHTML('afterend', ` <span class="chip" title="Edited by ${esc(first(p.updatedBy||''))}">v${p.version}</span>`); });
+    return r; }; }
+/* ---------- graphics in the Design Studio library ---------- */
+const canEditAsset = a => !!a && (a.by===PERSON || isExec() || isFullAccess() || pmsOf(a.client).includes(PERSON) || (client(a.client)?.team||[]).includes(PERSON) || PERSON===(S().marketingHead||'kiara'));
+let AE_FILES = [];
+function assetEdit(id){
+  const a = ASSETS.find(x=>x.id===id); if(!a) return; const can = canEditAsset(a); AE_FILES = [...(a.files||[])];
+  openModal((can?'Edit graphic — ':'Graphic — ')+a.name, `<div class="ce-ver"><span class="ce-vbadge">${esc(String(a.v||'v1').split(' ')[0])}</span><span><b>Latest saved version</b> · ${badge(a.status)}${a.updatedBy?` · saved by ${esc(first(a.updatedBy))} ${esc(ago(a.updatedAt))}`:a.by?` · uploaded by ${esc(first(a.by))}`:''}</span></div>
+    <div class="field"><label>Name</label><input id="aeName" value="${esc(a.name)}" ${can?'':'disabled'}></div>
+    <div class="field"><label>Notes / brief</label><textarea id="aeNotes" rows="2" ${can?'':'disabled'}>${esc(a.notes||'')}</textarea></div>
+    <div class="field"><label>Reference link</label><input id="aeLink" value="${esc(a.link||'')}" placeholder="Canva, Drive, Figma…" ${can?'':'disabled'}></div>
+    <div class="field"><label>Files</label><div id="aeFiles">${fileChips(AE_FILES, can?'aeRm':null)}</div>${can?`<button class="btn" style="padding:5px 10px;font-size:12px;margin-top:4px" onclick="pickFiles({multiple:true}).then(f=>{AE_FILES.unshift(...f);el('aeFiles').innerHTML=fileChips(AE_FILES,'aeRm')})">⬆ Upload a new version</button>`:''}</div>
+    ${a.status==='Approved'&&can&&!(isExec()||pmsOf(a.client).includes(PERSON))?'<div class="hint" style="margin-bottom:10px">This graphic is approved — saving changes sends it back to the PM for review.</div>':''}
+    ${(a.versions||[]).length?`<details class="ce-hist"><summary>Version history (${a.versions.length})</summary>${a.versions.slice().reverse().map(x=>`<div class="ce-hrow"><b>${esc(x.v)}</b> <span class="hint">${esc(first(x.by||''))} · ${esc(dtstr(x.at))}</span><div class="ce-snap">${fileChips(x.files||[])}</div></div>`).join('')}</details>`:''}
+    ${can?`<button class="btn primary" style="width:100%;margin-top:10px" onclick="assetSave('${a.id}')">Save changes</button>`:''}`);
+}
+function aeRm(i){ AE_FILES.splice(i,1); el('aeFiles').innerHTML = fileChips(AE_FILES,'aeRm'); }
+function assetSave(id){
+  const a = ASSETS.find(x=>x.id===id); if(!a || !canEditAsset(a)) return toast('You can edit graphics for the clients you are assigned to');
+  const name = el('aeName').value.trim(); if(!name) return toast('Name the graphic'); if(!AE_FILES.length) return toast('Keep at least one file');
+  const filesChanged = JSON.stringify((a.files||[]).map(f=>f.path||f.name))!==JSON.stringify(AE_FILES.map(f=>f.path||f.name));
+  const changed = filesChanged || name!==a.name || (el('aeNotes').value||'')!==(a.notes||'') || el('aeLink').value.trim()!==(a.link||'');
+  if(!changed){ closeModal(); return toast('No changes to save'); }
+  const n = (parseInt(String(a.v||'v1').replace(/\D/g,''))||1) + (filesChanged?1:0);
+  if(filesChanged) a.versions = [...(a.versions||[]), {v:String(a.v||'v1').split(' ')[0], at:a.updatedAt||a.at, by:a.updatedBy||a.by, files:a.files||[]}].slice(-10);
+  Object.assign(a, {name, notes:el('aeNotes').value, link:el('aeLink').value.trim(), files:AE_FILES, v:`v${n} · ${first(PERSON)}`, updatedAt:nowISO(), updatedBy:PERSON});
+  const approver = isExec() || pmsOf(a.client).includes(PERSON);
+  let msg = 'Graphic saved';
+  if(a.status==='Approved' && !approver){ a.status = 'Review'; notify(pmsOf(a.client), 'submission', `${esc(first(PERSON))} changed the approved graphic <b>${esc(a.name)}</b> (${esc(cname(a.client))}) — please review v${n}`, {view:'approvals'}); msg = `Saved as v${n} — sent back to the PM for review`; }
+  else if(filesChanged) msg = `Saved as v${n}`;
+  recordChange(); closeModal(); RENDER[CURRENT]?.(); buildNav(); toast(msg);
+}
+{ const _ds = RENDER.design; RENDER.design = function(){ const r = _ds.apply(this, arguments);
+    document.querySelectorAll('#v-design .asset').forEach((card, i)=>{ const a = vis(ASSETS)[i]; if(!a || card.querySelector('.ae-edit')) return;
+      card.querySelector('.a-f')?.insertAdjacentHTML('beforeend', `<button class="btn ae-edit" onclick="assetEdit('${a.id}')">${canEditAsset(a)?'✎ Edit':'Details'}</button>`); });
+    return r; }; }
+
+/* ---------- glass buttons: instant pressed feedback on touch screens (iOS delays :active) ---------- */
+(function glassPress(){
+  const sel = '.btn,.icon-btn'; let cur = null;
+  const off = () => { if(cur){ cur.classList.remove('pressing'); cur = null; } };
+  document.addEventListener('pointerdown', e=>{ const b = e.target.closest?.(sel); if(!b || b.disabled) return; off(); cur = b; b.classList.add('pressing'); }, {passive:true});
+  ['pointerup','pointercancel','dragstart','scroll'].forEach(t=>document.addEventListener(t, ()=>setTimeout(off, 90), {passive:true, capture:true}));
+  document.addEventListener('pointerleave', e=>{ if(e.target===cur) off(); }, true);
+})();
+/* a button shows a spinner while its action is working */
+function btnBusy(b, on=true){ if(!b) return; b.classList.toggle('is-loading', !!on); b.setAttribute('aria-busy', on?'true':'false'); }
 
 CC_BOOT();
 </script>

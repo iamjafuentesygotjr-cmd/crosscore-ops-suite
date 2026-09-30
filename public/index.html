@@ -1630,6 +1630,12 @@ table.tbl-pin thead th{position:sticky;top:0;z-index:2;background:var(--panel);b
   .tbl-scroll{max-height:min(68vh,calc(100dvh - 190px))}
 }
 @media print{.stk-wrap{display:none}}
+/* background loading after sign-in: a hairline at the top of the workspace */
+.bg-load{position:relative;height:0;z-index:40}
+.bg-load i{position:absolute;left:0;top:0;height:2px;background:var(--grad);border-radius:0 2px 2px 0;transition:width .35s ease;box-shadow:0 0 8px rgba(227,147,18,.6)}
+.bg-load span{position:absolute;right:14px;top:6px;font-size:11px;color:var(--ink-3);background:var(--panel);border:1px solid var(--line);border-radius:99px;padding:2px 9px;box-shadow:var(--shadow);pointer-events:none}
+.bg-load.done{opacity:0;transition:opacity .5s}
+@media(max-width:860px){.bg-load span{display:none}}
 </style>
 </head>
 <body>
@@ -2626,18 +2632,34 @@ const LiveBackend = {
     this.sb = window.supabase.createClient(CC_CONFIG.SUPABASE_URL, CC_CONFIG.SUPABASE_ANON_KEY, {auth:{persistSession:true, autoRefreshToken:true}});
   },
   /* all records this person may see — pages are fetched in parallel (6 at a time) instead of one after another */
+  /* one collection, 1000 rows at a time by id (index-only paging — no slow counts or offsets) */
+  async loadColl(c, onChunk, filter){
+    const page = 1000; let last = null;
+    for(;;){
+      let data = null;
+      for(let a=0;;a++){
+        let q = this.sb.from('cc_records').select('collection,id,data').eq('collection', c);
+        if(filter) q = filter(q);
+        if(last!==null) q = q.gt('id', last);
+        const r = await q.order('id').limit(page);
+        if(!r.error){ data = r.data; break; }
+        if(a>=2) throw r.error; await new Promise(res=>setTimeout(res, 400*(a+1)));
+      }
+      if(data.length) onChunk(data);
+      if(data.length<page) return;
+      last = data[data.length-1].id;
+    }
+  },
+  /* several collections, a few at a time */
+  async loadSet(colls, onChunk, onDone, conc=6){
+    const q = [...colls]; let err = null;
+    await Promise.all(Array.from({length:Math.min(conc, q.length)}, async ()=>{ while(q.length){ const c = q.shift(); try{ await this.loadColl(c, d=>onChunk(c, d)); }catch(e){ err = e; } onDone?.(c); } }));
+    if(err) throw err;
+  },
   async loadAll(onProgress){
-    const page = 1000;
-    const get = async (from, withCount) => { for(let a=0;;a++){ const q = this.sb.from('cc_records').select('collection,id,data', withCount?{count:'exact'}:undefined).order('collection').order('id').range(from, from+page-1);
-      const {data, error, count} = await q; if(!error) return {data, count}; if(a>=2) throw error; await new Promise(r=>setTimeout(r, 400*(a+1))); } };
-    /* the first page also tells how many rows there are; the rest are fetched in parallel (6 at a time) */
-    const first = await get(0, true); const out = [first.data];
-    const n = first.count!=null ? Math.max(1, Math.ceil(first.count/page)) : 1;
-    let next = 1, done = 1; onProgress?.(done/n);
-    await Promise.all(Array.from({length:Math.min(6, Math.max(0, n-1))}, async ()=>{ while(next<n){ const i = next++; out[i] = (await get(i*page)).data; done++; onProgress?.(done/n); } }));
-    /* rows added while loading (or no count): keep reading until a short page */
-    for(let from=out.length*page; out[out.length-1]?.length===page; from+=page){ const d = (await get(from)).data; out.push(d); if(d.length<page) break; }
-    const seen = new Set(); return out.flat().filter(r=>{ const k = r.collection+'|'+r.id; if(seen.has(k)) return false; seen.add(k); return true; });
+    const cs = Object.keys(COLL); const rows = []; let done = 0;
+    await this.loadSet(cs, (c, d)=>rows.push(...d), ()=>onProgress?.(++done/cs.length));
+    return rows;
   },
 
   async write(ups, dels){
@@ -2778,6 +2800,17 @@ const SYNC = {
     if(events.every(e=>e.coll==='lastseen') && typeof presChanged==='function'){ presChanged(); return; }
     scheduleRender();
   },
+  /* quiet bulk merge for the background load (no pop-ups or sounds for old records) */
+  mergeBulk(c, rows){
+    const col = COLL[c]; if(!col || !rows.length) return;
+    const arr = col.get(); const idx = new Map(arr.map((o,i)=>[String(o.id), i]));
+    const last = this.last[c] = this.last[c] || new Map();
+    rows.forEach(r=>{ if(this.pending.has(this.key(c, r.id))) return; const j = JSON.stringify(r.data); const o = this.revive(c, JSON.parse(j)); const i = idx.get(r.id);
+      if(i==null){ arr.push(o); idx.set(r.id, arr.length-1); } else arr[i] = o; last.set(r.id, j); });
+    if(c==='messages') arr.sort((a,b)=>(a.at||'').localeCompare(b.at||''));
+    if(['employees','clients'].includes(c)) rebuildPeople();
+    if(c==='lastseen' && typeof presChanged==='function') presChanged();
+  },
   async resync(){
     try{
       const rows = await BACKEND.loadAll(); if(!rows) return;
@@ -2885,18 +2918,20 @@ async function doLogin(){
     const e = PEOPLE[key].empId ? emp(PEOPLE[key].empId) : null;
     if(e && !['Active','On Probation'].includes(e.status)){ done(); return showErr(`This account is marked ${e.status} and can no longer sign in. Contact HR if this is a mistake.`); }
     txt.textContent='Loading your workspace…';
-    setTimeout(()=>{ done(); enterApp(key); }, 350);
+    done(); enterApp(key);
     return;
   }
   if(!pw){ done(); return showErr('Enter your password.'); }
   txt.textContent='Verifying credentials…';
-  const {error} = await BACKEND.sb.auth.signInWithPassword({email:mail, password:pw});
+  let error = null; try{ ({error} = await BACKEND.sb.auth.signInWithPassword({email:mail, password:pw})); }catch(e){ error = e; }
+  if(error && /fetch|network|timeout|load failed/i.test(error.message||'')){ done(); return showErr(liveErrText(error)); }
   if(error){ done(); return showErr(/invalid/i.test(error.message)?'Email or password is incorrect. Ask HR for a temporary password if you are new.':/banned/i.test(error.message)?'This account has been disabled. Contact HR if this is a mistake.':error.message); }
-  txt.textContent='Loading your workspace…';
-  try{ await startLiveSession(); }catch(e){ showErr(e.message); await BACKEND.sb.auth.signOut(); }
+  txt.textContent='Opening your dashboard…';
+  try{ await startLiveSession(); }catch(e){ showErr(liveErrText(e)); await BACKEND.sb.auth.signOut(); }
   done();
 }
-function liveProgress(f){ const t = el('connTxt'); if(t && f!=null) t.textContent = `Loading your workspace… ${Math.max(5, Math.round(f*100))}%`; }
+function liveProgress(f, text){ const t = el('connTxt'); if(!t) return; if(text) t.textContent = text; else if(f!=null) t.textContent = `Loading your workspace… ${Math.max(5, Math.round(f*100))}%`; }
+function liveErrText(e){ const m = e?.message||String(e||''); return /fetch|network|timeout|load failed/i.test(m) ? 'Can’t reach the Cross Core server — check your internet connection and try again.' : m; }
 async function liveProfile(user){
   const {data:prof, error} = await BACKEND.sb.from('cc_people').select('*').eq('user_id', user.id).maybeSingle();
   if(error) throw error;
@@ -2937,15 +2972,43 @@ async function startLiveSession(){
       return;
     }
   }
-  /* first time on this browser: load everything once (in parallel, with progress) */
-  const prof = await liveProfile(user);
+  /* first time on this browser: open the dashboard with the essentials, bring in everything else in the background */
+  liveProgress(null, 'Opening your dashboard…');
+  const essentials = Object.keys(COLL).filter(c=>!LIVE_HEAVY.includes(c));
+  const rows = []; const today = manilaDate(), yday = shiftDate(today, -1);
+  const [prof] = await Promise.all([
+    liveProfile(user),
+    BACKEND.loadSet(essentials, (c, d)=>rows.push(...d)),
+    /* today's (and last night's) time logs, so Time In / Break / Time Out are right from the first second */
+    BACKEND.loadColl('attendance', d=>rows.push(...d), q=>q.or(`id.like.*|${today},id.like.*|${yday}`)),
+  ]);
   BACKEND.profile = prof; PERSON = prof.person_key;
-  liveProgress(0);
-  const rows = await BACKEND.loadAll(liveProgress);
   SYNC.hydrate(rows);
+  LIVE_BG.on = true;
   liveOpen(prof, user, rows);
+  liveBackground(prof, rows.length);
+}
+/* heavy / historical records load after the dashboard is open */
+const LIVE_HEAVY = ['messages','notifs','audit','attendance','leadevents','leads','prospects','trainings','trainprog','kb','esign','avatars','aichats','palog','lastseen','reactions','annreads','docreads','extmeta','lgbatch','engage','posts','assets','creators','payslips','payruns','qreports','reports','evals','hrdocs','icps','endings','pushsubs'];
+const LIVE_BG = {on:false, done:0, total:0};
+function liveBgUI(){
+  let b = el('bgLoad'); const main = document.querySelector('.main');
+  if(!LIVE_BG.on){ if(b){ b.classList.add('done'); setTimeout(()=>b.remove(), 600); } return; }
+  if(!b && main){ b = document.createElement('div'); b.id = 'bgLoad'; b.className = 'bg-load'; b.innerHTML = '<i></i><span>Loading messages and history…</span>'; main.prepend(b); }
+  if(b) b.firstChild.style.width = Math.max(8, Math.round(LIVE_BG.done/Math.max(1,LIVE_BG.total)*100))+'%';
+}
+async function liveBackground(prof, n0){
+  const cs = LIVE_HEAVY.filter(c=>COLL[c]); LIVE_BG.total = cs.length; LIVE_BG.done = 0; liveBgUI();
+  const order = ['notifs','annreads','messages','tasks','attendance','leads','docreads','reactions','lastseen','avatars'];
+  cs.sort((a,b)=>((order.indexOf(a)+1)||99)-((order.indexOf(b)+1)||99));
+  let empty = !n0;
+  try{
+    await BACKEND.loadSet(cs, (c, d)=>{ empty = false; SYNC.mergeBulk(c, d); }, ()=>{ LIVE_BG.done++; liveBgUI(); scheduleRender(); }, 4);
+  }catch(e){ console.warn('Background load incomplete — will retry', e); setTimeout(()=>SYNC.resync(), 8000); }
+  LIVE_BG.on = false; liveBgUI();
   SYNC.saveCache(true);
-  if(!rows.length && ['head','hr'].includes(prof.role)) setTimeout(importStarterModal, 400);
+  try{ checkUrgentAnns(); }catch(e){}
+  if(empty && ['head','hr'].includes(prof.role)) setTimeout(importStarterModal, 400);
   else if(['head','hr','pm'].includes(prof.role)) { ensureChats(); recordChange(); }
 }
 /* background refresh after an instant open: confirm the account, then bring in everything that changed */
@@ -3061,6 +3124,9 @@ async function CC_BOOT(){
   rebuildDirectoryUI();
   syncUI();
 }
+
+/* the urgent-announcement check waits until read receipts have loaded (no false “unread” gate on first sign-in) */
+{ const _ua = checkUrgentAnns; checkUrgentAnns = function(){ if(typeof LIVE_BG!=='undefined' && LIVE_BG.on) return; return _ua.apply(this, arguments); }; }
 
 /* ===== 07_announce.js ===== */
 /* ================= ANNOUNCEMENTS (board, targeting, tracking, pop-up) ================= */

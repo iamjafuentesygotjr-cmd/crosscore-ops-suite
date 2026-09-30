@@ -1429,6 +1429,207 @@ textarea#chatMsg,textarea#thrMsg{flex:1;min-width:0;resize:none;line-height:1.45
 .fix-row .btn{padding:5px 11px;font-size:12px}
 @media(max-width:860px){.fix-row{padding:8px 14px;gap:8px}.fix-txt{white-space:normal}}
 .tk-team{display:inline-block;font-size:11px;font-weight:700;padding:2px 9px;border-radius:99px;background:var(--info-bg);color:var(--info);white-space:nowrap}
+/* ===== attendance panel: status, current client, sessions, one-tap actions ===== */
+.att-panel{border-left:4px solid var(--line);transition:border-color .25s}
+.att-panel.is-open{border-left-color:var(--ok)}.att-panel.is-break{border-left-color:var(--warn)}
+.att-top{display:flex;gap:16px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap}
+.att-who{display:flex;gap:12px;align-items:center;min-width:0}.att-who b{font-size:14.5px}
+.att-clock{display:flex;flex-direction:column;align-items:flex-end;text-align:right}
+.att-clock b{font-size:22px;font-weight:800;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.att-k{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-3)}
+.att-now{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin:14px 0 8px}
+.att-client{font-size:17px;font-weight:700}
+.att-switch{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:0 0 12px}
+.att-switch .chip{cursor:pointer;padding:6px 12px;font-size:12.5px;transition:background .15s,border-color .15s,transform .1s}
+.att-switch .chip:active{transform:scale(.97)}
+.att-switch .chip.on{background:var(--warn-bg);border-color:var(--brand-2);font-weight:700}
+.att-other{padding:6px 10px;font-size:12.5px;border-radius:99px;max-width:200px}
+.att-row2{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.att-row2 input{flex:1;min-width:200px}
+.att-btns .btn{min-height:40px;touch-action:manipulation}
+.att-btns .att-main{min-width:140px;justify-content:center}
+.att-btns .att-out{color:var(--bad)}
+.att-tl{margin-top:12px}.att-tl summary{cursor:pointer;font-size:12.5px;font-weight:600;color:var(--ink-2);margin-bottom:8px}
+.att-quick .att-btns{display:flex;gap:6px;flex-wrap:wrap}
+@media(max-width:700px){.att-clock{align-items:flex-start;text-align:left}.att-row2 input{min-width:0;width:100%}.att-btns{width:100%}.att-btns .btn{flex:1;justify-content:center}}
+/* ===== floating capture button ===== */
+.cap-fab{position:fixed;left:252px;bottom:18px;z-index:62;transition:left .28s cubic-bezier(.4,0,.2,1),opacity .2s}
+.cap-fab.hidden{display:none}
+body.nav-collapsed .cap-fab{left:22px}
+body.client-mode .cap-fab{display:none}
+.cap-btn{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;background:var(--panel);border:1px solid var(--line);color:var(--ink-2);box-shadow:var(--shadow);opacity:.72;cursor:pointer;transition:opacity .15s,transform .15s,border-color .15s,background .15s}
+.cap-btn svg{width:18px;height:18px}
+.cap-btn:hover,.cap-fab.open .cap-btn{opacity:1;border-color:var(--brand-2);transform:translateY(-1px)}
+.cap-fab.busy .cap-btn{opacity:1;animation:crPulse 1s ease-in-out infinite}
+.cap-fab.recording .cap-btn{opacity:1;background:#d64545;border-color:#d64545;color:#fff}
+.cap-fab.recording .cap-btn svg{display:none}
+.cap-fab.recording .cap-btn::before{content:"";width:12px;height:12px;border-radius:3px;background:#fff}
+.cap-menu{position:absolute;left:0;bottom:48px;min-width:270px;background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow-lg);padding:6px;display:flex;flex-direction:column;gap:2px;opacity:0;transform:translateY(6px) scale(.98);transform-origin:bottom left;pointer-events:none;transition:opacity .16s,transform .16s}
+.cap-fab.open .cap-menu{opacity:1;transform:none;pointer-events:auto}
+.cap-menu button{display:flex;flex-direction:column;align-items:flex-start;gap:1px;padding:9px 11px;border-radius:9px;text-align:left;background:none;border:none;cursor:pointer;color:var(--ink)}
+.cap-menu button:hover{background:var(--panel-2)}
+.cap-menu b{font-size:13px}.cap-menu small{font-size:11.5px;color:var(--ink-3)}
+.cap-fab .cap-mob{display:none}
+.cap-fab.no-capture .cap-desk{display:none}.cap-fab.no-capture .cap-mob{display:flex}
+.cap-prev img{max-height:58vh;object-fit:contain}
+.rec-bar.rec-dock{top:auto;transform:none;left:300px;bottom:18px;padding:5px 6px 5px 12px;font-size:12.5px;gap:8px;animation:none}
+.rec-bar.rec-dock .hint{display:none}
+.rec-bar.rec-dock .btn{padding:4px 11px}
+body.nav-collapsed .rec-bar.rec-dock{left:70px}
+@media(max-width:860px){.cap-fab{left:12px;bottom:calc(12px + env(safe-area-inset-bottom,0px))}.cap-btn{width:36px;height:36px}.rec-bar.rec-dock{left:58px;bottom:calc(12px + env(safe-area-inset-bottom,0px))}.cap-menu{min-width:240px}}
+@media print{.cap-fab{display:none!important}}
+/* ===== chat UI (Oct 2026): refreshed Messages ===== */
+body.view-chat #v-chat .page-head{margin-bottom:12px}
+body.view-chat #v-chat .page-head p{display:none}
+body.view-chat #v-chat .page-head h2{font-size:22px}
+#v-chat .card:has(> .chat-wrap){border-radius:18px;box-shadow:0 1px 2px rgba(20,16,8,.04),0 18px 40px -26px rgba(20,16,8,.22)}
+#v-chat .chat-wrap{grid-template-columns:300px minmax(0,1fr)}
+/* conversation list */
+#v-chat .chat-list{padding:0 10px 64px;background:var(--panel);scrollbar-width:thin}
+.chat-search{position:sticky;top:0;z-index:2;display:flex;align-items:center;gap:8px;margin:0 -10px 4px;padding:12px 12px 10px;background:var(--panel);border-bottom:1px solid var(--line-2)}
+.chat-search svg{position:absolute;left:24px;width:15px;height:15px;color:var(--ink-3);pointer-events:none}
+.chat-search input{flex:1;min-width:0;padding:8px 30px 8px 34px;border-radius:10px;background:var(--panel-2);border:1px solid var(--line);font-size:12.5px;transition:border-color .15s,background .15s}
+.chat-search input:focus{border-color:var(--brand-2);background:var(--panel)}
+.chat-search button{position:absolute;right:20px;border:0;background:none;color:var(--ink-3);cursor:pointer;font-size:12px}
+.chat-noresult{padding:24px 8px!important;font-size:12.5px}
+#v-chat .chat-list .grp{font-size:10.5px;letter-spacing:.1em;padding:14px 8px 6px;color:var(--ink-3)}
+#v-chat .chat-item{gap:11px;padding:9px 10px;border-radius:12px;margin:1px 0;border:0;background:none;transition:background .15s,box-shadow .15s}
+#v-chat .chat-item .avatar{width:38px;height:38px;font-size:12.5px}
+#v-chat .chat-item .nm{font-size:13.5px;font-weight:600;color:var(--ink)}
+#v-chat .chat-item .pv{font-size:12px;margin-top:1px;color:var(--ink-3)}
+#v-chat .chat-item:hover{background:var(--panel-2)}
+#v-chat .chat-item.on{background:color-mix(in srgb,var(--brand-2) 11%,var(--panel));box-shadow:inset 3px 0 0 var(--brand-2)}
+#v-chat .chat-item .un{min-width:20px;text-align:center;padding:2px 7px;font-size:10.5px;box-shadow:0 2px 6px -2px rgba(201,59,59,.6)}
+/* conversation header */
+#v-chat .chat-pane > .card-h{padding:12px 18px;border-bottom:1px solid var(--line);background:var(--panel);gap:10px;flex-wrap:nowrap}
+#v-chat .chat-pane > .card-h > div{min-width:0;flex:1}
+#v-chat .chat-pane > .card-h h3{font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#v-chat .chat-pane > .card-h .sub{font-size:12px}
+#v-chat .chat-pane > .card-h .avatar{width:40px;height:40px;font-size:13px}
+#v-chat .chat-pane > .card-h > span{flex-shrink:0}
+#v-chat .chat-pane > .card-h .btn{padding:7px 12px;font-size:12.5px;border-radius:10px}
+#v-chat .chat-pane > .card-h .btn.ghost{border:1px solid transparent}
+#v-chat .chat-pane > .card-h .btn.ghost:hover{border-color:var(--line);background:var(--panel-2);transform:none;box-shadow:none}
+.chat-back{display:none;flex-shrink:0}
+.chat-back svg{width:18px;height:18px}
+/* messages */
+#v-chat .chat-scroll{padding:20px 22px 12px;gap:14px;background:linear-gradient(180deg,var(--panel-2),var(--bg) 140%);scroll-behavior:auto}
+#v-chat .chat-scroll .mwrap{gap:14px}
+#v-chat .mwrap > .hint:first-child{align-self:center;background:var(--panel);border:1px solid var(--line);border-radius:99px;padding:3px 12px;font-size:11px;font-weight:600;color:var(--ink-3);margin:2px 0!important;box-shadow:0 1px 2px rgba(0,0,0,.03)}
+#v-chat .msg{max-width:min(72%,640px);gap:10px}
+#v-chat .msg > .avatar{width:32px;height:32px;font-size:11px;margin-top:18px}
+#v-chat .msg .who{font-size:11.5px;font-weight:600;color:var(--ink-2);margin:0 0 4px 2px}
+#v-chat .msg.mine .who{display:none}
+#v-chat .msg.mine > div{display:flex;flex-direction:column;align-items:flex-end}
+#v-chat .msg .bubble{font-size:13.5px;line-height:1.5;padding:9px 13px;border-radius:4px 16px 16px 16px;background:var(--panel);border:1px solid var(--line);box-shadow:0 1px 2px rgba(20,16,8,.04);color:var(--ink);max-width:100%}
+#v-chat .msg.mine .bubble{border-radius:16px 4px 16px 16px;background:linear-gradient(135deg,#F6C45E,#EEA52C);border:0;color:#1A1206;box-shadow:0 4px 14px -8px rgba(227,147,18,.7)}
+#v-chat .msg.cont{margin-top:-10px}
+#v-chat .msg.cont .who{display:none}
+#v-chat .msg.cont > .avatar{visibility:hidden;height:0;margin-top:0}
+#v-chat .msg.cont .bubble{border-radius:16px}
+#v-chat .msg.mine.cont .bubble{border-radius:16px}
+#v-chat .msg .when{font-size:10.5px;margin-top:4px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;color:var(--ink-3)}
+#v-chat .msg.mine .when{justify-content:flex-end}
+#v-chat .msg .react-add,#v-chat .msg .thr-btn,#v-chat .msg .msg-act{border-radius:6px;padding:1px 6px}
+#v-chat .msg .react-add:hover,#v-chat .msg .thr-btn:hover,#v-chat .msg .msg-act:hover{background:var(--panel)}
+#v-chat .msg.is-deleted .bubble{box-shadow:none}
+#v-chat .msg .thr-foot{margin-top:6px;background:var(--panel)}
+.mw-new{animation:msgIn .22s cubic-bezier(.2,.8,.3,1)}
+@keyframes msgIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+#v-chat .msg.call-msg,#v-chat .msg.sys-msg{max-width:min(460px,100%)}
+/* composer: toolbar + box read as one card */
+#v-chat .pending-files{padding:0 16px 6px;background:var(--panel)}
+#v-chat .fmt-bar{margin:10px 16px 0;border:1px solid var(--line);border-bottom:0;border-radius:14px 14px 0 0;background:var(--panel-2);padding:4px 8px;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
+#v-chat .fmt-bar::-webkit-scrollbar{display:none}
+#v-chat .fmt-bar button{flex-shrink:0;white-space:nowrap}
+#v-chat .chat-pane > .fmt-bar{box-shadow:0 -10px 20px -18px rgba(0,0,0,.25)}
+#v-chat .fmt-bar + .chat-input{margin:0 16px 14px;border:1px solid var(--line);border-top:1px solid var(--line-2);border-radius:0 0 14px 14px;padding:6px 8px;gap:6px;background:var(--panel);transition:border-color .15s,box-shadow .15s}
+#v-chat .chat-pane:has(#chatMsg:focus) .fmt-bar{border-color:var(--brand-2)}
+#v-chat .chat-pane:has(#chatMsg:focus) .fmt-bar + .chat-input{border-color:var(--brand-2);box-shadow:0 8px 22px -16px rgba(227,147,18,.8)}
+#v-chat .chat-input > .btn:not(#chatSend){width:36px;height:36px;padding:0;justify-content:center;border:0;background:none;font-size:16px;flex-shrink:0;border-radius:10px}
+#v-chat .chat-input > .btn:not(#chatSend):hover{background:var(--panel-2);transform:none;box-shadow:none}
+#v-chat textarea#chatMsg{border:0;background:transparent;box-shadow:none;padding:8px 6px;font-size:13.5px}
+#v-chat textarea#chatMsg:focus{outline:none}
+#v-chat #chatSend{border-radius:10px;padding:9px 18px;flex-shrink:0}
+#v-chat .chat-input.ended-ro{margin:12px 16px;border:1px dashed var(--line);border-radius:12px}
+.chat-pane:not(:has(.fmt-bar)) > .chat-input:not(.ended-ro){margin:10px 16px 14px;border:1px solid var(--line);border-radius:14px}
+/* thread panel */
+#v-chat .thr-pane{border-radius:0 18px 18px 0;animation:thrIn .22s cubic-bezier(.2,.8,.3,1)}
+@keyframes thrIn{from{opacity:0;transform:translateX(16px)}to{opacity:1;transform:none}}
+#v-chat .thr-scroll{background:var(--panel-2)}
+#v-chat .thr-scroll .msg{max-width:100%}
+#v-chat .thr-input{gap:6px;padding:10px 12px;background:var(--panel)}
+#v-chat .thr-input textarea{border-radius:12px}
+[data-theme="dark"] #v-chat .msg.mine .bubble{background:linear-gradient(135deg,#E9B24B,#D8901E)}
+@media(max-width:820px){
+  #v-chat .chat-wrap{grid-template-columns:1fr!important;grid-template-rows:minmax(0,1fr)!important}
+  #v-chat .chat-list{max-height:none!important;min-height:0;border:0!important;padding-bottom:70px}
+  #v-chat .chat-wrap:not(.mob-pane) .chat-pane{display:none}
+  #v-chat .chat-wrap.mob-pane .chat-list{display:none}
+  #v-chat .chat-wrap.mob-pane .chat-back{display:grid}
+  body.chat-in-pane #v-chat .page-head{display:none}
+  body.chat-in-pane .content{padding-top:10px!important}
+  #v-chat .card:has(> .chat-wrap){border-radius:16px}
+  #v-chat .chat-pane > .card-h{padding:8px 10px;gap:8px}
+  #v-chat .chat-pane > .card-h .avatar{width:34px;height:34px}
+  #v-chat .chat-pane > .card-h > span .btn{padding:6px 8px;font-size:0}
+  #v-chat .chat-pane > .card-h > span .btn::first-letter{font-size:15px}
+  #v-chat .chat-scroll{padding:14px 12px 8px}
+  #v-chat .msg{max-width:88%}
+  #v-chat .msg > .avatar{width:28px;height:28px}
+  #v-chat .fmt-bar{margin:8px 8px 0}
+  #v-chat .fmt-bar + .chat-input{margin:0 8px 8px}
+  #v-chat .fmt-hint{display:none}
+  #v-chat .thr-pane{border-radius:0}
+}
+@media (prefers-reduced-motion:reduce){.mw-new,#v-chat .thr-pane{animation:none}}
+/* chat view: the Cora shortcut sits with the camera button in the list's free bottom space, never over the composer */
+@media(min-width:861px){body.view-chat .cora-fab{right:auto;left:298px;bottom:18px}body.nav-collapsed.view-chat .cora-fab{left:68px}}
+@media(max-width:820px){body.view-chat .content{padding-bottom:0!important}}
+/* inside a group only the last message shows its time; hover (or tap) reveals the others and their actions */
+#v-chat .mwrap:has(+ .mwrap > .msg.cont) > .msg:not(:hover):not(:focus-within) .when{opacity:0;height:0;margin-top:0;overflow:hidden}
+#v-chat .msg .when{transition:opacity .15s}
+body.view-chat #footNote{display:none}
+@media(max-width:820px){
+  #v-chat .chat-pane > .card-h{flex-wrap:wrap}
+  #v-chat .chat-pane > .card-h > span{width:100%;display:flex;gap:6px;overflow-x:auto;flex-wrap:nowrap!important;justify-content:flex-start!important;scrollbar-width:none}
+  #v-chat .chat-pane > .card-h > span .btn{font-size:12px!important;padding:6px 10px!important;white-space:nowrap;flex-shrink:0}
+  #v-chat .chat-pane > .card-h > span .btn::first-letter{font-size:inherit}
+  body.chat-in-pane .cap-fab{display:none}   /* the composer toolbar has screenshot / mark-up here */
+}
+/* ===== sticky summary bar + pinned table headers ===== */
+.stk-wrap{position:sticky;top:-22px;height:0;z-index:30;margin:0 -24px}
+.stk-bar{position:absolute;left:0;right:0;top:0;display:flex;align-items:center;gap:8px;padding:8px 24px;min-height:48px;max-height:58px;overflow-x:auto;overflow-y:hidden;white-space:nowrap;scrollbar-width:none;
+  background:color-mix(in srgb,var(--panel) 94%,transparent);-webkit-backdrop-filter:saturate(1.4) blur(10px);backdrop-filter:saturate(1.4) blur(10px);border-bottom:1px solid var(--line);box-shadow:0 10px 24px -18px rgba(20,16,8,.35);
+  transform:translateY(-105%);opacity:0;pointer-events:none;transition:transform .22s cubic-bezier(.2,.8,.3,1),opacity .18s}
+.stk-bar::-webkit-scrollbar{display:none}
+.stk-wrap.show .stk-bar{transform:none;opacity:1;pointer-events:auto}
+.stk-l{font-size:12px;font-weight:800;color:var(--ink);margin-right:2px;flex-shrink:0}
+.stk-t{position:relative;display:inline-flex;align-items:baseline;gap:6px;padding:5px 10px 7px;border-radius:9px;background:var(--panel-2);border:1px solid var(--line);font-size:11.5px;color:var(--ink-2);flex-shrink:0;overflow:hidden}
+.stk-t b{font-size:12.5px;color:var(--ink);font-variant-numeric:tabular-nums}
+.stk-t i{position:absolute;left:0;bottom:0;height:3px;width:var(--p,0%);background:var(--brand-2);border-radius:0 3px 3px 0;transition:width .3s}
+.stk-t.ok{border-color:color-mix(in srgb,var(--ok) 45%,var(--line))}.stk-t.ok i{background:var(--ok)}
+.stk-sep{width:1px;height:22px;background:var(--line);flex-shrink:0;margin:0 2px}
+.stk-att{display:inline-flex;align-items:center;gap:6px;flex-shrink:0}
+.stk-state{font-size:11.5px;font-weight:700;color:var(--warn);flex-shrink:0}
+.stk-acts,.stk-tabs{display:inline-flex;gap:6px;align-items:center;flex-shrink:0}
+.stk-bar .btn{padding:5px 11px;font-size:12px;border-radius:9px;flex-shrink:0}
+.stk-bar .tab{padding:5px 10px;font-size:12px;border-radius:8px;border:1px solid transparent;flex-shrink:0}
+.stk-bar .tab.on{background:var(--warn-bg);border-color:var(--brand-2)}
+.stk-bar select{padding:5px 8px;font-size:12px;flex-shrink:0}
+.stk-q{padding:5px 10px;font-size:12px;width:180px;flex-shrink:0}
+.stk-acts:last-child{margin-left:auto}
+/* long tables scroll inside their box, with the column headers pinned */
+.tbl-scroll{max-height:min(72vh,calc(100dvh - 230px));overflow:auto;overscroll-behavior:contain}
+.tbl-box{max-width:100%}
+table.tbl-pin thead th{position:sticky;top:0;z-index:2;background:var(--panel);box-shadow:inset 0 -1px 0 var(--line)}
+@media(max-width:860px){
+  .stk-wrap{top:-16px;margin:0 -14px}
+  .stk-bar{padding:7px 14px;min-height:44px;gap:6px}
+  .stk-q{width:130px}
+  .tbl-scroll{max-height:min(68vh,calc(100dvh - 190px))}
+}
+@media print{.stk-wrap{display:none}}
 </style>
 </head>
 <body>
@@ -2385,6 +2586,12 @@ function audit(what){ EMP_LOG.unshift({id:uid('LOG'), when:dtstr(nowISO()), at:n
    demo: data in this browser (localStorage) + live sync between tabs (BroadcastChannel)
    live: Supabase — real logins, row-level security, real-time updates, file storage */
 let BACKEND = null;
+/* tiny IndexedDB key-value store for the offline copy of the workspace */
+const CCIDB = {
+  open(){ if(!this.p) this.p = new Promise((res, rej)=>{ try{ const r = indexedDB.open('cc-v8', 1); r.onupgradeneeded = ()=>r.result.createObjectStore('kv'); r.onsuccess = ()=>res(r.result); r.onerror = ()=>rej(r.error); }catch(e){ rej(e); } }); return this.p; },
+  async get(k){ try{ const db = await this.open(); return await new Promise(res=>{ const q = db.transaction('kv').objectStore('kv').get(k); q.onsuccess = ()=>res(q.result||null); q.onerror = ()=>res(null); }); }catch(e){ return null; } },
+  async set(k, v){ try{ const db = await this.open(); await new Promise(res=>{ const t = db.transaction('kv','readwrite'); t.objectStore('kv').put(v, k); t.oncomplete = res; t.onerror = res; t.onabort = res; }); }catch(e){} },
+};
 const LIVE = !!(CC_CONFIG.SUPABASE_URL && CC_CONFIG.SUPABASE_ANON_KEY);
 
 const DemoBackend = {
@@ -2418,14 +2625,21 @@ const LiveBackend = {
     await loadScript('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js');
     this.sb = window.supabase.createClient(CC_CONFIG.SUPABASE_URL, CC_CONFIG.SUPABASE_ANON_KEY, {auth:{persistSession:true, autoRefreshToken:true}});
   },
-  async loadAll(){
-    const rows=[]; const page=1000;
-    for(let from=0;;from+=page){
-      const {data, error} = await this.sb.from('cc_records').select('collection,id,data').order('collection').order('id').range(from, from+page-1);
-      if(error) throw error; rows.push(...data); if(data.length<page) break;
-    }
-    return rows;
+  /* all records this person may see — pages are fetched in parallel (6 at a time) instead of one after another */
+  async loadAll(onProgress){
+    const page = 1000;
+    const get = async (from, withCount) => { for(let a=0;;a++){ const q = this.sb.from('cc_records').select('collection,id,data', withCount?{count:'exact'}:undefined).order('collection').order('id').range(from, from+page-1);
+      const {data, error, count} = await q; if(!error) return {data, count}; if(a>=2) throw error; await new Promise(r=>setTimeout(r, 400*(a+1))); } };
+    /* the first page also tells how many rows there are; the rest are fetched in parallel (6 at a time) */
+    const first = await get(0, true); const out = [first.data];
+    const n = first.count!=null ? Math.max(1, Math.ceil(first.count/page)) : 1;
+    let next = 1, done = 1; onProgress?.(done/n);
+    await Promise.all(Array.from({length:Math.min(6, Math.max(0, n-1))}, async ()=>{ while(next<n){ const i = next++; out[i] = (await get(i*page)).data; done++; onProgress?.(done/n); } }));
+    /* rows added while loading (or no count): keep reading until a short page */
+    for(let from=out.length*page; out[out.length-1]?.length===page; from+=page){ const d = (await get(from)).data; out.push(d); if(d.length<page) break; }
+    const seen = new Set(); return out.flat().filter(r=>{ const k = r.collection+'|'+r.id; if(seen.has(k)) return false; seen.add(k); return true; });
   },
+
   async write(ups, dels){
     const me = PERSON;
     /* rows the writer cannot read back (a notification for a colleague) are inserted once, never merged */
@@ -2586,12 +2800,17 @@ const SYNC = {
     });
   },
   cacheKey(){ return 'cc-v8-cache-'+(BACKEND?.mode||'x')+'-'+PERSON; },
-  saveCache(){ /* live mode keeps a local copy so the portal opens instantly and survives short outages */
-    if(BACKEND?.mode!=='live') return;
+  saveCache(now){ /* live mode keeps a local copy (IndexedDB — no size limit problems) so the portal opens instantly and survives short outages */
+    if(BACKEND?.mode!=='live' || !PERSON) return;
     clearTimeout(this._ct); this._ct=setTimeout(()=>{ try{
       const rows=[]; Object.keys(COLL).forEach(c=>(COLL[c].get()||[]).forEach(o=>rows.push({collection:c,id:String(o.id),data:o})));
-      localStorage.setItem(this.cacheKey(), JSON.stringify({at:Date.now(), rows}));
-    }catch(e){} }, 1500);
+      CCIDB.set(this.cacheKey(), {at:Date.now(), rows:JSON.parse(JSON.stringify(rows))});
+      try{ localStorage.removeItem(this.cacheKey()); }catch(e){}   /* old, size-limited copy */
+    }catch(e){} }, now ? 50 : 1500);
+  },
+  async readCache(){
+    const c = await CCIDB.get(this.cacheKey()); if(c?.rows?.length) return c;
+    try{ return JSON.parse(localStorage.getItem(this.cacheKey())||'null'); }catch(e){ return null; }
   },
 };
 function recordChange(){
@@ -2677,19 +2896,16 @@ async function doLogin(){
   try{ await startLiveSession(); }catch(e){ showErr(e.message); await BACKEND.sb.auth.signOut(); }
   done();
 }
-async function startLiveSession(){
-  const {data:{user}} = await BACKEND.sb.auth.getUser();
-  if(!user) throw new Error('Please sign in again.');
+function liveProgress(f){ const t = el('connTxt'); if(t && f!=null) t.textContent = `Loading your workspace… ${Math.max(5, Math.round(f*100))}%`; }
+async function liveProfile(user){
   const {data:prof, error} = await BACKEND.sb.from('cc_people').select('*').eq('user_id', user.id).maybeSingle();
   if(error) throw error;
   if(!prof) throw new Error('Your login is not linked to the Cross Core directory yet. Ask HR to create your account from Employees & Accounts.');
   if(!prof.active) throw new Error('This account has been disabled. Contact HR if this is a mistake.');
-  BACKEND.profile = prof;
-  PERSON = prof.person_key;
-  /* instant open from local copy, then fresh data from the server */
-  try{ const cache = JSON.parse(localStorage.getItem(SYNC.cacheKey())||'null'); if(cache?.rows?.length){ SYNC.hydrate(cache.rows); } }catch(e){}
-  const rows = await BACKEND.loadAll();
-  SYNC.hydrate(rows);
+  try{ localStorage.setItem('cc-v8-me-'+user.id, JSON.stringify(prof)); }catch(e){}
+  return prof;
+}
+function liveOpen(prof, user, rows){
   if(!SETTINGS.length) SETTINGS=[{...DEFAULT_SETTINGS}];
   normalizeData();
   rebuildPeople();
@@ -2704,8 +2920,50 @@ async function startLiveSession(){
   BACKEND.subscribe((u,d)=>SYNC.applyRemote(u,d));
   enterApp(PERSON);
   if(prof.must_change_pw) el('pwGate').style.display='grid';
+}
+async function startLiveSession(){
+  const {data:{session}} = await BACKEND.sb.auth.getSession();
+  const user = session?.user || (await BACKEND.sb.auth.getUser()).data.user;
+  if(!user) throw new Error('Please sign in again.');
+  /* instant open: this browser already has your workspace — show it right away, then refresh in the background */
+  let known = null; try{ known = JSON.parse(localStorage.getItem('cc-v8-me-'+user.id)||'null'); }catch(e){}
+  if(known?.active && known.person_key){
+    PERSON = known.person_key;
+    const cache = await SYNC.readCache();
+    if(cache?.rows?.length){
+      BACKEND.profile = known; SYNC.hydrate(cache.rows);
+      liveOpen(known, user, cache.rows);
+      liveRefresh(user, known);
+      return;
+    }
+  }
+  /* first time on this browser: load everything once (in parallel, with progress) */
+  const prof = await liveProfile(user);
+  BACKEND.profile = prof; PERSON = prof.person_key;
+  liveProgress(0);
+  const rows = await BACKEND.loadAll(liveProgress);
+  SYNC.hydrate(rows);
+  liveOpen(prof, user, rows);
+  SYNC.saveCache(true);
   if(!rows.length && ['head','hr'].includes(prof.role)) setTimeout(importStarterModal, 400);
   else if(['head','hr','pm'].includes(prof.role)) { ensureChats(); recordChange(); }
+}
+/* background refresh after an instant open: confirm the account, then bring in everything that changed */
+async function liveRefresh(user, known){
+  const sp = el('syncTxt'); if(sp) sp.textContent = 'Updating…';
+  try{
+    const prof = await liveProfile(user);
+    if(prof.person_key!==known.person_key || prof.role!==known.role){ location.reload(); return; }
+    BACKEND.profile = prof;
+    if(prof.must_change_pw) el('pwGate').style.display='grid';
+    await SYNC.resync();
+    if(['head','hr','pm'].includes(prof.role)){ ensureChats(); recordChange(); }
+    SYNC.saveCache(true);
+  }catch(e){
+    if(/disabled|not linked/i.test(e.message||'')){ try{ localStorage.removeItem('cc-v8-me-'+user.id); }catch(x){} await BACKEND.sb.auth.signOut(); alert(e.message); location.reload(); return; }
+    console.warn('Background refresh failed — showing the saved copy', e);
+  }
+  syncUI();
 }
 function enterApp(key){
   el('login').style.display='none';
@@ -3020,10 +3278,10 @@ function checkUrgentAnns(){ if(ROLE==='client') return;
 const kpiCard = (label,val,hint,color) => `<div class="card kpi"><div class="k-label">${label}</div><div class="k-val" ${color?`style="color:${color}"`:''}>${val}</div><div class="hint">${hint||''}</div></div>`;
 const greetWord = () => { const h=+new Date().toLocaleString('en-US',{hour:'numeric',hour12:false,timeZone:'Asia/Manila'}); return h<12?'Good morning':h<18?'Good afternoon':'Good evening'; };
 function attQuickCard(){
-  const r = attRec(PERSON); const [st,cls] = attState(r);
-  return `<div class="card" style="margin-bottom:16px"><div class="card-b status-card">
-    <span class="badge ${cls}">${st}</span><div style="flex:1;min-width:180px;font-size:12.5px">${r?.in?`In at <b>${showT(r.in)}</b>${r.client?' · '+esc(cname(r.client)):''} · ${hm(workedMins(r))} worked`:'You have not timed in today.'}</div>
-    ${!r?.in?`<button class="btn primary" onclick="go('attendance')">▶ Time In</button>`:!r.out?`<button class="btn" onclick="go('attendance')">Break / Time Out</button>`:''}</div></div>`;
+  const r = attRec(PERSON); const [st,cls] = attState(r); const open = r?.in && !r.out;
+  return `<div class="card att-quick" id="attQuick" style="margin-bottom:16px"><div class="card-b status-card">
+    <span class="badge ${cls}">${st}</span><div style="flex:1;min-width:180px;font-size:12.5px">${r?.in?`${open?'Working on <b>'+esc(r.client?cname(r.client):'General / internal')+'</b> · since '+showT(attSessions(r).slice(-1)[0]?.in):'Timed out at <b>'+showT(r.out)+'</b>'} · <b id="attQuickWorked">${hm(workedMins(r))||'0h 0m'}</b> today`:'You have not timed in yet.'}</div>
+    <span class="att-btns">${attActionsHTML(r, true)}<button class="btn ghost" onclick="go('attendance')">Client & log →</button></span></div></div>`;
 }
 function recentNotifsCard(n=5){
   const L = myNotifs().slice(0,n);
@@ -3219,6 +3477,7 @@ function execDashboard(){
       <div style="display:flex;gap:9px;flex-wrap:wrap"><button class="btn primary" onclick="regModal()">+ Register new client</button><button class="btn" onclick="briefModal()">Submit client brief to HR</button><button class="btn" onclick="orgModal()">+ Client organization</button><button class="btn" onclick="go('reports')">Open reports</button></div>
     </div>
     ${annStrip()}
+    ${attQuickCard()}
     ${top}
     ${execRegCard()}
     <div class="grid cols-4" style="margin-bottom:16px">
@@ -6380,7 +6639,13 @@ async function resetPw(id){
 let attDate = manilaDate();
 const attId = (p,d) => `${p}|${d}`;
 const shiftDate = (d,n) => { const x=new Date(d+'T00:00:00Z'); x.setUTCDate(x.getUTCDate()+n); return x.toISOString().slice(0,10); };
-const attRec = (p,d=manilaDate()) => ATTLOG.find(r=>r.id===attId(p,d));
+/* a person's record for a day; without a date: the work session that is open right now (it may have started
+   yesterday — night shifts past midnight), otherwise today's record */
+const ATT_OPEN_H = 16;
+const attSessions = r => !r?.in ? [] : (r.sessions?.length ? r.sessions : [{in:r.in, out:r.out}]);
+function attOpenRec(p){ const cut = Date.now() - ATT_OPEN_H*3600e3;
+  return ATTLOG.filter(r=>r.person===p && r.in && !r.out).map(r=>({r, s:toMs(attSessions(r).slice(-1)[0]?.in||r.in)||0})).filter(x=>x.s>cut).sort((a,b)=>b.s-a.s)[0]?.r || null; }
+const attRec = (p,d) => d ? ATTLOG.find(r=>r.id===attId(p,d)) : (attOpenRec(p) || ATTLOG.find(r=>r.id===attId(p,manilaDate())));
 const toMs = v => { if(!v) return null; if(/^\d{4}-/.test(v)) return new Date(v).getTime(); return null; };
 function manilaMins(v){ if(!v) return null; if(/^\d{4}-/.test(v)){ const d=new Date(new Date(v).getTime()+8*3600e3); return d.getUTCHours()*60+d.getUTCMinutes(); }
   const m = String(v).match(/(\d+):(\d+)\s*(AM|PM)/i); if(!m) return null; let h=+m[1]%12; if(/pm/i.test(m[3])) h+=12; return h*60+ +m[2]; }
@@ -6389,6 +6654,10 @@ const lateMins = () => manilaMins(S().lateAfter||'9:15 AM');
 function breakMins(r){ return (r?.breaks||[]).reduce((a,b)=>{ const s=toMs(b.s), e=b.e?toMs(b.e):(r.out?null:Date.now()); return a + (s&&e? Math.max(0,(e-s)/60000) : 0); },0); }
 function workedMins(r){
   if(!r?.in) return 0;
+  const S_ = attSessions(r);
+  if(S_.every(x=>toMs(x.in))){ let t = 0;
+    S_.forEach(x=>{ const a = toMs(x.in), b = x.out ? toMs(x.out) : (!r.out && Date.now()-a < ATT_OPEN_H*3600e3 ? Date.now() : null); if(a && b) t += Math.max(0, (b-a)/60000); });
+    return Math.max(0, t - breakMins(r)); }
   const a=toMs(r.in), b=r.out?toMs(r.out):(r.date===manilaDate()?Date.now():null);
   if(a && b) return Math.max(0,(b-a)/60000 - breakMins(r));
   const mi=manilaMins(r.in), mo=manilaMins(r.out); return (mi!=null&&mo!=null)? Math.max(0,mo-mi-breakMins(r)) : 0;
@@ -6403,31 +6672,97 @@ function attState(r){
 const isLate = r => r?.in && manilaMins(r.in) > lateMins();
 function attWatchersFor(k){ const w=(S().attWatch||[]); return uniq([...HR_KEYS(), ...HEADS, ...activePeople().filter(p=>PEOPLE[p].role==='manager')]).filter(x=>w.includes(x) && overseenBy(x).includes(k)); }
 function attNotifyOversight(text){ notify(uniq([...HR_KEYS(), ...activePeople().filter(p=>PEOPLE[p].role==='manager' && overseenBy(p).includes(PERSON))]), 'attendance', text, {view:'attendance'}); }
-function attAct(kind){
-  const d = manilaDate(); let r = attRec(PERSON, d);
-  const cl = el('attClient')?.value || ''; const pj = el('attProject')?.value?.trim() || '';
+/* ---- Time In / Break / Time Out ----
+   • Time In works whenever you start working — also again after a Time Out (a new work session the same day).
+   • Break / End Break / Time Out follow your current status, including sessions that run past midnight.
+   • Each action saves immediately; repeated clicks never create duplicate entries. */
+const ATT_LAST = {};
+function attAssigned(k=PERSON){ const e = EMPLOYEES.find(x=>x.id===k); const ids = e?.clients || PEOPLE[k]?.clients || [];
+  return visClients().filter(c=>c.status==='Active' && ids.includes(c.id)); }
+function attPickClient(opts){ if(opts && 'client' in opts) return opts.client||''; const s = el('attClient'); if(s) return s.value||'';
+  const r = attRec(PERSON); if(r?.client) return r.client; const a = attAssigned(); return a.length===1 ? a[0].id : ''; }
+function attAct(kind, opts={}){
+  const t0 = Date.now(); if(ATT_LAST[kind] && t0-ATT_LAST[kind] < 800) return;   /* double click */
+  ATT_LAST[kind] = t0;
+  document.querySelectorAll('[data-att]').forEach(b=>b.disabled = true);
+  let changed = false;
+  try{ changed = attDo(kind, opts); }
+  finally{ if(changed){ recordChange(); try{ SYNC.flush?.(); }catch(e){} } attRefresh(); }
+}
+function attDo(kind, opts){
+  const d = manilaDate(); let r = attRec(PERSON);
+  const cl = attPickClient(opts); const pj = (opts.project ?? el('attProject')?.value ?? '').trim();
   const now = nowISO(); const me = esc(first(PERSON));
+  const open = r && r.in && !r.out;
   if(kind==='in'){
-    if(r?.in) return toast('You already timed in today at '+showT(r.in));
+    if(open) { toast('You are already timed in since '+showT(attSessions(r).slice(-1)[0]?.in||r.in)); return false; }
+    if(r && r.date===d && r.in){
+      /* timed out earlier today → a new work session on the same day */
+      r.sessions = [...attSessions(r), {in:now, out:null}]; r.out = null; r.client = cl; r.project = pj;
+      r.events.push({t:now, kind:'Time in', client:cl, project:pj, session:r.sessions.length});
+      notify(clockInRecipients(PERSON), 'attendance', `🟢 <b>${me}</b> timed in again at ${clock(now)} (session ${r.sessions.length})${cl?' · '+esc(cname(cl)):''}`, {view:'attendance'});
+      toast(`Timed in at ${clock(now)} — session ${r.sessions.length} today`);
+      return true;
+    }
     const prev = ATTLOG.filter(x=>x.person===PERSON && x.date<d && x.in && !x.out).sort((a,b)=>b.date.localeCompare(a.date))[0];
-    r = {id:attId(PERSON,d), person:PERSON, date:d, in:now, out:null, breaks:[], client:cl, project:pj, events:[{t:now, kind:'Time in', client:cl, project:pj}]};
-    ATTLOG.push(r);
+    r = ATTLOG.find(x=>x.id===attId(PERSON,d));
+    if(!r){ r = {id:attId(PERSON,d), person:PERSON, date:d, in:null, out:null, breaks:[], client:cl, project:pj, events:[]}; ATTLOG.push(r); }
+    r.in = r.in || now; r.out = null; r.client = cl; r.project = pj; r.sessions = [...attSessions(r).filter(x=>x.out), {in:now, out:null}];
+    r.events = [...(r.events||[]), {t:now, kind:'Time in', client:cl, project:pj}];
     notify(clockInRecipients(PERSON), 'attendance', `🟢 <b>${me}</b> clocked in at ${clock(now)}${isLate(r)?' <b>(late)</b>':''}${cl?' · '+esc(cname(cl)):''}`, {view:'attendance'});
     if(isLate(r)) attNotifyOversight(`⏰ ${me} timed in late at ${clock(now)}${cl?' · '+esc(cname(cl)):''}`);
     if(prev) notify(HR_KEYS(), 'attendance', `${me} has no time out recorded for ${prev.date} — please review`, {view:'attendance'});
-    toast('Timed in at '+clock(now));
+    toast('Timed in at '+clock(now)+(cl?' · '+cname(cl):''));
+    return true;
   }
-  if(!r?.in && kind!=='in') return toast('Time in first');
-  if(r.out && kind!=='in') return toast('You already timed out today at '+showT(r.out));
-  if(kind==='break'){ if(r.breaks.some(b=>!b.e)) return toast('You are already on a break'); r.breaks.push({s:now, e:null}); r.events.push({t:now, kind:'Break start'}); toast('Break started at '+clock(now)); }
-  if(kind==='endbreak'){ const b=r.breaks.find(b=>!b.e); if(!b) return toast('You are not on a break'); b.e=now; r.events.push({t:now, kind:'Break end'});
-    const mins=(toMs(b.e)-toMs(b.s))/60000; if(mins > (S().breakLimit||60)) attNotifyOversight(`☕ ${me} took a ${Math.round(mins)}-minute break (limit ${S().breakLimit||60} min)`);
-    toast('Welcome back — break ended at '+clock(now)); }
-  if(kind==='switch'){ r.client=cl; r.project=pj; r.events.push({t:now, kind:'Switched work', client:cl, project:pj}); toast('Now working on '+(cl?cname(cl):pj||'general work')); }
-  if(kind==='out'){ const b=r.breaks.find(b=>!b.e); if(b) b.e=now; r.out=now; r.events.push({t:now, kind:'Time out'});
+  if(!open){ toast(r?.out ? 'You are timed out — press Time In to start a new session' : 'Time in first'); return false; }
+  const onBreak = (r.breaks||[]).find(b=>!b.e);
+  if(kind==='break'){ if(onBreak){ toast('You are already on a break'); return false; } r.breaks.push({s:now, e:null}); r.events.push({t:now, kind:'Break start'}); toast('Break started at '+clock(now)); return true; }
+  if(kind==='endbreak'){ if(!onBreak){ toast('You are not on a break'); return false; } onBreak.e = now; r.events.push({t:now, kind:'Break end'});
+    const mins=(toMs(onBreak.e)-toMs(onBreak.s))/60000; if(mins > (S().breakLimit||60)) attNotifyOversight(`☕ ${me} took a ${Math.round(mins)}-minute break (limit ${S().breakLimit||60} min)`);
+    toast('Welcome back — break ended at '+clock(now)); return true; }
+  if(kind==='switch'){ if(r.client===cl && (r.project||'')===pj){ return false; } r.client = cl; r.project = pj; r.events.push({t:now, kind:'Switched work', client:cl, project:pj}); toast('Now working on '+(cl?cname(cl):pj||'general work')); return true; }
+  if(kind==='out'){ if(onBreak) onBreak.e = now; const ss = attSessions(r); const last = ss[ss.length-1]; if(last && !last.out) last.out = now; r.sessions = ss; r.out = now; r.events.push({t:now, kind:'Time out'});
     notify(attWatchersFor(PERSON), 'attendance', `${me} timed out at ${clock(now)} · ${hm(workedMins(r))} worked`, {view:'attendance'});
-    toast('Timed out at '+clock(now)+' — '+hm(workedMins(r))+' logged'); }
-  recordChange(); RENDER[CURRENT]?.();
+    toast('Timed out at '+clock(now)+' — '+hm(workedMins(r))+' logged'); return true; }
+  return false;
+}
+let ATT_SEL = null;   /* client chosen before timing in */
+function attSelClient(){ const r = attRec(PERSON); if(r?.in && !r.out) return r.client||''; if(ATT_SEL!=null) return ATT_SEL; if(r?.client) return r.client; const a = attAssigned(); return a.length===1 ? a[0].id : ''; }
+function attChoose(cid){ const r = attRec(PERSON); if(r?.in && !r.out){ const h = el('attClient'); if(h) h.value = cid; attAct('switch', {client:cid}); } else { ATT_SEL = cid; RENDER.attendance(); } }
+function attActionsHTML(r, compact){
+  const [st] = attState(r); const open = r?.in && !r.out; const onBreak = st==='On break';
+  const b = (k, label, cls='') => `<button class="btn ${cls}" data-att="${k}" onclick="attAct('${k}')">${label}</button>`;
+  if(!open) return b('in', r?.out && r.date===manilaDate() ? '▶ Time In again' : '▶ Time In', 'primary att-main');
+  return (onBreak ? b('endbreak', '↩ End Break', 'primary att-main') : b('break', '☕ Start Break')) + b('out', '⏹ Time Out', compact?'':'att-out');
+}
+function attPanelHTML(){
+  const r = attRec(PERSON); const [st, cls] = attState(r); const open = r?.in && !r.out;
+  const ss = attSessions(r); const cur = open ? ss[ss.length-1] : null;
+  const sel = attSelClient(); const mine = attAssigned(); const all = visClients().filter(c=>c.status==='Active');
+  const chips = [{id:'', name:'General / internal'}, ...mine]; if(sel && !chips.some(c=>c.id===sel) && client(sel)) chips.push(client(sel));
+  const others = all.filter(c=>!chips.some(x=>x.id===c.id));
+  const where = sel ? cname(sel) : 'General / internal';
+  return `<div class="card att-panel ${open?'is-open':''} ${st==='On break'?'is-break':''}"><div class="card-b">
+    <div class="att-top">
+      <div class="att-who">${av(PEOPLE[PERSON])}<div><b>${esc(PEOPLE[PERSON].name)}</b> <span class="badge ${cls}">${st}</span>
+        <div class="hint">${open ? `Session${ss.length>1?' '+ss.length:''} started ${showT(cur?.in)}${r.date!==manilaDate()?' (yesterday)':''}` : r?.out ? `Timed out at ${showT(r.out)} — you can time in again any time` : 'Not timed in yet — Time In whenever you start working'}</div></div></div>
+      <div class="att-clock"><span class="att-k">Worked today</span><b id="attWorked">${hm(workedMins(r))||'0h 0m'}</b><span class="hint">${(r?.breaks||[]).length?`${r.breaks.length} break(s) · ${Math.round(breakMins(r))} min`:'no breaks yet'}</span></div>
+    </div>
+    <div class="att-now"><span class="att-k">${open?'Working on':'Time in for'}</span><b class="att-client">${esc(where)}</b>${open&&r.project?`<span class="hint">· ${esc(r.project)}</span>`:''}</div>
+    <div class="att-switch" id="attSwitchRow">${chips.map(c=>`<button class="chip ${c.id===sel?'on':''}" onclick="attChoose('${c.id}')">${esc(c.name)}</button>`).join('')}
+      ${others.length?`<select class="att-other" onchange="if(this.value) attChoose(this.value)"><option value="">Other client…</option>${others.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('')}</select>`:''}</div>
+    <input type="hidden" id="attClient" value="${esc(sel)}">
+    <div class="att-row2"><input id="attProject" value="${esc(r?.project||'')}" placeholder="Project / task (optional)" ${open?`onchange="attAct('switch', {client:el('attClient').value, project:this.value})"`:''}>
+      <div class="att-btns">${attActionsHTML(r)}</div></div>
+    ${r?.events?.length?`<details class="att-tl" ${open?'':'open'}><summary>Today’s activity (${r.events.length})</summary><div class="timeline">${r.events.slice().reverse().map(ev=>`<div class="ti"><b>${esc(ev.kind)}</b> · ${clock(ev.t)}${ev.client?' · '+esc(cname(ev.client)):''}${ev.project?' · '+esc(ev.project):''}</div>`).join('')}</div></details>`:''}
+  </div></div>`;
+}
+setInterval(()=>{ const w = el('attWorked'); if(w && PEOPLE[PERSON]) w.textContent = hm(workedMins(attRec(PERSON)))||'0h 0m'; const q = el('attQuickWorked'); if(q && PEOPLE[PERSON]) q.textContent = hm(workedMins(attRec(PERSON)))||'0h 0m'; }, 30000);
+/* show the new state right away everywhere it appears (no page refresh) */
+function attRefresh(){
+  try{ if(CURRENT==='attendance') RENDER.attendance(); else if(CURRENT==='dashboard'){ const q = el('attQuick'); if(q) q.outerHTML = attQuickCard(); else RENDER.dashboard(); } }catch(e){ console.warn(e); }
+  try{ presChanged?.(); updateBadges?.(); }catch(e){}
 }
 function clockIn(){ attAct('in'); } function clockOut(){ attAct('out'); }
 /* who sees what: Core Team, company heads and HR see every employee (HR staff included); PMs see their team;
@@ -6459,9 +6794,7 @@ function attExceptions(date){
 }
 RENDER.attendance = () => {
   const today = manilaDate();
-  const mine = attRec(PERSON, today);
-  const [st, cls] = attState(mine);
-  const onBreak = st==='On break';
+  const mine = attRec(PERSON);
   const myHist = ATTLOG.filter(r=>r.person===PERSON).sort((a,b)=>b.date.localeCompare(a.date)).slice(0,14);
   const clientOpts = `<option value="">— Internal / general —</option>${visClients().filter(c=>c.status==='Active').map(c=>`<option value="${c.id}" ${mine?.client===c.id?'selected':''}>${esc(c.name)}</option>`).join('')}`;
   let oversight = '';
@@ -6499,25 +6832,7 @@ RENDER.attendance = () => {
     <div class="page-head">
       <div><h2>Attendance & Time Logs</h2><p>${attFullAccess()?'Your own time log, who is working right now, and attendance records for every employee — updated live.':canMonitorAtt()?'Your own time log plus live attendance for the people you oversee.':'Time in when you start, take breaks, and time out when you finish. Your coworkers see your status live.'}</p></div>
     </div>
-    <div class="card"><div class="card-b">
-      <div class="status-card" style="margin-bottom:14px">
-        ${av(PEOPLE[PERSON])}
-        <div style="flex:1;min-width:200px"><b style="font-size:14px">${esc(PEOPLE[PERSON].name)}</b> <span class="badge ${cls}">${st}</span>
-          <div class="hint">Today, ${dstr(nowISO())} · ${mine?.in?`In at <b style="color:var(--ok)">${showT(mine.in)}</b>`:'Not yet timed in'}${mine?.breaks?.length?` · ${mine.breaks.length} break(s), ${Math.round(breakMins(mine))} min`:''}${mine?.out?` · Out at <b>${showT(mine.out)}</b>`:''} · ${hm(workedMins(mine))} worked</div></div>
-      </div>
-      <div class="grid cols-2" style="gap:10px;margin-bottom:12px">
-        <div class="field" style="margin:0"><label>Client I'm working on</label><select id="attClient">${clientOpts}</select></div>
-        <div class="field" style="margin:0"><label>Project / task (optional)</label><input id="attProject" value="${esc(mine?.project||'')}" placeholder="e.g. September content calendar"></div>
-      </div>
-      <div class="att-btns">
-        <button class="btn primary" ${mine?.in?'disabled':''} onclick="attAct('in')">▶ Time In</button>
-        <button class="btn" ${!mine?.in||mine?.out||onBreak?'disabled':''} onclick="attAct('break')">☕ Start Break</button>
-        <button class="btn" ${!onBreak?'disabled':''} onclick="attAct('endbreak')">↩ End Break</button>
-        <button class="btn" ${!mine?.in||mine?.out?'disabled':''} onclick="attAct('out')">⏹ Time Out</button>
-        ${mine?.in&&!mine?.out?`<button class="btn ghost" onclick="attAct('switch')">Switch client / project</button>`:''}
-      </div>
-      ${mine?.events?.length?`<div class="timeline" style="margin-top:14px">${mine.events.slice().reverse().map(ev=>`<div class="ti"><b>${esc(ev.kind)}</b> · ${clock(ev.t)}${ev.client?' · '+esc(cname(ev.client)):''}${ev.project?' · '+esc(ev.project):''}</div>`).join('')}</div>`:''}
-    </div></div>
+    ${attPanelHTML()}
     ${teamStatusCard()}
     ${oversight}
     ${canMonitorAtt()?attRecordsCard():''}
@@ -12616,7 +12931,7 @@ updateMessages = function(c){
   let before = null;
   for(let i=M.length-1;i>=0;i--){ const m=M[i]; const sig = msgSig(m, M[i-1]); let n = el('mw-'+m.id);
     if(n && n.dataset.sig!==sig){ n.dataset.sig=sig; n.innerHTML = msgBlock(m, M[i-1]); }
-    if(!n){ n = document.createElement('div'); n.className='mwrap'; n.id='mw-'+m.id; n.dataset.sig=sig; n.innerHTML=msgBlock(m, M[i-1]); sc.insertBefore(n, before); }
+    if(!n){ n = document.createElement('div'); n.className='mwrap mw-new'; n.id='mw-'+m.id; n.dataset.sig=sig; n.innerHTML=msgBlock(m, M[i-1]); sc.insertBefore(n, before); }
     else if(n.nextElementSibling!==before && before) sc.insertBefore(n, before);
     before = n; }
   hydrateChatMedia(sc);
@@ -13725,21 +14040,15 @@ function attLogModal(k, date){
     <div class="timeline">${(r.events||[]).slice().reverse().map(ev=>`<div class="ti"><b>${esc(ev.kind)}</b> · ${clock(ev.t)}${ev.client?' · '+esc(cname(ev.client)):''}${ev.project?' · '+esc(ev.project):''}</div>`).join('')||'<div class="hint">No events recorded.</div>'}</div>
     ${r.corrected?`<div class="hint" style="margin-top:8px">Corrected: ${esc(r.corrected.reason||'')}</div>`:''}`);
 }
-function attQuickSwitch(cid){ const s = el('attClient'); if(s) s.value = cid; attAct('switch'); }
+function attQuickSwitch(cid){ attChoose(cid); }
 { const _ra = RENDER.attendance; RENDER.attendance = function(){
     _ra.apply(this, arguments);
     const v = el('v-attendance'); if(!v) return;
-    const today = manilaDate(); const mine = attRec(PERSON, today);
+    const mine = attRec(PERSON); const today = mine?.date || manilaDate();
     /* today's log is always viewable — also after Time Out */
     const btns = v.querySelector('.att-btns');
     if(btns && mine?.in && !el('attViewLog')){ const b = document.createElement('button'); b.id = 'attViewLog'; b.className = 'btn ghost'; b.textContent = '🧾 View today’s time log'; b.onclick = () => attLogModal(PERSON, today); btns.appendChild(b); }
-    /* one-tap client switch for people with more than one client */
-    const assigned = (EMPLOYEES.find(e=>e.id===PERSON)?.clients)||[]; const cl = visClients().filter(c=>c.status==='Active' && assigned.includes(c.id));
-    if(btns && mine?.in && !mine.out && cl.length>1 && !el('attSwitchRow')){
-      const row = document.createElement('div'); row.id = 'attSwitchRow'; row.className = 'att-switch';
-      row.innerHTML = `<span class="hint">Working on</span>${[{id:'', name:'General'}, ...cl].map(c=>`<button class="chip ${((mine.client||'')===c.id)?'on':''}" onclick="attQuickSwitch('${c.id}')">${esc(c.name)}</button>`).join('')}`;
-      btns.after(row);
-    }
+    /* client chips now live in the attendance panel itself (13_people.js) */
     /* recent records open the full log */
     [...v.querySelectorAll('.card')].filter(c=>/Your recent records/.test(c.querySelector('.card-h h3')?.textContent||'')).forEach(card=>{
       card.querySelectorAll('tbody tr').forEach(tr=>{ const d = tr.querySelector('td b')?.textContent; if(!d || !/^\d{4}-\d{2}-\d{2}$/.test(d)) return;
@@ -14733,6 +15042,224 @@ function tkMigrateTeam(){
   if(n) recordChange();
 }
 { const _sp = setPerson; setPerson = function(){ const r = _sp.apply(this, arguments); setTimeout(()=>{ try{ tkSeedQA(); tkMigrateTeam(); fixBanner(); buildNav(); }catch(e){ console.warn('tickets', e); } }, 1200); return r; }; }
+
+/* ===== 43_capture.js ===== */
+/* ================= CAPTURE TOOLS (Oct 2026) — screenshot & screen recording, everywhere =================
+   A small floating camera button (bottom-left of the workspace) is available on every page:
+   • 📸 Screenshot this page — the whole page you are on (also the parts below the fold) → download, mark up or attach.
+   • ✂️ Screenshot a tab, window or screen — the browser asks what to capture → mark up → download / attach.
+   • 🎥 Record screen — the browser asks which tab, window or screen; a compact timer + Stop control sits next to
+     the button (it never covers the page header). Replay, then download or attach.
+   Phones: page screenshots and “mark up a photo” (mobile browsers cannot record the screen). */
+const CAP = {open:false};
+const CAP_LIB = 'https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/dist/html-to-image.js';
+function capStamp(){ return typeof recStamp==='function' ? recStamp() : new Date().toISOString().slice(0,16).replace(/[:T]/g,'.'); }
+function capDownload(blob, name){ const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 4000); }
+function capSetup(){
+  if(el('capFab') || !document.querySelector('.app')) return;
+  const f = document.createElement('div'); f.id = 'capFab'; f.className = 'cap-fab';
+  f.innerHTML = `<button class="cap-btn" id="capBtn" title="Screenshot or record your screen" aria-label="Screenshot or record your screen" aria-expanded="false">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg></button>
+    <div class="cap-menu" id="capMenu" role="menu">
+      <button role="menuitem" onclick="capPage()"><b>📸 Screenshot this page</b><small>The whole page — download, mark up or attach</small></button>
+      <button role="menuitem" class="cap-desk" onclick="capClose();shotStart({kind:'any'})"><b>✂️ Screenshot a tab, window or screen</b><small>Your browser asks what to capture</small></button>
+      <button role="menuitem" class="cap-desk" onclick="capClose();recStart({kind:'any'})"><b>🎥 Record screen</b><small>With sound · choose a tab, window or screen</small></button>
+      <button role="menuitem" class="cap-mob" onclick="capClose();shotPick({kind:'any'})"><b>✏️ Mark up a photo or screenshot</b><small>Pick an image from your phone</small></button>
+    </div>`;
+  document.body.appendChild(f);
+  f.classList.toggle('hidden', el('login')?.style.display!=='none');
+  f.classList.toggle('no-capture', !(typeof canCapture==='function' && canCapture()));
+  el('capBtn').onclick = e => { e.stopPropagation(); if(REC?.mr) return recStop(); capToggle(); };
+  document.addEventListener('click', e=>{ if(CAP.open && !e.target.closest('#capFab')) capClose(); });
+  document.addEventListener('keydown', e=>{ if(e.key==='Escape' && CAP.open) capClose(); });
+}
+function capToggle(on = !CAP.open){ CAP.open = on; el('capFab')?.classList.toggle('open', on); el('capBtn')?.setAttribute('aria-expanded', on?'true':'false'); }
+const capClose = () => capToggle(false);
+/* the whole page, including what is below the fold */
+async function capPage(){
+  capClose();
+  const node = document.querySelector('.content'); if(!node) return;
+  const fab = el('capFab'); fab?.classList.add('busy'); toast('Capturing the page…');
+  try{
+    await loadScript(CAP_LIB);
+    const lib = window.htmlToImage; if(!lib) throw new Error('capture tool unavailable');
+    const w = node.clientWidth, h = Math.min(node.scrollHeight, 16000);
+    const bg = getComputedStyle(document.body).backgroundColor || '#F7F6F2';
+    const canvas = await lib.toCanvas(node, {width:w, height:h, backgroundColor:bg, pixelRatio:Math.min(2, window.devicePixelRatio||1), cacheBust:false,
+      style:{height:h+'px', maxHeight:'none', overflow:'visible', transform:'none'},
+      filter:n => !(n.id && ['capFab','recBar','callPanel','toasts'].includes(n.id)) && !(n.classList && (n.classList.contains('cora-fab') || n.classList.contains('toast')))});
+    /* page title on top so the image explains itself */
+    const out = document.createElement('canvas'); const pad = Math.round(44*canvas.width/w); out.width = canvas.width; out.height = canvas.height + pad;
+    const g = out.getContext('2d'); g.fillStyle = bg; g.fillRect(0,0,out.width,out.height);
+    g.fillStyle = '#141414'; g.font = `700 ${Math.round(pad*0.36)}px Inter, system-ui, sans-serif`; g.textBaseline = 'middle';
+    g.fillText(`${el('pageTitle')?.textContent||'Cross Core'} · ${pname(PERSON)} · ${new Date().toLocaleString('en-US',{timeZone:'Asia/Manila'})}`, Math.round(pad*0.4), pad/2);
+    g.drawImage(canvas, 0, pad);
+    const blob = await new Promise(r=>out.toBlob(r, 'image/png'));
+    const file = new File([blob], `Cross Core ${el('pageTitle')?.textContent||'page'} ${capStamp()}.png`.replace(/[\\/]/g,'-'), {type:'image/png'});
+    CAP.last = {file, canvas:out};
+    capReview(file, out);
+  }catch(e){ console.warn(e); toast('Could not capture this page — try “Screenshot a tab, window or screen”'); }
+  finally{ fab?.classList.remove('busy'); }
+}
+function capReview(file, canvas){
+  const url = URL.createObjectURL(file);
+  openModal('Page screenshot', `<div class="mr-prev cap-prev"><img src="${url}" alt="Page screenshot"></div>
+    <div class="hint" style="margin:6px 0 12px">${esc(file.name)} · ${(file.size/1048576).toFixed(1)} MB</div>
+    <div class="mr-acts"><button class="btn primary" onclick="capDownload(CAP.last.file, CAP.last.file.name);toast('Downloaded')">⬇ Download PNG</button>
+      <button class="btn" onclick="annotOpen(CAP.last.canvas, {kind:'any'})">✏️ Mark up</button>
+      <button class="btn" onclick="mediaReview(CAP.last.file, {kind:'any'})">📎 Attach to a message / task / ticket…</button>
+      <button class="btn ghost" onclick="closeModal()">Close</button></div>`, true);
+}
+/* recording controls sit next to the camera button, never over the page header */
+{ const _rb = recBar; recBar = function(){ const r = _rb.apply(this, arguments); const b = el('recBar'); if(b) b.classList.add('rec-dock'); el('capFab')?.classList.toggle('recording', !!REC?.mr);
+    const btn = el('capBtn'); if(btn){ btn.title = REC?.mr ? 'Stop recording' : 'Screenshot or record your screen'; } return r; }; }
+{ const _rd = recDone; recDone = function(){ const r = _rd.apply(this, arguments); el('capFab')?.classList.remove('recording'); return r; }; }
+/* “any” target from the floating button: the review offers download + every attach option */
+{ const _mr = mediaReview; mediaReview = function(file, target, info){ const r = _mr.apply(this, arguments);
+    if(target?.kind==='any' && !document.querySelector('#modalBody .mr-acts .cap-dl')){ const acts = document.querySelector('#modalBody .mr-acts');
+      acts?.insertAdjacentHTML('afterbegin', `<button class="btn primary cap-dl" onclick="mediaUse('download')">⬇ Download</button>`); }
+    return r; }; }
+setTimeout(capSetup, 0);
+{ const _sp = setPerson; setPerson = function(){ const r = _sp.apply(this, arguments); capSetup(); el('capFab')?.classList.toggle('hidden', !PEOPLE[PERSON]); return r; }; }
+
+/* ===== 44_chatui.js ===== */
+/* ================= CHAT UI (Oct 2026) — refreshed Messages =================
+   Visual refresh (see the “chat UI” CSS block) plus a few behaviours that make it feel like a product:
+   • Conversation search at the top of the list.
+   • Consecutive messages from the same person are grouped (one name / avatar per group).
+   • New messages slide in softly; opening a chat never re-animates old ones.
+   • Phones: the list and the conversation are two screens — tap a chat to open it, ← to go back —
+     so the conversation gets the whole screen instead of a small strip. */
+let CHAT_Q = '', CHAT_MOB = 'list', CHAT_SEEN = null;
+const chatMobile = () => innerWidth <= 820;
+
+/* search */
+function chatSearchHTML(){ return `<div class="chat-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="chatQ" placeholder="Search conversations" value="${esc(CHAT_Q)}" oninput="chatSearch(this.value)" autocomplete="off">${CHAT_Q?`<button onclick="chatSearch('')" title="Clear">✕</button>`:''}</div>`; }
+function chatSearch(q){
+  CHAT_Q = q; const l = el('chatList'); if(!l) return;
+  const pos = el('chatQ')?.selectionStart ?? q.length;
+  l.innerHTML = chatListHTML();
+  const i = el('chatQ'); if(i){ i.focus(); try{ i.setSelectionRange(pos, pos); }catch(e){} }
+}
+{ const _cl = chatListHTML; chatListHTML = function(){
+    let h = _cl.apply(this, arguments);
+    if(CHAT_Q.trim()){
+      const q = CHAT_Q.trim().toLowerCase(); const box = document.createElement('div'); box.innerHTML = h;
+      box.querySelectorAll('.chat-item').forEach(n=>{ if(!n.textContent.toLowerCase().includes(q)) n.remove(); });
+      box.querySelectorAll('.grp').forEach(g=>{ let n = g.nextElementSibling, any = false; while(n && !n.classList.contains('grp')){ if(n.classList.contains('chat-item')) any = true; n = n.nextElementSibling; } if(!any) g.remove(); });
+      h = box.innerHTML || ''; if(!box.querySelector('.chat-item')) h = `<div class="empty chat-noresult">No conversation matches “${esc(CHAT_Q)}”.</div>`;
+    }
+    return chatSearchHTML() + h; }; }
+
+/* grouping: same person, same day, within 5 minutes */
+const msgCont = (m, prev) => !!(prev && m && !m.kind && !m.sys && !prev.kind && !prev.sys && prev.by===m.by && !m.thread===!prev.thread && dstr(prev.at)===dstr(m.at) && (Date.parse(m.at)-Date.parse(prev.at)) < 5*60000);
+{ const _mc = msgCore; msgCore = function(m, prev, o){ let h = _mc.apply(this, arguments);
+    if(msgCont(m, prev)) h = h.replace('class="msg ', 'class="msg cont ');
+    return h; }; }
+{ const _sg = msgSig; msgSig = (m, prev) => _sg(m, prev) + '|' + (msgCont(m, prev)?1:0); }
+
+/* phones: list ⇄ conversation */
+{ const _ch = chatHeadHTML; chatHeadHTML = function(c){ return `<button class="icon-btn chat-back" onclick="chatMobList()" title="All conversations" aria-label="All conversations"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg></button>` + _ch.apply(this, arguments); }; }
+function chatMobList(){ CHAT_MOB = 'list'; chatMobApply(); }
+function chatMobApply(){
+  const w = document.querySelector('#v-chat .chat-wrap'); const pane = CHAT_MOB==='pane' && !!el('chatScroll');
+  w?.classList.toggle('mob-pane', pane); document.body.classList.toggle('chat-in-pane', pane && chatMobile());
+  if(pane){ const sc = el('chatScroll'); if(sc && sc.dataset.stick!=='0') sc.scrollTop = sc.scrollHeight; }
+  if(typeof chatFit==='function') setTimeout(chatFit, 0);
+}
+document.addEventListener('click', e=>{ if(e.target.closest('#chatList .chat-item')) CHAT_MOB = 'pane'; }, true);
+{ const _ot = openThread; openThread = function(){ CHAT_MOB = 'pane'; return _ot.apply(this, arguments); }; }
+{ const _rc = RENDER.chat; RENDER.chat = function(){
+    if(CHAT_OPEN && CHAT_SEEN && CHAT_OPEN!==CHAT_SEEN) CHAT_MOB = 'pane';   /* opened from a notification, pinned chat or “Message” button */
+    const r = _rc.apply(this, arguments);
+    CHAT_SEEN = CHAT_OPEN; chatMobApply();
+    return r; }; }
+let CHAT_FORCE = false;
+{ const _fl = followLink; followLink = function(link){ if(link?.view==='chat') CHAT_FORCE = true; try{ return _fl.apply(this, arguments); } finally{ CHAT_FORCE = false; } }; }
+{ const _sd = startDM; startDM = function(){ CHAT_FORCE = true; try{ return _sd.apply(this, arguments); } finally{ CHAT_FORCE = false; } }; }
+{ const _go = go; go = function(id){ if(id==='chat') CHAT_MOB = CHAT_FORCE ? 'pane' : (CURRENT!=='chat' && CHAT_OPEN===CHAT_SEEN ? 'list' : CHAT_MOB); const r = _go.apply(this, arguments); if(id!=='chat') document.body.classList.remove('chat-in-pane'); return r; }; }
+window.addEventListener('resize', ()=>{ if(CURRENT==='chat') chatMobApply(); });
+
+/* ===== 45_sticky.js ===== */
+/* ================= STICKY PANELS (Oct 2026) — keep today's goals and key numbers in view =================
+   • A slim bar pins to the top of the page once the main panel scrolls out of view — it never pushes content
+     around and is compact on phones (one scrollable row):
+       Dashboard ........ Today's targets (VA portals) + your time-in status and current client
+       Lead Generation .. Today's targets + Add leads / Export / Search
+       Lead Gen client .. client · leads today vs goal · this week · status + workspace tabs + Search
+       ICP & Creators ... list switch with counts + search + System search / Export
+       Lead Gen Progress  totals + client / status filters
+   • Long tables keep their column headers pinned (the table scrolls inside its own box). */
+const STK = {t:null, on:false};
+const stkClone = (nodes) => nodes.filter(Boolean).map(n=>{ const c = n.cloneNode(true); c.removeAttribute('id'); c.querySelectorAll('[id]').forEach(x=>x.removeAttribute('id')); return c.outerHTML; }).join('');
+function stkTargetsFrom(card){
+  return [...(card?.querySelectorAll('.targets > div')||[])].map(d=>{ const lab = d.querySelector('.t-row span')?.textContent.trim()||''; const val = d.querySelector('.t-row span:last-child')?.textContent.trim()||'';
+    const w = parseFloat(d.querySelector('.bar i')?.style.width||'0'); const done = w>=100;
+    return `<span class="stk-t ${done?'ok':''}" title="${esc(lab)}: ${esc(val)}"><span>${esc(lab.replace(/^Connection requests sent$/,'Requests').replace(/^Connections accepted$/,'Accepted').replace(/^Profiles opened$/,'Profiles').replace(/^Meetings booked$/,'Meetings'))}</span><b>${esc(val)}</b><i style="--p:${Math.min(100,w)}%"></i></span>`; }).join('');
+}
+function stkAtt(){ if(typeof attRec!=='function' || ROLE==='client') return ''; const r = attRec(PERSON); const [st, cls] = attState(r); const open = r?.in && !r.out;
+  return `<span class="stk-att"><span class="badge ${cls}">${st}</span>${open?`<span class="hint">${esc(r.client?cname(r.client):'General')}</span>`:''}${!open?`<button class="btn primary" data-att="in" onclick="attAct('in')">▶ Time In</button>`:''}</span>`; }
+const byH3 = (root, re) => [...(root?.querySelectorAll('.card')||[])].find(c=>re.test(c.querySelector(':scope > .card-h h3')?.textContent||''));
+function stkSpec(){
+  const v = el('v-'+CURRENT); if(!v) return null;
+  if(CURRENT==='dashboard'){
+    const tg = byH3(v, /Today.s outreach targets/); const src = tg || el('attQuick'); if(!src) return null;
+    return {src, html:`${tg?`<span class="stk-l">Today’s targets</span>${stkTargetsFrom(tg)}<span class="stk-sep"></span>`:''}${stkAtt()}`};
+  }
+  if(CURRENT==='leads'){
+    const tg = byH3(v, /^Today.s targets/);
+    if(tg && (!LG.client || LG.client==='all')) return {src:tg, html:`<span class="stk-l">Today’s targets</span>${stkTargetsFrom(tg)}<span class="stk-sep"></span><span class="stk-acts">${stkClone([...v.querySelectorAll('.page-head .btn')].slice(-3))}</span>`};
+    const cid = LG.client; if(!cid || cid==='all') return null;
+    const head = v.querySelector('.card .tabs')?.closest('.card'); if(!head) return null;
+    let m = null; try{ m = typeof lgMetrics==='function' ? lgMetrics(cid) : null; }catch(e){}
+    const nums = m && !m.loading ? `<span class="stk-t ${m.goal?.daily && m.todayN>=m.goal.daily?'ok':''}"><span>Today</span><b>${m.todayN}${m.goal?.daily?' / '+m.goal.daily:''}</b><i style="--p:${m.goal?.daily?Math.min(100,m.todayN/m.goal.daily*100):0}%"></i></span><span class="stk-t"><span>This week</span><b>${m.weekN}</b></span><span class="stk-state">${esc(m.state||'')}</span>` : '';
+    return {src:head, html:`<span class="stk-l">${esc(cname(cid))}</span>${nums}<span class="stk-sep"></span><span class="stk-tabs">${stkClone([...head.querySelectorAll('.tabs .tab')])}</span><span class="stk-acts">${stkClone([head.querySelector('.btn.primary')])}</span>`};
+  }
+  if(CURRENT==='prospects'){
+    const bar = v.querySelector('.pr-bar'); if(!bar) return null;
+    return {src:bar, html:`<span class="stk-tabs">${stkClone([...v.querySelectorAll('.pr-tabs .tab')])}</span><span class="stk-sep"></span><input class="stk-q" placeholder="Search…" value="${esc(PR.q||'')}" oninput="PR.q=this.value;clearTimeout(PR.t);PR.t=setTimeout(()=>{RENDER.prospects();const i=document.querySelector('.stk-q');if(i){i.focus();i.setSelectionRange(i.value.length,i.value.length);}},200)"><span class="stk-acts">${stkClone([...bar.querySelectorAll('.pr-acts .btn')].filter(b=>/System search|Export/.test(b.textContent)))}</span>`};
+  }
+  if(CURRENT==='lgdash'){
+    const k = v.querySelector('.grid.cols-4'); if(!k) return null;
+    const kp = [...k.querySelectorAll('.kpi')].map(c=>`<span class="stk-t"><span>${esc(c.querySelector('.k-label')?.textContent||'')}</span><b>${esc(c.querySelector('.k-val')?.textContent||'')}</b></span>`).join('');
+    return {src:k, html:`${kp}<span class="stk-sep"></span><span class="stk-acts">${stkClone([...v.querySelectorAll('.page-head select')])}</span>`};
+  }
+  return null;
+}
+function stkEnsure(){
+  if(!PEOPLE[PERSON] || !document.querySelector('.content')) return;
+  const v = el('v-'+CURRENT);
+  document.querySelectorAll('.stk-wrap').forEach(w=>{ if(w.parentNode!==v) w.remove(); });
+  const spec = stkSpec();
+  let w = v?.querySelector(':scope > .stk-wrap');
+  if(!spec){ w?.remove(); STK.spec = null; return; }
+  if(!w){ w = document.createElement('div'); w.className = 'stk-wrap'; w.innerHTML = '<div class="stk-bar" role="region" aria-label="Pinned summary"></div>'; v.prepend(w); }
+  const bar = w.firstChild; if(bar.dataset.h!==spec.html && !bar.contains(document.activeElement)){ bar.innerHTML = spec.html; bar.dataset.h = spec.html; }
+  STK.spec = spec; stkScroll();
+}
+function stkScroll(){
+  const c = document.querySelector('.content'); const w = el('v-'+CURRENT)?.querySelector(':scope > .stk-wrap'); if(!c || !w || !STK.spec) return;
+  const top = c.getBoundingClientRect().top; const r = STK.spec.src.getBoundingClientRect();
+  const show = STK.spec.src.isConnected && r.bottom < top + 6;
+  w.classList.toggle('show', show);
+}
+/* long tables: pinned column headers */
+function stkTables(){
+  const v = el('v-'+CURRENT); if(!v) return;
+  v.querySelectorAll('table.tbl').forEach(t=>{
+    const rows = t.tBodies[0]?.rows.length || 0; t.classList.toggle('tbl-pin', rows > 8);
+    if(rows > 8 && !t.parentElement.classList.contains('tbl-wrap') && !t.parentElement.classList.contains('tbl-box')){ const box = document.createElement('div'); box.className = 'tbl-box'; t.before(box); box.appendChild(t); }
+    const box = t.parentElement; if(rows > 8 && (box.classList.contains('tbl-wrap') || box.classList.contains('tbl-box'))) box.classList.add('tbl-scroll');
+  });
+}
+function stkRun(){ clearTimeout(STK.t); STK.t = setTimeout(()=>{ try{ stkTables(); stkEnsure(); }catch(e){ console.warn('sticky', e); } }, 60); }
+(function stkSetup(){
+  const c = document.querySelector('.content'); if(!c) return;
+  new MutationObserver(muts=>{ if(muts.every(m=>m.target.closest?.('.stk-wrap'))) return; stkRun(); }).observe(c, {childList:true, subtree:true});
+  let raf = 0; c.addEventListener('scroll', ()=>{ if(raf) return; raf = requestAnimationFrame(()=>{ raf = 0; stkScroll(); }); }, {passive:true});
+  window.addEventListener('resize', stkRun);
+})();
+{ const _go = go; go = function(){ const r = _go.apply(this, arguments); stkRun(); return r; }; }
 
 CC_BOOT();
 </script>

@@ -2235,7 +2235,115 @@ body.glass-lite[data-theme="dark"],[data-theme="dark"] body.glass-lite{--gs-tint
 body.glass-lite .msg-toast{-webkit-backdrop-filter:none!important;backdrop-filter:none!important}
 @media (prefers-reduced-motion:reduce){.modal.open,.modal.open .box,.emoji-box,.mention-box.on,.cora-panel.open,.gl-ghost{animation:none!important}}
 @media(max-width:820px){#v-chat .msg .bubble{border-radius:6px 18px 18px 18px}#v-chat .msg.mine .bubble{border-radius:18px 6px 18px 18px}#v-chat .msg.cont .bubble,#v-chat .msg.mine.cont .bubble{border-radius:18px}}
+/* ===== Messaging v5 (Oct 2026): status ticks, unread, reactions & GIF picker, announcement files, Post as ===== */
+/* status on your messages */
+.rcpt{display:inline-flex;vertical-align:middle;margin-left:6px}
+.rc{display:inline-flex;align-items:center;gap:4px;border:0;background:none;padding:1px 6px 1px 3px;border-radius:999px;font:600 11px Inter,sans-serif;color:var(--ink-3);cursor:pointer;transition:background .15s,color .15s,transform .12s var(--gs-ease)}
+.rc svg{width:15px;height:13px;flex:none}
+.rc:hover{background:var(--gs-hover,rgba(255,255,255,.6));color:var(--ink-2)}
+.rc:active{transform:scale(.94)}
+.rc-sending{color:var(--ink-3);opacity:.85}.rc-sending svg{animation:rcSpin 1.4s linear infinite}
+.rc-sent{color:var(--ink-3)}
+.rc-dlv{color:var(--ink-2)}
+.rc-seen{color:#B96F06}
+[data-theme="dark"] .rc-seen{color:#F2B440}
+.rc-faces{display:inline-flex;margin-left:2px}
+.rc-faces .av{width:15px!important;height:15px!important;font-size:7px!important;margin-left:-4px;box-shadow:0 0 0 1.5px var(--panel)}
+.rc-faces .av:first-child{margin-left:0}
+@keyframes rcSpin{to{transform:rotate(360deg)}}
+.rc-quote{padding:10px 12px;border-radius:12px;background:var(--panel-2);border:1px solid var(--line);font-size:13px;line-height:1.45}
+/* unread conversations */
+#v-chat .chat-item.unread .nm{font-weight:800;color:var(--ink)}
+#v-chat .chat-item.unread .pv{color:var(--ink);font-weight:600}
+#v-chat .chat-item .un{min-width:22px;height:22px;padding:0 7px;border-radius:999px;display:inline-grid;place-items:center;font:800 11.5px Inter,sans-serif;color:#1A1206;
+  background:linear-gradient(180deg,#F7C866,#E39312);box-shadow:inset 0 1px 0 rgba(255,248,225,.9),0 4px 10px -4px rgba(227,147,18,.8);animation:unIn .3s var(--gs-ease)}
+@keyframes unIn{from{transform:scale(.4);opacity:0}}
+/* bubble feedback */
+#v-chat .msg .bubble,.cchat .msg .bubble{-webkit-tap-highlight-color:transparent}
+.msg .bubble.rx-press{animation:rxPress .26s cubic-bezier(.3,.7,.4,1.4)}
+@keyframes rxPress{0%{transform:scale(1)}35%{transform:scale(.955)}75%{transform:scale(1.015)}100%{transform:scale(1)}}
+.msg .bubble.rx-hold{transition:transform .45s ease;transform:scale(.97)}
+.msg .bubble.rx-flash{animation:rxFlash 1.1s ease}
+@keyframes rxFlash{0%,100%{box-shadow:var(--lq-in-sh)}25%,60%{box-shadow:var(--lq-in-sh),0 0 0 3px rgba(242,180,64,.75)}}
+@media (pointer:coarse){#v-chat .msg .bubble{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}}
+/* reactions bounce in */
+#v-chat .react.pop,.react.pop{animation:rxBounce .45s cubic-bezier(.3,1.6,.5,1)}
+@keyframes rxBounce{0%{transform:scale(.3);opacity:0}60%{transform:scale(1.18)}100%{transform:scale(1);opacity:1}}
+/* the picker */
+.rx-pick{position:fixed;z-index:90;padding:10px;border-radius:20px;background:radial-gradient(120% 60% at 15% -20%,rgba(255,255,255,.85),rgba(255,255,255,0) 60%),var(--gs-pop,rgba(255,255,255,.95));
+  -webkit-backdrop-filter:var(--gs-blur,blur(16px));backdrop-filter:var(--gs-blur,blur(16px));border:1px solid var(--gs-hair,rgba(20,16,8,.1));
+  box-shadow:inset 0 1px 0 var(--gs-rim,#fff),var(--lq-float,0 30px 60px -25px rgba(0,0,0,.45));animation:rxPop .2s cubic-bezier(.3,.9,.4,1.2)}
+@keyframes rxPop{from{opacity:0;transform:scale(.88) translateY(6px)}to{opacity:1;transform:none}}
+.rx-pick.sheet{left:8px!important;right:8px;bottom:calc(8px + env(safe-area-inset-bottom,0px));top:auto!important;width:auto!important;border-radius:22px;animation:rxSheet .26s var(--gs-ease)}
+@keyframes rxSheet{from{transform:translateY(105%)}to{transform:none}}
+.rx-pick.gl-ghost{animation:floatOut .16s ease forwards!important}
+.rx-quick{display:flex;justify-content:space-between;gap:4px;padding:2px 2px 8px}
+.rx-e{width:42px;height:42px;border-radius:50%;border:1px solid transparent;background:transparent;font-size:24px;line-height:1;display:grid;place-items:center;cursor:pointer;
+  transition:transform .14s cubic-bezier(.3,1.5,.5,1),background .14s,border-color .14s}
+.rx-e:hover,.rx-e:focus-visible{transform:scale(1.22);background:var(--gs-hover,rgba(255,255,255,.7));outline:none}
+.rx-e:active{transform:scale(.9)}
+.rx-e.on{background:linear-gradient(180deg,rgba(255,232,178,.95),rgba(248,200,104,.7));border-color:rgba(168,100,6,.35)}
+.rx-tabs{display:flex;gap:6px;align-items:center;padding:6px 2px;border-top:1px solid var(--gs-hair,var(--line))}
+.rx-tabs button,.rx-gact button,.rx-foot button{border:1px solid var(--g2-edge,var(--line));background:var(--g2-fill,var(--panel));box-shadow:inset 0 1px 0 var(--g2-rim,#fff);border-radius:999px;padding:6px 12px;font:600 12.5px Inter,sans-serif;color:var(--ink);cursor:pointer;transition:transform .12s,background .15s}
+.rx-tabs button.on{background:var(--g2-amber,#F2B440);border-color:rgba(168,100,6,.38);color:#1A1206}
+.rx-tabs button:active,.rx-gact button:active,.rx-foot button:active{transform:scale(.94)}
+.rx-body .rx-q{width:100%;border-radius:999px;margin:4px 0 8px;font-size:13px}
+.rx-grid{display:grid;grid-template-columns:repeat(8,1fr);gap:2px;max-height:200px;overflow-y:auto;overscroll-behavior:contain}
+.rx-grid .rx-e{width:100%;height:38px;font-size:22px}
+.rx-gifs{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;max-height:240px;overflow-y:auto;overscroll-behavior:contain;align-content:start}
+.rx-gifs > .hint{grid-column:1/-1}
+.rx-gl{grid-column:1/-1;font:700 11px Inter,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);padding:2px}
+.rx-g{border:0;padding:0;border-radius:12px;overflow:hidden;cursor:pointer;background:var(--panel-2);aspect-ratio:1;transition:transform .14s}
+.rx-g img{width:100%;height:100%;object-fit:cover;display:block}
+.rx-g:hover{transform:scale(1.04)}.rx-g:active{transform:scale(.95)}
+.rx-gact{display:flex;gap:6px;margin-top:8px}
+.rx-foot{display:flex;align-items:center;gap:8px;padding:8px 2px 2px;font-size:12.5px;color:var(--ink-2);border-top:1px solid var(--gs-hair,var(--line));margin-top:6px}
+.rx-foot b{font-size:18px}.rx-foot button{margin-left:auto}
+.rx-copy{padding:5px 10px!important}
+/* GIF replies */
+#v-chat .msg .bubble.gif-bubble,.msg .bubble.gif-bubble{padding:6px;position:relative}
+.gif-img{display:block;max-width:240px;width:100%;height:auto;border-radius:14px;background:var(--panel-2)}
+.gif-tag{position:absolute;right:12px;bottom:12px;font:800 10px Inter,sans-serif;letter-spacing:.06em;color:#fff;background:rgba(0,0,0,.45);padding:2px 6px;border-radius:6px}
+.gif-re{display:flex;flex-direction:column;gap:1px;width:100%;text-align:left;border:0;border-left:3px solid rgba(45,99,200,.55);background:rgba(255,255,255,.55);border-radius:10px;padding:6px 10px;margin:0 0 6px;cursor:pointer;font:inherit;color:inherit}
+.gif-re span{font:700 11.5px Inter,sans-serif;color:#2D63C8}.gif-re em{font-style:normal;font-size:12.5px;color:var(--ink-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:240px}
+.msg.mine .gif-re{border-left-color:rgba(120,66,0,.5);background:rgba(255,255,255,.4)}.msg.mine .gif-re span{color:#7A4806}
+[data-theme="dark"] .gif-re{background:rgba(255,255,255,.08)}
+/* announcement attachments */
+.af-drop{border:1.5px dashed rgba(227,147,18,.45);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:3px;align-items:center;text-align:center;cursor:pointer;background:rgba(242,180,64,.06);transition:background .15s,border-color .15s,transform .12s}
+.af-drop:hover,.af-drop.on{background:rgba(242,180,64,.14);border-color:#E39312}.af-drop:active{transform:scale(.99)}
+.af-list{display:flex;flex-direction:column;gap:8px;margin-top:10px}
+.af{display:flex;align-items:center;gap:10px;padding:8px;border-radius:12px;border:1px solid var(--line);background:var(--panel)}
+.af.err{border-color:rgba(200,40,40,.35);background:rgba(200,40,40,.05)}
+.af-th{width:48px;height:48px;border-radius:10px;overflow:hidden;flex:none;display:grid;place-items:center;background:var(--panel-2);font-size:22px}
+.af-th img{width:100%;height:100%;object-fit:cover}
+.af-m{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+.af-m b{font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.af-e{color:var(--bad);font-weight:600}
+.af-bar{height:5px;border-radius:5px;background:var(--line);overflow:hidden}.af-bar i{display:block;height:100%;background:linear-gradient(90deg,#F7C866,#E39312);transition:width .2s}
+.af-a{display:flex;gap:4px;flex:none}.af-a .btn{padding:5px 10px;font-size:12px}
+.ann-files{margin-bottom:12px}.ann-files .att-imgs{margin-bottom:8px}
+.ann-att{display:flex;gap:6px;align-items:center;margin-top:6px}.ann-att img{width:44px;height:44px;object-fit:cover;border-radius:8px;border:1px solid var(--line)}
+.ann-att-n{font-size:12px;color:var(--ink-2);font-weight:600}
+.ann-from{display:flex;align-items:center;gap:10px;margin-bottom:10px}.ann-from b{display:block;font-size:14px}
+.ann-gate-from{display:flex;align-items:center;gap:8px}
+.ops-ava{display:inline-grid;place-items:center;border-radius:50%;flex:none;color:#0E6B5C;background:radial-gradient(120% 120% at 30% 10%,#E6FBF5,#B9EBDD);box-shadow:inset 0 1px 0 #fff,0 0 0 2px rgba(255,255,255,.8)}
+.ops-ava svg{width:62%;height:62%}
+[data-theme="dark"] .ops-ava{color:#7FE3CB;background:radial-gradient(120% 120% at 30% 10%,#1E4A43,#0F2E29)}
+/* Post as */
+.pas-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.pas-o{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:14px;border:1.5px solid var(--line);background:var(--panel);cursor:pointer;transition:border-color .15s,background .15s,transform .12s}
+.pas-o input{position:absolute;opacity:0;pointer-events:none}
+.pas-o b{display:block;font-size:13px}.pas-o small{display:block;font-size:11.5px;color:var(--ink-3)}
+.pas-o.on{border-color:#E39312;background:rgba(242,180,64,.1);box-shadow:0 0 0 3px rgba(242,180,64,.18)}
+.pas-o:active{transform:scale(.98)}
+.pas-prev{margin-top:8px}.pas-card{display:flex;align-items:center;gap:10px;margin-top:4px;padding:10px 12px;border-radius:12px;background:var(--panel-2);border:1px solid var(--line)}
+.pas-card b{display:block;font-size:13px}.pas-card small{display:block;font-size:11.5px;color:var(--ink-3)}
+.lg-annbar{margin-bottom:4px}
+@media(max-width:640px){.pas-row{grid-template-columns:1fr}.rx-grid{grid-template-columns:repeat(7,1fr)}}
+@media (prefers-reduced-motion:reduce){.msg .bubble.rx-press,.msg .bubble.rx-flash,.react.pop,.rx-pick,.rx-pick.sheet,.rc-sending svg,#v-chat .chat-item .un{animation:none!important}.msg .bubble.rx-hold{transform:none}.rx-e:hover{transform:none}}
+body.glass-lite .rx-pick{-webkit-backdrop-filter:none!important;backdrop-filter:none!important}
 </style>
+
 
 
 
@@ -3070,9 +3178,9 @@ function renderNotifs(){
   el('notifFilter').innerHTML = [['all','All'],['unread','Unread'],...Object.entries(NTYPES).filter(([k])=>mine.some(n=>n.type===k))].map(([k,v])=>`<button class="${NF===k?'on':''}" onclick="NF='${k}';renderNotifs()">${v}${k==='unread'?` (${mine.filter(n=>!n.read).length})`:''}</button>`).join('');
   const L = mine.filter(n=>NF==='all'||(NF==='unread'?!n.read:n.type===NF)).slice(0,80);
   list.innerHTML = L.map(n=>{
-    const [bg,fg,path] = icons[n.type]||icons.system; const asst = isAssistantKey(n.by) && assistant(n.by);
-    return `<div class="notif ${n.read?'':'unread'}" onclick="openNotif('${n.id}')">${asst?`<span class="n-ico" style="background:none">${aiAva(n.by,30)}</span>`:`<span class="n-ico" style="background:${bg};color:${fg}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="${path}"/></svg></span>`}
-      <div><p style="font-size:12.5px">${n.text}</p><span class="hint">${NTYPES[n.type]||'Update'} · ${ago(n.at)}${asst?' · from <b>'+esc(asst.name)+'</b>':n.by&&PEOPLE[n.by]?' · from '+esc(first(n.by)):''}</span></div></div>`;
+    const [bg,fg,path] = icons[n.type]||icons.system; const asst = isAssistantKey(n.by) && assistant(n.by); const ops = n.by==='ops-support' || n.as==='support', coo = n.as==='coo' && PEOPLE[n.by];
+    return `<div class="notif ${n.read?'':'unread'}" onclick="openNotif('${n.id}')">${ops&&typeof opsAva==='function'?`<span class="n-ico" style="background:none">${opsAva(30)}</span>`:coo?`<span class="n-ico" style="background:none">${av(P(n.by))}</span>`:asst?`<span class="n-ico" style="background:none">${aiAva(n.by,30)}</span>`:`<span class="n-ico" style="background:${bg};color:${fg}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="${path}"/></svg></span>`}
+      <div><p style="font-size:12.5px">${n.text}</p><span class="hint">${NTYPES[n.type]||'Update'} · ${ago(n.at)}${ops?' · from <b>System Ops Support Team</b>':coo?' · from <b>'+esc(pname(n.by))+'</b>, '+esc(P(n.by).sub||'COO'):asst?' · from <b>'+esc(asst.name)+'</b>':n.by&&PEOPLE[n.by]?' · from '+esc(first(n.by)):''}</span></div></div>`;
   }).join('') || '<div class="empty">You\'re all caught up.</div>';
   updateBadges();
 }
@@ -3699,7 +3807,7 @@ function annStrip(){
   return `<div class="card" style="margin-bottom:16px;border-left:4px solid ${edge}"><div class="card-b" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:13px 16px">
     <span class="badge prio-${a.priority.toLowerCase()}">${a.priority}</span>
     <div style="flex:1;min-width:180px"><b style="font-size:13px">${esc(a.title)}</b>
-      <div class="hint">Posted by ${esc(pname(a.by))} · ${esc(a.date)} · ${u.length} unread announcement${u.length>1?'s':''} waiting for you</div></div>
+      <div class="hint">Posted by ${esc(annFromName(a))} · ${esc(a.date)} · ${u.length} unread announcement${u.length>1?'s':''} waiting for you</div></div>
     <button class="btn primary" style="padding:6px 13px;font-size:12px" onclick="openAnn('${a.id}')">View</button>
     <button class="btn" style="padding:6px 13px;font-size:12px" onclick="go('announce')">Announcement board</button>
   </div></div>`;
@@ -3716,7 +3824,7 @@ RENDER.announce = () => {
     return `<div class="list-row ${read||a.archived?'':'ann-unread'}" style="padding:12px 10px;border-radius:10px;flex-wrap:wrap;${a.archived?'opacity:.55':''}">
       <span class="badge prio-${a.priority.toLowerCase()}">${a.priority}</span>
       <div style="flex:1;min-width:200px"><b style="font-size:13px;cursor:pointer" onclick="openAnn('${a.id}')">${esc(a.title)}</b>${read?'':' <span class="badge b-new">Unread</span>'}
-        <div class="hint">${a.id} · Posted by ${esc(pname(a.by))} · ${esc(a.date)} · To: ${targetLabel(a)}${a.expires?' · Expires '+esc(a.expires):''}${a.fromDoc?' · From HR document '+a.fromDoc:''}${annCanPost()?` · ${annReads(a.id).filter(x=>aud.includes(x.person)).length}/${aud.length} read · ${annAcks(a.id).length} acknowledged`:''}</div></div>
+        <div class="hint">${a.id} · Posted by ${esc(annFromName(a))} · ${esc(a.date)} · To: ${targetLabel(a)}${a.expires?' · Expires '+esc(a.expires):''}${a.fromDoc?' · From HR document '+a.fromDoc:''}${annCanPost()?` · ${annReads(a.id).filter(x=>aud.includes(x.person)).length}/${aud.length} read · ${annAcks(a.id).length} acknowledged`:''}</div></div>
       ${wantsAck?'<span class="badge b-scheduled">Needs acknowledgement</span>':r?.ackAt?'<span class="badge b-approved">Acknowledged</span>':''}
       <span style="display:inline-flex;gap:6px;white-space:nowrap">
         <button class="btn primary" style="padding:5px 11px;font-size:12px" onclick="openAnn('${a.id}')">View</button>
@@ -3750,7 +3858,7 @@ function openAnn(id){
   openModal(a.title, `
     <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap">
       <span class="badge prio-${a.priority.toLowerCase()}">${a.priority}</span>
-      <span class="hint">${a.id} · Posted by ${esc(pname(a.by))} · ${esc(a.date)}${a.expires?' · Expires '+esc(a.expires):''}</span></div>
+      <span class="hint">${a.id} · Posted by ${esc(annFromName(a))} · ${esc(a.date)}${a.expires?' · Expires '+esc(a.expires):''}</span></div>
     ${a.training && typeof trAnnCard==='function' ? trAnnCard(a) : `<p style="font-size:13.5px;line-height:1.65;margin-bottom:14px;white-space:pre-wrap">${linkify(a.body)}</p>`}
     ${a.link?`<div class="info-item" style="margin-bottom:12px"><span class="hint">Attachment / link</span><span style="color:var(--info);font-weight:600">${linkify(a.link)}</span></div>`:''}
     ${a.files?.length?`<div style="margin-bottom:12px">${fileChips(a.files)}</div>`:''}
@@ -3861,7 +3969,7 @@ function checkUrgentAnns(){ if(ROLE==='client') return;
   d.innerHTML = `<div class="card" style="width:min(540px,92vw);max-height:86vh;overflow-y:auto;padding:26px;border-top:5px solid ${col}">
     <span class="badge prio-${urg.priority.toLowerCase()}" style="margin-bottom:11px">${urg.priority==='Urgent'?'URGENT':'IMPORTANT'} COMPANY ANNOUNCEMENT</span>
     <h3 style="font-size:18px;margin:9px 0 5px">${esc(urg.title)}</h3>
-    <div class="hint" style="margin-bottom:12px">Posted by: ${esc(pname(urg.by))} · ${esc(urg.date)} · Status: ${annRead(urg.id)?.readAt?'Read, not yet acknowledged':'Unread'}</div>
+    <div class="hint ann-gate-from" style="margin-bottom:12px">${typeof annFromAva==='function'?annFromAva(urg,26):''}<span>Posted by: ${esc(annFromName(urg))} · ${esc(urg.date)} · Status: ${annRead(urg.id)?.readAt?'Read, not yet acknowledged':'Unread'}</span></div>
     <p style="font-size:13.5px;line-height:1.65;margin-bottom:18px;white-space:pre-wrap">${linkify(urg.body)}</p>
     ${urg.files?.length?`<div style="margin-bottom:12px">${fileChips(urg.files)}</div>`:''}
     ${urg.training && typeof trAnnCard==='function' ? trAnnCard(urg).replace(/closeModal\(\);/g, "document.getElementById('annGate')?.remove();") : ''}
@@ -8042,8 +8150,8 @@ function chatListHTML(){
   const C = myChats().filter(c=>!pins.includes(c.id) && !c.archived);
   const lastAt = c => chatMsgs(c.id).map(m=>m.at).sort().pop()||c.at||'';
   const item = c => { const last = chatMsgs(c.id).slice(-1)[0]; const u = unreadIn(c.id); const live = liveCall(c.id);
-    return `<button class="chat-item ${CHAT_OPEN===c.id?'on':''}" onclick="CHAT_OPEN='${c.id}';RENDER.chat(true)">${chatAvatar(c)}
-      <div style="min-width:0;flex:1"><div class="nm">${esc(chatTitle(c))}${c.kind==='dm'&&typeof tsInline==='function'?tsInline((c.members||[]).find(k=>k!==PERSON)||PERSON):''}${live?` <span class="call-dot" title="Video call in progress">● ${live.status==='meet'?'On Google Meet':'Live call'}</span>`:''}</div><div class="pv">${last?esc((last.by===PERSON?'You':first(last.by))+': '+msgPreview(last)):c.kind==='client'?'Client group':'No messages yet'}</div></div>${u?`<span class="un">${u}</span>`:''}</button>`; };
+    return `<button class="chat-item ${CHAT_OPEN===c.id?'on':''} ${u?'unread':''}" onclick="CHAT_OPEN='${c.id}';RENDER.chat(true)">${chatAvatar(c)}
+      <div style="min-width:0;flex:1"><div class="nm">${esc(chatTitle(c))}${c.kind==='dm'&&typeof tsInline==='function'?tsInline((c.members||[]).find(k=>k!==PERSON)||PERSON):''}${live?` <span class="call-dot" title="Video call in progress">● ${live.status==='meet'?'On Google Meet':'Live call'}</span>`:''}</div><div class="pv">${last?esc((last.by===PERSON?'You':first(last.by))+': '+msgPreview(last)):c.kind==='client'?'Client group':'No messages yet'}</div></div>${u?`<span class="un" aria-label="${u} unread">${u>99?'99+':u}</span>`:''}</button>`; };
   const grp = (label, list) => list.length ? `<div class="grp">${label}</div>${list.sort((a,b)=>lastAt(b).localeCompare(lastAt(a))).map(item).join('')}` : '';
   const P_ = pins.map(id=>myChats().find(c=>c.id===id)).filter(c=>c && !c.archived);
   const A_ = myChats().filter(c=>c.archived);
@@ -17503,6 +17611,424 @@ function glassGhost(node, parent){
 { const _ct = closeThread; closeThread = function(){ const t = el('thrPane'); if(t) glassGhost(t); return _ct.apply(this, arguments); }; }
 { const _ec = emojiClose; emojiClose = function(){ if(typeof EMOJI_BOX!=='undefined' && EMOJI_BOX) glassGhost(EMOJI_BOX); return _ec.apply(this, arguments); }; }
 { const _ot = openThread; openThread = function(){ document.querySelectorAll('.thr-pane.gl-ghost').forEach(g=>g.remove()); return _ot.apply(this, arguments); }; }
+
+/* ===== 51_receipts.js ===== */
+/* ================= MESSAGE STATUS · REACTIONS · GIF REPLIES (Oct 2026) =================
+   One behaviour for every portal (VAs, Core Team, PMs, Finance, Marketing, HR, company heads, client portal),
+   in direct messages, group chats, client chats and threads.
+   • Status on your own messages: Sending… → Sent (saved) → Delivered (their portal received it) → Seen (they viewed it).
+     Group chats show "Seen by N" with faces; tap it for who has seen / received it.
+   • Read state lives in small per-person records ("chatreads", one per chat and person) scoped to the chat, so only the
+     chat's members see them and a person can only write their own (guarded in the database).
+   • "Seen" means the message was on screen in an open conversation while the portal was visible — not just loaded.
+   • Double-click a message (long-press on phones) to react or reply with a GIF. One reaction per person: pick another
+     emoji to change it, pick yours again (or Remove) to take it off. */
+
+let CHATREADS = [];
+COLL.chatreads = {get:()=>CHATREADS, set:v=>CHATREADS=v, scope:r=>r.chat};
+const rcId = (chat, k) => chat + '|' + k;
+const rcPeople = c => (c?.members||[]).filter(k=>k!==PERSON && PEOPLE[k] && !isAssistantKey(k));
+let RC_DIRTY = false, RC_T = null;
+function rcSave(){ RC_DIRTY = true; clearTimeout(RC_T); RC_T = setTimeout(()=>{ if(!RC_DIRTY) return; RC_DIRTY = false; recordChange(); }, 1200); }
+function rcBump(chat, field, at){
+  if(!at || !PEOPLE[PERSON]) return false; const c = CHATS.find(x=>x.id===chat); if(!c || !(c.members||[]).includes(PERSON)) return false;
+  let r = CHATREADS.find(x=>x.id===rcId(chat, PERSON));
+  if(!r){ r = {id:rcId(chat, PERSON), chat, person:PERSON}; CHATREADS.push(r); }
+  if((r[field]||'') >= at) return false;
+  r[field] = at; r[field+'At'] = nowISO(); if(field==='seen' && (r.dlv||'') < at){ r.dlv = at; r.dlvAt = r.seenAt; }
+  return true;
+}
+/* delivered: this portal has received the newest message from someone else in each chat */
+let RC_DT = null;
+function rcDeliverSoon(){ clearTimeout(RC_DT); RC_DT = setTimeout(rcDeliverAll, 900); }
+function rcDeliverAll(){
+  if(!SYNC.ready || !PEOPLE[PERSON]) return; const latest = {};
+  for(const m of MESSAGES){ if(m.by===PERSON) continue; if(!latest[m.chat] || m.at > latest[m.chat]) latest[m.chat] = m.at; }
+  let ch = false; for(const c of myChats()) if(latest[c.id] && rcBump(c.id, 'dlv', latest[c.id])) ch = true;
+  if(ch){ rcSave(); }
+}
+/* seen: the newest message whose top edge is inside the visible conversation (main pane or open thread) */
+function rcVisibleUpTo(id){
+  if(document.visibilityState!=='visible') return null;
+  const sc = el('chatScroll'); if(!sc || !sc.offsetParent || !sc.clientHeight) return null;
+  let best = ''; const pick = (scroller, sel, idOf) => { if(!scroller || !scroller.offsetParent) return; const bot = scroller.getBoundingClientRect().bottom - 6;
+    const W = scroller.querySelectorAll(sel); for(let i=W.length-1;i>=0;i--){ if(W[i].getBoundingClientRect().top < bot){ const m = MESSAGES.find(x=>x.id===idOf(W[i])); if(m && m.chat===id){ if(m.at > best) best = m.at; break; } } } };
+  pick(sc, '.mwrap', w=>w.id.slice(3));
+  pick(document.querySelector('#thrPane .thr-scroll'), '.msg[data-mid]', w=>w.dataset.mid);
+  if(!best) return chatMsgs(id).length ? null : '';
+  return best;
+}
+let RC_LT = null;
+function rcSeenUpTo(id, at){
+  if(!at) return; let ch = false; const p = myPrefs();
+  if((p.lastRead[id]||'') < at){ p.lastRead[id] = at; ch = true; }
+  if(rcBump(id, 'seen', at)) ch = true;
+  if(!ch) return;
+  rcSave(); clearTimeout(RC_LT); RC_LT = setTimeout(()=>{ buildNav(); const cl = el('chatList'); if(cl && CURRENT==='chat'){ const st = cl.scrollTop; cl.innerHTML = chatListHTML(); cl.scrollTop = st; } }, 150);
+}
+{ const _mcr = markChatRead; markChatRead = function(id){
+    if(!id) return;
+    if(CURRENT==='chat' && CHAT_OPEN===id){ const at = rcVisibleUpTo(id); if(at) rcSeenUpTo(id, at); return; }
+    if(CURRENT==='cchat'){ _mcr(id); const last = chatMsgs(id).map(m=>m.at).sort().pop(); if(last && rcBump(id, 'seen', last)) rcSave(); return; }
+  }; }
+let RC_ST = null;
+const rcOnScroll = () => { clearTimeout(RC_ST); RC_ST = setTimeout(()=>{ if(CURRENT==='chat' && CHAT_OPEN) markChatRead(CHAT_OPEN); }, 250); };
+document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='visible' && CURRENT==='chat' && CHAT_OPEN) setTimeout(()=>markChatRead(CHAT_OPEN), 200); });
+window.addEventListener('focus', ()=>{ if(CURRENT==='chat' && CHAT_OPEN) setTimeout(()=>markChatRead(CHAT_OPEN), 200); });
+
+/* ---------- status on your own messages (painted separately so a read never re-renders the conversation) ---------- */
+const RC_ICON = {
+  sending:'<svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="5.5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M8 5v3.2l2 1.3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>',
+  sent:'<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  dlv:'<svg viewBox="0 0 20 16" aria-hidden="true"><path d="M2 8.5l3 3 6-7M8.5 11.5l.5.5 6-7.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>'};
+RC_ICON.seen = RC_ICON.dlv;
+function rcMap(){ const M = new Map(); for(const r of CHATREADS) M.set(r.id, r); return M; }
+function rcStatus(m, M){
+  const c = CHATS.find(x=>x.id===m.chat); if(!c) return null;
+  if(SYNC.pending && SYNC.pending.has(SYNC.key('messages', m.id))) return {k:'sending', label:'Sending…', seen:[], dlv:[], others:[]};
+  const others = rcPeople(c); if(!others.length) return {k:'sent', label:'Sent', others, seen:[], dlv:[]};
+  const seen = [], dlv = [];
+  others.forEach(k=>{ const r = M.get(rcId(c.id, k)); if(r?.seen >= m.at) seen.push(k); else if(r?.dlv >= m.at) dlv.push(k); });
+  const one = c.kind==='dm' || others.length===1;
+  if(one){ const r = M.get(rcId(c.id, others[0]));
+    return seen.length ? {k:'seen', label:'Seen', when:r?.seenAt, others, seen, dlv} : dlv.length ? {k:'dlv', label:'Delivered', others, seen, dlv} : {k:'sent', label:'Sent', others, seen, dlv}; }
+  if(seen.length===others.length) return {k:'seen', label:'Seen by everyone', others, seen, dlv, group:true};
+  if(seen.length) return {k:'seen', label:`Seen by ${seen.length}`, others, seen, dlv, group:true};
+  if(dlv.length) return {k:'dlv', label:dlv.length===others.length?'Delivered':`Delivered to ${dlv.length}`, others, seen, dlv, group:true};
+  return {k:'sent', label:'Sent', others, seen, dlv, group:true};
+}
+function rcPaint(){
+  const S = document.querySelectorAll('.rcpt[data-rc]'); if(!S.length) return; const M = rcMap();
+  S.forEach(s=>{ const m = MESSAGES.find(x=>x.id===s.dataset.rc); if(!m || m.by!==PERSON || m.deleted){ s.innerHTML = ''; return; }
+    const st = rcStatus(m, M); if(!st){ s.innerHTML = ''; return; }
+    const faces = st.group && st.seen.length ? `<span class="rc-faces">${st.seen.slice(0,3).map(k=>av(P(k))).join('')}</span>` : '';
+    const sig = st.k+'|'+st.label+'|'+st.seen.join(','); if(s.dataset.sig===sig) return; s.dataset.sig = sig;
+    const tip = st.k==='seen' && st.when ? `Seen ${clock(st.when)}` : st.label;
+    s.innerHTML = `<button type="button" class="rc rc-${st.k}" title="${esc(tip)}" onclick="event.stopPropagation();rcInfo('${m.id}')">${RC_ICON[st.k]}<span>${esc(st.label)}</span>${faces}</button>`; });
+}
+let RC_PT = null; const rcPaintSoon = () => { clearTimeout(RC_PT); RC_PT = setTimeout(rcPaint, 60); };
+function rcInfo(mid){
+  const m = MESSAGES.find(x=>x.id===mid); if(!m) return; const c = CHATS.find(x=>x.id===m.chat); const M = rcMap(); const st = rcStatus(m, M); if(!st) return;
+  const row = (k, sub) => `<div class="list-row">${av(P(k))}<div style="flex:1"><b style="font-size:13px">${esc(pname(k))}</b><div class="hint">${sub}</div></div></div>`;
+  const notYet = (st.others||[]).filter(k=>!st.seen.includes(k) && !st.dlv.includes(k));
+  openModal('Message info', `<div class="rc-quote">${esc(msgPreview(m).slice(0,160)||'Message')}<div class="hint">Sent ${esc(dstr(m.at))} · ${clock(m.at)}${c?' · '+esc(chatTitle(c)):''}</div></div>
+    <div class="nav-label" style="padding:12px 0 4px">✓✓ Seen · ${st.seen.length}</div>${st.seen.map(k=>{ const r = M.get(rcId(m.chat, k)); return row(k, r?.seenAt ? 'Seen '+esc(dstr(r.seenAt))+' · '+clock(r.seenAt) : 'Seen'); }).join('')||'<div class="hint">No one yet</div>'}
+    <div class="nav-label" style="padding:12px 0 4px">✓✓ Delivered · ${st.dlv.length}</div>${st.dlv.map(k=>row(k, 'Received on their portal — not opened yet')).join('')||'<div class="hint">—</div>'}
+    ${notYet.length?`<div class="nav-label" style="padding:12px 0 4px">✓ Sent · ${notYet.length}</div>${notYet.map(k=>row(k, 'Their portal hasn’t received it yet (offline)')).join('')}`:''}`);
+}
+
+
+/* ---------- rendering hooks (main conversation and threads) ---------- */
+function rxReHTML(m){ const r = m.re; if(!r) return ''; const o = MESSAGES.find(x=>x.id===r.id);
+  return `<button type="button" class="gif-re" onclick="event.stopPropagation();rxJump('${esc(r.id)}')" title="Go to the original message"><span>↪ Replying to ${esc(r.by===PERSON?'you':first(r.by))}</span><em>${esc((o?msgPreview(o):r.snip||'Message').slice(0,90))}</em></button>`; }
+{ const _mc = msgCore; msgCore = function(m, prev, o){ let h = _mc.apply(this, arguments);
+    if(!m || m.sys || m.kind==='call' || typeof h!=='string') return h;
+    if(m.gif || m.re){ const img = m.gif?.url ? `<img class="gif-img" src="${esc(m.gif.url)}" alt="${esc(m.gif.title||'GIF')}" loading="lazy"${m.gif.w?` style="aspect-ratio:${+m.gif.w}/${+m.gif.h}"`:''}><span class="gif-tag">GIF</span>` : '';
+      h = h.replace('<div class="bubble">', `<div class="bubble${m.gif?' gif-bubble':''}">${rxReHTML(m)}${img}`); }
+    if(m.by===PERSON && !m.deleted) h = h.replace(/(<div class="when"[^>]*>)([^<]*)/, `$1$2<span class="rcpt" data-rc="${m.id}"></span>`);
+    return h; }; }
+{ const _sg = msgSig; msgSig = (m, prev) => _sg(m, prev) + '|' + (m.gif?.url||'') + '|' + (m.re?.id||''); }
+{ const _mp = msgPreview; msgPreview = function(m){ if(m?.gif) return m.gif.upload ? '🎞 GIF' : '🎞 GIF'; return _mp.apply(this, arguments); }; }
+{ const _rc = RENDER.chat; RENDER.chat = function(){ const r = _rc.apply(this, arguments);
+    const sc = el('chatScroll'); if(sc && !sc._rc){ sc._rc = true; sc.addEventListener('scroll', rcOnScroll, {passive:true}); }
+    rcPaintSoon(); if(CHAT_OPEN) setTimeout(()=>markChatRead(CHAT_OPEN), 120); return r; }; }
+{ const _um = updateMessages; updateMessages = function(){ const r = _um.apply(this, arguments); rcPaintSoon(); return r; }; }
+{ const _dt = drawThread; drawThread = function(){ const r = _dt.apply(this, arguments);
+    const t = document.querySelector('#thrPane .thr-scroll'); if(t && !t._rc){ t._rc = true; t.addEventListener('scroll', rcOnScroll, {passive:true}); }
+    rcPaintSoon(); if(CURRENT==='chat' && CHAT_OPEN) setTimeout(()=>markChatRead(CHAT_OPEN), 120); return r; }; }
+{ const _fl = SYNC.flush.bind(SYNC); SYNC.flush = async function(){ const r = await _fl.apply(SYNC, arguments); rcPaintSoon(); return r; }; }
+{ const _ore = onRemoteEvent; onRemoteEvent = function(ev){ _ore(ev);
+    if(ev?.coll==='chatreads') rcPaintSoon();
+    if(ev?.coll==='messages'){ rcDeliverSoon(); rcPaintSoon(); } }; }
+{ const _sp = setPerson; setPerson = function(p){ _sp(p); setTimeout(rcDeliverAll, 2500); }; }
+setInterval(()=>{ if(SYNC.ready && document.visibilityState==='visible') rcDeliverAll(); }, 20000);
+
+/* ================= REACTIONS & GIF PICKER (double-click · long-press) ================= */
+const RX_POP = new Map();
+toggleReaction = function(mid, emoji){
+  const m = MESSAGES.find(x=>x.id===mid); if(!m) return;
+  const c = CHATS.find(x=>x.id===m.chat); if(!c || !(c.members||[]).includes(PERSON)) return;
+  if(c.archived && !canPostEnded(c)) return toast('This chat is archived — read-only');
+  const had = REACTIONS.some(r=>r.msg===mid && r.person===PERSON && r.emoji===emoji);
+  REACTIONS = REACTIONS.filter(r=>!(r.msg===mid && r.person===PERSON));      /* one reaction per person: change or remove */
+  if(!had){ REACTIONS.push({id:`${mid}|${PERSON}|${ecode(emoji)}`, msg:mid, chat:m.chat, person:PERSON, emoji, at:nowISO()});
+    RX_POP.set(mid, emoji); setTimeout(()=>{ if(RX_POP.get(mid)===emoji) RX_POP.delete(mid); }, 900);
+    if(m.by!==PERSON && PEOPLE[m.by] && !isAssistantKey(m.by) && c.kind==='dm') notify(m.by, 'message', `${esc(first(PERSON))} reacted ${emoji} to your message`, {view:'chat', arg:c.id}); }
+  recordChange(); if(CURRENT==='chat'){ RENDER.chat(); if(typeof THREAD_OPEN!=='undefined' && THREAD_OPEN) drawThread(); } else if(CURRENT==='cchat') RENDER.cchat();
+};
+{ const _rh = reactionsHTML; reactionsHTML = function(m){ let h = _rh(m); const e = RX_POP.get(m.id); if(!h || !e) return h;
+    return h.replace(`class="react mine"`, `class="react mine pop"`); }; }
+let RX = null;
+function rxClose(){ if(!RX) return; const b = RX.box; if(typeof glassGhost==='function') glassGhost(b); b.remove(); RX = null; document.removeEventListener('mousedown', rxOutside, true); document.removeEventListener('keydown', rxKey, true); }
+function rxOutside(e){ if(RX && !RX.box.contains(e.target)) rxClose(); }
+function rxKey(e){ if(e.key==='Escape'){ e.preventDefault(); rxClose(); } }
+function rxCanUse(m){ const c = CHATS.find(x=>x.id===m?.chat); return !!(m && c && (c.members||[]).includes(PERSON) && !m.sys && m.kind!=='call' && !m.deleted); }
+function rxPress(bubble){ if(!bubble) return; bubble.classList.remove('rx-press'); void bubble.offsetWidth; bubble.classList.add('rx-press'); setTimeout(()=>bubble.classList.remove('rx-press'), 320); }
+function rxOpen(mid, bubble){
+  const m = MESSAGES.find(x=>x.id===mid); if(!rxCanUse(m)) return;
+  const c = CHATS.find(x=>x.id===m.chat); const ro = typeof chatReadOnly==='function' && chatReadOnly(c);
+  rxClose(); rxPress(bubble);
+  const mineR = REACTIONS.find(r=>r.msg===mid && r.person===PERSON);
+  const box = document.createElement('div'); box.className = 'rx-pick' + (window.innerWidth < 640 ? ' sheet' : ''); box.setAttribute('role', 'dialog'); box.setAttribute('aria-label', 'React or reply with a GIF');
+  box.innerHTML = `<div class="rx-quick">${EMOJI_QUICK.map(e=>`<button type="button" class="rx-e ${mineR?.emoji===e?'on':''}" data-e="${e}" aria-label="React ${e}">${e}</button>`).join('')}</div>
+    <div class="rx-tabs"><button type="button" class="on" data-t="emoji">😊 Emoji</button><button type="button" data-t="gif">🎞 GIF</button><span style="flex:1"></span>${m.text?`<button type="button" class="rx-copy" title="Copy text">⧉ Copy</button>`:''}</div>
+    <div class="rx-body"></div>
+    ${mineR?`<div class="rx-foot">Your reaction <b>${mineR.emoji}</b><button type="button" class="rx-rm">Remove</button></div>`:''}`;
+  document.body.appendChild(box); RX = {mid, box, tab:'emoji'};
+  rxTab('emoji');
+  const r = (bubble||document.querySelector(`.msg[data-mid="${mid}"] .bubble`))?.getBoundingClientRect();
+  if(!box.classList.contains('sheet') && r){ const w = Math.min(360, window.innerWidth - 16); box.style.width = w+'px'; const h = box.offsetHeight;
+    const left = m.by===PERSON ? r.right - w : r.left; box.style.left = Math.max(8, Math.min(window.innerWidth - w - 8, left))+'px';
+    box.style.top = (r.top - h - 10 > 8 ? r.top - h - 10 : Math.min(window.innerHeight - h - 8, r.bottom + 10))+'px';
+    box.style.transformOrigin = (m.by===PERSON ? 'right' : 'left') + (r.top - h - 10 > 8 ? ' bottom' : ' top'); }
+  box.onclick = e => { const t = e.target.closest('button'); if(!t) return;
+    if(t.dataset.e){ if(ro) return toast('This chat is read-only'); toggleReaction(mid, t.dataset.e); rxClose(); return; }
+    if(t.dataset.t) return rxTab(t.dataset.t);
+    if(t.classList.contains('rx-rm')){ if(mineR) toggleReaction(mid, mineR.emoji); rxClose(); return; }
+    if(t.classList.contains('rx-copy')){ navigator.clipboard?.writeText(m.text||''); toast('Copied'); rxClose(); return; }
+    if(t.dataset.gif!==undefined){ if(ro) return toast('This chat is read-only'); const g = RX.gifs?.[+t.dataset.gif]; if(g) rxSendGif(mid, g); return; }
+    if(t.classList.contains('rx-up')) return rxUploadGif(mid);
+    if(t.classList.contains('rx-link')) return rxLinkGif(mid);
+    if(t.classList.contains('rx-key')) return rxSetKey(); };
+  setTimeout(()=>{ document.addEventListener('mousedown', rxOutside, true); document.addEventListener('keydown', rxKey, true); }, 0);
+  setTimeout(()=>box.querySelector('.rx-e')?.focus({preventScroll:true}), 40);
+}
+function rxTab(t){ if(!RX) return; RX.tab = t; const b = RX.box.querySelector('.rx-body');
+  RX.box.querySelectorAll('.rx-tabs [data-t]').forEach(x=>x.classList.toggle('on', x.dataset.t===t));
+  if(t==='emoji'){ b.innerHTML = `<input class="rx-q" placeholder="Search emoji — thanks, party, done…" aria-label="Search emoji"><div class="rx-grid"></div>`;
+    const draw = q => { q = (q||'').trim().toLowerCase(); const all = EMOJI_SETS.flatMap(s=>s[1].split(' ')).filter(Boolean);
+      const L = q ? all.filter(e=>(EMOJI_NAMES[e]||'').includes(q)) : all; const mine = REACTIONS.find(r=>r.msg===RX.mid && r.person===PERSON)?.emoji;
+      b.querySelector('.rx-grid').innerHTML = L.map(e=>`<button type="button" class="rx-e ${mine===e?'on':''}" data-e="${e}">${e}</button>`).join('') || '<div class="hint" style="padding:10px">No match</div>'; };
+    draw(''); b.querySelector('.rx-q').oninput = e => draw(e.target.value); return; }
+  const key = S().gifKey; const recent = rxRecentGifs();
+  b.innerHTML = `<input class="rx-q" placeholder="${key?'Search GIFs — thank you, congrats, yes…':'Search needs a GIF key — upload or paste a link below'}" ${key?'':'disabled'} aria-label="Search GIFs">
+    <div class="rx-gifs"><div class="hint" style="padding:12px">${key?'Loading…':''}</div></div>
+    <div class="rx-gact"><button type="button" class="rx-up">⤒ Upload GIF</button><button type="button" class="rx-link">🔗 Paste GIF link</button>${isFullAccess()?`<button type="button" class="rx-key" title="Set up GIF search">⚙</button>`:''}</div>`;
+  const grid = b.querySelector('.rx-gifs');
+  const show = (L, label) => { RX.gifs = L; grid.innerHTML = (label?`<div class="rx-gl">${esc(label)}</div>`:'') + (L.map((g,i)=>`<button type="button" class="rx-g" data-gif="${i}" title="${esc(g.title||'GIF')}"><img src="${esc(g.thumb||g.url)}" alt="${esc(g.title||'GIF')}" loading="lazy"></button>`).join('') || '<div class="hint" style="padding:12px">No GIFs found.</div>'); };
+  if(!key){ show(recent, recent.length?'Recently shared in Cross Core':''); if(!recent.length) grid.innerHTML = `<div class="hint" style="padding:12px;line-height:1.5">Upload a GIF from your device or paste a GIF link.${(isFullAccess())?' Add a free GIPHY or Tenor key (⚙) to search GIFs here.':''}</div>`; return; }
+  let qt = null; const run = async q => { try{ show(await rxGifSearch(q), q?'':'Trending'); }catch(e){ grid.innerHTML = `<div class="hint" style="padding:12px">GIF search is unavailable right now (${esc(e.message)}). Upload or paste a link instead.</div>`; } };
+  b.querySelector('.rx-q').oninput = e => { clearTimeout(qt); qt = setTimeout(()=>run(e.target.value.trim()), 350); };
+  run(''); setTimeout(()=>b.querySelector('.rx-q')?.focus({preventScroll:true}), 30);
+}
+function rxRecentGifs(){ const seen = new Set(), out = [];
+  for(let i=MESSAGES.length-1;i>=0 && out.length<12;i--){ const g = MESSAGES[i].gif; if(g?.url && !seen.has(g.url)){ seen.add(g.url); out.push(g); } } return out; }
+async function rxGifSearch(q){
+  const s = S(); const key = s.gifKey; const prov = s.gifProvider || (key && key.length > 36 ? 'tenor' : 'giphy');
+  if(prov==='tenor'){ const u = `https://tenor.googleapis.com/v2/${q?'search':'featured'}?key=${encodeURIComponent(key)}&client_key=crosscore&limit=24&contentfilter=medium&media_filter=tinygif,gif${q?'&q='+encodeURIComponent(q):''}`;
+    const r = await fetch(u); if(!r.ok) throw new Error('Tenor '+r.status); const d = await r.json();
+    return (d.results||[]).map(x=>({url:x.media_formats?.gif?.url||x.media_formats?.tinygif?.url, thumb:x.media_formats?.tinygif?.url, w:x.media_formats?.tinygif?.dims?.[0], h:x.media_formats?.tinygif?.dims?.[1], title:x.content_description||'GIF', src:'tenor'})).filter(g=>g.url); }
+  const u = `https://api.giphy.com/v1/gifs/${q?'search':'trending'}?api_key=${encodeURIComponent(key)}&limit=24&rating=pg-13${q?'&q='+encodeURIComponent(q):''}`;
+  const r = await fetch(u); if(!r.ok) throw new Error('GIPHY '+r.status); const d = await r.json();
+  return (d.data||[]).map(x=>({url:x.images?.fixed_width?.url, thumb:x.images?.fixed_width_small?.url||x.images?.fixed_width?.url, w:+x.images?.fixed_width?.width, h:+x.images?.fixed_width?.height, title:x.title||'GIF', src:'giphy'})).filter(g=>g.url);
+}
+function rxSetKey(){ if(!isFullAccess()) return; const s = S();
+  const k = prompt('GIF search key — paste a free GIPHY API key (developers.giphy.com) or a Tenor API key (Google Cloud). Leave empty to turn search off.', s.gifKey||''); if(k===null) return;
+  s.gifKey = k.trim(); s.gifProvider = s.gifKey ? (s.gifKey.length > 36 ? 'tenor' : 'giphy') : ''; audit(s.gifKey?'Set up GIF search for Messages':'Turned off GIF search'); recordChange(); rxTab('gif'); toast(s.gifKey?'GIF search is on for everyone':'GIF search turned off'); }
+function rxReOf(m){ return {id:m.id, by:m.by, snip:(msgPreview(m)||'').slice(0,90)}; }
+function rxPostGif(orig, extra){
+  const c = CHATS.find(x=>x.id===orig.chat); if(!c) return;
+  if(typeof chatReadOnly==='function' && chatReadOnly(c)) return toast('This chat is read-only');
+  const m = {id:uid('M'), chat:c.id, by:PERSON, text:'', at:nowISO(), files:[], re:rxReOf(orig), ...(orig.thread?{thread:orig.thread}:{}), ...extra};
+  MESSAGES.push(m); myPrefs().lastRead[c.id] = m.at;
+  if(c.kind==='dm') notify(c.members.filter(k=>k!==PERSON), 'message', `💬 <b>${esc(first(PERSON))}</b> replied with a GIF`, {view:'chat', arg:c.id});
+  else if(orig.by!==PERSON && PEOPLE[orig.by] && !isAssistantKey(orig.by)) notify(orig.by, 'message', `${esc(first(PERSON))} replied to your message with a GIF in <b>${esc(chatTitle(c))}</b>`, {view:'chat', arg:c.id});
+  recordChange(); rxClose();
+  if(CURRENT==='chat'){ if(m.thread && typeof THREAD_OPEN!=='undefined' && THREAD_OPEN===m.thread) drawThread(m.id); updateMessages(c); const sc = el('chatScroll'); if(sc && !m.thread) sc.scrollTop = sc.scrollHeight; el('chatList').innerHTML = chatListHTML(); }
+  else if(CURRENT==='cchat') RENDER.cchat();
+  toast('GIF sent');
+}
+function rxSendGif(mid, g){ const o = MESSAGES.find(x=>x.id===mid); if(!o) return; rxPostGif(o, {gif:{url:g.url, w:g.w||null, h:g.h||null, title:(g.title||'GIF').slice(0,80), src:g.src||'link'}}); }
+async function rxUploadGif(mid){ const o = MESSAGES.find(x=>x.id===mid); if(!o) return;
+  const f = (await pickFiles({accept:'image/gif'}))[0]; if(!f) return;
+  if(!/gif$/i.test(f.type||f.name)) return toast('Please choose a .gif file');
+  rxPostGif(o, {files:[f], gif:{upload:true, title:f.name}}); }
+function rxLinkGif(mid){ const o = MESSAGES.find(x=>x.id===mid); if(!o) return;
+  const u = (prompt('Paste a GIF link (ends with .gif, or a GIPHY / Tenor media link)')||'').trim(); if(!u) return;
+  if(!/^https:\/\//i.test(u) || !(/\.gif(\?|$)/i.test(u) || /(giphy\.com|tenor\.com|googleusercontent\.com)\//i.test(u))) return toast('That doesn’t look like a GIF link — use a https link ending in .gif');
+  rxPostGif(o, {gif:{url:u, title:'GIF', src:'link'}}); }
+function rxJump(id){ const o = MESSAGES.find(x=>x.id===id); if(!o) return toast('The original message is no longer available');
+  if(o.thread && typeof openThread==='function'){ openThread(o.thread, o.id); return; }
+  const w = el('mw-'+id); if(!w) return toast('That message is further back in the conversation');
+  w.scrollIntoView({block:'center', behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'});
+  const b = w.querySelector('.bubble'); if(b){ b.classList.remove('rx-flash'); void b.offsetWidth; b.classList.add('rx-flash'); } }
+
+/* gestures: double-click (desktop) and long-press (touch) on a message bubble */
+const rxBubbleOf = t => { const b = t?.closest?.('.msg[data-mid] .bubble'); if(!b) return null;
+  if(t.closest('a,button,video,audio,input,textarea,select,[contenteditable="true"],.chat-img,.file-chip,.gif-re')) return null; return b; };
+document.addEventListener('dblclick', e=>{ const b = rxBubbleOf(e.target); if(!b) return;
+  e.preventDefault(); try{ window.getSelection()?.removeAllRanges(); }catch(_){} rxOpen(b.closest('.msg').dataset.mid, b); });
+let RX_LP = null;
+document.addEventListener('touchstart', e=>{ const b = rxBubbleOf(e.target); if(!b || e.touches.length>1) return; const t = e.touches[0];
+  RX_LP = {x:t.clientX, y:t.clientY, b, timer:setTimeout(()=>{ RX_LP.fired = true; try{ navigator.vibrate?.(12); }catch(_){} rxOpen(b.closest('.msg').dataset.mid, b); }, 460)};
+  b.classList.add('rx-hold'); }, {passive:true});
+const rxLpEnd = () => { if(!RX_LP) return; clearTimeout(RX_LP.timer); RX_LP.b.classList.remove('rx-hold'); const f = RX_LP.fired; RX_LP = null; return f; };
+document.addEventListener('touchmove', e=>{ if(!RX_LP) return; const t = e.touches[0]; if(Math.hypot(t.clientX-RX_LP.x, t.clientY-RX_LP.y) > 10) rxLpEnd(); }, {passive:true});
+document.addEventListener('touchend', e=>{ if(RX_LP?.fired){ e.preventDefault(); } rxLpEnd(); });
+document.addEventListener('touchcancel', rxLpEnd);
+document.addEventListener('contextmenu', e=>{ if(rxBubbleOf(e.target) && (RX || RX_LP)) e.preventDefault(); });
+
+/* ===== 52_annplus.js ===== */
+/* ================= ANNOUNCEMENTS — attachments + "Post as" identity (Oct 2026) =================
+   • Composer (Announcement section, LeadGen Hub, System Ops Support): several attachments with previews, replace /
+     remove before publishing, upload progress, and clear format / size errors. Images (JPG, PNG, GIF, WebP), PDF, MP4 /
+     WebM / MOV video, Word, Excel, PowerPoint, CSV and text files.
+   • Recipients: images inline (tap to enlarge), PDFs open, videos play, everything downloads — in the announcement,
+     the announcement bar on dashboards and the LeadGen Hub.
+   • JA picks "Post as": COO (his name, title and photo) or System Ops Support Team (team name and avatar; his name and
+     photo are hidden from recipients). Bug-fix announcements always go out as the support team.
+     The real author of a team post is kept in a private record (company heads, HR and the support team) for accountability. */
+
+const OPS_ID = 'ops-support', OPS_NAME = 'System Ops Support Team';
+let ANNAUTH = [];
+COLL.annauthors = {get:()=>ANNAUTH, set:v=>ANNAUTH=v, aud:()=>uniq([...HEADS, ...HR_KEYS(), ...(typeof tkTeam==='function'?tkTeam():[])])};
+const opsAva = (size=36) => `<span class="ops-ava" style="width:${size}px;height:${size}px" aria-label="${OPS_NAME}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.8l7.5 3v5.6c0 4.6-3.1 8.4-7.5 9.8-4.4-1.4-7.5-5.2-7.5-9.8V5.8z" fill="currentColor" opacity=".22"/><path d="M12 2.8l7.5 3v5.6c0 4.6-3.1 8.4-7.5 9.8-4.4-1.4-7.5-5.2-7.5-9.8V5.8z" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M14.6 8.6a2.6 2.6 0 0 0-3.4 3.2l-2.6 2.6 1 1 2.6-2.6a2.6 2.6 0 0 0 3.2-3.4l-1.4 1.4-1-.3-.3-1z" fill="currentColor"/></svg></span>`;
+const annAs = a => a?.as==='support' || a?.by===OPS_ID ? 'support' : a?.as==='coo' ? 'coo' : '';
+function annFromName(a){ const as = annAs(a); if(as==='support') return OPS_NAME; if(as==='coo') return `${pname(a.by)} · ${P(a.by)?.sub||'Chief Operating Officer'}`; return pname(a.by); }
+function annFromAva(a, size=36){ return annAs(a)==='support' ? opsAva(size) : av(P(a.by)); }
+const annCanPostAs = () => PERSON==='ja';
+const annSeesAuthor = () => COLL.annauthors.aud().includes(PERSON);
+let ANN_AS = null, ANN_CTX = {};
+
+/* ---------- attachments in the composer ---------- */
+const ANN_OK = {img:/^image\/(jpeg|png|gif|webp)$/i, ext:/\.(jpe?g|png|gif|webp|pdf|mp4|webm|mov|docx?|xlsx?|pptx?|csv|txt)$/i};
+const ANN_MAX_FILES = 10;
+const annLimitMB = f => BACKEND.mode==='live' ? (/^video\//i.test(f.type) || /\.(mp4|webm|mov)$/i.test(f.name) ? 50 : 25) : 1.5;
+const annKind = f => isImg(f) ? 'img' : isVid(f) ? 'vid' : /pdf/i.test(f.type||f.name) ? 'pdf' : 'doc';
+const annIcon = f => ({img:'🖼', vid:'🎬', pdf:'📕'}[annKind(f)]) || (/sheet|excel|csv/i.test(f.type||f.name) ? '📊' : /presentation|powerpoint|pptx?$/i.test(f.type||f.name) ? '📽' : '📄');
+function annCheck(f){
+  if(!ANN_OK.ext.test(f.name||'')) return `“${f.name}” isn’t a supported format. Use JPG, PNG, GIF, PDF, MP4, Word, Excel, PowerPoint, CSV or TXT.`;
+  const mb = annLimitMB(f); if(f.size > mb*1024*1024) return `“${f.name}” is ${(f.size/1048576).toFixed(1)} MB — the limit is ${mb} MB${BACKEND.mode==='demo'?' in demo mode':''}.`;
+  if(!f.size) return `“${f.name}” is empty.`;
+  return '';
+}
+/* upload with progress (live: straight to storage; demo: read in the browser) */
+async function annUpload(f, onProg){
+  if(BACKEND.mode!=='live') return await new Promise((ok, bad)=>{ const r = new FileReader(); r.onprogress = e=>{ if(e.lengthComputable) onProg(e.loaded/e.total); };
+    r.onload = ()=>{ onProg(1); ok({name:f.name, type:f.type, size:f.size, data:r.result}); }; r.onerror = ()=>bad(new Error('could not read the file')); r.readAsDataURL(f); });
+  const path = `${PERSON}/${Date.now().toString(36)}-${f.name.replace(/[^\w.\-]+/g,'_')}`;
+  const {data:{session}} = await BACKEND.sb.auth.getSession(); if(!session) throw new Error('please sign in again');
+  await new Promise((ok, bad)=>{ const x = new XMLHttpRequest();
+    x.open('POST', `${CC_CONFIG.SUPABASE_URL}/storage/v1/object/cc-files/${path.split('/').map(encodeURIComponent).join('/')}`);
+    x.setRequestHeader('Authorization', 'Bearer '+session.access_token); x.setRequestHeader('apikey', CC_CONFIG.SUPABASE_ANON_KEY);
+    x.setRequestHeader('Content-Type', f.type||'application/octet-stream'); x.setRequestHeader('x-upsert', 'false');
+    x.upload.onprogress = e=>{ if(e.lengthComputable) onProg(e.loaded/e.total); };
+    x.onload = ()=> x.status>=200 && x.status<300 ? ok() : bad(new Error(x.status===413 ? 'the file is too large for storage' : (JSON.parse(x.responseText||'{}').message || 'upload failed ('+x.status+')')));
+    x.onerror = ()=>bad(new Error('network error — check the connection')); x.send(f); });
+  onProg(1); return {name:f.name, type:f.type, size:f.size, path};
+}
+function annAddFiles(list, replaceIdx){
+  const files = [...list]; if(!files.length) return;
+  if(replaceIdx==null && ANN_FILES.length + files.length > ANN_MAX_FILES) { toast(`Up to ${ANN_MAX_FILES} attachments per announcement`); files.splice(ANN_MAX_FILES - ANN_FILES.length); }
+  files.forEach((f, n)=>{ const err = annCheck(f); const item = {_id:uid('AF'), name:f.name, type:f.type, size:f.size, _prog:0, _err:err, uploading:!err, _local:isImg(f)?URL.createObjectURL(f):null};
+    if(replaceIdx!=null && n===0){ const old = ANN_FILES[replaceIdx]; if(old?._local) URL.revokeObjectURL(old._local); ANN_FILES[replaceIdx] = item; } else ANN_FILES.push(item);
+    annDrawFiles(); if(err) return;
+    annUpload(f, p=>{ item._prog = p; const bar = document.querySelector(`[data-af="${item._id}"] .af-bar i`); if(bar) bar.style.width = Math.round(p*100)+'%'; const pc = document.querySelector(`[data-af="${item._id}"] .af-pc`); if(pc) pc.textContent = Math.round(p*100)+'%'; })
+      .then(r=>{ Object.assign(item, r, {uploading:false, _prog:1}); annDrawFiles(); })
+      .catch(e=>{ item.uploading = false; item._err = `Couldn’t upload “${f.name}”: ${e.message}`; annDrawFiles(); }); });
+}
+function annPick(replaceIdx){ const i = document.createElement('input'); i.type = 'file'; i.multiple = replaceIdx==null;
+  i.accept = '.jpg,.jpeg,.png,.gif,.webp,.pdf,.mp4,.webm,.mov,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.csv,.txt,image/*,video/mp4,application/pdf';
+  i.onchange = () => annAddFiles(i.files, replaceIdx); i.click(); }
+function annRm(i){ const f = ANN_FILES[i]; if(f?._local) URL.revokeObjectURL(f._local); ANN_FILES.splice(i, 1); annDrawFiles(); }
+function annDrawFiles(){
+  const box = el('anFilesX'); if(!box) return;
+  box.innerHTML = ANN_FILES.map((f,i)=>`<div class="af ${f._err?'err':''} ${f.uploading?'busy':''}" data-af="${f._id||i}">
+      <div class="af-th">${f._local||f.data&&isImg(f)?`<img src="${esc(f._local||f.data)}" alt="">`:`<span>${annIcon(f)}</span>`}</div>
+      <div class="af-m"><b title="${esc(f.name)}">${esc(f.name)}</b><span class="hint">${f._err?`<span class="af-e">${esc(f._err)}</span>`:f.uploading?`Uploading… <span class="af-pc">${Math.round((f._prog||0)*100)}%</span>`:`${esc(fsize(f.size)||'')} · ready`}</span>
+        ${f.uploading?`<span class="af-bar"><i style="width:${Math.round((f._prog||0)*100)}%"></i></span>`:''}</div>
+      <div class="af-a">${f.uploading?'':`<button type="button" class="btn ghost" onclick="annPick(${i})" title="Replace">↺</button>`}<button type="button" class="btn ghost" onclick="annRm(${i})" title="Remove">✕</button></div></div>`).join('');
+  const n = el('anFilesN'); if(n) n.textContent = ANN_FILES.length ? `${ANN_FILES.filter(f=>!f._err).length} attached` : '';
+}
+function annComposerFilesHTML(){ return `<div class="field"><label>Attachments <span class="hint" id="anFilesN"></span></label>
+  <div class="af-drop" id="anDrop" tabindex="0" role="button" onclick="annPick()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();annPick()}"
+    ondragover="event.preventDefault();this.classList.add('on')" ondragleave="this.classList.remove('on')" ondrop="event.preventDefault();this.classList.remove('on');annAddFiles(event.dataTransfer.files)">
+    <b>📎 Add files</b><span class="hint">or drop them here · JPG, PNG, GIF, PDF, MP4, Word, Excel, PowerPoint · up to ${ANN_MAX_FILES} files · ${BACKEND.mode==='live'?'25 MB each (videos 50 MB)':'1.5 MB each in demo mode'}</span></div>
+  <div id="anFilesX" class="af-list"></div></div>`; }
+
+/* ---------- "Post as" (JA) ---------- */
+function annAsHTML(def){
+  const opt = (k, ava, nm, sub) => `<label class="pas-o ${def===k?'on':''}"><input type="radio" name="anAs" value="${k}" ${def===k?'checked':''} onchange="annAsPick(this.value)">${ava}<span><b>${esc(nm)}</b><small>${esc(sub)}</small></span></label>`;
+  return `<div class="field pas"><label>Post as</label><div class="pas-row">${opt('coo', av(P('ja')), pname('ja'), P('ja')?.sub||'Chief Operating Officer')}${opt('support', opsAva(40), OPS_NAME, 'Support announcements · your name stays private')}</div>
+    <div class="pas-prev" id="anAsPrev"></div></div>`; }
+function annAsPick(v){ ANN_AS = v; document.querySelectorAll('.pas-o').forEach(o=>o.classList.toggle('on', o.querySelector('input').value===v));
+  const p = el('anAsPrev'); if(!p) return; const fake = {as:v, by:v==='support'?OPS_ID:'ja'};
+  p.innerHTML = `<span class="hint">Recipients will see</span><div class="pas-card">${annFromAva(fake, 34)}<div><b>${esc(annFromName(fake))}</b><small>${v==='support'?'Shown on the post, the pop-up and every notification. Kept internally: posted by you.':'Your name, title and photo on the post and its notifications.'}</small></div></div>`; }
+
+{ const _am = annModal; annModal = function(opts={}){
+    ANN_CTX = opts||{}; ANN_AS = annCanPostAs() ? (opts.as || (CURRENT==='support' ? 'support' : 'coo')) : null;
+    _am.apply(this, arguments);
+    const b = el('modalBody'); if(!b) return;
+    if(opts.source==='lghub' || opts.source==='support') el('modalTitle').textContent = opts.source==='lghub' ? 'Post announcement — LeadGen Hub' : 'Post support announcement';
+    /* replace the old single attach button with the full attachment picker */
+    const old = el('anFiles')?.closest('.field'); if(old){ old.insertAdjacentHTML('afterend', annComposerFilesHTML()); const btnRow = el('anFiles').parentElement; btnRow?.remove(); old.querySelector('label').textContent = 'Link (optional)'; }
+    if(annCanPostAs()){ b.insertAdjacentHTML('afterbegin', annAsHTML(ANN_AS)); annAsPick(ANN_AS); }
+    annDrawFiles();
+  }; }
+{ const _sa = saveAnn; saveAnn = function(){
+    if(ANN_FILES.some(f=>f.uploading)) return toast('Please wait — attachments are still uploading');
+    const bad = ANN_FILES.filter(f=>f._err); if(bad.length) return toast('Remove or replace the files that couldn’t be attached first');
+    ANN_FILES = ANN_FILES.map(({_id, _prog, _err, _local, uploading, ...f})=>f);
+    const r = _sa.apply(this, arguments); ANN_AS = null; ANN_CTX = {}; return r; }; }
+
+/* publish under the chosen identity — the post, its pop-up and every notification */
+{ const _pa = publishAnnouncement; publishAnnouncement = function(o){
+    const autoFix = !!o?.note && /^✅ Fixed:/.test(o?.title||'');
+    const as = autoFix ? 'support' : (annCanPostAs() ? ANN_AS : null);
+    const t0 = NOTIFS2.length; const res = _pa.apply(this, arguments); const a = res?.a; if(!a || !as) return res;
+    const mineNew = NOTIFS2.slice(0, Math.max(0, NOTIFS2.length - t0)).filter(n=>n.by===PERSON && n.type==='announcement');
+    if(as==='support'){
+      ANNAUTH.push({id:a.id, author:PERSON, as:'support', at:a.at, title:a.title});
+      a.as = 'support'; a.by = OPS_ID;
+      const nm = esc(pname(PERSON));
+      mineNew.forEach(n=>{ n.by = OPS_ID; n.as = 'support'; n.text = String(n.text).split(nm).join(OPS_NAME); if(n.link && n.link.view==='announce' && n.link.ann==null) n.link.ann = a.id; });
+      audit(`Posted announcement ${a.id} as ${OPS_NAME}`);
+    } else if(as==='coo'){
+      a.as = 'coo';
+      mineNew.forEach(n=>{ n.as = 'coo'; n.text = String(n.text).replace(`from ${esc(pname(PERSON))}`, `from ${esc(pname(PERSON))} (${esc(P(PERSON)?.sub||'COO')})`); });
+    }
+    return res; }; }
+/* ---------- viewing attachments ---------- */
+function annFilesHTML(files, compact){
+  const F = files||[]; if(!F.length) return '';
+  const data = f => esc(JSON.stringify({name:f.name, type:f.type, size:f.size, path:f.path, data:f.data, url:f.url}));
+  const imgs = F.filter(isImg), vids = F.filter(isVid), other = F.filter(f=>!isImg(f) && !isVid(f));
+  if(compact) return `<div class="ann-att">${imgs.slice(0,3).map(f=>`<img class="chat-img" data-f='${data(f)}' alt="${esc(f.name)}">`).join('')}${F.length>imgs.slice(0,3).length?`<span class="ann-att-n">📎 ${F.length} attachment${F.length>1?'s':''}</span>`:''}</div>`;
+  return `<div class="ann-files">${imgs.length?`<div class="att-imgs n${Math.min(imgs.length,3)}">${imgs.map(f=>`<img class="chat-img" alt="${esc(f.name)}" data-f='${data(f)}' onclick="viewMedia(this)">`).join('')}</div>`:''}
+    ${vids.map(f=>`<div class="att-vid"><video class="chat-video" controls preload="metadata" playsinline data-f='${data(f)}'></video></div>`).join('')}
+    <div class="af-list">${F.map(f=>`<div class="af"><div class="af-th"><span>${annIcon(f)}</span></div><div class="af-m"><b title="${esc(f.name)}">${esc(f.name)}</b><span class="hint">${esc(fsize(f.size)||'')}</span></div>
+      <div class="af-a"><button type="button" class="btn ghost" data-f='${data(f)}' onclick="openFileRef(this)">${annKind(f)==='pdf'?'Open PDF':annKind(f)==='img'?'View':annKind(f)==='vid'?'Open':'Open'}</button><button type="button" class="btn" data-f='${data(f)}' onclick="annDownload(this)">↓ Download</button></div></div>`).join('')}</div></div>`;
+}
+async function annDownload(btn){ const f = JSON.parse(btn.dataset.f);
+  try{ let url = await BACKEND.fileUrl(f); if(f.path && /token=/.test(url)) url += (url.includes('?')?'&':'?') + 'download=' + encodeURIComponent(f.name);
+    const a = document.createElement('a'); a.href = url; a.download = f.name; a.rel = 'noopener'; document.body.appendChild(a); a.click(); a.remove(); }
+  catch(e){ toast('Could not download: '+e.message); } }
+{ const _oa = openAnn; openAnn = function(id){ const r = _oa.apply(this, arguments); const a = ANNOUNCEMENTS.find(x=>x.id===id); const b = el('modalBody'); if(!a || !b) return r;
+    b.insertAdjacentHTML('afterbegin', `<div class="ann-from">${annFromAva(a, 40)}<div><b>${esc(annFromName(a))}</b><span class="hint">${esc(a.date)}${annAs(a)==='support'?' · System Ops Support':''}</span></div></div>`);
+    if(a.files?.length){ const chip = b.querySelector('.file-chip'); const holder = chip?.parentElement; if(holder){ holder.outerHTML = annFilesHTML(a.files); } hydrateChatMedia(b); }
+    if(annAs(a)==='support' && annSeesAuthor() && ANNAUTH.find(x=>x.id===a.id)){ const w = ANNAUTH.find(x=>x.id===a.id); b.insertAdjacentHTML('beforeend', `<div class="hint" style="text-align:center;margin-top:8px">🔒 Internal: posted by ${esc(pname(w.author))} as ${OPS_NAME}</div>`); }
+    return r; }; }
+{ const _as = annStrip; annStrip = function(){ let h = _as.apply(this, arguments); const a = annUnread()[0]; if(!h || !a) return h;
+    h = h.replace('<span class="badge prio-', `${annFromAva(a, 30)}<span class="badge prio-`);
+    if(a.files?.length) h = h.replace('</div></div>\n    <button', `</div>${annFilesHTML(a.files, true)}</div>\n    <button`);
+    return h; }; }
+{ const _rd = RENDER.dashboard; RENDER.dashboard = function(){ const r = _rd.apply(this, arguments); const v = el('v-dashboard'); if(v) hydrateChatMedia(v); return r; }; }
+{ const _tm = annTrackModal; annTrackModal = function(id){ const r = _tm.apply(this, arguments); const w = ANNAUTH.find(x=>x.id===id); const b = el('modalBody');
+    if(b && w && annSeesAuthor()) b.insertAdjacentHTML('afterbegin', `<div class="hint" style="margin-bottom:10px">🔒 Posted as <b>${OPS_NAME}</b> by ${esc(pname(w.author))} · ${esc(dstr(w.at))} — visible to company heads, HR and the support team only</div>`); return r; }; }
+
+/* ---------- LeadGen Hub: announcement bar + composer ---------- */
+{ const _lg = RENDER.lghub; RENDER.lghub = function(){ const r = _lg.apply(this, arguments); const v = el('v-lghub'); if(!v) return r;
+    const head = v.querySelector('.page-head'); if(!head || v.querySelector('.lg-annbar')) return r;
+    if(annCanPost()){ const btns = head.querySelector(':scope > div:last-child'); const btn = `<button class="btn" onclick="annModal({source:'lghub'})">📣 Post announcement</button>`;
+      if(btns && btns!==head.firstElementChild) btns.insertAdjacentHTML('afterbegin', btn); else head.insertAdjacentHTML('beforeend', `<div style="display:flex;gap:8px">${btn}</div>`); }
+    const strip = annStrip(); if(strip){ head.insertAdjacentHTML('afterend', `<div class="lg-annbar">${strip}</div>`); hydrateChatMedia(v.querySelector('.lg-annbar')); }
+    return r; }; }
+/* ---------- System Ops Support: post a support announcement (JA) ---------- */
+{ const _su = RENDER.support; if(_su) RENDER.support = function(){ const r = _su.apply(this, arguments); const v = el('v-support'); if(!v || !annCanPostAs() || v.querySelector('.sup-annbtn')) return r;
+    const head = v.querySelector('.page-head'); const btns = head?.querySelector(':scope > div:last-child');
+    const btn = `<button class="btn sup-annbtn" onclick="annModal({source:'support', as:'support'})">📣 Support announcement</button>`;
+    if(btns && btns!==head.firstElementChild) btns.insertAdjacentHTML('afterbegin', btn); else head?.insertAdjacentHTML('beforeend', `<div style="display:flex;gap:8px">${btn}</div>`);
+    return r; }; }
 
 CC_BOOT();
 </script>

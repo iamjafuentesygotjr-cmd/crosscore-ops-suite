@@ -2440,7 +2440,75 @@ body{background:
 .dept-ava{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:linear-gradient(180deg,#E6FBF5,#B9EBDD);font-size:14px;flex:none}
 @media(max-width:820px){.vs-grid{grid-template-columns:1fr}.vs-row .vs-k{min-width:0}.vs-note{flex-direction:column;align-items:stretch}#vsGo{width:100%}}
 body.glass-lite .card,body.glass-lite .glass-card{background:rgba(255,248,240,.96)}
+/* ===== Raised glass v7 (Oct 2026) — glass you can see and that lifts off the page, on the portal's warm light field =====
+   Visual only. Desktop: sidebar and top bar float as rounded glass islands. Phones keep the full-height layout. */
+:root{
+  --rg-fill:linear-gradient(180deg,rgba(255,255,255,.58) 0%,rgba(255,250,244,.32) 48%,rgba(255,243,230,.22) 100%);
+  --rg-spec:linear-gradient(180deg,rgba(255,255,255,.70) 0%,rgba(255,255,255,0) 26%);
+  --rg-edge:1.5px solid rgba(255,255,255,.92);
+  --rg-lift:inset 0 1px 0 #fff,inset 0 -1px 0 rgba(255,255,255,.45),inset 0 0 0 1px rgba(255,255,255,.28),0 0 0 1px rgba(196,96,10,.07),0 3px 8px -2px rgba(150,64,0,.08),0 30px 60px -30px rgba(176,72,0,.46);
+  --rg-lift-h:inset 0 1px 0 #fff,inset 0 -1px 0 rgba(255,255,255,.45),inset 0 0 0 1px rgba(255,255,255,.32),0 0 0 1px rgba(196,96,10,.08),0 6px 14px -4px rgba(150,64,0,.10),0 40px 70px -30px rgba(176,72,0,.52);
+}
+[data-theme="dark"]{
+  --rg-fill:linear-gradient(180deg,rgba(84,52,30,.62) 0%,rgba(52,32,18,.52) 55%,rgba(40,24,13,.50) 100%);
+  --rg-spec:linear-gradient(180deg,rgba(255,210,170,.16) 0%,rgba(255,210,170,0) 26%);
+  --rg-edge:1.5px solid rgba(255,200,150,.16);
+  --rg-lift:inset 0 1px 0 rgba(255,220,190,.18),0 0 0 1px rgba(0,0,0,.25),0 30px 60px -30px rgba(0,0,0,.85);
+  --rg-lift-h:inset 0 1px 0 rgba(255,220,190,.22),0 0 0 1px rgba(0,0,0,.25),0 40px 70px -30px rgba(0,0,0,.9);
+}
+/* the portal light field: warm cream with soft orange light streaks and glows (static) */
+body{background:
+  linear-gradient(118deg,transparent 0%,transparent 18%,rgba(255,170,90,.44) 27%,transparent 38%),
+  linear-gradient(118deg,transparent 46%,rgba(255,205,145,.58) 55%,transparent 64%),
+  linear-gradient(118deg,transparent 70%,rgba(255,150,70,.38) 79%,transparent 90%),
+  radial-gradient(800px 520px at 6% 4%,rgba(255,170,90,.42),transparent 62%),
+  radial-gradient(760px 520px at 96% 6%,rgba(255,200,140,.50),transparent 60%),
+  radial-gradient(900px 620px at 88% 96%,rgba(255,150,70,.30),transparent 62%),
+  radial-gradient(700px 520px at 18% 92%,rgba(255,206,150,.42),transparent 64%),
+  radial-gradient(640px 420px at 50% 42%,rgba(255,255,255,.70),transparent 70%),
+  linear-gradient(160deg,#FFF8F0 0%,#FCEBD8 48%,#F9DFC4 100%)!important}
+[data-theme="dark"] body{background:
+  linear-gradient(118deg,transparent 18%,rgba(255,140,50,.14) 27%,transparent 38%),
+  linear-gradient(118deg,transparent 46%,rgba(255,170,90,.12) 55%,transparent 64%),
+  radial-gradient(800px 520px at 6% 4%,rgba(255,130,40,.26),transparent 62%),
+  radial-gradient(900px 620px at 88% 96%,rgba(230,100,30,.22),transparent 62%),
+  linear-gradient(160deg,#170E08 0%,#1D110A 55%,#130B06 100%)!important}
+/* raised glass cards */
+.card{background:var(--rg-spec),var(--rg-fill)!important;border:var(--rg-edge)!important;box-shadow:var(--rg-lift)!important;border-radius:22px!important;
+  transition:box-shadow .22s ease,transform .22s cubic-bezier(.3,.7,.4,1)}
+.card:hover{box-shadow:var(--rg-lift-h)!important}
+.card .card-h{background:transparent!important}
+.stat,.kpi,.mk-kpi,.dash-stat{background:var(--rg-spec),var(--rg-fill)!important;border:var(--rg-edge)!important;box-shadow:var(--rg-lift)!important;border-radius:20px!important}
+.list-row{border-color:rgba(196,96,10,.10)!important}
+.list-row:hover{background:rgba(255,255,255,.45)!important}
+[data-theme="dark"] .list-row:hover{background:rgba(255,170,90,.07)!important}
+/* chips & secondary buttons read as small raised glass */
+.btn:not(.primary):not(.ghost):not(.danger){border:1px solid rgba(255,255,255,.95)!important;box-shadow:inset 0 1px 0 #fff,0 0 0 1px rgba(196,96,10,.10),0 6px 14px -8px rgba(150,64,0,.35)!important}
+[data-theme="dark"] .btn:not(.primary):not(.ghost):not(.danger){border-color:rgba(255,200,150,.14)!important;box-shadow:inset 0 1px 0 rgba(255,220,190,.14),0 6px 14px -8px rgba(0,0,0,.6)!important}
+/* the shell floats as glass islands (desktop) */
+@media(min-width:861px){
+  .app{column-gap:0}
+  .sidebar{margin:14px 0 14px 14px;border-radius:26px;border:var(--rg-edge)!important;box-shadow:var(--rg-lift)!important;
+    background:var(--rg-spec),linear-gradient(180deg,rgba(255,255,255,.72),rgba(255,246,236,.52) 50%,rgba(255,238,220,.46))!important}
+  [data-theme="dark"] .sidebar{background:var(--rg-spec),var(--rg-fill)!important}
+  body.nav-collapsed .sidebar{top:14px;bottom:14px;left:14px;height:auto;margin:0;transform:translateX(calc(-100% - 24px))}
+  body.nav-collapsed.nav-peek .sidebar{transform:none}
+  .main{padding:14px 14px 0 14px}
+  .topbar{border-radius:22px;border:var(--rg-edge)!important;box-shadow:var(--rg-lift)!important;background:var(--rg-spec),linear-gradient(180deg,rgba(255,255,255,.70),rgba(255,248,240,.50))!important}
+  [data-theme="dark"] .topbar{background:var(--rg-spec),var(--rg-fill)!important}
+  .demo-banner{border-radius:16px;margin:10px 0 0}
+  .content{padding-top:18px}
+}
+/* Messages: the big glass card lifts like the rest */
+#v-chat .card:has(> .chat-wrap){border:var(--rg-edge)!important;box-shadow:var(--rg-lift)!important;background:var(--rg-spec),linear-gradient(180deg,rgba(255,255,255,.58),rgba(255,246,236,.40))!important}
+[data-theme="dark"] #v-chat .card:has(> .chat-wrap){background:var(--rg-spec),var(--rg-fill)!important}
+/* pop-ups float highest */
+.modal .box,.drawer,.rx-pick,.emoji-box,.mention-box{border:var(--rg-edge)!important}
+.modal .box{box-shadow:inset 0 1px 0 #fff,0 0 0 1px rgba(196,96,10,.08),0 50px 100px -30px rgba(120,48,0,.55)!important}
+@media (prefers-reduced-motion:reduce){.card{transition:none}}
+body.glass-lite .card{box-shadow:0 0 0 1px rgba(196,96,10,.10),0 12px 24px -16px rgba(176,72,0,.4)!important}
 </style>
+
 
 
 

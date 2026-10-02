@@ -2342,7 +2342,107 @@ body.glass-lite .msg-toast{-webkit-backdrop-filter:none!important;backdrop-filte
 @media(max-width:640px){.pas-row{grid-template-columns:1fr}.rx-grid{grid-template-columns:repeat(7,1fr)}}
 @media (prefers-reduced-motion:reduce){.msg .bubble.rx-press,.msg .bubble.rx-flash,.react.pop,.rx-pick,.rx-pick.sheet,.rc-sending svg,#v-chat .chat-item .un{animation:none!important}.msg .bubble.rx-hold{transform:none}.rx-e:hover{transform:none}}
 body.glass-lite .rx-pick{-webkit-backdrop-filter:none!important;backdrop-filter:none!important}
+/* ===== Orange glass v6 (Oct 2026) — Cross Core orange overlay inside every glass surface; content & layout unchanged =====
+   Big surfaces (sidebar, top bar, Messages, pop-ups) keep their single blur layer; cards get the same orange glass look
+   with translucency + rim + layered shadow only (no extra blur), so long pages stay fast. */
+:root{
+  --og-1:rgba(255,236,212,.62); --og-2:rgba(255,226,190,.44); --og-3:rgba(255,244,230,.80); --og-pop:rgba(255,246,236,.90);
+  --og-rim:rgba(255,255,255,.86); --og-hair:rgba(196,104,12,.16); --og-glow:0 1px 0 rgba(255,255,255,.75) inset,0 0 0 1px rgba(255,255,255,.35) inset;
+  --og-shadow:0 2px 4px rgba(120,58,0,.05),0 14px 34px -18px rgba(150,72,0,.30),0 40px 70px -46px rgba(150,72,0,.28);
+  --gs-tint:var(--og-1); --gs-tint-2:var(--og-2); --gs-tint-3:var(--og-3); --gs-pop:var(--og-pop); --gs-hair:var(--og-hair); --gs-rim:var(--og-rim);
+  --gs-hover:rgba(255,236,210,.78); --gs-shadow:var(--og-shadow);
+}
+[data-theme="dark"]{
+  --og-1:rgba(46,30,16,.62); --og-2:rgba(40,26,14,.46); --og-3:rgba(54,36,20,.80); --og-pop:rgba(44,30,18,.92);
+  --og-rim:rgba(255,200,140,.14); --og-hair:rgba(255,170,80,.16); --og-glow:0 1px 0 rgba(255,210,160,.12) inset;
+  --og-shadow:0 2px 4px rgba(0,0,0,.35),0 18px 40px -20px rgba(0,0,0,.75);
+  --gs-tint:var(--og-1); --gs-tint-2:var(--og-2); --gs-tint-3:var(--og-3); --gs-pop:var(--og-pop); --gs-hair:var(--og-hair); --gs-rim:var(--og-rim); --gs-hover:rgba(255,170,80,.10); --gs-shadow:var(--og-shadow);
+}
+/* warm orange light behind the glass (static) */
+body{background:
+  radial-gradient(900px 640px at -8% -10%,rgba(255,166,64,.42),transparent 60%),
+  radial-gradient(760px 560px at 104% 2%,rgba(255,128,32,.26),transparent 58%),
+  radial-gradient(900px 700px at 70% 112%,rgba(255,180,90,.34),transparent 62%),
+  radial-gradient(520px 420px at 34% 62%,rgba(255,214,160,.30),transparent 62%),
+  radial-gradient(420px 320px at 86% 46%,rgba(255,255,255,.55),transparent 65%),
+  linear-gradient(160deg,#FFF3E4 0%,#FFE9D2 48%,#FFF1E2 100%)}
+[data-theme="dark"] body{background:radial-gradient(900px 640px at -8% -10%,rgba(255,140,40,.20),transparent 60%),radial-gradient(760px 560px at 104% 2%,rgba(255,110,20,.13),transparent 58%),
+  radial-gradient(900px 700px at 70% 112%,rgba(255,150,60,.14),transparent 62%),linear-gradient(160deg,#170F08,#120C07 55%,#1B1109)}
+/* glass cards: translucent orange glass, bright rim, layered depth */
+.card{background:linear-gradient(180deg,rgba(255,250,243,.80),rgba(255,240,224,.64));border:1px solid rgba(255,255,255,.78);
+  box-shadow:0 0 0 1px var(--og-hair),var(--og-glow),var(--og-shadow);border-radius:18px}
+[data-theme="dark"] .card{background:linear-gradient(180deg,rgba(58,40,22,.72),rgba(40,27,15,.66));border-color:rgba(255,190,120,.10)}
+.card .card-h{border-bottom-color:var(--og-hair)}
+.kcard,.list-row.kcard{background:linear-gradient(180deg,rgba(255,252,247,.9),rgba(255,244,232,.76));border:1px solid rgba(255,255,255,.8);box-shadow:0 0 0 1px var(--og-hair),0 8px 18px -12px rgba(150,72,0,.35)}
+[data-theme="dark"] .kcard{background:rgba(60,42,24,.7)}
+.sidebar{background:linear-gradient(180deg,rgba(255,240,222,.80),rgba(255,228,198,.58) 45%,rgba(255,236,214,.50))!important}
+[data-theme="dark"] .sidebar{background:linear-gradient(180deg,rgba(52,34,18,.82),rgba(36,24,12,.70))!important}
+.topbar{background:linear-gradient(180deg,rgba(255,244,230,.70),rgba(255,232,206,.52))}
+[data-theme="dark"] .topbar{background:rgba(44,30,16,.66)}
+#v-chat .card:has(> .chat-wrap){background:linear-gradient(180deg,rgba(255,244,230,.62),rgba(255,232,206,.46))}
+#v-chat .chat-list{background:rgba(255,236,212,.40)!important}
+#v-chat .chat-pane > .card-h{background:radial-gradient(90% 140% at 12% -60%,rgba(255,255,255,.75),rgba(255,255,255,0) 60%),linear-gradient(180deg,rgba(255,246,236,.80),rgba(255,236,214,.56))!important}
+.modal .box{background:radial-gradient(90% 60% at 15% -20%,rgba(255,255,255,.75),rgba(255,255,255,0) 60%),linear-gradient(180deg,rgba(255,248,240,.94),rgba(255,238,220,.90))!important}
+[data-theme="dark"] .modal .box,[data-theme="dark"] #v-chat .card:has(> .chat-wrap),[data-theme="dark"] #v-chat .chat-pane > .card-h{background:var(--og-pop)!important}
+.page-head h2{letter-spacing:-.02em}
+.mk-kpi,.kpi,.stat{background:linear-gradient(180deg,rgba(255,252,246,.86),rgba(255,240,222,.66))}
+
+/* ===== Comment & Reply Studio, client link, department tag ===== */
+.glass-card{background:linear-gradient(180deg,rgba(255,250,243,.84),rgba(255,238,220,.66));border:1px solid rgba(255,255,255,.82);box-shadow:0 0 0 1px var(--og-hair),var(--og-glow),var(--og-shadow);border-radius:18px;padding:14px 16px}
+[data-theme="dark"] .glass-card{background:linear-gradient(180deg,rgba(60,42,24,.76),rgba(42,28,16,.70))}
+.vs-tabs{display:inline-flex;gap:4px;padding:4px;border-radius:999px;background:var(--og-2);border:1px solid var(--og-hair);margin:0 0 14px}
+.vs-tabs button{border:0;background:transparent;border-radius:999px;padding:8px 16px;font:600 13px Inter,sans-serif;color:var(--ink-2);cursor:pointer;transition:background .15s,transform .12s}
+.vs-tabs button.on{background:var(--g2-amber);color:#1A1206;box-shadow:inset 0 1px 0 rgba(255,250,235,.9),0 6px 14px -8px rgba(227,147,18,.8)}
+.vs-tabs button:active{transform:scale(.96)}
+#v-marcus.vs-mode > :not(.page-head):not(.vs-tabs):not(.vs-host){display:none!important}
+.vs-wrap{display:flex;flex-direction:column;gap:12px;max-width:1080px}
+.vs-top{display:flex;align-items:center;gap:10px}.vs-top select{width:auto;min-width:220px;border-radius:999px}
+.vs-k{font:700 11px Inter,sans-serif;letter-spacing:.1em;text-transform:uppercase;color:#B96F06}
+[data-theme="dark"] .vs-k{color:#F2B440}
+.vs-client{display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap}.vs-c-l{flex:1;min-width:260px;display:flex;flex-direction:column;gap:7px}
+.vs-cname{display:flex;align-items:center;gap:8px}.vs-cname b{font:800 22px Sora,Inter,sans-serif;letter-spacing:-.02em}.vs-cname img{width:28px;height:28px;border-radius:8px;object-fit:cover}
+.vs-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.vs-row .vs-k{min-width:120px}
+.vs-tone,.vs-row > span:last-child{display:flex;gap:6px;flex-wrap:wrap}
+.vs-client code,.vs-row code{font:600 12px Inter,sans-serif;padding:3px 9px;border-radius:999px;background:rgba(255,255,255,.7);border:1px solid var(--og-hair);color:var(--ink)}
+.vs-row code.x{color:var(--bad)}
+.vs-c-r{display:flex;gap:8px;flex-wrap:wrap}
+.vs-grid{display:grid;grid-template-columns:1.3fr 1fr;gap:12px}
+.vs-field{display:flex;flex-direction:column;gap:8px}.vs-field textarea{min-height:110px;resize:vertical;border-radius:14px;background:rgba(255,255,255,.88)}
+.vs-field > input,.vs-note > input{border-radius:999px;background:rgba(255,255,255,.88)}
+.vs-note{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.vs-note > input{flex:1;min-width:240px}
+.vs-keep{display:inline-flex;gap:6px;align-items:center;font-size:12.5px;color:var(--ink-2);cursor:pointer}.vs-keep input{width:auto}
+#vsGo{min-width:170px;justify-content:center}
+.vs-out{display:flex;flex-direction:column;gap:10px}.vs-out.busy{flex-direction:row;align-items:center;gap:10px;color:var(--ink-2)}
+.vs-out.warn{box-shadow:0 0 0 1px rgba(200,90,20,.35),var(--og-shadow)}
+.vs-out-h{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.vs-out textarea{font-size:15px;line-height:1.55;border-radius:14px;background:rgba(255,255,255,.94);padding:12px 14px}
+.vs-chks{display:flex;gap:6px;flex-wrap:wrap;align-items:center}.vs-chks .vs-k{margin-right:4px}
+.vs-chk{font:700 11.5px Inter,sans-serif;padding:4px 10px;border-radius:999px;border:1px solid}
+.vs-chk.ok{color:#11733F;border-color:rgba(24,138,78,.3);background:rgba(24,138,78,.08)}.vs-chk.mid{color:#8A5A00;border-color:rgba(227,147,18,.35);background:rgba(242,180,64,.12)}.vs-chk.low{color:var(--bad);border-color:rgba(200,40,40,.3);background:rgba(200,40,40,.06)}
+.vs-warn{font-size:12.5px;color:#8A4A00;background:rgba(242,180,64,.14);border:1px solid rgba(227,147,18,.3);padding:8px 12px;border-radius:12px}
+.vs-acts{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.vs-ok{border-color:rgba(24,138,78,.35)!important;color:#11733F}.vs-no{border-color:rgba(200,40,40,.3)!important;color:var(--bad)}
+.vs-reasons{display:flex;gap:6px;flex-wrap:wrap}.vs-reasons input{width:auto;margin-right:4px}
+.vs-mini{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:10px}
+.vp-who{margin-bottom:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.vp-add{display:grid;grid-template-columns:120px 1fr;gap:8px;margin-bottom:12px}.vp-add textarea{grid-column:1/-1}.vp-add .btn{grid-column:1/-1;justify-content:center}
+.vp-list{display:flex;flex-direction:column;gap:8px;max-height:460px;overflow-y:auto}
+.vp-ex{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border-radius:14px;background:rgba(255,255,255,.7);border:1px solid var(--og-hair)}
+.vp-ex > div:first-child{flex:1;min-width:0}.vp-ex p{margin:4px 0;font-size:13.5px;line-height:1.5}.vp-ex.x{background:rgba(200,40,40,.04)}
+.vp-ex input{width:auto;margin-top:3px}.vp-exa{display:flex;gap:2px}
+.vp-learn{margin-top:12px;padding:12px;border-radius:14px;background:rgba(255,255,255,.7);border:1px solid var(--og-hair)}
+.cl-host{display:flex;flex-direction:column;gap:8px;margin:10px 0 14px}
+.cl-strip{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:10px 14px}
+.cl-n{display:flex;flex-direction:column;gap:1px;min-width:150px}.cl-n b{font:700 15px Sora,Inter,sans-serif}
+.cl-open{padding:9px 18px!important;font-size:13.5px}
+.cl-ws{margin-bottom:16px}
+.dept-tag{background:linear-gradient(180deg,rgba(230,251,245,.95),rgba(185,235,221,.8))!important;color:#0E6B5C!important;border:1px solid rgba(14,107,92,.25);font-weight:700}
+.dept-ava{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:linear-gradient(180deg,#E6FBF5,#B9EBDD);font-size:14px;flex:none}
+@media(max-width:820px){.vs-grid{grid-template-columns:1fr}.vs-row .vs-k{min-width:0}.vs-note{flex-direction:column;align-items:stretch}#vsGo{width:100%}}
+body.glass-lite .card,body.glass-lite .glass-card{background:rgba(255,248,240,.96)}
 </style>
+
+
 
 
 
@@ -15627,7 +15727,7 @@ async function tkSubmit(){
   if(d.files.some(f=>f.uploading)){ toast('Waiting for uploads…'); for(let i=0;i<300 && d.files.some(f=>f.uploading);i++) await new Promise(r=>setTimeout(r,200)); }
   const t = {id:tkNewId(), title:d.title.trim(), desc:d.desc.trim(), type:d.type, priority:d.priority, area:d.area, pm:d.pm||null, systemWide:!!d.systemWide,
     files:d.files.filter(f=>!f.uploading), device:tkDevice(), portal:PEOPLE[PERSON]?.sub||ROLE, by:PERSON, at:nowISO(), updated:nowISO(), status:'Submitted', assignee:null, assignees:tkTeam(), team:TK_TEAM_NAME,
-    history:[{at:nowISO(), by:PERSON, to:'Submitted', note:'Ticket submitted'}, {at:nowISO(), by:PERSON, to:'Submitted', note:`Assigned to ${TK_TEAM_NAME} — ${tkTeam().map(k=>'@'+tkNick(k)).join(' ')}`}], comments:[]};
+    history:[{at:nowISO(), by:PERSON, to:'Submitted', note:'Ticket submitted'}, {at:nowISO(), by:PERSON, to:'Submitted', note:`Assigned to @Ops Suite Support (department)`}], comments:[]};
   TICKETS.unshift(t); TK_DRAFT = null;
   /* immediate portal notification to every System Ops Support member (they are all tagged), plus the related PM */
   const team = t.assignees.filter(k=>k!==PERSON);
@@ -18029,6 +18129,446 @@ async function annDownload(btn){ const f = JSON.parse(btn.dataset.f);
     const btn = `<button class="btn sup-annbtn" onclick="annModal({source:'support', as:'support'})">📣 Support announcement</button>`;
     if(btns && btns!==head.firstElementChild) btns.insertAdjacentHTML('afterbegin', btn); else head?.insertAdjacentHTML('beforeend', `<div style="display:flex;gap:8px">${btn}</div>`);
     return r; }; }
+
+/* ===== 53_voice.js ===== */
+/* ================= CLIENT VOICE PROFILES · ASK MARCUS COMMENT & REPLY STUDIO · CLIENT LINKS (Oct 2026) =================
+   Client → Voice Profile → Post → Comment → Generated response → Alignment check → Approve / Not aligned.
+   • Every client has its OWN voice profile (record id = client id). Prompts, examples, feedback and saved preferences only
+     ever load the selected client's profile — nothing is shared between clients.
+   • Seeded from the client SOPs: Dan Soviero (LinkedIn commenting SOP), Anjeanette (tone of voice & reply SOP) and
+     Johnathan (engagement outline — tone and rules only; no account details are stored here).
+   • Before a draft is shown Marcus checks it (post relevance, reply relevance, voice, tone, style, length, naturalness,
+     repetition, generic-AI phrases) with the AI and with local rules, and rewrites it when it fails (up to 3 attempts).
+   • Approved drafts become examples for that client only; "Not aligned" feedback (with reasons) is remembered for that client only.
+   • Client link (Lead Gen): PMs, company heads and designated admins save it once; VAs get one-click "🔗 Open Client". */
+
+let VOICES = [];
+const vcAud = r => { const c = client(r.client||r.id); return uniq([...(c?.team||[]), ...(c?.pms||[]), c?.mgr, ...HEADS, ...HR_KEYS()].filter(Boolean)); };
+COLL.voices = {get:()=>VOICES, set:v=>VOICES=v, aud:vcAud};
+
+const VC_GENERIC = ['great insights','this really highlights','highlights the importance','in today’s rapidly','in today\'s rapidly','powerful reminder','couldn’t agree more','couldn\'t agree more','game changer','game-changer','this resonates','spot on','thanks for sharing','great post','such an important reminder','absolutely agree','well articulated','truly inspiring','delve','leverage','navigating the','ever-evolving','testament to'];
+const VC_SEED = {
+  dan: {tone:['Founder-minded','Conversational','Confident','Thoughtful','Optimistic','Mission-driven','Human'],
+    personality:'Experienced founder and operator (Signature Athletics). Cares about youth sports, access, infrastructure, leadership, program directors, coaches, families, community, operational efficiency, athlete development and long-term impact.',
+    style:'Acknowledge → Add one perspective → Connect to impact (kids → families → coaches → program directors → programs → communities) when it fits. Reads the whole post, adds what the author has not already said, never summarizes or just congratulates.',
+    length:{min:25, max:60, sent:'2–3 concise sentences'}, formality:'Conversational, confident — never corporate, salesy or over-polished',
+    openings:['Great perspective, [Name].','Well said, [Name].','Love this, [Name].','That’s the opportunity, [Name].','Really interesting point, [Name].','This is an important distinction, [Name].','The part that stands out to me is…','This is where it gets interesting…','(often no intro — straight into the insight)'],
+    endings:['A people / long-term impact line when natural — not a slogan'],
+    phrases:['infrastructure behind it','gives directors more time','value families can actually feel','building something that lasts','first experience'],
+    avoid:['Exactly.','Absolutely.','Couldn’t agree more','Spot on','Game changer','Powerful reminder','This resonates','Great insights','That’s what matters most','That’s where the real impact happens','That’s the future','Mentioning Signature Athletics unless the post is about it or someone asks'],
+    how:{agree:'Agrees by adding a new angle, not by repeating the author.', disagree:'Doesn’t validate questionable claims — comments on the broader supported idea instead.', opinion:'One clear operator insight per comment.', compliment:'Warm and brief, then one thought.', question:'Answers directly in the same 2–3 sentence shape.', criticism:'Calm, constructive, never defensive.'},
+    humor:'Rare; human moments over jokes', emoji:'None or very rare', punctuation:'Plain sentences, contractions, no hashtags',
+    instructions:['Use the author’s first name only when it feels natural — not on every comment.','For personal or emotional stories, be human — don’t force a business lesson.','For AI / tech posts, focus on what the technology enables for people, not the tech itself.','Never invent facts, statistics, experiences, relationships or results.'],
+    examples:[
+      {kind:'comment', text:'The real opportunity is what happens with the time you give back. Less time buried in administration means more time developing athletes, supporting coaches, and building the program.', strong:true, src:'Dan SOP'},
+      {kind:'comment', text:'Sometimes access starts with something as simple as giving a kid a great first experience. That one opportunity can become years of playing, friendships, and belonging.', strong:true, src:'Dan SOP'},
+      {kind:'comment', text:'The best infrastructure almost disappears into the background. What matters is that the people running the organization get more time and capacity to focus on the work only they can do.', src:'Dan SOP'},
+      {kind:'comment', text:'The opportunity isn’t AI for the sake of AI. It’s using it to remove work that keeps great people from spending their time where they create the most value.', src:'Dan SOP'},
+      {kind:'comment', text:'The strongest sponsorships create value beyond visibility. When programs and families actually feel the benefit, the partnership becomes much more meaningful.', src:'Dan SOP'},
+      {kind:'comment', text:'Leadership becomes much more powerful when the organization isn’t dependent on one person. Building people who can lead without you is part of building something that lasts.', src:'Dan SOP'},
+      {kind:'comment', text:'These are the moments that make sports special. The wins eventually fade, but the relationships and memories built along the way tend to stick with us.', strong:true, src:'Dan SOP'},
+      {kind:'comment', text:'Great perspective, Jay. Revenue tells you what the business produces today. Transferability tells you whether what you’ve built can survive without you.', strong:true, src:'Dan SOP'},
+      {kind:'comment', text:'The five-years-earlier point really stands out. Leadership depth and transferable relationships aren’t things you suddenly create when you’re ready to sell.', src:'Dan SOP'}],
+    rejected:[{text:'AI is a great way to automate administrative work for coaches.', reason:'Repeats the post instead of adding a perspective', src:'Dan SOP'},
+      {text:'This highlights the importance of leveraging scalable operational infrastructure to drive organizational efficiencies.', reason:'Too corporate', src:'Dan SOP'}],
+    sop:'SOP: Dan Soviero LinkedIn Commenting — every comment should feel like Dan personally read the post and had a genuine thought about it. Final Dan check: Would Dan realistically type this himself? Did we add something instead of repeating the author? Conversational? One clear idea? Not a Signature Athletics advertisement? Connects to Dan’s worldview when relevant? No repetitive AI-style wording?'},
+  anj: {tone:['Casual','Warm','Conversational','Confident','Straightforward','Slightly playful','Punchy'],
+    personality:'A smart friend who knows what she’s talking about — approachable, a little cheeky, has an opinion. Themes: personal brand, career / job search, pricing, AI & skills, freelancing, pivoting a business.',
+    style:'React → add a thought → optional playful edge. Short sentences, natural contractions. The commenter gives the observation; Anjeanette adds the angle — never repeats them.',
+    length:{min:5, max:15, sent:'1 sentence (up to ~25 words only when answering a question)'}, formality:'Very casual, human, never corporate or polished',
+    openings:['Yup!','Exactly!','Right??','Totally.','Agreed.','Same!','Yep.','True!','Ooh yes!','Aw, thank you!','So true!','Love this.','Oh yes!','Yesss!','Haha yes!','Haha exactly!','Right?? 😂','Oof yes.','Bingo!','Boom!','(sometimes no opening — straight to the point)'],
+    endings:['A light playful edge (lol, 😂) only sometimes'],
+    phrases:['lol','haha','The title can say one thing while the actual work says something completely different','Say the price. Don’t negotiate with yourself.','I search the work, not the title','basically chaos 😂','Stop selling the skill, start selling what it actually does'],
+    avoid:['This is such an important reminder','Absolutely agree with this perspective','This highlights the importance of…','In today’s rapidly evolving landscape…','It’s a powerful reminder that…','Couldn’t agree more!','Well said!','This is so insightful.','Strategic positioning','Professional trajectory','Semicolons and long em-dash sentences','Starting every reply with “Yup!”','More than one emoji / overdone jokes'],
+    how:{agree:'Agree, then add her own angle in a few words.', disagree:'Straightforward and friendly, short.', opinion:'Says what she actually thinks, plainly.', compliment:'Warmth first: “Aw thank you!” + a short human line. Doesn’t over-explain.', question:'Actually answers it — short.', criticism:'Confident, not defensive; keeps it light.', technical:'Doesn’t get technical just because the commenter is — keeps her voice.'},
+    humor:'Light, self-aware, occasionally cheeky (lol, haha, 😂 🙃 😬) — never forced', emoji:'Occasional — not on every reply, never several', punctuation:'Exclamation marks, “Right??”, occasional lol; no semicolons or corporate bullets',
+    instructions:['Anjeanette doesn’t need to sound impressive. She needs to sound like Anjeanette: short, smart, warm, a little cheeky.','The best reply feels like something she would type in 10 seconds.','Don’t use “Yup!” too often — check the last replies.'],
+    examples:[
+      {kind:'reply', comment:'Great point. Titles can be misleading.', text:'Yup! The actual work tells you way more.', strong:true, src:'Anjeanette SOP'},
+      {kind:'reply', comment:'The real inefficiency isn’t the titles, it’s stopping after three searches.', text:'Ooh yes! The real work is digging past the obvious titles.', src:'Anjeanette SOP'},
+      {kind:'reply', comment:'Proud of how you kept evolving.', text:'Aw thank you! I definitely didn’t want the old version of the business deciding what came next 😂', strong:true, src:'Anjeanette SOP'},
+      {kind:'reply', comment:'How do you decide what keywords to search?', text:'Exactly! I search the work, not the title. The titles are basically chaos 😂', strong:true, src:'Anjeanette SOP'},
+      {kind:'reply', comment:'Turning a service into a broader business outcome increases defensibility as automation improves.', text:'Ooh yes! That was the big shift for me. Stop selling the skill, start selling what it actually does 😂', src:'Anjeanette SOP'},
+      {kind:'reply', text:'Yup! I’d rather pivot while I had a choice than wait until I had no choice 😂', strong:true, src:'Anjeanette SOP'},
+      {kind:'reply', text:'Exactly! Say the price. Don’t negotiate with yourself.', src:'Anjeanette SOP'},
+      {kind:'reply', text:'Bingo! State the value, state the price, then stop talking.', src:'Anjeanette SOP'},
+      {kind:'reply', text:'Exactly! A good job can be hiding behind a terrible title 😂', src:'Anjeanette SOP'},
+      {kind:'reply', text:'Yup! People want to know YOU too.', src:'Anjeanette SOP'},
+      {kind:'reply', text:'Right?? That’s the part people miss.', src:'Anjeanette SOP'},
+      {kind:'reply', text:'Exactly! Knowing what to do is the real skill.', src:'Anjeanette SOP'}],
+    rejected:[{text:'I completely agree that job seekers should consider functional responsibilities rather than relying exclusively on conventional job titles.', reason:'Too formal / too long', src:'Anjeanette SOP'},
+      {text:'Exactly! Titles vary so much.', reason:'Repeats the commenter word-for-word', src:'Anjeanette SOP'},
+      {text:'HAHAHAHA OMG 😂😂😂😂😂 THIS IS SO TRUE!!!', reason:'Overdone humor', src:'Anjeanette SOP'}],
+    sop:'Anjeanette Carter — LinkedIn Tone of Voice & Reply SOP. Quality check: sounds like a real person and like Anjeanette; responds to the actual comment and adds something; answers questions; can it be said in fewer words; confident not arrogant; casual not careless; humor natural; not repeating the commenter; not overusing “Yup!”; doesn’t sound like the last five replies.'},
+  jon: {tone:['Conversational','Insightful','Direct','Intelligent'],
+    personality:'Focuses on AI and startups; wants to educate people on AI. Audience: CS and engineering students, software engineers, CTOs, GenAI people and startup founders (Canada & USA).',
+    style:'Agreement with added perspective and data-driven observations. Short, specific insight about the post — no fluff.',
+    length:{min:12, max:40, sent:'1–2 short sentences (no long paragraphs)'}, formality:'Conversational but sharp',
+    openings:['Interesting perspective on [topic].','(straight into the specific observation)'],
+    endings:[], phrases:[],
+    avoid:['Generic phrases','“Great post! Thanks for sharing.”','Overly promotional comments','Emojis','Long paragraphs','Political or controversial topics'],
+    how:{agree:'Agrees, then adds one specific perspective.', opinion:'Data-driven observation — only facts in the post; never invented numbers.'},
+    humor:'Not specified yet', emoji:'None', punctuation:'Plain, no emojis',
+    instructions:['Insightful, direct, and intelligent. Avoid generic comments.','Priority topics: startups, AI. Avoid government, banks and non-tech topics.','LinkedIn goal: thought leadership and lead generation — invite people toward the recorded AI webinar only when it is natural and relevant, never in every comment.','Not enough real Johnathan comments yet — add his actual approved comments and replies so Marcus can learn his exact phrasing. Don’t invent personal details.'],
+    examples:[{kind:'comment', text:'Interesting perspective on supply chain resilience. The regional diversification point is especially important.', strong:true, src:'Client-approved example (engagement outline)'}],
+    rejected:[{text:'Great post! Thanks for sharing.', reason:'Too generic', src:'Client outline'}],
+    sop:'Johnathan — Comment & Reply SOP (from the engagement outline). Voice: conversational; agreement with added perspective; data-driven observations; insightful, direct, intelligent. Avoid generic phrases, promotion, emojis and long paragraphs. Engage with AI and startup content; skip political, controversial and negative threads.'}
+};
+
+/* ---------- profile access ---------- */
+const vcRec = cid => VOICES.find(v=>v.id===cid);
+function vcDefault(cid){ const c = client(cid);
+  return {id:cid, client:cid, tone:(c?.toneList?.length ? c.toneList : String(c?.tone||'').split(/[,·;]| and /)).map(s=>s.trim()).filter(s=>s && s.length<40).slice(0,6),
+    personality:'', style:'', length:{}, openings:[], endings:[], phrases:[], avoid:[], how:{}, instructions:[], examples:[], rejected:[], files:[], recent:[], sop:'', _derived:true}; }
+function vcGet(cid){ return vcRec(cid) || (VC_SEED[cid] ? {...vcDefault(cid), ...VC_SEED[cid], _seed:true, examples:VC_SEED[cid].examples.map((e,i)=>({id:cid+'-s'+i, ...e})), rejected:(VC_SEED[cid].rejected||[]).map((e,i)=>({id:cid+'-r'+i, ...e}))} : vcDefault(cid)); }
+function vcEnsure(cid){ let r = vcRec(cid); if(r) return r; r = JSON.parse(JSON.stringify(vcGet(cid))); delete r._derived; delete r._seed; r.createdAt = nowISO(); r.createdBy = PERSON; VOICES.push(r); return r; }
+const vcCanEdit = cid => isExec() || isFullAccess() || ROLE==='hr' || pmsOf(cid).includes(PERSON) || (typeof mkIsHead==='function' && mkIsHead() && mkIsMkClient?.(cid));
+const vcCanUse = cid => (typeof marcusClients==='function' ? marcusClients() : []).some(c=>c.id===cid) || vcCanEdit(cid);
+function vcStatus(cid){ const p = vcGet(cid); const ap = (p.examples||[]); const nC = ap.filter(e=>e.kind!=='reply').length, nR = ap.filter(e=>e.kind==='reply').length;
+  const rich = !!(p.sop || (p.instructions||[]).length || ap.length>=3); return {p, nC, nR, nX:(p.rejected||[]).length, active:rich, label:rich?'Active ✓':(p.tone.length?'Basic — from the client’s tone':'Not set up yet')}; }
+const vcWords = t => String(t||'').trim().split(/\s+/).filter(Boolean).length;
+const vcOpen = t => String(t||'').trim().toLowerCase().replace(/[^\p{L}\p{N}\s?!]/gu,'').split(/\s+/).slice(0,3).join(' ');
+
+/* ---------- the voice block Marcus reads (this client only) ---------- */
+function vcPrompt(cid){
+  const p = vcGet(cid); const c = client(cid); if(!c) return '';
+  const L = p.length||{}; const ex = [...(p.examples||[])].sort((a,b)=>(+!!b.strong)-(+!!a.strong)).slice(0,24);
+  const how = Object.entries(p.how||{}).filter(([,v])=>v).map(([k,v])=>`  - ${k}: ${v}`).join('\n');
+  return `=== ${c.name.toUpperCase()} — VOICE PROFILE (use ONLY this; never another client's voice) ===
+Tone: ${(p.tone||[]).join(', ')||'—'}
+Personality & world: ${p.personality||'—'}
+Writing style: ${p.style||'—'}
+Typical length: ${L.sent||''}${L.min?` · about ${L.min}–${L.max} words`:''}
+Formality: ${p.formality||'—'} · Humor: ${p.humor||'—'} · Emoji: ${p.emoji||'—'} · Punctuation: ${p.punctuation||'—'}
+Openings they use (rotate, sometimes none): ${(p.openings||[]).join(' | ')||'—'}
+Endings: ${(p.endings||[]).join(' | ')||'—'}
+Words / phrases they use: ${(p.phrases||[]).join(' | ')||'—'}
+NEVER use: ${[...(p.avoid||[])].join(' | ')||'—'}
+How they respond:\n${how||'  —'}
+Standing instructions:\n${(p.instructions||[]).map(i=>'  - '+i).join('\n')||'  —'}
+${p.sop?`SOP summary: ${coraTrim(p.sop, 1400)}\n`:''}APPROVED EXAMPLES (real ${c.name} voice — match these):\n${ex.map(e=>`  [${e.kind}${e.strong?' ★':''}] ${e.comment?`(to: "${coraTrim(e.comment,120)}") `:''}${e.text}`).join('\n')||'  — none yet'}
+NOT ALIGNED (do NOT write like these):\n${(p.rejected||[]).slice(-12).map(r=>`  ✕ "${coraTrim(r.text||'',160)}" — ${r.reason||''}`).join('\n')||'  —'}
+Openings used recently (do not reuse): ${(p.recent||[]).slice(-8).join(' | ')||'—'}`;
+}
+{ const _cv = clientVoice; clientVoice = function(cid){ const base = _cv.apply(this, arguments); const v = vcGet(cid); return (v._derived && !v.tone.length) ? base : base + '\n\n' + vcPrompt(cid); }; }
+
+/* ---------- generation + alignment check ---------- */
+const VC_SYS = (name, kind) => `You write a LinkedIn ${kind} AS ${name} — in ${name}'s own voice, exactly as they would type it themselves.
+Use ONLY ${name}'s voice profile below. Ignore every other client's style.
+Rules: respond to the actual post${kind==='reply'?' and directly to what the commenter said':''}; add a real thought instead of repeating or summarizing; match ${name}'s usual length, openings, vocabulary, punctuation and emoji habits; vary the opening; sound human, never like an AI engagement bot or social media manager; never invent facts, numbers, experiences or relationships.
+Avoid generic AI phrases (e.g. "Great insights", "This really highlights the importance of", "Couldn't agree more", "powerful reminder", "game changer").
+Output ONLY the ${kind} text — no quotes, labels, headings or explanations.`;
+function vcLocalCheck(cid, text, ctx){
+  const p = vcGet(cid); const L = p.length||{}; const w = vcWords(text); const low = text.toLowerCase(); const issues = [];
+  if(L.max && w > Math.round(L.max*1.4)) issues.push(`Too long (${w} words — usually ${L.min}–${L.max})`);
+  if(L.min && w < Math.max(2, Math.round(L.min*0.5))) issues.push(`Too short (${w} words)`);
+  const bad = [...VC_GENERIC, ...(p.avoid||[]).filter(a=>a.length<40 && !/\(|…|\.\.\./.test(a)).map(a=>a.replace(/[“”".]/g,'').toLowerCase())].filter(x=>x && x.length>3 && low.includes(x.toLowerCase()));
+  if(bad.length) issues.push('Uses a phrase this client avoids: “'+bad[0]+'”');
+  if(/^none/i.test(p.emoji||'') && /\p{Extended_Pictographic}/u.test(text)) issues.push('Has an emoji — this client doesn’t use them');
+  const op = vcOpen(text); if(op && (p.recent||[]).slice(-5).some(r=>r===op)) issues.push('Same opening as a recent draft');
+  if(ctx.comment && text.trim().toLowerCase()===ctx.comment.trim().toLowerCase()) issues.push('Repeats the commenter');
+  if(/^["“]|["”]$/.test(text.trim())) issues.push('Wrapped in quotes');
+  return issues;
+}
+function vcParseJSON(t){ try{ const m = String(t||'').match(/\{[\s\S]*\}/); return m ? JSON.parse(m[0]) : null; }catch(e){ return null; } }
+async function vcJudge(cid, text, ctx){
+  const c = client(cid); const kind = ctx.comment ? 'reply' : 'comment';
+  const res = await aiChat(`You are a strict editor checking whether a LinkedIn ${kind} sounds exactly like ${c.name}. Score honestly. Reply with JSON only.`,
+    `${vcPrompt(cid)}\n\nPOST:\n${coraTrim(ctx.post||'(not given)', 2500)}\n${ctx.comment?`\nCOMMENT BEING REPLIED TO:\n${coraTrim(ctx.comment, 800)}\n`:''}\nDRAFT ${kind.toUpperCase()}:\n${text}\n\nScore 0-10 each: post (connects to this specific post), comment (${ctx.comment?'addresses what the commenter said':'use 10'}), voice (sounds like ${c.name}, not generic), tone, style (structure, vocabulary, pacing like the approved examples), length (fits ${c.name}'s usual length), natural (a human would type this), fresh (no repeated / formulaic opening or AI pattern).\nReturn {"post":n,"comment":n,"voice":n,"tone":n,"style":n,"length":n,"natural":n,"fresh":n,"issues":["short reason", ...]}`);
+  return res.text ? vcParseJSON(res.text) : null;
+}
+const VC_KEYS = [['post','Post'],['comment','Reply'],['voice','Voice'],['tone','Tone'],['style','Style'],['length','Length'],['natural','Natural'],['fresh','Fresh']];
+async function vcGenerate(cid, ctx){
+  const c = client(cid); const kind = ctx.comment ? 'reply' : 'comment';
+  let fb = '', best = null;
+  for(let n=1; n<=3; n++){
+    MXS.step = n===1 ? `Writing in ${first(c.name)}’s voice…` : `Rewriting — attempt ${n} of 3…`; vsPaintBusy();
+    const ask = `${vcPrompt(cid)}\n\nPOST:\n${coraTrim(ctx.post||'(not given — write a natural ' + kind + ')', 3000)}\n${ctx.comment?`\nCOMMENT TO REPLY TO${ctx.who?` (from ${ctx.who})`:''}:\n${coraTrim(ctx.comment, 1000)}\n`:''}${ctx.base?`\nCURRENT DRAFT TO REVISE:\n${ctx.base}\n`:''}${ctx.note?`\nINSTRUCTION FOR THIS ONE (temporary): ${ctx.note}\n`:''}${fb?`\nTHE PREVIOUS ATTEMPT FAILED THE ${c.name.toUpperCase()} VOICE CHECK:\n${fb}\nWrite a new version that fixes this.\n`:''}\nWrite the ${kind} now.`;
+    const r = await aiChat(VC_SYS(c.name, kind), ask);
+    if(!r.text) return {offline:true, note:r.note};
+    const text = r.text.trim().replace(/^#+\s*draft\s*\n/i,'').replace(/^["“](.*)["”]$/s,'$1').trim();
+    MXS.step = 'Checking voice alignment…'; vsPaintBusy();
+    const local = vcLocalCheck(cid, text, ctx); const j = await vcJudge(cid, text, ctx);
+    const scores = j ? Object.fromEntries(VC_KEYS.map(([k])=>[k, Math.max(0, Math.min(10, +j[k]||0))])) : null;
+    if(scores && !ctx.comment) scores.comment = 10;
+    const low = scores ? VC_KEYS.filter(([k])=>scores[k] < 7).map(([,l])=>l) : [];
+    const issues = [...local, ...((j?.issues||[]).slice(0,4))];
+    const total = scores ? Object.values(scores).reduce((a,b)=>a+b,0) - local.length*4 : 50 - local.length*10;
+    const cand = {text, scores, issues, local, low, attempt:n, pass: !local.length && (!scores || !low.length)};
+    if(!best || cand.pass || total > best.total){ best = {...cand, total}; }
+    if(cand.pass) break;
+    fb = issues.map(i=>'- '+i).join('\n') + (low.length ? `\n- Low scores: ${low.join(', ')}` : '');
+  }
+  return best;
+}
+
+/* ---------- the studio (inside Ask Marcus) ---------- */
+const MXS = {on:true, cid:null, post:'', comment:'', who:'', note:'', keep:false, out:null, busy:false, step:'', strong:false};
+function vsClients(){ return (typeof marcusClients==='function' ? marcusClients() : []).filter(c=>!isEnded(c)); }
+function vsHeadHTML(cid){
+  const c = client(cid); const s = vcStatus(cid); const p = s.p; const link = clLink(cid);
+  return `<div class="vs-client glass-card"><div class="vs-c-l">
+      <div class="vs-k">Client</div><div class="vs-cname">${c?.logo?`<img data-logo-of="${c.id}" alt="">`:''}<b>${esc(c?.name||'—')}</b></div>
+      <div class="vs-row"><span class="vs-k">Voice profile</span><span class="badge ${s.active?'b-approved':'b-pending'}">${esc(s.label)}</span></div>
+      <div class="vs-row"><span class="vs-k">Tone</span><span class="vs-tone">${(p.tone||[]).slice(0,6).map(t=>`<code>${esc(t)}</code>`).join('')||'<span class="hint">not set</span>'}</span></div>
+      <div class="vs-row"><span class="vs-k">Examples loaded</span><span><code>${s.nC} approved comments</code><code>${s.nR} approved replies</code>${s.nX?`<code class="x">${s.nX} not-aligned notes</code>`:''}</span></div></div>
+    <div class="vs-c-r"><button class="btn" onclick="vcProfileModal('${cid}')">🎙 Voice profile</button>${link?`<a class="btn" href="${esc(link.url)}" target="_blank" rel="noopener">🔗 Open Client</a>`:''}</div></div>`;
+}
+function vsHTML(){
+  const C = vsClients(); if(!C.length) return `<div class="card vs-wrap"><div class="card-b"><div class="empty">You don’t have any assigned clients yet, so there’s no client voice to write in.</div></div></div>`;
+  if(!MXS.cid || !C.some(c=>c.id===MXS.cid)) MXS.cid = (MARCUS.conv?.client && C.some(c=>c.id===MARCUS.conv.client)) ? MARCUS.conv.client : C[0].id;
+  const c = client(MXS.cid); const o = MXS.out; const kind = MXS.comment.trim() ? 'reply' : 'comment';
+  return `<div class="vs-wrap">
+    <div class="vs-top"><label class="vs-k" for="vsC">Writing for</label><select id="vsC" onchange="MXS.cid=this.value;MXS.out=null;RENDER.marcus()">${C.map(x=>`<option value="${x.id}" ${x.id===MXS.cid?'selected':''}>${esc(x.name)}</option>`).join('')}</select></div>
+    ${vsHeadHTML(MXS.cid)}
+    <div class="vs-grid">
+      <div class="vs-field glass-card"><label class="vs-k" for="vsPost">Post caption</label><textarea id="vsPost" rows="6" placeholder="Paste ${esc(c.name)}’s post — or the post ${esc(first(c.name))} is commenting on" oninput="MXS.post=this.value">${esc(MXS.post)}</textarea></div>
+      <div class="vs-field glass-card"><label class="vs-k" for="vsCom">Comment to reply to <span class="hint">(leave empty to write a comment on the post)</span></label><textarea id="vsCom" rows="4" placeholder="Paste the comment that needs a reply" oninput="MXS.comment=this.value;el('vsGo').textContent=this.value.trim()?'Generate reply':'Generate comment'">${esc(MXS.comment)}</textarea>
+        <input id="vsWho" placeholder="Commenter’s name (optional — for natural personalization)" value="${esc(MXS.who)}" oninput="MXS.who=this.value"></div>
+    </div>
+    <div class="vs-note glass-card"><input id="vsNote" placeholder="Temporary instruction (optional) — e.g. Keep it under two sentences · Make it warmer · No emoji" value="${esc(MXS.note)}" oninput="MXS.note=this.value">
+      ${vcCanEdit(MXS.cid)?`<label class="vs-keep"><input type="checkbox" ${MXS.keep?'checked':''} onchange="MXS.keep=this.checked"> Save this preference to ${esc(first(c.name))}’s voice profile</label>`:''}
+      <button class="btn primary" id="vsGo" onclick="vsRun()" ${MXS.busy?'disabled':''}>${kind==='reply'?'Generate reply':'Generate comment'}</button></div>
+    <div id="vsOut">${MXS.busy?vsBusyHTML():o?vsOutHTML(o):''}</div></div>`;
+}
+const vsBusyHTML = () => `<div class="vs-out glass-card busy"><span class="spinner"></span><span>${esc(MXS.step||'Working…')}</span></div>`;
+function vsPaintBusy(){ const b = el('vsOut'); if(b && MXS.busy) b.innerHTML = vsBusyHTML(); }
+function vsOutHTML(o){
+  const c = client(o.cid);
+  if(o.offline) return `<div class="vs-out glass-card"><div class="vs-warn">⚠ The AI service didn’t answer (${esc(o.note||'')}). Nothing was generated — try again in a moment, or check Administration → Cora.</div></div>`;
+  const chips = o.scores ? VC_KEYS.filter(([k])=>k!=='comment'||o.kind==='reply').map(([k,l])=>`<span class="vs-chk ${o.scores[k]>=8?'ok':o.scores[k]>=7?'mid':'low'}" title="${o.scores[k]}/10">${o.scores[k]>=7?'✓':'!'} ${l}</span>`).join('') : '<span class="hint">Local checks only</span>';
+  return `<div class="vs-out glass-card ${o.pass?'':'warn'}">
+    <div class="vs-out-h"><span class="vs-k">${o.kind==='reply'?'Reply':'Comment'} in ${esc(c?.name||'')}’s voice</span><span class="hint">${vcWords(o.text)} words · ${o.attempt>1?`rewritten ${o.attempt-1}× to pass the voice check`:'passed on the first try'}</span></div>
+    <textarea id="vsText" rows="${Math.min(8, Math.max(3, Math.ceil(o.text.length/70)))}" oninput="MXS.out.text=this.value">${esc(o.text)}</textarea>
+    <div class="vs-chks"><span class="vs-k">Voice alignment</span>${chips}</div>
+    ${!o.pass && o.issues?.length?`<div class="vs-warn">Couldn’t fully pass after 3 tries: ${o.issues.slice(0,3).map(esc).join(' · ')} — edit before using.</div>`:''}
+    <div class="vs-acts"><button class="btn primary" onclick="vsCopy()">⧉ Copy</button><button class="btn" onclick="vsRun()">↻ Regenerate</button>
+      <button class="btn" onclick="vsRevise('Make it shorter — fewer words, same voice.')">Shorter</button><button class="btn" onclick="vsRevise('Make it warmer — still exactly in their voice.')">Warmer</button><button class="btn" onclick="vsRevise('Make it more casual — the way they type when relaxed.')">More casual</button>
+      <button class="btn" onclick="el('vsText').focus()">✎ Edit</button><span style="flex:1"></span>
+      <label class="vs-keep"><input type="checkbox" ${MXS.strong?'checked':''} onchange="MXS.strong=this.checked"> ★ Strongly aligned</label>
+      <button class="btn vs-ok" onclick="vsApprove()">✓ Approve</button><button class="btn vs-no" onclick="vsReject()">✕ Not aligned</button></div></div>`;
+}
+async function vsRun(base, extra){
+  if(MXS.busy) return; const cid = MXS.cid; if(!cid) return; const post = (el('vsPost')?.value ?? MXS.post).trim(), comment = (el('vsCom')?.value ?? MXS.comment).trim();
+  if(!post && !comment) return toast('Paste the post caption (and the comment, for a reply)');
+  MXS.post = post; MXS.comment = comment; MXS.who = el('vsWho')?.value.trim() || MXS.who; MXS.note = el('vsNote')?.value.trim() ?? MXS.note;
+  if(MXS.keep && MXS.note && vcCanEdit(cid)){ const r = vcEnsure(cid); r.instructions = uniq([...(r.instructions||[]), MXS.note]); r.updatedAt = nowISO(); r.updatedBy = PERSON; recordChange(); toast(`Saved to ${first(cname(cid))}’s voice profile`); MXS.keep = false; }
+  MXS.busy = true; MXS.step = ''; RENDER.marcus();
+  const note = [extra, MXS.note].filter(Boolean).join(' · ');
+  const r = await vcGenerate(cid, {post, comment, who:MXS.who, note, base});
+  MXS.busy = false; MXS.out = r?.offline ? {cid, offline:true, note:r.note} : {...r, cid, kind:comment?'reply':'comment'};
+  if(MXS.out.text){ const v = vcRec(cid); const op = vcOpen(MXS.out.text); if(v){ v.recent = [...(v.recent||[]), op].slice(-12); } else MXS.recentLocal = op; }
+  RENDER.marcus();
+}
+function vsRevise(how){ if(!MXS.out?.text) return; vsRun(el('vsText')?.value || MXS.out.text, how); }
+async function vsCopy(){ const t = el('vsText')?.value || MXS.out?.text || ''; const ok = await copyText(t); toast(ok ? 'Copied — review it before posting' : 'Copy failed'); }
+function vsApprove(){ const o = MXS.out; if(!o?.text) return; const cid = o.cid; const r = vcEnsure(cid); const text = (el('vsText')?.value || o.text).trim();
+  r.examples = [...(r.examples||[]), {id:uid('VX'), kind:o.kind, text, post:coraTrim(MXS.post, 600), comment:MXS.comment||'', strong:!!MXS.strong, src:'Approved in Ask Marcus', by:PERSON, at:nowISO()}];
+  r.updatedAt = nowISO(); r.updatedBy = PERSON; recordChange(); MXS.strong = false; toast(`✓ Saved as an approved ${o.kind} for ${cname(cid)} only`); RENDER.marcus(); }
+const VC_REASONS = n => ['Too formal','Too generic','Too long','Too short',`Doesn’t sound like ${n}`,'Wrong vocabulary','Wrong tone','Wrong structure','Doesn’t connect to the post','Doesn’t answer the comment',`Uses a phrase ${n} wouldn’t use`];
+function vsReject(){ const o = MXS.out; if(!o?.text) return; const n = first(cname(o.cid));
+  openModal('Not aligned — '+cname(o.cid), `<p class="hint" style="margin-bottom:10px">What’s off? This only teaches <b>${esc(cname(o.cid))}</b>’s profile — no other client is affected.</p>
+    <div class="vs-reasons">${VC_REASONS(n).map(r=>`<label class="chip"><input type="checkbox" class="vsR" value="${esc(r)}"> ${esc(r)}</label>`).join('')}</div>
+    <div class="field" style="margin-top:10px"><label>Anything else? (optional)</label><input id="vsRx" placeholder="e.g. We wouldn’t say “game changer”"></div>
+    <button class="btn primary" style="width:100%" onclick="vsRejectSave(true)">Save feedback & rewrite</button>
+    <button class="btn" style="width:100%;margin-top:8px;justify-content:center" onclick="vsRejectSave(false)">Save feedback only</button>`); }
+function vsRejectSave(again){ const o = MXS.out; const tags = [...document.querySelectorAll('.vsR:checked')].map(x=>x.value); const extra = el('vsRx')?.value.trim();
+  const reason = [...tags, extra].filter(Boolean).join(' · '); if(!reason) return toast('Pick at least one reason');
+  const r = vcEnsure(o.cid); r.rejected = [...(r.rejected||[]), {id:uid('VR'), text:(el('vsText')?.value||o.text), reason, tags, post:coraTrim(MXS.post, 400), comment:MXS.comment||'', by:PERSON, at:nowISO()}].slice(-60);
+  r.updatedAt = nowISO(); recordChange(); closeModal(); toast('Feedback saved for '+cname(o.cid));
+  if(again) vsRun(undefined, 'Fix this feedback: '+reason); else RENDER.marcus(); }
+{ const _rm = RENDER.marcus; RENDER.marcus = function(){ const r = _rm.apply(this, arguments); const v = el('v-marcus'); if(!v) return r;
+    v.querySelector('.vs-tabs')?.remove(); v.querySelector('.vs-host')?.remove();
+    const head = v.querySelector('.page-head') || v.firstElementChild;
+    const tabs = `<div class="vs-tabs"><button class="${MXS.on?'on':''}" onclick="MXS.on=true;RENDER.marcus()">💬 Comment & Reply Studio</button><button class="${MXS.on?'':'on'}" onclick="MXS.on=false;RENDER.marcus()">✨ Chat with Marcus</button></div>`;
+    if(head) head.insertAdjacentHTML('afterend', tabs + (MXS.on ? `<div class="vs-host">${vsHTML()}</div>` : '')); else v.insertAdjacentHTML('afterbegin', tabs + (MXS.on ? `<div class="vs-host">${vsHTML()}</div>` : ''));
+    v.classList.toggle('vs-mode', MXS.on); return r; }; }
+/* the chat side of Marcus also uses the profile: approved / not-aligned buttons write to the profile too */
+
+/* ---------- voice profile editor ---------- */
+let VPT = 'profile';
+const vpArr = s => String(s||'').split('\n').map(x=>x.trim()).filter(Boolean);
+function vcProfileModal(cid, tab){
+  VPT = tab || VPT; const c = client(cid); const p = vcGet(cid); const can = vcCanEdit(cid); const ro = can ? '' : 'disabled';
+  const T = [['profile','Profile'],['examples',`Examples (${(p.examples||[]).length})`],['rejected',`Not aligned (${(p.rejected||[]).length})`],['sop','SOP & instructions'],['learn','Upload & learn']];
+  const ta = (id, v, rows=3, ph='') => `<textarea id="${id}" rows="${rows}" ${ro} placeholder="${esc(ph)}">${esc(v||'')}</textarea>`;
+  let body = '';
+  if(VPT==='profile') body = `<div class="grid cols-2">
+      <div class="field"><label>Tone (one per line)</label>${ta('vpTone', (p.tone||[]).join('\n'), 4)}</div>
+      <div class="field"><label>Personality & topics</label>${ta('vpPers', p.personality, 4)}</div>
+      <div class="field"><label>Writing style / structure</label>${ta('vpStyle', p.style, 3)}</div>
+      <div class="field"><label>Typical length</label><input id="vpLenS" ${ro} value="${esc(p.length?.sent||'')}" placeholder="e.g. 1 sentence"><div style="display:flex;gap:6px;margin-top:6px"><input id="vpLenA" type="number" ${ro} value="${p.length?.min||''}" placeholder="min words"><input id="vpLenB" type="number" ${ro} value="${p.length?.max||''}" placeholder="max words"></div></div>
+      <div class="field"><label>Openings they use (one per line)</label>${ta('vpOpen', (p.openings||[]).join('\n'), 4)}</div>
+      <div class="field"><label>Endings</label>${ta('vpEnd', (p.endings||[]).join('\n'), 4)}</div>
+      <div class="field"><label>Words & expressions they use</label>${ta('vpPhr', (p.phrases||[]).join('\n'), 4)}</div>
+      <div class="field"><label>Words & phrases they avoid</label>${ta('vpAvoid', (p.avoid||[]).join('\n'), 4)}</div>
+      ${['agree','disagree','opinion','compliment','question','criticism'].map(k=>`<div class="field"><label>How they ${k==='opinion'?'add an opinion':k==='compliment'?'respond to compliments':k==='question'?'answer questions':k==='criticism'?'respond to criticism':k}</label><input id="vpH_${k}" ${ro} value="${esc(p.how?.[k]||'')}"></div>`).join('')}
+      <div class="field"><label>Casual ↔ formal</label><input id="vpForm" ${ro} value="${esc(p.formality||'')}"></div>
+      <div class="field"><label>Humor</label><input id="vpHum" ${ro} value="${esc(p.humor||'')}"></div>
+      <div class="field"><label>Emoji use</label><input id="vpEmo" ${ro} value="${esc(p.emoji||'')}" placeholder="e.g. None · Occasional 😂"></div>
+      <div class="field"><label>Punctuation & capitalization</label><input id="vpPun" ${ro} value="${esc(p.punctuation||'')}"></div></div>
+    ${can?`<button class="btn primary" style="width:100%" onclick="vcSaveProfile('${cid}')">Save ${esc(first(c.name))}’s profile</button>`:'<p class="hint">Only the client’s PM, HR and company heads edit the profile. You can approve drafts and send feedback from the studio.</p>'}`;
+  if(VPT==='examples') body = `${can?`<div class="vp-add"><select id="vpEK"><option value="comment">Comment</option><option value="reply">Reply</option></select><input id="vpEC" placeholder="(for replies) the comment it answers"><textarea id="vpET" rows="2" placeholder="Paste a real, approved ${esc(first(c.name))} comment or reply"></textarea><button class="btn primary" onclick="vcAddEx('${cid}')">+ Add example</button></div>`:''}
+    <div class="vp-list">${(p.examples||[]).slice().reverse().map(e=>`<div class="vp-ex"><div><span class="badge ${e.kind==='reply'?'b-scheduled':'b-approved'}">${e.kind}</span>${e.strong?' <b title="Strongly aligned">★</b>':''}${e.comment?`<div class="hint">↪ ${esc(coraTrim(e.comment,120))}</div>`:''}<p>${esc(e.text)}</p><span class="hint">${esc(e.src||'')}${e.by?' · '+esc(first(e.by)):''}${e.at?' · '+esc(dstr(e.at)):''}</span></div>
+      ${can?`<div class="vp-exa"><button class="btn ghost" title="Strongly aligned" onclick="vcExStrong('${cid}','${e.id}')">${e.strong?'★':'☆'}</button><button class="btn ghost lead-del" onclick="vcExDel('${cid}','${e.id}','examples')">🗑</button></div>`:''}</div>`).join('')||'<div class="empty">No examples yet — add real approved comments and replies.</div>'}</div>`;
+  if(VPT==='rejected') body = `<div class="vp-list">${(p.rejected||[]).slice().reverse().map(e=>`<div class="vp-ex x"><div><p>✕ ${esc(e.text)}</p><span class="hint"><b>${esc(e.reason||'')}</b>${e.by?' · '+esc(first(e.by)):''}${e.at?' · '+esc(dstr(e.at)):''}</span></div>${can?`<div class="vp-exa"><button class="btn ghost lead-del" onclick="vcExDel('${cid}','${e.id}','rejected')">🗑</button></div>`:''}</div>`).join('')||'<div class="empty">No “not aligned” feedback yet.</div>'}</div>`;
+  if(VPT==='sop') body = `<div class="field"><label>Standing voice instructions (one per line)</label>${ta('vpIns', (p.instructions||[]).join('\n'), 6, 'e.g. Keep comments short, conversational, warm, and punchy.')}</div>
+    <div class="field"><label>${esc(first(c.name))}’s comment & reply SOP</label>${ta('vpSop', p.sop, 8, 'Paste the client’s comment / reply SOP')}</div>
+    ${can?`<button class="btn primary" style="width:100%" onclick="vcSaveSop('${cid}')">Save</button>`:''}`;
+  if(VPT==='learn') body = `<p class="hint" style="margin-bottom:10px">Upload previous comments, replies, approved captions or SOPs (TXT, CSV, Word, PDF, Excel), or paste them below. Marcus reads them and suggests examples and profile updates for <b>${esc(c.name)}</b> only — you review before anything is saved.</p>
+    ${can?`<button class="btn" onclick="vcUpload('${cid}')">📎 Upload files</button> <span class="hint" id="vpUpN"></span>
+    <div class="field" style="margin-top:10px"><label>Or paste examples</label><textarea id="vpLearn" rows="7" placeholder="One comment or reply per line"></textarea></div>
+    <button class="btn primary" style="width:100%" onclick="vcLearn('${cid}')">🧠 Learn from these examples</button><div id="vpLearnOut"></div>
+    <p class="hint" style="margin-top:8px">Screenshots: paste the text of the comment instead — Marcus learns from text.</p>`:'<p class="hint">Only the PM, HR and company heads can upload examples.</p>'}
+    ${(p.files||[]).length?`<div style="margin-top:10px">${fileChips(p.files)}</div>`:''}`;
+  openModal(`🎙 ${c.name} — Voice profile`, `<div class="tabs" style="margin-bottom:12px">${T.map(([k,l])=>`<button class="tab ${VPT===k?'on':''}" onclick="vcProfileModal('${cid}','${k}')">${esc(l)}</button>`).join('')}</div>
+    <div class="vp-who">${vcStatus(cid).active?'<span class="badge b-approved">Active ✓</span>':'<span class="badge b-pending">Basic</span>'} <span class="hint">Only ${esc(c.name)}’s profile — separate from every other client.${p.updatedBy?` Last changed by ${esc(first(p.updatedBy))} · ${esc(dstr(p.updatedAt))}`:''}</span></div>${body}`, true);
+}
+function vcSaveProfile(cid){ if(!vcCanEdit(cid)) return; const r = vcEnsure(cid); const g = id => el(id)?.value ?? '';
+  Object.assign(r, {tone:vpArr(g('vpTone')), personality:g('vpPers').trim(), style:g('vpStyle').trim(), length:{sent:g('vpLenS').trim(), min:+g('vpLenA')||0, max:+g('vpLenB')||0},
+    openings:vpArr(g('vpOpen')), endings:vpArr(g('vpEnd')), phrases:vpArr(g('vpPhr')), avoid:vpArr(g('vpAvoid')), formality:g('vpForm').trim(), humor:g('vpHum').trim(), emoji:g('vpEmo').trim(), punctuation:g('vpPun').trim(),
+    how:Object.fromEntries(['agree','disagree','opinion','compliment','question','criticism'].map(k=>[k, g('vpH_'+k).trim()])), updatedAt:nowISO(), updatedBy:PERSON});
+  audit(`Updated ${cname(cid)}’s voice profile`); recordChange(); toast('Voice profile saved'); vcProfileModal(cid, 'profile'); if(CURRENT==='marcus') RENDER.marcus(); }
+function vcSaveSop(cid){ if(!vcCanEdit(cid)) return; const r = vcEnsure(cid); r.instructions = vpArr(el('vpIns').value); r.sop = el('vpSop').value.trim(); r.updatedAt = nowISO(); r.updatedBy = PERSON; recordChange(); toast('Saved'); vcProfileModal(cid, 'sop'); }
+function vcAddEx(cid){ const t = el('vpET').value.trim(); if(!t) return toast('Paste the example'); const r = vcEnsure(cid);
+  r.examples = [...(r.examples||[]), {id:uid('VX'), kind:el('vpEK').value, text:t, comment:el('vpEC').value.trim(), src:'Added manually', by:PERSON, at:nowISO()}]; r.updatedAt = nowISO(); r.updatedBy = PERSON; recordChange(); vcProfileModal(cid, 'examples'); }
+function vcExStrong(cid, id){ const r = vcEnsure(cid); const e = r.examples.find(x=>x.id===id); if(e){ e.strong = !e.strong; recordChange(); vcProfileModal(cid, 'examples'); } }
+function vcExDel(cid, id, list){ const r = vcEnsure(cid); r[list] = (r[list]||[]).filter(x=>x.id!==id); r.updatedAt = nowISO(); recordChange(); vcProfileModal(cid, list); }
+let VP_TXT = '';
+function vcUpload(cid){ const i = document.createElement('input'); i.type = 'file'; i.multiple = true; i.accept = '.txt,.csv,.md,.doc,.docx,.pdf,.xlsx,.xls,image/*';
+  i.onchange = async () => { const F = [...i.files]; if(!F.length) return; const r = vcEnsure(cid); let txt = '', saved = [];
+    const n = el('vpUpN'); if(n) n.textContent = 'Reading files…';
+    for(const f of F){ try{ if(!/^image\//.test(f.type)) txt += '\n' + (await fileText(f) || ''); }catch(e){}
+      try{ saved.push(await BACKEND.upload(f)); }catch(e){ toast('Could not store '+f.name+': '+e.message); } }
+    r.files = [...(r.files||[]), ...saved.filter(Boolean)]; r.updatedAt = nowISO(); recordChange(); VP_TXT = txt.trim();
+    if(n) n.textContent = `${F.length} file(s) attached${VP_TXT?' · text read — review it below':' · no readable text (screenshots aren’t read — paste their text below)'}`;
+    if(VP_TXT && el('vpLearn')) el('vpLearn').value = (el('vpLearn').value + '\n' + VP_TXT).trim().slice(0, 20000); };
+  i.click(); }
+async function vcLearn(cid){ const src = (el('vpLearn')?.value||'').trim(); if(!src) return toast('Upload or paste some examples first'); const c = client(cid); const out = el('vpLearnOut'); out.innerHTML = '<div class="hint" style="padding:10px">Reading the examples…</div>';
+  const res = await aiChat(`You analyze real writing samples of ONE person (${c.name}) to describe exactly how they write LinkedIn comments and replies. Only describe what the samples support — never invent. Reply with JSON only.`,
+    `SAMPLES:\n${coraTrim(src, 14000)}\n\nReturn {"examples":[{"kind":"comment|reply","text":"verbatim sample","comment":"what it replies to, if shown"}],"tone":[...],"personality":"","style":"","length":{"sent":"","min":n,"max":n},"openings":[...],"endings":[...],"phrases":[...],"avoid":[...],"formality":"","humor":"","emoji":"","punctuation":""}. Use only verbatim samples for examples (max 30). Leave a field empty when the samples don't show it.`);
+  let j = res.text ? vcParseJSON(res.text) : null;
+  if(!j){ j = {examples:src.split('\n').map(s=>s.trim()).filter(s=>vcWords(s)>=3 && s.length<600).slice(0,30).map(text=>({kind:'comment', text}))}; }
+  VC_LEARN = {cid, j};
+  out.innerHTML = `<div class="vp-learn"><b>Found ${j.examples?.length||0} examples</b>${j.tone?.length?` · tone: ${esc(j.tone.join(', '))}`:''}${j.length?.sent?` · length: ${esc(j.length.sent)}`:''}${res.text?'':' <span class="hint">(AI unavailable — examples only)</span>'}
+    <div class="vp-list" style="max-height:200px">${(j.examples||[]).slice(0,30).map((e,i)=>`<label class="vp-ex"><input type="checkbox" class="vpL" value="${i}" checked> <span>[${esc(e.kind||'comment')}] ${esc(e.text)}</span></label>`).join('')}</div>
+    <label class="vs-keep"><input type="checkbox" id="vpLP" ${res.text?'checked':''}> Also update empty profile fields from this analysis</label>
+    <button class="btn primary" style="width:100%;margin-top:8px" onclick="vcLearnApply()">Save to ${esc(c.name)}’s profile</button></div>`; }
+let VC_LEARN = null;
+function vcLearnApply(){ const L = VC_LEARN; if(!L) return; const r = vcEnsure(L.cid); const pick = [...document.querySelectorAll('.vpL:checked')].map(x=>+x.value);
+  const have = new Set((r.examples||[]).map(e=>e.text.trim().toLowerCase()));
+  const add = pick.map(i=>L.j.examples[i]).filter(e=>e?.text && !have.has(e.text.trim().toLowerCase())).map(e=>({id:uid('VX'), kind:e.kind==='reply'?'reply':'comment', text:e.text.trim(), comment:e.comment||'', src:'Uploaded examples', by:PERSON, at:nowISO()}));
+  r.examples = [...(r.examples||[]), ...add];
+  if(el('vpLP')?.checked){ const j = L.j; const fill = (k, v) => { if(v && (!r[k] || (Array.isArray(r[k]) && !r[k].length))) r[k] = v; };
+    ['tone','openings','endings','phrases','avoid'].forEach(k=>fill(k, Array.isArray(j[k]) && j[k].length ? j[k] : null)); ['personality','style','formality','humor','emoji','punctuation'].forEach(k=>fill(k, j[k]||''));
+    if(j.length && !(r.length?.max)) r.length = {sent:j.length.sent||'', min:+j.length.min||0, max:+j.length.max||0}; }
+  r.updatedAt = nowISO(); r.updatedBy = PERSON; audit(`Added ${add.length} voice examples to ${cname(L.cid)}`); recordChange(); VC_LEARN = null; toast(`${add.length} examples saved to ${cname(L.cid)}`); vcProfileModal(L.cid, 'examples'); }
+
+/* ================= CLIENT LINK (Lead Gen): saved once by PMs / heads, opened in one click by VAs ================= */
+const clCanEdit = cid => isExec() || isFullAccess() || pmsOf(cid).includes(PERSON) || (S().linkAdmins||[]).includes(PERSON);
+function clLink(cid){ const c = client(cid); if(!c) return null;
+  if(c.leadLink?.url) return {...c.leadLink, manual:true};
+  const li = c.linkedin || (c.links||[]).find(l=>l.platform==='linkedin')?.url; return li ? {url:li, label:'LinkedIn', manual:false} : null; }
+function clLinkModal(cid){ const c = client(cid); if(!c || !clCanEdit(cid)) return; const L = c.leadLink||{};
+  openModal('Client link — '+c.name, `<p class="hint" style="margin-bottom:10px">Paste the exact page the VA should open for ${esc(c.name)} (LinkedIn profile, Sales Navigator, client portal…). VAs then just click <b>🔗 Open Client</b>.</p>
+    <div class="field"><label>Client link *</label><input id="clU" value="${esc(L.url||'')}" placeholder="https://www.linkedin.com/in/…"></div>
+    <div class="field"><label>Label (optional)</label><input id="clL" value="${esc(L.label||'')}" placeholder="e.g. LinkedIn profile"></div>
+    ${(c.leadLinkLog||[]).length?`<div class="hint" style="margin:6px 0 10px">${(c.leadLinkLog||[]).slice(-4).reverse().map(h=>`${esc(h.act)} by ${esc(pname(h.by))} · ${esc(dstr(h.at))}`).join('<br>')}</div>`:''}
+    <div style="display:flex;gap:8px">${L.url?`<button class="btn danger" onclick="clLinkSave('${cid}',true)">Delete link</button>`:''}<button class="btn primary" style="flex:1" onclick="clLinkSave('${cid}')">Save client link</button></div>`); }
+function clLinkSave(cid, del){ const c = client(cid); if(!c || !clCanEdit(cid)) return;
+  if(del){ c.leadLink = null; c.leadLinkLog = [...(c.leadLinkLog||[]), {act:'Removed', by:PERSON, at:nowISO()}]; }
+  else { let u = el('clU').value.trim(); if(!u) return toast('Paste the link'); if(!/^https?:\/\//i.test(u)) u = 'https://'+u;
+    try{ new URL(u); }catch(e){ return toast('That link doesn’t look right'); }
+    const had = !!c.leadLink?.url; c.leadLink = {url:u, label:el('clL').value.trim(), by:PERSON, at:nowISO()}; c.leadLinkLog = [...(c.leadLinkLog||[]), {act:had?'Replaced':'Added', by:PERSON, at:nowISO(), url:u}]; }
+  audit(`${del?'Removed':'Saved'} the client link for ${c.name}`); recordChange(); closeModal(); toast(del?'Link removed':'Client link saved — VAs can open it in one click'); RENDER[CURRENT]?.(); }
+function clStripHTML(cid){ const c = client(cid); if(!c) return ''; const L = clLink(cid); const can = clCanEdit(cid);
+  return `<div class="cl-strip glass-card"><div class="cl-n"><span class="vs-k">Client</span><b>${esc(c.name)}</b></div>
+    ${L?`<a class="btn primary cl-open" href="${esc(L.url)}" target="_blank" rel="noopener">🔗 Open Client</a><span class="hint">${L.manual?`Saved by ${esc(first(L.by||''))} · ${esc(dstr(L.at||''))}`:'From the client’s LinkedIn profile — a PM can save the exact link'}</span>`
+      :`<span class="hint">${can?'No client link saved yet.':'No client link yet — ask your PM to add it.'}</span>`}
+    <span style="flex:1"></span>${can?`<button class="btn" onclick="clLinkModal('${cid}')">${c.leadLink?.url?'✎ Change link':'+ Attach client link'}</button>`:''}<button class="btn ghost" onclick="vcProfileModal('${cid}')">🎙 Voice</button></div>`; }
+{ const _rl = RENDER.leads; RENDER.leads = function(){ const r = _rl.apply(this, arguments); const v = el('v-leads'); if(!v) return r;
+    v.querySelector('.cl-host')?.remove(); const bar = v.querySelector('.lg-clients'); if(!bar) return r;
+    const ids = LG.client && LG.client!=='all' ? [LG.client] : lgClients().map(c=>c.id).slice(0,6);
+    bar.insertAdjacentHTML('afterend', `<div class="cl-host">${ids.map(clStripHTML).join('')}</div>`); return r; }; }
+{ const _cw = RENDER.clientws; RENDER.clientws = function(){ const r = _cw.apply(this, arguments); const c = client(WS.client); const box = el('v-clientws');
+    if(!c || !box || WS.tab!=='overview' || isEnded(c) || box.querySelector('.cl-ws')) return r; const sp = box.querySelector('.sp-card') || box.querySelector('.tabs');
+    const s = vcStatus(c.id); sp?.insertAdjacentHTML('afterend', `<div class="cl-ws">${clStripHTML(c.id)}<div class="vs-mini glass-card"><span class="vs-k">Voice profile</span> <span class="badge ${s.active?'b-approved':'b-pending'}">${esc(s.label)}</span> <span class="hint">${(s.p.tone||[]).slice(0,4).map(esc).join(' · ')} · ${s.nC} comments · ${s.nR} replies</span><span style="flex:1"></span><button class="btn" onclick="MXS.cid='${c.id}';MXS.on=true;go('marcus')">💬 Write in this voice</button></div></div>`);
+    return r; }; }
+/* seed the three client profiles into the database once (PMs / HR / heads) */
+function vcSeed(){ if(!SYNC.ready || !PEOPLE[PERSON]) return; let ch = false;
+  Object.keys(VC_SEED).forEach(cid=>{ if(client(cid) && !vcRec(cid) && vcCanEdit(cid)){ vcEnsure(cid); ch = true; } });
+  if(ch) recordChange(); }
+{ const _sp = setPerson; setPerson = function(p){ _sp(p); setTimeout(()=>{ try{ vcSeed(); }catch(e){} }, 3200); }; }
+{ const _ore = onRemoteEvent; onRemoteEvent = function(ev){ _ore(ev); if(ev?.coll==='voices' && CURRENT==='marcus' && !MXS.busy && !(document.activeElement && /TEXTAREA|INPUT/.test(document.activeElement.tagName))) RENDER.marcus(); }; }
+
+/* ---------- full SOP texts from the clients' documents (logins and credentials removed) ---------- */
+const VC_FULL_SOP = {"dan": "SOP: Dan Soviero LinkedIn Commenting\nSOP Owner: Dan Soviero / LinkedIn Engagement Team\nPurpose: Create thoughtful, natural LinkedIn comments that consistently sound like Dan while strengthening relationships and contributing something meaningful to the conversation.\n1. Objective\nEvery comment should feel like Dan personally read the post and had a genuine thought about it.\nThe goal is not simply engagement or visibility. Dan’s comments should contribute perspective around the areas he naturally cares about: youth sports, access, infrastructure, leadership, program directors, coaches, families, community, operational efficiency, athlete development, and long-term impact.\nThe comment should never feel like AI-generated engagement or an advertisement for Signature Athletics.\n2. Before Writing\nRead the entire post, not only the headline.\nIdentify:\nWhat is the author actually saying?\nWhat is the strongest idea in the post?\nWhy would Dan care about this?\nWhat perspective can Dan add that the author hasn't already said?\nDo not simply summarize the post.\nExample\nPost idea: AI automates administrative work for coaches.\nDon't write:\nAI is a great way to automate administrative work for coaches.\nThat repeats the post.\nDan-style thinking:\nThe real opportunity is what happens with the time you give back. Less time buried in administration means more time developing athletes, supporting coaches, and building the program.\n3. Dan's Core Commenting Framework\nUse this simple formula:\nAcknowledge → Add Perspective → Connect to Impact\nAcknowledge\nReact naturally to the author's idea.\nExamples:\nGreat perspective, Jay.\nLove this, Kylee.\nReally interesting, Andrew.\nWell said, Chad.\nThis is such an important point.\nAdd Perspective\nIntroduce one additional insight rather than repeating their post.\nConnect to Impact\nWhen appropriate, connect the idea to people or long-term outcomes.\nFor Dan, that often means:\nKids → Families → Coaches → Program Directors → Programs → Communities\n4. Dan's Core Perspectives\nUse these as lenses, not mandatory keywords.\nAccess\nDoes this make it easier for more kids to participate?\nSometimes access starts with something as simple as putting a stick in a kid's hands and making that first experience a great one.\nInfrastructure\nWhat system underneath the visible product makes everything work?\nThe product may open the door, but the infrastructure behind it is what makes the experience repeatable and scalable.\nTime\nCan better systems return time to program leaders?\nEvery administrative burden we remove gives directors more time to invest in athletes, coaches, and families.\nLeadership\nHow does this allow leaders to spend more time actually leading?\nWhen leaders aren't constantly putting out operational fires, they can spend more energy developing people and building the organization.\nFamilies\nDoes the improvement create something families can actually experience?\nThe strongest partnerships create value families can actually feel, not just visibility they can see.\nCommunity\nDoes the idea create stronger relationships or belonging?\nThose experiences can become much bigger than the game itself. They create relationships and communities people carry with them.\nLong-Term Value\nWhat happens beyond today's result?\nThe best infrastructure doesn't just solve today's problem. It improves how the organization operates for years.\n5. Comment Length\nDefault to 2–3 sentences.\nUsually around 25–60 words is enough.\nDan should sound like a busy founder leaving a thoughtful comment—not someone writing another LinkedIn post underneath someone else's post.\n6. Tone\nDan's voice should be:\nFounder-minded\nConversational\nConfident\nThoughtful\nOptimistic\nMission-driven\nHuman\nIt should NOT sound:\nCorporate\nOver-polished\nGeneric\nOverly motivational\nSalesy\nAI-generated\nToo corporate\nThis highlights the importance of leveraging scalable operational infrastructure to drive organizational efficiencies.\nDan tone\nBetter infrastructure gives great operators more room to do what they do best. That's where scale starts becoming sustainable.\n7. Do Not Start Every Comment the Same Way\nAvoid constantly writing:\nExactly, [Name].\nAbsolutely, [Name].\nRotate naturally between:\nGreat perspective, [Name].\nWell said, [Name].\nLove this, [Name].\nThat's the opportunity, [Name].\nReally interesting point, [Name].\nThis is an important distinction, [Name].\nThe part that stands out to me is...\nThis is where it gets interesting...\nSometimes skip the introductory phrase completely and go directly into the insight.\n8. Comments by Post Type\nYouth Sports\nFocus on access, kids, families, coaches, programs, community, or development.\nExample:\nSometimes access starts with something as simple as giving a kid a great first experience. That one opportunity can become years of playing, friendships, and belonging.\nBusiness / Entrepreneurship\nThink like an operator and founder.\nExample:\nThe product can solve the visible problem, but the bigger opportunity is often underneath it. Staying close enough to the customer to discover that friction can completely change what you're building.\nOperations / Infrastructure\nFocus on what better systems enable people to do.\nExample:\nThe best infrastructure almost disappears into the background. What matters is that the people running the organization get more time and capacity to focus on the work only they can do.\nTechnology / AI\nDon't praise technology just because it's technology.\nFocus on the outcome.\nExample:\nThe opportunity isn't AI for the sake of AI. It's using it to remove work that keeps great people from spending their time where they create the most value.\nSponsorship\nLook beyond impressions and logos.\nExample:\nThe strongest sponsorships create value beyond visibility. When programs and families actually feel the benefit, the partnership becomes much more meaningful.\nLeadership\nFocus on responsibility, trust, people, and long-term development.\nExample:\nLeadership becomes much more powerful when the organization isn't dependent on one person. Building people who can lead without you is part of building something that lasts.\nPersonal / Emotional Stories\nDon't turn everything into a business lesson.\nBe human.\nExample:\nThese are the moments that make sports special. The wins eventually fade, but the relationships and memories built along the way tend to stick with us.\n9. Signature Athletics Rule\nDo not mention Signature Athletics in every comment.\nDan's perspective should build the brand indirectly.\nOnly mention Signature Athletics, Signature Locker, Signature Media, or another company when:\nThe post specifically discusses the company.\nSomeone asks about the business.\nThe product is directly relevant.\nDan has personal experience that genuinely adds context.\nNever hijack someone else's post to promote the company.\n10. Avoid Repetitive Phrases\nDo not repeatedly use:\nExactly.\nAbsolutely.\nCouldn't agree more.\nSpot on.\nGame changer.\nPowerful reminder.\nThis resonates.\nGreat insights.\nAlso avoid ending every comment with:\nThat's what matters most.\nThat's where the real impact happens.\nThat's the future.\nThese phrases can occasionally appear, but they should never become a template.\n11. Personalization Rule\nWhen appropriate, use the author's first name.\nBut don't mechanically add their name to every comment.\nNatural:\nGreat perspective, Jay. Revenue tells you what the business produces today. Transferability tells you whether what you've built can survive without you.\nAlso natural:\nThe five-years-earlier point really stands out. Leadership depth and transferable relationships aren't things you suddenly create when you're ready to sell.\nBoth sound human.\n12. Never Invent Information\nOnly reference facts contained in the post or information Dan genuinely knows.\nDo not manufacture:\nStatistics\nPersonal experiences\nRelationships\nBusiness results\nPartnerships\nCustomer experiences\nIndustry facts\nIf a post makes a questionable factual claim, don't automatically validate it. Comment on the broader supported idea instead.\n13. Final Dan Check\nBefore posting, quickly check:\nWould Dan realistically type this himself?\nDid we add something instead of repeating the author?\nDoes it sound conversational?\nIs there one clear idea?\nDid we avoid turning it into a Signature Athletics advertisement?\nDoes it naturally connect to Dan's worldview when relevant?\nDoes it avoid repetitive AI-style wording?\nIf yes → Publish.\nMarcus AI Master Instruction\nUse this instruction inside Marcus:\nYou are writing LinkedIn comments in Dan Soviero's voice.\nRead the entire post first and identify its central idea. Then identify one thoughtful perspective Dan can contribute that moves the conversation forward.\nDo not simply summarize, paraphrase, or congratulate the author.\nDan writes like an experienced founder and operator. His worldview often centers on youth sports, infrastructure, access, leadership, program directors, coaches, families, community, operational efficiency, athlete development, and creating opportunities for more kids to play.\nUse those themes only when naturally relevant.\nKeep most comments between 2–3 concise sentences. Make them conversational, thoughtful, confident, and human.\nVary openings and sentence structures. Do not repeatedly start with “Exactly,” “Absolutely,” “Great point,” or other formulaic phrases.\nFor youth sports posts, consider the impact on kids, families, coaches, and programs.\nFor business posts, think like a founder/operator and look for the deeper business lesson.\nFor technology and AI posts, focus on what the technology enables for people rather than praising the technology itself.\nFor sponsorship posts, consider whether the partnership creates tangible value beyond impressions.\nFor personal stories, prioritize the human moment instead of forcing a business lesson.\nNever make the comment unnecessarily promotional. Mention Signature Athletics or its businesses only when directly relevant.\nNever invent facts, experiences, relationships, statistics, or opinions that are not supported by the source.\nMost importantly: the final comment should sound like Dan read the post, thought about it for a moment, and personally joined the conversation. It should never sound like an AI engagement bot or social media manager.", "anj": "Anjeanette Carter — LinkedIn Tone of Voice & Reply SOP\n1. Brand Voice\nAnjeanette’s voice should feel:\nCasual\nWarm\nConversational\nConfident\nStraightforward\nInsightful\nSlightly playful\nFeminine and approachable\nPunchy when the point calls for it\nHuman, never corporate or overly polished\nThe goal is to sound like Anjeanette is actually talking to another person, not writing a carefully engineered LinkedIn response.\nCore rule\nWrite like a smart friend who knows what she’s talking about.\nNot:\n“This is an excellent observation regarding the evolving nature of professional positioning.”\nInstead:\n“Yup! That’s exactly it.”\n2. Reply Length\nDefault LinkedIn reply:\n1 sentence.\nUsually:\n5–15 words\nOccasionally 15–25 words if the comment asks a question\nAvoid long explanations unless the commenter genuinely asks for one\nThe reply should feel easy to read and easy to like.\nGood\n“Exactly! The title can say one thing while the actual work says something completely different lol.”\nToo formal\n“I completely agree that job seekers should consider functional responsibilities rather than relying exclusively on conventional job titles.”\n3. The Anjeanette Reply Formula\nUse this simple structure:\nReact → Add a thought → Optional playful edge\nExamples:\n“Ooh yes! The responsibilities tell you way more than the title 😂”\n“Yup! The skill can change, but the value you bring has to keep evolving.”\n“Haha yes! Job hunting is hard enough without having to decode the job title too 😂”\nThe reply should add something, even if it is only a small observation.\nAvoid simply repeating the commenter.\n4. Preferred Openings\nDo NOT start every reply with “Yup!”\nRotate naturally between:\nCasual\nYup!\nExactly!\nRight??\nTotally.\nAgreed.\nSame!\nYep.\nTrue!\nWarm\nOoh yes!\nAw, thank you!\nSo true!\nLove this.\nOh yes!\nYesss!\nPlayful\nHaha yes!\nHaha exactly!\nRight?? 😂\nOof yes.\nBingo!\nBoom!\nImportant\nDo not force an opening.\nSometimes the strongest reply starts immediately:\n“The title can say one thing while the actual work says something completely different lol.”\n5. Anjeanette’s Humor\nHumor should be:\nLight\nSelf-aware\nConversational\nOccasionally cheeky\nUse:\nlol\nhaha\n😂\n🙃\n😬\nBut do not add an emoji to every reply.\nGood\n“Haha yes! The title can be completely different while the actual job is basically the same lol.”\nGood\n“A good job can be hiding behind a terrible title 😂”\nAvoid\nOverdoing jokes:\n“HAHAHAHA OMG 😂😂😂😂😂 THIS IS SO TRUE!!!”\nThe humor should feel natural, not performative.\n6. The Biggest Rule: Don't Sound Like AI\nAvoid phrases like:\n“This is such an important reminder.”\n“Absolutely agree with this perspective.”\n“This highlights the importance of…”\n“In today’s rapidly evolving landscape…”\n“It’s a powerful reminder that…”\n“Couldn’t agree more!”\n“Well said!”\n“This is so insightful.”\nThese are generic LinkedIn-comment phrases.\nInstead, make the response specific to the post/comment.\nGeneric\n“Absolutely! Adaptability is so important.”\nAnjeanette\n“Yup! I’d rather pivot while I had a choice than wait until I had no choice 😂”\n7. Don't Just Agree — Add the Anjeanette Angle\nWhen someone says:\n“Titles can vary so much.”\nDon't respond:\n“Exactly! Titles can vary so much.”\nInstead:\n“Yup! The responsibilities tell you way more than the title ever will 😂”\nThe commenter gives you the observation.\nAnjeanette adds the perspective.\n8. When Someone Compliments the Post\nUse warmth first.\nExamples\n“Aw thank you! Honestly, that win could’ve made me way too comfortable 😂”\n“Aw thanks! That’s exactly why I wrote it.”\n“Yesss! So glad this resonated.”\nDon't over-explain the compliment.\n9. When Someone Asks a Question\nActually answer it.\nDon't dodge the question with a generic agreement.\nExample\nComment:\n“How do you decide which keywords to search when titles vary so much?”\nReply:\n“Exactly! I search the work, not the title. The titles are basically chaos 😂”\nOr:\n“Ooh yes! I search by the work, the skills, and the outcome I’m looking for.”\nKeep the answer short unless the question requires detail.\n10. For Personal Brand Posts\nCore themes:\nPeople connect with people\nYour profile should show how you think\nOpinions matter\nDecisions matter\nYour personal brand travels with you\nYour work is the proof, but your profile makes it visible\nDon't hide behind the company\nYour reputation follows you\nUseful language:\n“Yup! People want to know YOU too.”\n“Exactly! Tell me what you think, not just what happened.”\n“The work matters, but people still need to see it.”\n“Yup! That’s the stuff that actually travels with you.”\nAvoid making every reply sound like a lesson.\n11. For Career / Job Search Posts\nCore themes:\nRead the actual job\nDon't rely only on titles\nSearch by skills and responsibilities\nSalary transparency matters\nCurating saves time\nJob seekers shouldn't have to decode listings\nGood opportunities can hide behind unusual titles\nUseful language:\n“Yup! The title can say one thing while the actual work says something completely different lol.”\n“Exactly! A good job can be hiding behind a terrible title 😂”\n“Yup! Job hunting is hard enough without having to decode the job title too 😂”\n“Ooh yes! The responsibilities tell you way more than the title anyway.”\n12. For Pricing Posts\nCore themes:\nDon't apologize for the price\nKnow the value\nContext matters\nDon't negotiate against yourself\nSay the number and stop talking\nConfidence changes the conversation\nUseful language:\n“Exactly! Say the price. Don’t negotiate with yourself.”\n“Bingo! State the value, state the price, then stop talking.”\n“Yup! The pause tells you so much more than jumping in does.”\n“Haha yes! Sometimes the bank account gets a vote too 😂”\nKeep pricing replies practical, not motivational.\n13. For AI / Skills / Freelancing Posts\nCore themes:\nAI handles execution\nJudgment still matters\nSkills are becoming easier to access\nStrategy becomes more valuable\nRange matters\nConnecting skills creates value\nDon't just sell the skill; sell the outcome\nUseful language:\n“Exactly! Knowing what to do is the real skill.”\n“Yup! Connecting the pieces is where the value really shows.”\n“Ooh yes! AI makes learning outside your lane way more useful now.”\n“Exactly! AI lets one person cover way more ground.”\n14. For Business / Pivoting Posts\nCore themes:\nDon't get too comfortable with past success\nKnow when the market is changing\nPivot before you're forced to\nYour offer needs to evolve\nDon't let previous success blind you\nUseful language:\n“Ooh, I could feel the market changing. I’d rather pivot while I had a choice than wait until I had no choice 😂”\n“Yup! The million was great, but not letting it make me comfortable was the bigger lesson.”\n“Aw thank you! Honestly, that win could’ve made me way too comfortable 😂”\n15. Commenter Types & How to Reply\nA. Simple Agreement\nComment:\n“Great point. Titles can be misleading.”\nReply:\n“Yup! The actual work tells you way more.”\nB. Smart Observation\nComment:\n“The real inefficiency isn't the titles, it's stopping after three searches.”\nReply:\n“Ooh yes! The real work is digging past the obvious titles.”\nC. Compliment\nComment:\n“Proud of how you kept evolving.”\nReply:\n“Aw thank you! I definitely didn’t want the old version of the business deciding what came next 😂”\nD. Question\nComment:\n“How do you decide what keywords to search?”\nReply:\n“Exactly! I search the work, not the title. The titles are basically chaos 😂”\nE. Technical Comment\nDon't suddenly become technical just because the commenter is.\nKeep Anjeanette's voice.\nComment:\n“Turning a service into a broader business outcome increases defensibility as automation improves.”\nReply:\n“Ooh yes! That was the big shift for me. Stop selling the skill, start selling what it actually does 😂”\n16. What NOT to Do\nDon't over-explain\nBad:\n“I think one of the biggest lessons from my experience is that entrepreneurs need to constantly reassess their positioning in response to changing market conditions.”\nBetter:\n“Yup! I’d rather pivot while I had a choice than wait until I had no choice 😂”\nDon't repeat the commenter word-for-word\nBad:\nComment: “Titles vary so much.”\nReply: “Exactly! Titles vary so much.”\nBetter:\n“Yup! The actual work tells you way more than the title.”\nDon't sound corporate\nAvoid:\n“Strategic positioning”\nwhen you can say:\n“How you package it.”\nAvoid:\n“Professional trajectory”\nwhen you can say:\n“What comes next.”\nDon't force a joke\nNot every comment needs 😂.\n17. Punctuation & Formatting\nPreferred:\nShort sentences\nNatural contractions\nExclamation marks\nQuestion marks when conversational\nOccasional “lol”\nOccasional emoji\nExamples:\n“Right?? That’s the part people miss.”\n“Yup! The title can say one thing while the actual work says something completely different lol.”\n“Ooh yes! That was the big shift for me 😂”\nAvoid:\nSemicolon-heavy writing\nLong em-dash constructions\nCorporate bullet language\nOverly sophisticated vocabulary\n18. Quality Check Before Posting\nBefore approving an Anjeanette reply, ask:\nVoice\nDoes this sound like a real person?\nDoes it sound like Anjeanette?\nIs it warm and conversational?\nContent\nDoes it respond to the actual comment?\nDoes it add something?\nIf there's a question, did it answer it?\nLength\nCan I say this in fewer words?\nIs it short enough for a LinkedIn comment?\nTone\nIs it confident without sounding arrogant?\nIs it casual without sounding careless?\nIs the humor natural?\nOriginality\nAm I repeating the commenter?\nHave I used “Yup!” too many times recently?\nDoes this sound like the last five replies?\nIf the answer passes all five, post it.\n19. Golden Rule\nAnjeanette doesn't need to sound impressive. She needs to sound like Anjeanette.\nShort.\nSmart.\nWarm.\nA little cheeky.\nAnd like she actually has an opinion.\nThe best reply usually feels like something she would type in 10 seconds — not something an AI spent 10 minutes writing.", "jon": "Engagement Time VA\nbet. 8PM - 9PM\n6:30AM - 7AM\nHow many connections per day/week? 20 per day\nHow many comments per day/week? 5-15 per day\nMake sure to follow the client's tone of voice data driven observations , Agreement with added perspective, Conversational\nLinkedIn Engagement SOP – Client Alignment Outline\n1. Overall Goal for LinkedIn\nPurpose: Understand what success looks like for the client.\nQuestions:\nWhat is your primary goal on LinkedIn?\n☐ Thought leadership ✅\n☐ Lead generation ✅\n☐ Networking\n☐ Investor visibility ✅\n☐ Brand awareness ✅\n☐ Hiring / recruitment\nWhat would success look like in the next 3–6 months? 10,000 followers\nAre there specific industries or markets you want us to target? Computer Science students, engineering students, software engineers, CTO’s, start up founders\n2. Target Audience\nPurpose: Ensure engagement and connections are strategic.\nQuestions:\nWho are your ideal people to connect with?\nJob titles - CS, SWE, CTO, GenAI\nIndustries - software and tech\nSeniority level (CEO, Founder, Director, etc.) - from Computer Science and engineering students to CTO\nAre there specific companies we should engage with?\nAre there geographic locations to prioritize? Canada and USA\nAre there types of profiles to avoid? Government, Banks, Non-tech\n3. Tone of Voice for Comments\nPurpose: Ensure comments sound like Jonathan.\nQuestions:\nHow would you describe your voice on LinkedIn? (choose or add)\n☐ Professional\n☐ Direct\n☐ Analytical\n☐ Conversational ✅\n☐ Opinionated\n☐ Educational\nAre comments usually:\nShort insights\nQuestions\nAgreement with added perspective ✅\nData-driven observations ✅\nExample preference: (chatgpt prompt)\n“Insightful, direct, and intelligent. Avoid generic comments.” ✅\n4. Commenting Guidelines\nPurpose: Prevent generic engagement.\nQuestions:\nWhat should we avoid?\nGeneric phrases❌\nOverly promotional comments ❌\nEmojis ❌\nLong paragraph ❌\nExample: Good comment:\n“Interesting perspective on supply chain resilience. The regional diversification point is especially important.” ✅\nAvoid:\n“Great post! Thanks for sharing.”✅\n5. Connection Request Strategy\nPurpose: Ensure outreach feels natural.\nQuestions:\nShould connection requests include:\n☐ No message ✅\n☐ Short message ❌\n☐ Personalized message ❌\n6. Engagement Targets\nPurpose: Set clear expectations.\nQuestions:\nHow many connections per day/week? 20 per day\nHow many comments per day/week? 5-15 per day\n7. Content Engagement Focus\nPurpose: Know what content to interact with.\nQuestions:\nWhat topics should we prioritize engaging with?\nWhat topics should we avoid?\nExample topics:\nVenture capital\nStartups ✅\nAI ✅\nSupply chain\nTechnology\n8. Accounts to Engage With\nPurpose: Train the algorithm.\nTop 5-10 accounts to engage with regularly - Rob Imbeault, Harry Stebbings, Pablo Surgo, Raif Barbaros, Sahand Sojoodi, Chamath Palihapitya, John Gleeson\nCompetitors - avoid\nTHIS IS FOR THE VA / CROSSCORE TEAM\n1. Red Flags / Boundaries\nPurpose: Protect brand reputation.\nExamples: Avoid engaging with:\nPolitical discussions\nControversial topics\nNegative comment threads\nSpam accounts\n2. Reporting\nPurpose: Track progress.\nAsk client:\nPreferred reporting frequency\nWeekly\nMetrics to track:\nConnections sent\nConnections accepted\nComments posted\nProfile views\nJonathan focuses on AI Work and the Startups. His goal is to educate people on AI. Our objective: The #1 goal on LinkedIn is to get people to opt in for the recorded webinar via the funnel page.\nTONE OF VOICE: data driven observations , Agreement with added perspective, Conversational"};
+Object.keys(VC_FULL_SOP).forEach(k=>{ if(VC_SEED[k]) VC_SEED[k].sop = VC_FULL_SOP[k]; });
+/* profiles saved before this update carry the short SOP summary — upgrade them once */
+{ const _vs = vcSeed; vcSeed = function(){ const r = _vs.apply(this, arguments); let ch = false;
+    Object.keys(VC_FULL_SOP).forEach(k=>{ const v = vcRec(k); if(v && !v.sopFull && String(v.sop||'').length < 1500 && vcCanEdit(k)){ v.sop = VC_FULL_SOP[k]; v.sopFull = true; v.updatedAt = nowISO(); ch = true; } });
+    if(ch) recordChange(); return r; }; }
+/* a profile built from an outline (not from real comments) says so until it has real examples */
+{ const _st = vcStatus; vcStatus = function(cid){ const s = _st.apply(this, arguments);
+    const real = (s.p.examples||[]).filter(e=>!/^seed|sop/i.test(e.src||'') && !String(e.id||'').includes('-s')).length;
+    if((cid==='jon' || s.p.needsExamples) && real < 3) return {...s, active:false, label:`Needs ${first(cname(cid))}’s real examples (${real}/3)`};
+    return s; }; }
+
+/* ===== 54_opsdept.js ===== */
+/* ================= @Ops Suite Support — department tagging (Oct 2026) =================
+   Ops support is tagged as a DEPARTMENT, never as a person. Typing @Ops Suite Support in Messages (and threads) tags the
+   department: every member assigned to System Ops Support is notified, a support request is opened on the System Ops
+   Support board (any member can open, reply to or take ownership of it), and the tag stays on the message.
+   Tickets show the department tag instead of individual names. Membership is managed in System Ops Support settings,
+   so the tag keeps working whoever is on the team. */
+const OPS_TAG = 'Ops Suite Support';
+const OPS_RE = /@Ops Suite Support\b/i;
+const opsMembers = () => (typeof tkTeam==='function' ? tkTeam() : []).filter(k=>PEOPLE[k]);
+const opsChip = () => `<span class="mention dept-tag" title="Department — everyone on System Ops Support is notified">@${OPS_TAG}</span>`;
+
+/* mention picker: the department is offered first when the query matches */
+{ const _ms = mentionSuggest; mentionSuggest = function(){
+    const inp = el('chatMsg'), box = el('mentionBox'); if(!inp || !box) return _ms.apply(this, arguments);
+    const upto = inp.value.slice(0, inp.selectionStart); const mt = upto.match(/(^|\s)@([\w .'-]{0,30})$/);
+    const q = (mt?.[2]||'').toLowerCase(); const c = CHATS.find(x=>x.id===CHAT_OPEN);
+    const dept = mt && c && !/^ops suite support /.test(q) && ('ops suite support'.startsWith(q) || (q.length>=2 && ('ops suite support system support'.includes(q))));
+    _ms.apply(this, arguments);
+    if(!dept) return;
+    MENTION.start = upto.length - mt[2].length - 1;
+    if(!box.classList.contains('on')){ MENTION.list = []; MENTION.i = 0; }
+    MENTION.list = ['@dept-ops', ...MENTION.list.filter(k=>k!=='@dept-ops')];
+    box.innerHTML = MENTION.list.map((k,i)=> k==='@dept-ops'
+      ? `<button class="${i===MENTION.i?'on':''}" onmousedown="event.preventDefault();mentionPick(${i})"><span class="dept-ava">🛠</span><span><b>@${OPS_TAG}</b><small>Department · ${opsMembers().length} members notified · no individual tagged</small></span></button>`
+      : `<button class="${i===MENTION.i?'on':''}" onmousedown="event.preventDefault();mentionPick(${i})">${av(P(k))}<span><b>${esc(pname(k))}</b><small>${esc((c.kind==='client'&&client(c.client)?.resp?.[k])||P(k).sub||'')}</small></span></button>`).join('');
+    box.classList.add('on'); }; }
+{ const _mp = mentionPick; mentionPick = function(i){ if(MENTION.list[i]!=='@dept-ops') return _mp.apply(this, arguments);
+    const inp = el('chatMsg'); if(!inp) return; const before = inp.value.slice(0, MENTION.start), after = inp.value.slice(inp.selectionStart);
+    const ins = '@'+OPS_TAG+' '; inp.value = before + ins + after; const pos = (before+ins).length; inp.setSelectionRange(pos,pos); inp.focus(); mentionClose(); }; }
+/* the tag shows as a department chip */
+{ const _mt = msgText; msgText = function(m){ let h = _mt.apply(this, arguments); if(m?.dept?.includes('ops') || OPS_RE.test(m?.text||'')) h = h.replace(/@Ops Suite Support\b/gi, opsChip()); return h; }; }
+/* sending: tag the department, notify its members, open a support request they can own */
+function opsRoute(m, c, where){
+  if(!m || m.dept?.includes('ops')) return; m.dept = uniq([...(m.dept||[]), 'ops']);
+  const team = opsMembers().filter(k=>k!==PERSON); const snip = String(m.text||'').replace(OPS_RE, '').replace(/\s+/g,' ').trim().slice(0, 140) || 'Support needed';
+  let t = null;
+  if(typeof TICKETS!=='undefined' && typeof tkNewId==='function'){
+    t = {id:tkNewId(), title:`@${OPS_TAG}: ${snip.slice(0, 80)}`, desc:`${m.text}\n\nTagged from ${where} — ${chatTitle(c)}.`, type:'Question', priority:'Normal', area:'Messages', pm:null, systemWide:false,
+      files:(m.files||[]).slice(0,10), device:typeof tkDevice==='function'?tkDevice():'', portal:PEOPLE[PERSON]?.sub||ROLE, by:PERSON, at:nowISO(), updated:nowISO(), status:'Submitted', assignee:null, assignees:opsMembers(), team:TK_TEAM_NAME, dept:'ops',
+      src:{chat:c.id, msg:m.id}, history:[{at:nowISO(), by:PERSON, to:'Submitted', note:`Tagged @${OPS_TAG} in ${where} (${chatTitle(c)})`}], comments:[]};
+    TICKETS.unshift(t); m.ticket = t.id; }
+  if(team.length) notify(team, 'system', `🛠 <b>@${OPS_TAG}</b> — ${esc(first(PERSON))} tagged the department in <b>${esc(chatTitle(c))}</b>: “${esc(snip)}”${t?` · request ${esc(t.id)}`:''}`, t && typeof tkUrl==='function' ? tkUrl(t.id) : {view:'chat', arg:c.id});
+  audit(`Tagged @${OPS_TAG} from ${chatTitle(c)}${t?' — '+t.id:''}`);
+}
+{ const _sc = sendChat; sendChat = function(){ const txt = el('chatMsg')?.value||''; const cid = CHAT_OPEN; const n0 = MESSAGES.length; const r = _sc.apply(this, arguments);
+    if(OPS_RE.test(txt)){ const m = MESSAGES.slice(n0).reverse().find(x=>x.by===PERSON && x.chat===cid) || MESSAGES.filter(x=>x.by===PERSON && x.chat===cid).slice(-1)[0];
+      const c = CHATS.find(x=>x.id===cid); if(m && c && OPS_RE.test(m.text||'')){ opsRoute(m, c, 'Messages'); recordChange(); if(CURRENT==='chat') updateMessages(c); toast(`@${OPS_TAG} tagged — the department was notified`); } }
+    return r; }; }
+{ const _st = sendThreadReply; sendThreadReply = function(){ const txt = el('thrMsg')?.value||''; const n0 = MESSAGES.length; const r = _st.apply(this, arguments);
+    if(OPS_RE.test(txt)){ const m = MESSAGES.slice(n0).reverse().find(x=>x.by===PERSON && x.thread); const c = m && CHATS.find(x=>x.id===m.chat);
+      if(m && c){ opsRoute(m, c, 'a thread'); recordChange(); if(typeof drawThread==='function') drawThread(); toast(`@${OPS_TAG} tagged — the department was notified`); } }
+    return r; }; }
+/* tickets: department tag only — no individual names */
+tkTagsHTML = function(t){ return `<span class="tk-team">${TK_TEAM_NAME}</span> ${opsChip()}`; };
 
 CC_BOOT();
 </script>

@@ -2507,7 +2507,51 @@ body{background:
 .modal .box{box-shadow:inset 0 1px 0 #fff,0 0 0 1px rgba(196,96,10,.08),0 50px 100px -30px rgba(120,48,0,.55)!important}
 @media (prefers-reduced-motion:reduce){.card{transition:none}}
 body.glass-lite .card{box-shadow:0 0 0 1px rgba(196,96,10,.10),0 12px 24px -16px rgba(176,72,0,.4)!important}
+/* ===== Calendar & meetings (Oct 2026) ===== */
+.cal-bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:14px}
+.mt-nav{display:flex;align-items:center;gap:8px;margin-left:auto}.mt-nav b{min-width:150px;text-align:center;font:700 15px Sora,sans-serif}
+.mt-month{padding:10px;overflow:hidden}
+.mt-wd{display:grid;grid-template-columns:repeat(7,1fr);font:700 11px Inter,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);padding:4px 6px 8px}
+.mt-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+.mt-cell{min-height:104px;border-radius:14px;padding:6px;background:rgba(255,255,255,.42);border:1px solid rgba(255,255,255,.75);box-shadow:inset 0 1px 0 rgba(255,255,255,.9);display:flex;flex-direction:column;gap:3px;cursor:pointer;min-width:0;transition:background .15s,transform .12s}
+.mt-cell:hover{background:rgba(255,255,255,.66)}.mt-cell:active{transform:scale(.99)}
+.mt-cell.out{opacity:.45}.mt-cell.today{border-color:#F58A1F;box-shadow:0 0 0 2px rgba(245,138,31,.25),inset 0 1px 0 #fff}
+[data-theme="dark"] .mt-cell{background:rgba(255,170,90,.05);border-color:rgba(255,190,130,.10)}
+.mt-dn{font:700 12px Inter,sans-serif;color:var(--ink-2)}
+.mt-chip{display:block;width:100%;text-align:left;border:0;border-radius:8px;padding:3px 7px;font:600 11.5px Inter,sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;
+  background:linear-gradient(180deg,rgba(255,214,160,.95),rgba(255,186,110,.85));color:#3A1D00;box-shadow:inset 0 1px 0 rgba(255,255,255,.7);transition:transform .12s}
+.mt-chip b{font-weight:800}.mt-chip:active{transform:scale(.97)}
+.mt-chip.st-pending{background:linear-gradient(180deg,#fff,rgba(255,240,222,.9));border:1px dashed rgba(240,120,20,.6)}
+.mt-chip.st-declined,.mt-chip.cx{opacity:.5;text-decoration:line-through}
+.mt-chip.st-reschedule{background:linear-gradient(180deg,rgba(226,236,255,.95),rgba(200,218,252,.85));color:#173B7A}
+.mt-more{font-size:11px;color:var(--ink-3);padding-left:4px}
+.mt-agday{margin-bottom:14px}.mt-agd{font:700 12px Inter,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:#B4590A;margin:0 4px 8px}
+.mt-row{display:flex;align-items:center;gap:12px;padding:12px 16px;margin-bottom:8px;cursor:pointer}.mt-row.cx{opacity:.6}
+.mt-thumb{width:52px;height:52px;object-fit:cover;border-radius:12px;flex:none}
+.mt-ic{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;background:linear-gradient(180deg,#FFE3C2,#FFC985);flex:none;font-size:18px}
+.mt-st{display:inline-flex;align-items:center;padding:2px 9px;border-radius:999px;font:700 11px Inter,sans-serif;white-space:nowrap;background:rgba(20,16,8,.06);color:var(--ink-2)}
+.mt-st.accepted{background:rgba(24,138,78,.12);color:#11713F}.mt-st.declined{background:rgba(200,40,40,.10);color:#B42323}
+.mt-st.pending{background:rgba(245,138,31,.14);color:#A6520A}.mt-st.reschedule{background:rgba(45,99,200,.12);color:#2D4FA0}
+.mt-st.organizer{background:linear-gradient(180deg,#FFD08A,#FFA43F);color:#2A1400}.mt-st.live{background:#E5484D;color:#fff;animation:mtLive 1.6s ease-in-out infinite}
+.mt-st.joined{background:rgba(24,138,78,.18);color:#11713F;margin-left:4px}
+@keyframes mtLive{50%{opacity:.65}}
+.mt-sts{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end}
+.mt-banner{width:100%;max-height:220px;object-fit:cover;border-radius:16px;margin-bottom:12px;display:block}
+.mt-dhead{display:flex;gap:8px;align-items:center;margin-bottom:8px}.cal-kind{font:800 11px Inter,sans-serif;letter-spacing:.1em;text-transform:uppercase;color:#B4590A}
+.mt-when{font-size:14px;margin-bottom:6px}.mt-link{font-size:13px;margin-bottom:8px;word-break:break-all}
+.mt-notes{padding:10px 12px;border-radius:12px;background:rgba(255,255,255,.55);border:1px solid var(--line);font-size:13px;line-height:1.5;margin:6px 0}
+.mt-ppl{max-height:300px;overflow-y:auto}
+.mt-rs{margin-top:10px;padding:10px 12px;border-radius:12px;background:rgba(45,99,200,.07);font-size:13px;display:flex;flex-direction:column;gap:4px}
+.mt-acts{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}.mt-acts .mt-on{border-color:#F58A1F!important;box-shadow:0 0 0 3px rgba(245,138,31,.22)!important}
+.mt-quick{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0}
+.mt-pick{max-height:220px;overflow-y:auto;border:1px solid var(--line);border-radius:12px;padding:4px;display:grid;grid-template-columns:1fr 1fr;gap:2px}
+.mt-p{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:10px;cursor:pointer;font-size:12.5px}.mt-p input{width:auto}
+.mt-p.on{background:rgba(255,186,110,.22)}.mt-p small{display:block;color:var(--ink-3);font-size:11px}.mt-p .av{width:26px;height:26px;font-size:10px}
+.mt-img img{max-width:100%;max-height:160px;border-radius:12px;display:block}
+@media(max-width:760px){.mt-grid{gap:3px}.mt-cell{min-height:64px;padding:4px}.mt-chip{font-size:10px;padding:2px 4px}.mt-chip b{display:none}.mt-wd{font-size:9px}.mt-pick{grid-template-columns:1fr}.mt-nav{margin-left:0}}
+@media (prefers-reduced-motion:reduce){.mt-st.live{animation:none}}
 </style>
+
 
 
 
@@ -3346,8 +3390,8 @@ function renderNotifs(){
   el('notifFilter').innerHTML = [['all','All'],['unread','Unread'],...Object.entries(NTYPES).filter(([k])=>mine.some(n=>n.type===k))].map(([k,v])=>`<button class="${NF===k?'on':''}" onclick="NF='${k}';renderNotifs()">${v}${k==='unread'?` (${mine.filter(n=>!n.read).length})`:''}</button>`).join('');
   const L = mine.filter(n=>NF==='all'||(NF==='unread'?!n.read:n.type===NF)).slice(0,80);
   list.innerHTML = L.map(n=>{
-    const [bg,fg,path] = icons[n.type]||icons.system; const asst = isAssistantKey(n.by) && assistant(n.by); const ops = n.by==='ops-support' || n.as==='support', coo = n.as==='coo' && PEOPLE[n.by];
-    return `<div class="notif ${n.read?'':'unread'}" onclick="openNotif('${n.id}')">${ops&&typeof opsAva==='function'?`<span class="n-ico" style="background:none">${opsAva(30)}</span>`:coo?`<span class="n-ico" style="background:none">${av(P(n.by))}</span>`:asst?`<span class="n-ico" style="background:none">${aiAva(n.by,30)}</span>`:`<span class="n-ico" style="background:${bg};color:${fg}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="${path}"/></svg></span>`}
+    const [bg,fg,path] = icons[n.type]||icons.system; const ak = n.asst || n.by; const asst = isAssistantKey(ak) && assistant(ak); const ops = n.by==='ops-support' || n.as==='support', coo = n.as==='coo' && PEOPLE[n.by];
+    return `<div class="notif ${n.read?'':'unread'}" onclick="openNotif('${n.id}')">${ops&&typeof opsAva==='function'?`<span class="n-ico" style="background:none">${opsAva(30)}</span>`:coo?`<span class="n-ico" style="background:none">${av(P(n.by))}</span>`:asst?`<span class="n-ico" style="background:none">${aiAva(ak,30)}</span>`:`<span class="n-ico" style="background:${bg};color:${fg}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="${path}"/></svg></span>`}
       <div><p style="font-size:12.5px">${n.text}</p><span class="hint">${NTYPES[n.type]||'Update'} · ${ago(n.at)}${ops?' · from <b>System Ops Support Team</b>':coo?' · from <b>'+esc(pname(n.by))+'</b>, '+esc(P(n.by).sub||'COO'):asst?' · from <b>'+esc(asst.name)+'</b>':n.by&&PEOPLE[n.by]?' · from '+esc(first(n.by)):''}</span></div></div>`;
   }).join('') || '<div class="empty">You\'re all caught up.</div>';
   updateBadges();
@@ -18637,6 +18681,228 @@ function opsRoute(m, c, where){
     return r; }; }
 /* tickets: department tag only — no individual names */
 tkTagsHTML = function(t){ return `<span class="tk-team">${TK_TEAM_NAME}</span> ${opsChip()}`; };
+
+/* ===== 55_calendar.js ===== */
+/* ================= CALENDAR · MEETINGS · AI REMINDERS (Oct 2026) — internal scheduling only, no booking =================
+   Create Meeting → select participants → details / poster / meeting link → participants notified → on their Dashboard
+   & Calendar → AI Assistant watches it → 30-minute reminder → meeting starts → attendance check → 5-minute chat follow-up
+   for anyone who hasn't joined → attendance & status updates for the organizer.
+   • Anyone can schedule a meeting, appointment or virtual workshop. The organizer edits details, adds/removes people,
+     reschedules or cancels; participants Accept, Decline or Request to Reschedule.
+   • Each person only sees the events they organize or are invited to (record audience = organizer + participants).
+   • Responses and attendance are separate per-person records, so two people answering at once never overwrite each other.
+   • Attendance = joining through the portal's Join button or the meeting link in a reminder / chat follow-up.
+   • Reminders run from the portals that are open: each person's own portal reminds them, and the organizer's portal also
+     reminds everyone else (with push notifications to their phones). Notification ids are fixed per meeting + person, so a
+     reminder is never sent twice. */
+
+let MEETINGS = [], MTRSVP = [];
+const mtAud = m => uniq([m.organizer, ...(m.participants||[])]).filter(Boolean);
+COLL.meetings = {get:()=>MEETINGS, set:v=>MEETINGS=v, aud:m=>mtAud(m)};
+COLL.mtrsvp = {get:()=>MTRSVP, set:v=>MTRSVP=v, aud:r=>{ const m = MEETINGS.find(x=>x.id===r.meeting); return m ? mtAud(m) : [r.person]; }};
+const MT_KINDS = ['Meeting','Appointment','Virtual workshop'];
+const MT_ST = {pending:'Pending', accepted:'Accepted', declined:'Declined', reschedule:'Reschedule requested'};
+const MT_TZ = 'Asia/Manila';
+const mtIso = (d, t) => new Date(`${d}T${t||'09:00'}:00+08:00`).toISOString();
+const mtDay = iso => manilaDate(new Date(iso));
+const mtTime = iso => new Date(iso).toLocaleTimeString('en-PH', {timeZone:MT_TZ, hour:'numeric', minute:'2-digit'});
+const mtDate = (iso, o={}) => new Date(iso).toLocaleDateString('en-PH', {timeZone:MT_TZ, weekday:o.long?'long':'short', month:o.long?'long':'short', day:'numeric', ...(o.year?{year:'numeric'}:{})});
+const mtHHMM = iso => new Date(iso).toLocaleTimeString('en-GB', {timeZone:MT_TZ, hour:'2-digit', minute:'2-digit', hour12:false});
+const mtMine = m => m && (m.organizer===PERSON || (m.participants||[]).includes(PERSON));
+const mtRsvp = (mid, k) => MTRSVP.find(r=>r.id===mid+'|'+k);
+const mtSt = (m, k) => k===m.organizer ? 'accepted' : (mtRsvp(m.id, k)?.st || 'pending');
+const mtJoined = (m, k) => mtRsvp(m.id, k)?.joined;
+const mtLive = m => m.status!=='cancelled' && Date.now() >= new Date(m.start).getTime() - 10*60e3 && Date.now() <= new Date(m.end).getTime();
+const mtPast = m => Date.now() > new Date(m.end).getTime();
+const mtList = () => MEETINGS.filter(mtMine).sort((a,b)=>a.start.localeCompare(b.start));
+const mtAsst = m => { const pa = typeof paForPM==='function' && paForPM(m.organizer); return pa ? 'asst:'+pa.id : 'asst:cora'; };
+const mtLeadRole = k => { const p = PEOPLE[k]; return !!p && (p.role==='manager' || isHead(k) || p.role==='hr' || ['ceo','coo','creative','cfo'].includes(p.role)); };
+const MT = {view:'month', month:null, filter:'all'};
+
+/* ---------- create / edit ---------- */
+let MT_IMG = null, MT_PICK = [];
+function mtModal(id){
+  const m = id ? MEETINGS.find(x=>x.id===id) : null; if(m && m.organizer!==PERSON && !isFullAccess()) return toast('Only the organizer can edit this');
+  const d = m ? mtDay(m.start) : manilaDate(); const t0 = m ? mtHHMM(m.start) : '10:00'; const t1 = m ? mtHHMM(m.end) : '10:30';
+  MT_IMG = m?.image || null; MT_PICK = [...(m?.participants||[])];
+  openModal(m ? 'Edit '+(m.kind||'meeting').toLowerCase() : 'Schedule a meeting', `
+    <div class="grid cols-2"><div class="field"><label>Title *</label><input id="mtT" value="${esc(m?.title||'')}" placeholder="e.g. Weekly PM check-in"></div>
+      <div class="field"><label>Type</label><select id="mtK">${MT_KINDS.map(k=>`<option ${(m?.kind||'Meeting')===k?'selected':''}>${k}</option>`).join('')}</select></div></div>
+    <div class="grid cols-3"><div class="field"><label>Date</label><input id="mtD" type="date" value="${d}"></div><div class="field"><label>Starts</label><input id="mtS" type="time" value="${t0}"></div><div class="field"><label>Ends</label><input id="mtE" type="time" value="${t1}"></div></div>
+    <div class="hint" style="margin:-4px 0 10px">Philippine time (Asia/Manila)</div>
+    <div class="field"><label>Participants <span class="hint" id="mtPN"></span></label><input id="mtQ" placeholder="Search people…" oninput="mtDrawPick()"><div class="mt-quick">${mtQuickGroups().map((g,i)=>`<button type="button" class="chip" onclick="mtAddGroup(${i})">+ ${esc(g[0])}</button>`).join('')}</div><div id="mtPick" class="mt-pick"></div></div>
+    <div class="field"><label>Meeting link</label><div style="display:flex;gap:8px"><input id="mtL" value="${esc(m?.link||'')}" placeholder="https://meet.google.com/… or Zoom link" style="flex:1"><button type="button" class="btn" onclick="mtMakeMeet()">🎥 Create Google Meet link</button></div></div>
+    <div class="field"><label>Event image / poster</label><div class="mt-img" id="mtImg">${mtImgHTML()}</div></div>
+    <div class="field"><label>Purpose / notes</label><textarea id="mtN" rows="3" placeholder="Agenda, what to prepare…">${esc(m?.notes||'')}</textarea></div>
+    <div class="hint" style="margin-bottom:10px">⏰ The AI Assistant reminds everyone 30 minutes before, and follows up in chat with anyone who hasn’t joined 5 minutes after it starts.</div>
+    <button class="btn primary" style="width:100%" onclick="mtSave(${m?`'${m.id}'`:'null'})">${m?'Save changes':'Schedule & notify participants'}</button>`, true);
+  mtDrawPick(); hydrateChatMedia(el('mtImg'));
+}
+function mtQuickGroups(){ const G = []; const myC = (PEOPLE[PERSON]?.clients||[]);
+  if(ROLE==='manager'){ const t = uniq(CLIENTS.filter(c=>pmsOf(c.id).includes(PERSON) && !isEnded(c)).flatMap(c=>c.team||[])).filter(k=>PEOPLE[k] && k!==PERSON); if(t.length) G.push(['My VAs', t]); }
+  if(typeof mkKeys==='function' && mkKeys().includes(PERSON)) G.push(['Marketing Department', mkKeys().filter(k=>k!==PERSON)]);
+  G.push(['Company heads', HEADS.filter(k=>k!==PERSON && PEOPLE[k])]);
+  const core = (S().coreTeam||[]).filter(k=>k!==PERSON && PEOPLE[k]); if(core.length) G.push(['Core Team', core]);
+  return G; }
+function mtAddGroup(i){ const g = mtQuickGroups()[i]; if(!g) return; MT_PICK = uniq([...MT_PICK, ...g[1]]); mtDrawPick(); }
+function mtDrawPick(){ const box = el('mtPick'); if(!box) return; const q = (el('mtQ')?.value||'').toLowerCase();
+  const all = activePeople().filter(k=>k!==PERSON && !isAssistantKey(k) && PEOPLE[k]?.role!=='client').sort((a,b)=>pname(a).localeCompare(pname(b)));
+  const L = all.filter(k=>MT_PICK.includes(k) || !q || pname(k).toLowerCase().includes(q) || (PEOPLE[k].sub||'').toLowerCase().includes(q)).slice(0, q?60:400);
+  box.innerHTML = L.map(k=>`<label class="mt-p ${MT_PICK.includes(k)?'on':''}"><input type="checkbox" ${MT_PICK.includes(k)?'checked':''} onchange="mtTog('${k}',this.checked)">${av(P(k))}<span><b>${esc(pname(k))}</b><small>${esc(PEOPLE[k].sub||'')}</small></span></label>`).join('') || '<div class="hint">No one matches</div>';
+  const n = el('mtPN'); if(n) n.textContent = MT_PICK.length ? `· ${MT_PICK.length} selected` : ''; }
+function mtTog(k, on){ MT_PICK = on ? uniq([...MT_PICK, k]) : MT_PICK.filter(x=>x!==k); mtDrawPick(); }
+function mtImgHTML(){ return MT_IMG ? `<img class="chat-img" data-f='${esc(JSON.stringify(MT_IMG))}' alt=""><div style="display:flex;gap:6px;margin-top:6px"><button type="button" class="btn" onclick="mtPickImg()">↺ Replace</button><button type="button" class="btn ghost" onclick="MT_IMG=null;el('mtImg').innerHTML=mtImgHTML()">✕ Remove</button></div>`
+  : `<button type="button" class="btn" onclick="mtPickImg()">🖼 Add image, banner or poster</button>`; }
+async function mtPickImg(){ const f = (await pickFiles({accept:'image/*'}))[0]; if(!f) return; if(!isImg(f)) return toast('Please choose an image (JPG, PNG, GIF or WebP)'); MT_IMG = f; el('mtImg').innerHTML = mtImgHTML(); hydrateChatMedia(el('mtImg')); }
+async function mtMakeMeet(){ const b = el('mtL'); if(!b) return; toast('Creating a Google Meet link…');
+  try{ const r = await getMeetLink({id:'mt-new', callId:'mt'+Math.random().toString(36).slice(2,12)}); if(r?.url){ b.value = r.url; toast(r.how==='google'?'Google Meet link created':'Meet link added from the standby list'); } else toast('Google Meet isn’t connected — paste a link instead'); }
+  catch(e){ toast('Could not create a Meet link — paste one instead'); } }
+function mtSave(id){
+  const title = el('mtT').value.trim(); const d = el('mtD').value; const s = el('mtS').value; const e = el('mtE').value;
+  if(!title) return toast('Add a title'); if(!d || !s) return toast('Pick the date and start time'); if(!MT_PICK.length) return toast('Select at least one participant');
+  const start = mtIso(d, s); let end = mtIso(d, e||s); if(end <= start) end = new Date(new Date(start).getTime() + 30*60e3).toISOString();
+  let link = el('mtL').value.trim(); if(link && !/^https?:\/\//i.test(link)) link = 'https://'+link;
+  const o = {title, kind:el('mtK').value, start, end, participants:MT_PICK.filter(k=>k!==PERSON), link, image:MT_IMG, notes:el('mtN').value.trim()};
+  if(!id){ const m = {id:'mt'+Math.random().toString(36).slice(2,12), organizer:PERSON, status:'scheduled', createdAt:nowISO(), history:[{at:nowISO(), by:PERSON, act:'Scheduled'}], ...o};
+    MEETINGS.push(m); notify(m.participants, 'meeting', `📅 <b>${esc(first(PERSON))}</b> invited you to <b>${esc(title)}</b> — ${esc(mtDate(start))} · ${esc(mtTime(start))}`, {view:'schedule', meeting:m.id});
+    audit(`Scheduled “${title}” for ${mtDate(start)} ${mtTime(start)}`); recordChange(); closeModal(); MT.month = mtDay(start).slice(0,7); go('schedule'); toast('Scheduled — participants notified'); return; }
+  const m = MEETINGS.find(x=>x.id===id); if(!m) return;
+  const moved = m.start!==start || m.end!==end; const added = o.participants.filter(k=>!(m.participants||[]).includes(k)); const removed = (m.participants||[]).filter(k=>!o.participants.includes(k));
+  Object.assign(m, o, {updatedAt:nowISO()}); m.history = [...(m.history||[]), {at:nowISO(), by:PERSON, act:moved?`Rescheduled to ${mtDate(start)} ${mtTime(start)}`:'Updated the details'}];
+  if(moved) MTRSVP.filter(r=>r.meeting===m.id && r.st!=='declined').forEach(r=>{ r.st = 'pending'; r.at = nowISO(); r.note = ''; });
+  const keep = m.participants.filter(k=>!added.includes(k));
+  if(keep.length) notify(keep, 'meeting', moved ? `🔁 <b>${esc(title)}</b> was rescheduled to <b>${esc(mtDate(start))} · ${esc(mtTime(start))}</b> — please confirm again` : `✏️ <b>${esc(first(PERSON))}</b> updated <b>${esc(title)}</b>`, {view:'schedule', meeting:m.id});
+  if(added.length) notify(added, 'meeting', `📅 <b>${esc(first(PERSON))}</b> invited you to <b>${esc(title)}</b> — ${esc(mtDate(start))} · ${esc(mtTime(start))}`, {view:'schedule', meeting:m.id});
+  if(removed.length) notify(removed, 'meeting', `<b>${esc(first(PERSON))}</b> removed you from <b>${esc(title)}</b>`, {view:'schedule'});
+  recordChange(); closeModal(); RENDER.schedule?.(); toast(moved?'Rescheduled — participants asked to confirm again':'Saved — participants notified');
+}
+function mtCancel(id){ const m = MEETINGS.find(x=>x.id===id); if(!m || (m.organizer!==PERSON && !isFullAccess())) return;
+  confirmModal(`Cancel “${m.title}”?`, `<p>Everyone invited is notified and it’s marked as cancelled on their calendars.</p>`, 'Cancel meeting', ()=>{
+    m.status = 'cancelled'; m.cancelledAt = nowISO(); m.history = [...(m.history||[]), {at:nowISO(), by:PERSON, act:'Cancelled'}];
+    notify(m.participants, 'meeting', `❌ <b>${esc(m.title)}</b> on ${esc(mtDate(m.start))} · ${esc(mtTime(m.start))} was cancelled by ${esc(first(PERSON))}`, {view:'schedule', meeting:m.id});
+    audit(`Cancelled “${m.title}”`); recordChange(); closeModal(); RENDER.schedule?.(); toast('Cancelled — participants notified'); }); }
+
+/* ---------- responses & attendance ---------- */
+function mtRespond(id, st){
+  const m = MEETINGS.find(x=>x.id===id); if(!m || !(m.participants||[]).includes(PERSON)) return;
+  if(st==='reschedule') return mtReschedModal(id);
+  mtSetRsvp(m, {st, note:''}); notify(m.organizer, 'meeting', `${st==='accepted'?'✅':'🚫'} <b>${esc(first(PERSON))}</b> ${st==='accepted'?'accepted':'declined'} <b>${esc(m.title)}</b>`, {view:'schedule', meeting:m.id});
+  recordChange(); mtOpen(id); RENDER.schedule?.(); buildNav(); toast(st==='accepted'?'Accepted':'Declined — the organizer was told'); }
+function mtSetRsvp(m, o){ let r = mtRsvp(m.id, PERSON); if(!r){ r = {id:m.id+'|'+PERSON, meeting:m.id, person:PERSON}; MTRSVP.push(r); } Object.assign(r, o, {at:nowISO()}); return r; }
+function mtReschedModal(id){ const m = MEETINGS.find(x=>x.id===id); if(!m) return;
+  openModal('Request to reschedule', `<p class="hint" style="margin-bottom:8px">${esc(m.title)} · ${esc(mtDate(m.start))} ${esc(mtTime(m.start))}. ${esc(first(m.organizer))} will be notified.</p>
+    <div class="grid cols-2"><div class="field"><label>Suggested date</label><input id="mrD" type="date" value="${mtDay(m.start)}"></div><div class="field"><label>Suggested time</label><input id="mrT" type="time" value="${mtHHMM(m.start)}"></div></div>
+    <div class="field"><label>Reason / note</label><textarea id="mrN" rows="3" placeholder="e.g. I have a client call at that time"></textarea></div>
+    <button class="btn primary" style="width:100%" onclick="mtReschedSave('${id}')">Send request</button>`); }
+function mtReschedSave(id){ const m = MEETINGS.find(x=>x.id===id); if(!m) return; const note = el('mrN').value.trim(); const d = el('mrD').value, t = el('mrT').value;
+  const propose = d && t ? mtIso(d, t) : null; mtSetRsvp(m, {st:'reschedule', note, propose});
+  notify(m.organizer, 'meeting', `🔁 <b>${esc(first(PERSON))}</b> asked to reschedule <b>${esc(m.title)}</b>${propose?` — suggests ${esc(mtDate(propose))} · ${esc(mtTime(propose))}`:''}${note?`: “${esc(note)}”`:''}`, {view:'schedule', meeting:m.id});
+  recordChange(); closeModal(); RENDER.schedule?.(); toast('Request sent to the organizer'); }
+function mtJoin(id){ const m = MEETINGS.find(x=>x.id===id); if(!m) return; if(!m.link) return toast('No meeting link yet — check with the organizer');
+  if(mtMine(m) && PERSON!==m.organizer){ mtSetRsvp(m, {joined:mtJoined(m, PERSON)||nowISO(), st:mtSt(m, PERSON)==='pending'?'accepted':mtSt(m, PERSON)}); recordChange(); }
+  else if(PERSON===m.organizer){ mtSetRsvp(m, {joined:mtJoined(m, PERSON)||nowISO(), st:'accepted'}); recordChange(); }
+  window.open(m.link, '_blank', 'noopener'); }
+/* clicking a meeting link anywhere (reminder, chat follow-up) also counts as joining */
+document.addEventListener('click', e=>{ const a = e.target.closest?.('a[href]'); if(!a) return; const href = a.getAttribute('href');
+  const m = MEETINGS.find(x=>x.link && x.link===href && mtMine(x) && mtLive(x)); if(m && !mtJoined(m, PERSON)){ mtSetRsvp(m, {joined:nowISO(), st:mtSt(m, PERSON)==='pending'?'accepted':mtSt(m, PERSON)}); recordChange(); } }, true);
+
+/* ---------- event detail ---------- */
+function mtOpen(id){ const m = MEETINGS.find(x=>x.id===id); if(!m) return toast('This event is no longer on your calendar'); const org = m.organizer===PERSON; const me = mtSt(m, PERSON);
+  const ppl = [m.organizer, ...(m.participants||[])];
+  const stat = k => k===m.organizer ? '<span class="mt-st organizer">Organizer</span>' : `<span class="mt-st ${mtSt(m,k)}">${MT_ST[mtSt(m,k)]}</span>${mtJoined(m,k)?`<span class="mt-st joined">Joined ${esc(mtTime(mtJoined(m,k)))}</span>`:''}`;
+  const rs = MTRSVP.filter(r=>r.meeting===m.id && r.st==='reschedule');
+  openModal(m.title, `${m.image?`<img class="chat-img mt-banner" data-f='${esc(JSON.stringify(m.image))}' alt="">`:''}
+    <div class="mt-dhead"><span class="cal-kind">${esc(m.kind||'Meeting')}</span>${m.status==='cancelled'?'<span class="mt-st declined">Cancelled</span>':mtLive(m)?'<span class="mt-st live">Happening now</span>':mtPast(m)?'<span class="mt-st">Ended</span>':'<span class="mt-st accepted">Scheduled</span>'}</div>
+    <div class="mt-when">📅 <b>${esc(mtDate(m.start,{long:true,year:true}))}</b> · ${esc(mtTime(m.start))} – ${esc(mtTime(m.end))} <span class="hint">(PH time)</span></div>
+    ${m.link?`<div class="mt-link">🔗 <a href="${esc(m.link)}" target="_blank" rel="noopener">${esc(m.link.replace(/^https?:\/\//,''))}</a></div>`:''}
+    ${m.notes?`<div class="mt-notes">${esc(m.notes).replace(/\n/g,'<br>')}</div>`:''}
+    <div class="nav-label" style="padding:12px 0 4px">People · ${ppl.length}</div>
+    <div class="mt-ppl">${ppl.map(k=>`<div class="list-row">${av(P(k))}<div style="flex:1;min-width:0"><b style="font-size:13px">${esc(pname(k))}</b><div class="hint">${esc(P(k).sub||'')}</div></div><div class="mt-sts">${stat(k)}</div></div>`).join('')}</div>
+    ${org&&rs.length?`<div class="mt-rs">${rs.map(r=>`<div>🔁 <b>${esc(first(r.person))}</b> asked to reschedule${r.propose?` → ${esc(mtDate(r.propose))} ${esc(mtTime(r.propose))}`:''}${r.note?`: “${esc(r.note)}”`:''}</div>`).join('')}</div>`:''}
+    <div class="mt-acts">${m.status!=='cancelled'&&m.link&&!mtPast(m)?`<button class="btn primary" onclick="mtJoin('${m.id}')">🎥 Join meeting</button>`:''}
+      ${!org&&m.status!=='cancelled'&&!mtPast(m)?`<button class="btn ${me==='accepted'?'mt-on':''}" onclick="mtRespond('${m.id}','accepted')">✓ Accept</button><button class="btn ${me==='declined'?'mt-on':''}" onclick="mtRespond('${m.id}','declined')">✕ Decline</button><button class="btn ${me==='reschedule'?'mt-on':''}" onclick="mtRespond('${m.id}','reschedule')">🔁 Request to reschedule</button>`:''}
+      ${org&&m.status!=='cancelled'?`<button class="btn" onclick="mtModal('${m.id}')">✎ Edit / participants</button><button class="btn danger" onclick="mtCancel('${m.id}')">Cancel meeting</button>`:''}</div>
+    <div class="hint" style="margin-top:10px">Organized by ${esc(pname(m.organizer))}${(m.history||[]).length>1?` · last change: ${esc(m.history[m.history.length-1].act)} (${esc(dstr(m.history[m.history.length-1].at))})`:''}</div>`, true);
+  hydrateChatMedia(el('modalBody')); }
+
+/* ---------- the Calendar page ---------- */
+{ const at = NAV.findIndex(n=>n.id==='dashboard'); if(!NAV.some(n=>n.id==='schedule')) NAV.splice(at+1, 0, {id:'schedule', name:'Calendar', roles:ALLR, ico:'M7 3v3M17 3v3M4 9h16M5 5h14a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1Z'}); }
+{ const _na = navAllowed; navAllowed = function(n){ if(n?.id==='schedule') return ROLE!=='client'; return _na(n); }; }
+if(!el('v-schedule')){ const v = document.createElement('div'); v.id = 'v-schedule'; v.className = 'view'; (el('v-dashboard')||document.querySelector('.content .view'))?.after(v); }
+function mtFiltered(){ return mtList().filter(m=>MT.filter==='all' ? true : MT.filter==='mine' ? m.organizer===PERSON : MT.filter==='invited' ? m.organizer!==PERSON && m.status!=='cancelled' && mtSt(m,PERSON)==='pending' : true); }
+function mtChip(m){ const st = m.organizer===PERSON ? 'organizer' : mtSt(m, PERSON);
+  return `<button class="mt-chip ${m.status==='cancelled'?'cx':''} st-${st}" onclick="event.stopPropagation();mtOpen('${m.id}')" title="${esc(m.title)} — ${esc(mtTime(m.start))}"><b>${esc(mtTime(m.start))}</b> ${esc(m.title)}</button>`; }
+RENDER.schedule = () => {
+  const v = el('v-schedule'); if(!v) return; MT.month = MT.month || manilaDate().slice(0,7);
+  const L = mtFiltered(); const pend = mtList().filter(m=>m.organizer!==PERSON && m.status!=='cancelled' && !mtPast(m) && mtSt(m,PERSON)==='pending').length;
+  let body = '';
+  if(MT.view==='month'){ const [y, mo] = MT.month.split('-').map(Number); const first1 = new Date(Date.UTC(y, mo-1, 1)); const lead = (first1.getUTCDay()+6)%7; const today = manilaDate();
+    const cells = Array.from({length:42}, (_,i)=>{ const dd = new Date(Date.UTC(y, mo-1, 1 - lead + i)); return dd.toISOString().slice(0,10); });
+    body = `<div class="mt-month card"><div class="mt-wd">${['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(x=>`<span>${x}</span>`).join('')}</div><div class="mt-grid">${cells.map(dk=>{ const E = L.filter(m=>mtDay(m.start)===dk);
+      return `<div class="mt-cell ${dk.slice(0,7)!==MT.month?'out':''} ${dk===today?'today':''}" onclick="mtNewOn('${dk}')"><span class="mt-dn">${+dk.slice(8)}</span>${E.slice(0,3).map(mtChip).join('')}${E.length>3?`<span class="mt-more">+${E.length-3} more</span>`:''}</div>`; }).join('')}</div></div>`; }
+  else { const up = L.filter(m=>!mtPast(m) || mtDay(m.start)===manilaDate()); const days = uniq(up.map(m=>mtDay(m.start)));
+    body = days.map(dk=>`<div class="mt-agday"><div class="mt-agd">${esc(mtDate(dk+'T04:00:00Z',{long:true}))}</div>${up.filter(m=>mtDay(m.start)===dk).map(m=>mtRow(m)).join('')}</div>`).join('') || `<div class="card"><div class="card-b"><div class="empty">Nothing scheduled. <a href="#" onclick="mtModal();return false">Schedule a meeting</a></div></div></div>`; }
+  const ml = new Date(MT.month+'-15T00:00:00Z').toLocaleDateString('en-PH',{month:'long', year:'numeric', timeZone:'UTC'});
+  v.innerHTML = `<div class="page-head"><div><h2>Calendar</h2><p>Your meetings, appointments and virtual workshops${pend?` · <b>${pend} invitation${pend>1?'s':''} waiting for your answer</b>`:''}</p></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" onclick="mtModal()">+ Schedule meeting</button></div></div>
+    <div class="cal-bar"><div class="pill-row">${[['month','Month'],['list','Upcoming']].map(([k,l])=>`<button class="chip ${MT.view===k?'on':''}" onclick="MT.view='${k}';RENDER.schedule()">${l}</button>`).join('')}</div>
+      <div class="pill-row">${[['all','All'],['mine','I organize'],['invited',`Needs my answer${pend?' · '+pend:''}`]].map(([k,l])=>`<button class="chip ${MT.filter===k?'on':''}" onclick="MT.filter='${k}';RENDER.schedule()">${l}</button>`).join('')}</div>
+      ${MT.view==='month'?`<div class="mt-nav"><button class="btn" onclick="mtShift(-1)">‹</button><b>${esc(ml)}</b><button class="btn" onclick="mtShift(1)">›</button><button class="btn ghost" onclick="MT.month=manilaDate().slice(0,7);RENDER.schedule()">Today</button></div>`:''}</div>
+    ${body}`;
+};
+function mtRow(m){ const st = m.organizer===PERSON ? 'organizer' : mtSt(m, PERSON); const n = (m.participants||[]).length;
+  const acc = (m.participants||[]).filter(k=>mtSt(m,k)==='accepted').length;
+  return `<div class="card mt-row ${m.status==='cancelled'?'cx':''}" onclick="mtOpen('${m.id}')">${m.image?`<img class="chat-img mt-thumb" data-f='${esc(JSON.stringify(m.image))}' alt="">`:`<span class="mt-ic">📅</span>`}
+    <div style="flex:1;min-width:0"><b>${esc(m.title)}</b><div class="hint">${esc(mtTime(m.start))} – ${esc(mtTime(m.end))} · ${esc(m.kind||'Meeting')} · by ${esc(first(m.organizer))} · ${acc}/${n} accepted</div></div>
+    ${m.status==='cancelled'?'<span class="mt-st declined">Cancelled</span>':mtLive(m)?`<span class="mt-st live">Now</span>${m.link?`<button class="btn primary" onclick="event.stopPropagation();mtJoin('${m.id}')">Join</button>`:''}`:`<span class="mt-st ${st}">${st==='organizer'?'Organizer':MT_ST[st]}</span>`}</div>`; }
+function mtShift(n){ const [y, mo] = MT.month.split('-').map(Number); const d = new Date(Date.UTC(y, mo-1+n, 1)); MT.month = d.toISOString().slice(0,7); RENDER.schedule(); }
+function mtNewOn(dk){ mtModal(); setTimeout(()=>{ if(el('mtD')) el('mtD').value = dk; }, 0); }
+{ const _ra = RENDER.schedule; RENDER.schedule = function(){ const r = _ra.apply(this, arguments); hydrateChatMedia(el('v-schedule')); return r; }; }
+
+/* ---------- Dashboard card, nav badge, deep links, live updates ---------- */
+{ const _rd = RENDER.dashboard; RENDER.dashboard = function(){ const r = _rd.apply(this, arguments); const v = el('v-dashboard'); const head = v?.querySelector('.page-head'); if(!head || v.querySelector('.mt-dash')) return r;
+    const up = mtList().filter(m=>m.status!=='cancelled' && new Date(m.end) > new Date() && new Date(m.start) < new Date(Date.now()+7*864e5)).slice(0,4);
+    if(!up.length) return r;
+    head.insertAdjacentHTML('afterend', `<div class="card mt-dash" style="margin-bottom:16px"><div class="card-h"><h3>📅 Upcoming meetings</h3><button class="btn ghost" onclick="go('schedule')">Calendar →</button></div><div class="card-b" style="padding-top:6px">${up.map(m=>`<div class="list-row" style="cursor:pointer" onclick="mtOpen('${m.id}')"><span class="mt-ic">${mtLive(m)?'🔴':'📅'}</span><div style="flex:1;min-width:0"><b style="font-size:13px">${esc(m.title)}</b><div class="hint">${esc(mtDate(m.start))} · ${esc(mtTime(m.start))} · by ${esc(first(m.organizer))}</div></div>${m.organizer!==PERSON&&mtSt(m,PERSON)==='pending'?'<span class="mt-st pending">Needs answer</span>':mtLive(m)&&m.link?`<button class="btn primary" onclick="event.stopPropagation();mtJoin('${m.id}')">Join</button>`:''}</div>`).join('')}</div></div>`);
+    return r; }; }
+{ const _bn = buildNav; buildNav = function(){ _bn.apply(this, arguments); const b = document.querySelector(`#nav .nav-item[onclick="go('schedule')"]`);
+    const n = b ? mtList().filter(m=>m.organizer!==PERSON && m.status!=='cancelled' && !mtPast(m) && mtSt(m,PERSON)==='pending').length : 0;
+    if(b && n && !b.querySelector('.pill')) b.insertAdjacentHTML('beforeend', `<span class="pill">${n}</span>`); }; }
+{ const _fl = followLink; followLink = function(link){ if(link?.view==='schedule'){ closeOverlays(); go('schedule'); if(link.meeting) setTimeout(()=>mtOpen(link.meeting), 60); return; } return _fl.apply(this, arguments); }; }
+{ let t = null; const _ore = onRemoteEvent; onRemoteEvent = function(ev){ _ore(ev); if(['meetings','mtrsvp'].includes(ev?.coll)){ clearTimeout(t); t = setTimeout(()=>{ buildNav(); if(CURRENT==='schedule') RENDER.schedule(); if(CURRENT==='dashboard') RENDER.dashboard(); }, 300); } }; }
+
+/* ================= AI ASSISTANT — 30-minute reminders · 5-minute attendance follow-up ================= */
+function mtNotifOnce(id, to, m, text, link){ if(NOTIFS2.some(n=>n.id===id)) return false;
+  NOTIFS2.unshift({id, to, type:'meeting', text, link:link||{view:'schedule', meeting:m.id}, by:PERSON, asst:mtAsst(m), at:nowISO(), read:false}); return true; }
+function mtRemText(m, k){ const ppl = (m.participants||[]).filter(x=>x!==k).map(first).slice(0,5).join(', ');
+  return `⏰ <b>${esc(m.title)}</b> starts in 30 minutes — ${esc(mtTime(m.start))} · organized by ${esc(k===m.organizer?'you':pname(m.organizer))}${ppl?` · with ${esc(ppl)}`:''}${m.notes?` · ${esc(coraTrim(m.notes,80))}`:''}${m.link?` · <a href="${esc(m.link)}" target="_blank" rel="noopener">Join link</a>`:''}`; }
+function mtTick(){
+  if(!SYNC.ready || !PEOPLE[PERSON] || ROLE==='client') return; const now = Date.now(); let ch = false;
+  for(const m of MEETINGS){ if(m.status==='cancelled' || !mtMine(m)) continue; const s = new Date(m.start).getTime(); const e = new Date(m.end).getTime();
+    const going = k => mtSt(m, k)!=='declined';
+    /* 30 minutes before (sent any time in the last 30 minutes before the start) */
+    if(now >= s - 30*60e3 && now < s){
+      if(going(PERSON) && mtNotifOnce(`mt30|${m.id}|${PERSON}`, PERSON, m, mtRemText(m, PERSON))){ ch = true; toast(`⏰ ${m.title} starts at ${mtTime(m.start)}`); try{ playSound?.('notify'); }catch(_){} }
+      if(m.organizer===PERSON) (m.participants||[]).filter(going).forEach(k=>{ if(mtNotifOnce(`mt30|${m.id}|${k}`, k, m, mtRemText(m, k))) ch = true; });
+    }
+    /* about 5 minutes after the start: follow up with anyone who hasn't joined */
+    if(now >= s + 5*60e3 && now < Math.min(e, s + 30*60e3) && m.link){
+      if(PERSON!==m.organizer && going(PERSON) && !mtJoined(m, PERSON) && mtNotifOnce(`mt5|${m.id}|${PERSON}`, PERSON, m, `🔔 <b>${esc(m.title)}</b> started 5 minutes ago — please join when you can. <a href="${esc(m.link)}" target="_blank" rel="noopener">Join meeting</a>`)){ ch = true; toast(`🔔 ${m.title} has started — join when you can`); }
+      if(m.organizer===PERSON){ const missing = (m.participants||[]).filter(k=>going(k) && !mtJoined(m, k) && PEOPLE[k]);
+        missing.forEach(k=>{ const cid = dmId(m.organizer, k); let c = CHATS.find(x=>x.id===cid); if(!c){ c = {id:cid, kind:'dm', name:'', members:[m.organizer,k].sort(), at:nowISO()}; CHATS.push(c); }
+          const mid = `mt5-${m.id}-${k}`; if(!MESSAGES.some(x=>x.id===mid)){ MESSAGES.push({id:mid, chat:cid, by:mtAsst(m), text:`Hi ${first(k)}! Your meeting with ${first(m.organizer)}, “${m.title}”, started 5 minutes ago. Please join when you can. ${m.link}`, at:nowISO(), files:[], ai:true}); ch = true; }
+          if(mtNotifOnce(`mt5|${m.id}|${k}`, k, m, `🔔 <b>${esc(m.title)}</b> started 5 minutes ago — please join when you can. <a href="${esc(m.link)}" target="_blank" rel="noopener">Join meeting</a>`)) ch = true; });
+        /* PMs & heads get an attendance summary for the meetings they run */
+        if(mtLeadRole(PERSON) && (m.participants||[]).length){ const joined = (m.participants||[]).filter(k=>mtJoined(m,k)); const dec = (m.participants||[]).filter(k=>mtSt(m,k)==='declined');
+          if(!NOTIFS2.some(n=>n.id===`mtatt|${m.id}`)){ NOTIFS2.unshift({id:`mtatt|${m.id}`, to:PERSON, type:'meeting', by:PERSON, asst:mtAsst(m), at:nowISO(), read:false, link:{view:'schedule', meeting:m.id},
+            text:`👥 <b>${esc(m.title)}</b> attendance: ${joined.length} of ${(m.participants||[]).length} joined${missing.length?` · followed up in chat with ${esc(missing.map(first).join(', '))}`:''}${dec.length?` · ${dec.length} declined`:''}`}); ch = true; } }
+      }
+    }
+  }
+  if(ch){ recordChange(); buildNav(); }
+}
+setInterval(mtTick, 30000);
+{ const _sp = setPerson; setPerson = function(p){ _sp(p); setTimeout(mtTick, 4000); }; }
 
 CC_BOOT();
 </script>

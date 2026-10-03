@@ -2550,7 +2550,21 @@ body.glass-lite .card{box-shadow:0 0 0 1px rgba(196,96,10,.10),0 12px 24px -16px
 .mt-img img{max-width:100%;max-height:160px;border-radius:12px;display:block}
 @media(max-width:760px){.mt-grid{gap:3px}.mt-cell{min-height:64px;padding:4px}.mt-chip{font-size:10px;padding:2px 4px}.mt-chip b{display:none}.mt-wd{font-size:9px}.mt-pick{grid-template-columns:1fr}.mt-nav{margin-left:0}}
 @media (prefers-reduced-motion:reduce){.mt-st.live{animation:none}}
+/* ===== Large uploads tray (Oct 2026) ===== */
+.big-tray{position:fixed;right:18px;bottom:calc(18px + env(safe-area-inset-bottom,0px));z-index:95;width:min(400px,calc(100vw - 24px));display:flex;flex-direction:column;gap:8px}
+.big-row{display:flex;gap:10px;align-items:center;padding:12px 14px;border-radius:18px;background:var(--rg-spec,none),var(--gs-pop,rgba(255,255,255,.96));border:1.5px solid rgba(255,255,255,.92);
+  -webkit-backdrop-filter:blur(14px) saturate(1.5);backdrop-filter:blur(14px) saturate(1.5);box-shadow:inset 0 1px 0 #fff,0 0 0 1px rgba(196,96,10,.10),0 24px 50px -20px rgba(120,48,0,.5);animation:floatIn .25s var(--gs-ease,ease)}
+.big-ic{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;font-size:20px;background:linear-gradient(180deg,#FFE3C2,#FFC985);flex:none}
+.big-m{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}.big-m b{font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.big-s{font-size:12px;color:var(--ink-2)}.big-fix{font-size:11.5px;color:var(--ink-3);line-height:1.35}
+.big-bar{height:6px;border-radius:6px;background:rgba(20,16,8,.08);overflow:hidden;margin-top:2px}.big-bar i{display:block;height:100%;border-radius:6px;background:linear-gradient(90deg,#FFC66E,#F58A1F);transition:width .25s}
+.big-row.err .big-bar i{background:#E5484D}.big-row.err .big-s{color:#B42323;font-weight:600}.big-row.done .big-s{color:#11713F;font-weight:600}.big-row.cancel{opacity:.6}
+.big-a{display:flex;flex-direction:column;gap:6px;flex:none}.big-a .btn{padding:5px 12px;font-size:12px}
+[data-theme="dark"] .big-row{background:rgba(40,24,13,.92);border-color:rgba(255,200,150,.14)}
+video{max-width:100%;background:#000;border-radius:12px}
+@media(max-width:640px){.big-tray{right:12px;left:12px;width:auto}}
 </style>
+
 
 
 
@@ -13094,7 +13108,7 @@ function trEdit(id){
     <div class="field"><label>Title *</label><input id="trTitle" value="${esc(t?.title||'')}" placeholder="e.g. Lead Gen: how to submit leads with attachments"></div>
     <div class="field"><label>Short description</label><textarea id="trDesc" rows="3" placeholder="What it covers and who it is for">${esc(t?.desc||'')}</textarea></div>
     <div class="field"><label>Training file</label><div class="tr-drop" id="trDrop" onclick="trPick()" ondragover="event.preventDefault();this.classList.add('on')" ondragleave="this.classList.remove('on')" ondrop="event.preventDefault();this.classList.remove('on');trTakeFile(event.dataTransfer.files[0])">${trDropHTML()}</div>
-      <div class="hint" style="margin-top:6px">MP4 / video, PDF, Word, Excel, PowerPoint, images, audio and other common files · up to ${BACKEND.mode==='live'?'50 MB':'1.5 MB in demo mode'}.</div></div>
+      <div class="hint" style="margin-top:6px">MP4 / video, PDF, Word, Excel, PowerPoint, images, audio and other common files · ${typeof bigLimitText==='function'?bigLimitText():'up to 50 MB'}.</div></div>
     <div class="field"><label>…or a link (Google Drive, YouTube unlisted, Loom, Google Slides)</label><input id="trLink" value="${esc(t?.link||'')}" placeholder="https://…"></div>
     <div class="grid cols-2"><div class="field"><label>Category (optional)</label><input id="trCat" value="${esc(t?.category||'')}" placeholder="e.g. Onboarding, Lead Gen, Tools"></div>
       <div class="field"><label>Announcement</label><select id="trPrio"><option value="Normal">Normal announcement</option><option value="High" ${t?.required?'selected':''}>Required — pop-up the audience must acknowledge</option></select></div></div>
@@ -18105,7 +18119,7 @@ let ANN_AS = null, ANN_CTX = {};
 /* ---------- attachments in the composer ---------- */
 const ANN_OK = {img:/^image\/(jpeg|png|gif|webp)$/i, ext:/\.(jpe?g|png|gif|webp|pdf|mp4|webm|mov|docx?|xlsx?|pptx?|csv|txt)$/i};
 const ANN_MAX_FILES = 10;
-const annLimitMB = f => BACKEND.mode==='live' ? (/^video\//i.test(f.type) || /\.(mp4|webm|mov)$/i.test(f.name) ? 50 : 25) : 1.5;
+let annLimitMB = f => BACKEND.mode==='live' ? (/^video\//i.test(f.type) || /\.(mp4|webm|mov)$/i.test(f.name) ? 50 : 25) : 1.5;
 const annKind = f => isImg(f) ? 'img' : isVid(f) ? 'vid' : /pdf/i.test(f.type||f.name) ? 'pdf' : 'doc';
 const annIcon = f => ({img:'🖼', vid:'🎬', pdf:'📕'}[annKind(f)]) || (/sheet|excel|csv/i.test(f.type||f.name) ? '📊' : /presentation|powerpoint|pptx?$/i.test(f.type||f.name) ? '📽' : '📄');
 function annCheck(f){
@@ -18140,7 +18154,7 @@ function annAddFiles(list, replaceIdx){
       .catch(e=>{ item.uploading = false; item._err = `Couldn’t upload “${f.name}”: ${e.message}`; annDrawFiles(); }); });
 }
 function annPick(replaceIdx){ const i = document.createElement('input'); i.type = 'file'; i.multiple = replaceIdx==null;
-  i.accept = '.jpg,.jpeg,.png,.gif,.webp,.pdf,.mp4,.webm,.mov,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.csv,.txt,image/*,video/mp4,application/pdf';
+  i.accept = '.jpg,.jpeg,.png,.gif,.webp,.pdf,.mp4,.m4v,.webm,.mov,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.csv,.txt,image/*,video/mp4,application/pdf';
   i.onchange = () => annAddFiles(i.files, replaceIdx); i.click(); }
 function annRm(i){ const f = ANN_FILES[i]; if(f?._local) URL.revokeObjectURL(f._local); ANN_FILES.splice(i, 1); annDrawFiles(); }
 function annDrawFiles(){
@@ -18155,7 +18169,7 @@ function annDrawFiles(){
 function annComposerFilesHTML(){ return `<div class="field"><label>Attachments <span class="hint" id="anFilesN"></span></label>
   <div class="af-drop" id="anDrop" tabindex="0" role="button" onclick="annPick()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();annPick()}"
     ondragover="event.preventDefault();this.classList.add('on')" ondragleave="this.classList.remove('on')" ondrop="event.preventDefault();this.classList.remove('on');annAddFiles(event.dataTransfer.files)">
-    <b>📎 Add files</b><span class="hint">or drop them here · JPG, PNG, GIF, PDF, MP4, Word, Excel, PowerPoint · up to ${ANN_MAX_FILES} files · ${BACKEND.mode==='live'?'25 MB each (videos 50 MB)':'1.5 MB each in demo mode'}</span></div>
+    <b>📎 Add files</b><span class="hint">or drop them here · JPG, PNG, GIF, PDF, MP4, Word, Excel, PowerPoint · up to ${ANN_MAX_FILES} files · ${typeof bigLimitText==='function'?bigLimitText():'25 MB each'}</span></div>
   <div id="anFilesX" class="af-list"></div></div>`; }
 
 /* ---------- "Post as" (JA) ---------- */
@@ -18203,7 +18217,7 @@ function annAsPick(v){ ANN_AS = v; document.querySelectorAll('.pas-o').forEach(o
 /* ---------- viewing attachments ---------- */
 function annFilesHTML(files, compact){
   const F = files||[]; if(!F.length) return '';
-  const data = f => esc(JSON.stringify({name:f.name, type:f.type, size:f.size, path:f.path, data:f.data, url:f.url}));
+  const data = f => esc(JSON.stringify({name:f.name, type:f.type, size:f.size, path:f.path, data:f.data, url:f.url, idb:f.idb, big:f.big}));
   const imgs = F.filter(isImg), vids = F.filter(isVid), other = F.filter(f=>!isImg(f) && !isVid(f));
   if(compact) return `<div class="ann-att">${imgs.slice(0,3).map(f=>`<img class="chat-img" data-f='${data(f)}' alt="${esc(f.name)}">`).join('')}${F.length>imgs.slice(0,3).length?`<span class="ann-att-n">📎 ${F.length} attachment${F.length>1?'s':''}</span>`:''}</div>`;
   return `<div class="ann-files">${imgs.length?`<div class="att-imgs n${Math.min(imgs.length,3)}">${imgs.map(f=>`<img class="chat-img" alt="${esc(f.name)}" data-f='${data(f)}' onclick="viewMedia(this)">`).join('')}</div>`:''}
@@ -18903,6 +18917,179 @@ function mtTick(){
 }
 setInterval(mtTick, 30000);
 { const _sp = setPerson; setPerson = function(p){ _sp(p); setTimeout(mtTick, 4000); }; }
+
+/* ===== 56_bigupload.js ===== */
+/* ================= LARGE VIDEO UPLOADS (Oct 2026) — resumable, chunked, with progress · Retry · Cancel =================
+   • Who: company heads, HR, project managers, the Marketing Head and the Finance team upload full-length MP4 / MOV /
+     WebM / M4V videos directly (default limit 5 GB per video — Administration can change it). Everyone else keeps the
+     usual file limits. Existing role permissions for each section are unchanged.
+   • How: files over 6 MB go up in 6 MB chunks over the TUS resumable protocol (Supabase Storage's resumable endpoint).
+     A dropped connection or a failed chunk pauses the upload with the reason and a Retry button that continues from the
+     last saved chunk — nothing is sent twice. Cancel stops it and removes the partial upload. Closing the tab mid-upload
+     asks first; re-picking the same file later resumes where it stopped.
+   • The original file is stored untouched (no re-encoding), so quality is preserved. Videos stream on demand when a viewer
+     presses Play (range requests) with the browser's own play / pause / volume / seek / fullscreen controls.
+   • Demo mode keeps large files in this browser (IndexedDB) so the same flow can be tried without the live database. */
+
+const BIG_CHUNK = 6 * 1024 * 1024;                                    /* Supabase's resumable endpoint requires 6 MB chunks */
+const bigVideoMaxGB = () => +(S().videoMaxGB) || 5;
+const bigVideoMax = () => bigVideoMaxGB() * 1024 * 1024 * 1024;
+const bigFileMaxMB = () => BACKEND.mode==='live' ? 50 : 1.5;              /* everything that isn't a video — unchanged */
+const isVideoFile = f => /^video\/(mp4|quicktime|webm|x-m4v)$/i.test(f?.type||'') || /\.(mp4|m4v|mov|webm)$/i.test(f?.name||'');
+const canBigVideo = (k=PERSON) => { const p = PEOPLE[k]; if(!p) return false;
+  return isHead(k) || (k===PERSON && isFullAccess()) || ['ceo','coo','cfo','creative','hr','manager'].includes(p.role) || (typeof mkIsHead==='function' && mkIsHead(k)) || financeTeam().includes(k); };
+const bigSize = n => n >= 1073741824 ? (n/1073741824).toFixed(2)+' GB' : n >= 1048576 ? (n/1048576).toFixed(1)+' MB' : Math.max(1, Math.round(n/1024))+' KB';
+function bigLimitText(){ return canBigVideo() ? `Videos (MP4, MOV, WebM, M4V) up to ${bigVideoMaxGB()} GB · other files up to ${bigFileMaxMB()} MB${BACKEND.mode==='demo'?' in demo mode':''}` : `Files up to ${bigFileMaxMB()} MB${BACKEND.mode==='demo'?' in demo mode':''} · large videos are uploaded by heads, HR, PMs, the Marketing Head and Finance`; }
+function bigCheck(f){
+  if(isVideoFile(f) && canBigVideo()){ if(f.size > bigVideoMax()) return `${f.name} is ${bigSize(f.size)} — the video limit is ${bigVideoMaxGB()} GB. Trim it or export it smaller (e.g. 1080p H.264 in HandBrake), or ask a system administrator to raise the limit.`; return ''; }
+  const mb = bigFileMaxMB(); if(f.size > mb*1048576) return isVideoFile(f) && !canBigVideo()
+    ? `${f.name} is ${bigSize(f.size)}. Large video uploads are available to company heads, HR, project managers, the Marketing Head and Finance — ask one of them to upload it, or share a link instead.`
+    : `${f.name} is ${bigSize(f.size)} — the limit for this kind of file is ${mb} MB${BACKEND.mode==='demo'?' in demo mode':''}.`;
+  return '';
+}
+
+/* ---------- the upload tray (bottom-right): progress · speed · time left · Retry · Cancel ---------- */
+const BIGQ = new Map();
+function bigTray(){ let t = el('bigTray'); if(!t){ t = document.createElement('div'); t.id = 'bigTray'; t.className = 'big-tray'; t.setAttribute('role','status'); t.setAttribute('aria-live','polite'); document.body.appendChild(t); } return t; }
+function bigPaint(id){
+  const u = BIGQ.get(id); const t = bigTray(); let row = t.querySelector(`[data-bu="${id}"]`);
+  if(!u){ row?.remove(); if(!t.children.length) t.remove(); return; }
+  if(!row){ row = document.createElement('div'); row.className = 'big-row'; row.dataset.bu = id; t.appendChild(row); }
+  const pct = Math.floor(u.sent / u.file.size * 100);
+  const eta = u.speed > 0 && u.state==='up' ? Math.max(1, Math.round((u.file.size - u.sent) / u.speed)) : 0;
+  const etaTx = eta ? (eta > 90 ? `${Math.round(eta/60)} min left` : `${eta} s left`) : '';
+  row.className = `big-row ${u.state}`;
+  row.innerHTML = `<div class="big-ic">${isVideoFile(u.file)?'🎬':'📄'}</div><div class="big-m"><b title="${esc(u.file.name)}">${esc(u.file.name)}</b>
+      <span class="big-s">${u.state==='done'?`✓ Uploaded · ${bigSize(u.file.size)}`:u.state==='err'?`⚠ ${esc(u.err)}`:u.state==='cancel'?'Cancelled':`${pct}% · ${bigSize(u.sent)} of ${bigSize(u.file.size)}${u.speed?` · ${bigSize(u.speed)}/s`:''}${etaTx?' · '+etaTx:''}`}</span>
+      ${u.state==='err'&&u.fix?`<span class="big-fix">${esc(u.fix)}</span>`:''}
+      <span class="big-bar"><i style="width:${u.state==='done'?100:pct}%"></i></span></div>
+    <div class="big-a">${u.state==='err'?`<button class="btn primary" onclick="bigRetry('${id}')">↻ Retry</button>`:''}${['up','err','wait'].includes(u.state)?`<button class="btn ghost" onclick="bigCancel('${id}')" title="Cancel upload">✕ Cancel</button>`:''}</div>`;
+}
+window.addEventListener('beforeunload', e=>{ if([...BIGQ.values()].some(u=>['up','wait','err'].includes(u.state))){ e.preventDefault(); e.returnValue = 'An upload is still in progress'; return e.returnValue; } });
+
+/* explain a failure and how to fix it */
+function bigWhy(status, msg){
+  msg = String(msg||'');
+  if(status===413 || /too large|exceeds|maximum allowed size|payload/i.test(msg)) return ['The storage server rejected the size of this file.', 'A system administrator raises the storage limit in Supabase → Storage → Settings (global and cc-files bucket limits). Large files need a paid Supabase plan.'];
+  if(status===401 || /jwt|expired|unauthor/i.test(msg)) return ['Your sign-in expired during the upload.', 'Retry — the portal refreshes your sign-in and continues from where it stopped.'];
+  if(status===403 || /row-level|policy|permission|not allowed/i.test(msg)) return ['You don’t have permission to upload here.', 'Ask your PM or a system administrator to check your access.'];
+  if(status===409 || /already exists|duplicate/i.test(msg)) return ['A file with this name is already being uploaded.', 'Retry — a fresh upload is started.'];
+  if(status===0 || /network|failed to fetch|offline|timeout/i.test(msg)) return ['The connection dropped.', 'Check your internet, then press Retry — it continues from the last saved part, nothing is re-sent.'];
+  return [msg || `Upload failed (${status})`, 'Press Retry. If it keeps failing, tag @Ops Suite Support with the file name.'];
+}
+
+/* ---------- engines ---------- */
+const BIG_FP = f => `cc-tus:${PERSON}:${f.name}:${f.size}:${f.lastModified||0}`;
+function bigEndpoint(){ const u = CC_CONFIG.SUPABASE_URL.replace(/\/$/,''); const m = u.match(/^https:\/\/([a-z0-9]+)\.supabase\.co$/i);
+  return (m ? `https://${m[1]}.storage.supabase.co` : u) + '/storage/v1/upload/resumable'; }
+const b64 = s => btoa(unescape(encodeURIComponent(s)));
+async function bigToken(){ const {data:{session}} = await BACKEND.sb.auth.getSession(); if(!session) throw Object.assign(new Error('Please sign in again'), {status:401}); return session.access_token; }
+function bigXhr(method, url, headers, body, u){
+  return new Promise((ok, bad)=>{ const x = new XMLHttpRequest(); u.xhr = x; x.open(method, url);
+    Object.entries(headers).forEach(([k,v])=>x.setRequestHeader(k, v));
+    if(body && x.upload) x.upload.onprogress = e=>{ if(e.lengthComputable) u.onChunk(e.loaded); };
+    x.onload = ()=>ok(x); x.onerror = ()=>bad(Object.assign(new Error('network error'), {status:0})); x.ontimeout = ()=>bad(Object.assign(new Error('timeout'), {status:0}));
+    x.onabort = ()=>bad(Object.assign(new Error('cancelled'), {cancelled:true})); x.send(body||null); });
+}
+const TUS = {
+  async start(u){ /* create (or resume) the upload, then send chunks */
+    const tok = await bigToken(); const base = {'Authorization':'Bearer '+tok, 'apikey':CC_CONFIG.SUPABASE_ANON_KEY, 'Tus-Resumable':'1.0.0'};
+    if(!u.url){ const saved = JSON.parse(localStorage.getItem(BIG_FP(u.file))||'null'); if(saved?.url){ u.url = saved.url; u.path = saved.path; } }
+    if(u.url){ const h = await bigXhr('HEAD', u.url, base, null, u).catch(()=>null);
+      if(h && h.status===200){ u.sent = +h.getResponseHeader('Upload-Offset') || 0; } else { u.url = null; u.sent = 0; } }
+    if(!u.url){
+      u.path = `${u.dir||PERSON}/${Date.now().toString(36)}-${u.file.name.replace(/[^\w.\-]+/g,'_')}`;
+      const meta = [['bucketName','cc-files'],['objectName',u.path],['contentType',u.file.type||'video/mp4'],['cacheControl','3600']].map(([k,v])=>k+' '+b64(v)).join(',');
+      const r = await bigXhr('POST', bigEndpoint(), {...base, 'Upload-Length':String(u.file.size), 'Upload-Metadata':meta, 'x-upsert':'false'}, null, u);
+      if(r.status!==201) throw Object.assign(new Error(bigMsg(r)), {status:r.status});
+      let loc = r.getResponseHeader('Location'); if(!loc) throw new Error('The storage server did not return an upload address');
+      if(!/^https?:/.test(loc)) loc = new URL(loc, bigEndpoint()).toString();
+      u.url = loc; u.sent = 0; try{ localStorage.setItem(BIG_FP(u.file), JSON.stringify({url:u.url, path:u.path, at:Date.now()})); }catch(e){}
+    }
+    while(u.sent < u.file.size){
+      if(u.state==='cancel') throw Object.assign(new Error('cancelled'), {cancelled:true});
+      const end = Math.min(u.sent + BIG_CHUNK, u.file.size); const chunk = u.file.slice(u.sent, end); const from = u.sent;
+      u.onChunk = n => { u.live = from + n; u.tick(); };
+      const tk = await bigToken();
+      const r = await bigXhr('PATCH', u.url, {'Authorization':'Bearer '+tk, 'apikey':CC_CONFIG.SUPABASE_ANON_KEY, 'Tus-Resumable':'1.0.0', 'Upload-Offset':String(from), 'Content-Type':'application/offset+octet-stream'}, chunk, u);
+      if(r.status!==204 && r.status!==200) throw Object.assign(new Error(bigMsg(r)), {status:r.status});
+      u.sent = +r.getResponseHeader('Upload-Offset') || end; u.live = u.sent; u.tick();
+    }
+    try{ localStorage.removeItem(BIG_FP(u.file)); }catch(e){}
+    return {name:u.file.name, type:u.file.type||'video/mp4', size:u.file.size, path:u.path, big:true};
+  },
+  async abort(u){ try{ u.xhr?.abort(); }catch(e){} if(u.url){ try{ const tok = await bigToken(); await fetch(u.url, {method:'DELETE', headers:{'Authorization':'Bearer '+tok, 'apikey':CC_CONFIG.SUPABASE_ANON_KEY, 'Tus-Resumable':'1.0.0'}}); }catch(e){} }
+    try{ localStorage.removeItem(BIG_FP(u.file)); }catch(e){} }
+};
+function bigMsg(x){ try{ const j = JSON.parse(x.responseText||'{}'); return j.message || j.error || `HTTP ${x.status}`; }catch(e){ return (x.responseText||'').slice(0,160) || `HTTP ${x.status}`; } }
+/* demo: the same chunked flow, stored in this browser's IndexedDB */
+const BIGDB = {db:null, open(){ return this.db || (this.db = new Promise((ok,bad)=>{ const r = indexedDB.open('cc-big', 1); r.onupgradeneeded = ()=>r.result.createObjectStore('f'); r.onsuccess = ()=>ok(r.result); r.onerror = ()=>bad(r.error); })); },
+  async put(k, v){ const d = await this.open(); return new Promise((ok,bad)=>{ const t = d.transaction('f','readwrite'); t.objectStore('f').put(v, k); t.oncomplete = ok; t.onerror = ()=>bad(t.error); }); },
+  async get(k){ const d = await this.open(); return new Promise((ok,bad)=>{ const q = d.transaction('f').objectStore('f').get(k); q.onsuccess = ()=>ok(q.result); q.onerror = ()=>bad(q.error); }); },
+  async del(k){ const d = await this.open(); return new Promise(ok=>{ const t = d.transaction('f','readwrite'); t.objectStore('f').delete(k); t.oncomplete = ok; t.onerror = ok; }); }};
+const BIG_MEM = new Map();
+const DEMOUP = {
+  async start(u){ u.key = u.key || 'big-'+uid('F'); u.parts = u.parts || [];
+    while(u.sent < u.file.size){
+      if(u.state==='cancel') throw Object.assign(new Error('cancelled'), {cancelled:true});
+      if(window.CC_UPLOAD_FAIL_AT!=null && u.parts.length===window.CC_UPLOAD_FAIL_AT){ window.CC_UPLOAD_FAIL_AT = null; throw Object.assign(new Error('network error'), {status:0}); }
+      const end = Math.min(u.sent + BIG_CHUNK, u.file.size);
+      await new Promise(r=>setTimeout(r, window.CC_UPLOAD_DELAY ?? 120));           /* paced like a real connection */
+      u.parts.push(u.file.slice(u.sent, end)); u.sent = end; u.live = end; u.tick();   /* parts are references, no copying */
+    }
+    const blob = new Blob(u.parts, {type:u.file.type||'video/mp4'}); u.parts = []; BIG_MEM.set(u.key, blob);
+    BIGDB.put(u.key, blob).catch(e=>console.warn('demo: could not keep the video in this browser', e));   /* saved in the background */
+    return {name:u.file.name, type:u.file.type||'video/mp4', size:u.file.size, idb:u.key, big:true};
+  },
+  async abort(u){ u.parts = []; }
+};
+/* one upload: resolves with the file reference once it's done (after any Retries); rejects only when cancelled */
+function bigUpload(file, dir, opt={}){
+  const id = uid('BU'); const eng = BACKEND.mode==='live' ? TUS : DEMOUP;
+  const u = {id, file, dir, sent:0, live:0, state:'up', speed:0, t0:Date.now(), s0:0, onProgress:opt.onProgress};
+  u.tick = () => { const now = Date.now(); if(now - (u.tLast||0) > 250){ const dt = (now - (u.tPrev||u.t0))/1000; if(dt > 0.4){ u.speed = Math.max(0, (u.live - (u.sPrev||0))/dt) * 0.6 + u.speed*0.4; u.tPrev = now; u.sPrev = u.live; } u.tLast = now; bigPaint(id); }
+    u.onProgress?.(Math.min(1, (u.live||u.sent)/file.size)); };
+  BIGQ.set(id, u); bigPaint(id);
+  return new Promise((resolve, reject)=>{
+    u.resolve = resolve; u.reject = reject;
+    const run = () => { u.state = 'up'; u.err = ''; u.fix = ''; bigPaint(id);
+      eng.start(u).then(ref=>{ u.state = 'done'; u.live = file.size; bigPaint(id); u.onProgress?.(1); resolve(ref); setTimeout(()=>{ BIGQ.delete(id); bigPaint(id); }, 4000); })
+        .catch(e=>{ if(e.cancelled || u.state==='cancel'){ return; } const [why, fix] = bigWhy(e.status, e.message); u.state = 'err'; u.err = why; u.fix = fix; u.live = u.sent; bigPaint(id); opt.onError?.(why); }); };
+    u.run = run; run();
+  });
+}
+function bigRetry(id){ const u = BIGQ.get(id); if(!u || u.state!=='err') return; u.tPrev = Date.now(); u.sPrev = u.sent; u.run(); }
+async function bigCancel(id){ const u = BIGQ.get(id); if(!u || u.state==='done' || u.state==='cancel') return; u.state = 'cancel'; bigPaint(id);
+  await (BACKEND.mode==='live' ? TUS : DEMOUP).abort(u);
+  u.reject?.(Object.assign(new Error('Upload cancelled'), {cancelled:true})); setTimeout(()=>{ BIGQ.delete(id); bigPaint(id); }, 1500); toast(`Cancelled — ${u.file.name} was not uploaded`); }
+
+/* ---------- every upload path uses it ---------- */
+storeFile = async function(f){
+  const why = bigCheck(f); if(why){ toast(why); return null; }
+  if(f.size > BIG_CHUNK || (isVideoFile(f) && f.size > 1.4*1048576)){ try{ return await bigUpload(f); }catch(e){ if(!e.cancelled) toast('Upload failed: '+e.message); return null; } }
+  try{ return await BACKEND.upload(f); }catch(e){ const [w, fx] = bigWhy(e.statusCode||e.status, e.message); toast(`${w} ${fx}`); return null; }
+};
+{ const _ts = trStore; trStore = async function(f, tid){
+    if(!(f.size > BIG_CHUNK || isVideoFile(f))) return _ts.apply(this, arguments);
+    const why = bigCheck(f); if(why){ toast(why); return null; }
+    try{ return await bigUpload(f, `training/${tid}`); }catch(e){ if(!e.cancelled) toast('Upload failed: '+e.message); return null; } }; }
+if(typeof annLimitMB!=='undefined'){ const _al = annLimitMB; annLimitMB = f => isVideoFile(f) && canBigVideo() ? bigVideoMaxGB()*1024 : _al(f); }
+if(typeof annUpload==='function'){ const _au = annUpload; annUpload = function(f, onProg){ if(f.size > BIG_CHUNK || (isVideoFile(f) && canBigVideo())) return bigUpload(f, PERSON, {onProgress:onProg}); return _au.apply(this, arguments); }; }
+if(typeof ANN_OK!=='undefined') ANN_OK.ext = /\.(jpe?g|png|gif|webp|pdf|mp4|m4v|webm|mov|docx?|xlsx?|pptx?|csv|txt)$/i;
+
+/* ---------- playback: stream on Play; links stay valid for long videos ---------- */
+{ const URLS = new Map();
+  /* patch both backends (BACKEND itself is only chosen at sign-in) */
+  [typeof DemoBackend!=='undefined'?DemoBackend:null, typeof LiveBackend!=='undefined'?LiveBackend:null].filter(Boolean).forEach(DB=>{ const _fu = DB.fileUrl;
+    DB.fileUrl = async function(f){
+      if(f?.idb){ if(URLS.has(f.idb)) return URLS.get(f.idb); const b = BIG_MEM.get(f.idb) || await BIGDB.get(f.idb); if(!b) throw new Error('This video is only stored on the computer that uploaded it (demo mode)'); const u = URL.createObjectURL(b); URLS.set(f.idb, u); return u; }
+      if(this.mode==='live' && f?.path && isVideoFile(f)){ const {data, error} = await this.sb.storage.from('cc-files').createSignedUrl(f.path, 6*3600); if(error) throw error; return data.signedUrl; }
+      return _fu.call(this, f); }; }); }
+/* videos load nothing until Play is pressed, then stream (the browser fetches only what's being watched) */
+document.addEventListener('play', e=>{ const v = e.target; if(v.tagName==='VIDEO') v.setAttribute('preload','auto'); }, true);
+{ const _hm = hydrateChatMedia; hydrateChatMedia = function(root){ const r = _hm.apply(this, arguments);
+    (root||document).querySelectorAll('video').forEach(v=>{ v.controls = true; v.playsInline = true; v.removeAttribute('controlslist'); if(!v.getAttribute('preload') || v.getAttribute('preload')==='auto') v.setAttribute('preload','metadata'); });
+    return r; }; }
 
 CC_BOOT();
 </script>

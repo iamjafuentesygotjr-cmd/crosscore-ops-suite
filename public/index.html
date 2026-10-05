@@ -2599,7 +2599,24 @@ body.cb-on .nav-item.active{background:linear-gradient(180deg,color-mix(in srgb,
 body.cb-on .tab.on,body.cb-on .tabs .on{border-bottom-color:var(--cb-2,var(--cb-1))!important}
 body.cb-on a{color:color-mix(in srgb,var(--cb-2,var(--cb-1)) 85%,#000)}
 body.cb-font,body.cb-font h1,body.cb-font h2,body.cb-font h3,body.cb-font .btn{font-family:var(--cb-font)!important}
+/* ===== Profile pop-up from messages (Oct 2026) ===== */
+.msg[data-mid] > .avatar[role=button],.msg[data-mid] .who[role=button]{cursor:pointer;transition:transform .12s,box-shadow .15s,color .15s}
+.msg[data-mid] > .avatar[role=button]:hover,.msg[data-mid] > .avatar[role=button]:focus-visible{box-shadow:0 0 0 3px rgba(245,138,31,.45);transform:scale(1.06);outline:none}
+.msg[data-mid] > .avatar[role=button]:active{transform:scale(.94)}
+.msg[data-mid] .who[role=button]:hover,.msg[data-mid] .who[role=button]:focus-visible{color:#D9730D;text-decoration:underline;outline:none}
+.pf-pop{position:fixed;z-index:140;padding:14px;border-radius:20px;background:var(--rg-spec,none),var(--gs-pop,#fff);border:1.5px solid rgba(255,255,255,.92);
+  -webkit-backdrop-filter:blur(16px) saturate(1.5);backdrop-filter:blur(16px) saturate(1.5);box-shadow:inset 0 1px 0 #fff,0 0 0 1px rgba(196,96,10,.10),0 30px 60px -24px rgba(120,48,0,.5);animation:rxPop .18s cubic-bezier(.3,.9,.4,1.2)}
+.pf-pop.sheet{left:8px;right:8px;bottom:calc(8px + env(safe-area-inset-bottom,0px));top:auto;width:auto;animation:rxSheet .24s ease}
+.pf-top{display:flex;gap:12px;align-items:center}.pf-top .avatar{width:56px!important;height:56px!important;font-size:18px!important;flex:none}
+.pf-id{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}.pf-id b{font:800 16px Sora,sans-serif}.pf-id span{font-size:12.5px;color:var(--ink-2)}
+.pf-x{border:0;background:none;font-size:16px;color:var(--ink-3);cursor:pointer;align-self:flex-start;padding:4px;border-radius:8px}.pf-x:hover{background:rgba(20,16,8,.06)}
+.pf-row{margin-top:12px}.pf-cl{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+.pf-acts{display:flex;gap:8px;margin-top:14px}.pf-acts .btn{flex:1;justify-content:center}
+.pf-last{margin-top:8px;text-align:center}
+[data-theme="dark"] .pf-pop{background:rgba(40,24,13,.96);border-color:rgba(255,200,150,.16)}
+@media (pointer:coarse){.msg[data-mid] > .avatar[role=button]{min-width:36px;min-height:36px}}
 </style>
+
 
 
 
@@ -19279,6 +19296,65 @@ function nameMigrate(){ if(!SYNC.ready || !(isFullAccess() || ROLE==='hr' || isE
 
 /* ---------- 7. Ask Marcus: every client always writes with its own voice profile ---------- */
 if(typeof vcPrompt==='function' && typeof clientVoice==='function'){ const _cv = clientVoice; clientVoice = function(cid){ const base = _cv.apply(this, arguments); return /VOICE PROFILE:/.test(base) ? base : base + '\n\nVOICE PROFILE:\n' + vcPrompt(cid, {lite:true}); }; }
+
+/* ===== 58_profilepop.js ===== */
+/* ================= PROFILE POP-UP FROM MESSAGES (Oct 2026) =================
+   Click (or tap) a person's profile circle or name on any message — group chats, client groups, personal messages and
+   threads — to see their profile card (photo, name, title, status, shared clients) with "Message". Message opens the
+   1-on-1 chat with that person: an existing personal conversation is always reused (never duplicated) and opens at the
+   latest message; otherwise a new one is created. It uses the normal messaging, so everything after that is real-time. */
+
+function pfFindDM(k){
+  /* every 1-on-1 between the two of us (older portals may have created one under a different id) — use the most active */
+  const pair = [PERSON, k].sort().join('|');
+  const L = CHATS.filter(c=>c.kind==='dm' && !c.archived && (c.members||[]).length===2 && [...c.members].sort().join('|')===pair);
+  if(!L.length) return null;
+  const last = c => (chatMsgs(c.id).map(m=>m.at).sort().pop() || c.at || '');
+  return L.sort((a,b)=>last(b).localeCompare(last(a)) || (a.id===dmId(PERSON,k) ? -1 : 1))[0];
+}
+function pfMessage(k){
+  pfClose(); if(!PEOPLE[k] || k===PERSON) return;
+  const c = pfFindDM(k);
+  if(!c){ startDM(k); return; }                                     /* creates dm-<a>--<b> once; reused from then on */
+  closeModal(); closeOverlays?.(); CHAT_OPEN = c.id;
+  if(CURRENT==='chat') RENDER.chat(true); else go('chat');
+  setTimeout(()=>{ const sc = el('chatScroll'); if(sc) sc.scrollTop = sc.scrollHeight; document.querySelector('.chat-wrap')?.classList.add('mob-pane'); el('chatMsg')?.focus({preventScroll:true}); }, 120);
+}
+let PF = null;
+function pfClose(){ if(!PF) return; PF.remove(); PF = null; document.removeEventListener('mousedown', pfOutside, true); document.removeEventListener('keydown', pfKey, true); }
+function pfOutside(e){ if(PF && !PF.contains(e.target)) pfClose(); }
+function pfKey(e){ if(e.key==='Escape'){ e.preventDefault(); pfClose(); } }
+function pfOpen(k, anchor){
+  pfClose(); const p = PEOPLE[k];
+  if(!p){ if(isAssistantKey?.(k)){ const a = assistant(k); return toast(a ? `${a.name} is an AI assistant — open it from AI Assistants in the sidebar` : 'AI assistant'); } return; }
+  const me = k===PERSON; const isClient = p.role==='client'; const dm = !me && pfFindDM(k);
+  const shared = (PEOPLE[PERSON]?.clients||[]).filter(id=>(p.clients||[]).includes(id)).map(id=>client(id)).filter(Boolean).slice(0,4);
+  const box = document.createElement('div'); box.className = 'pf-pop' + (window.innerWidth < 640 ? ' sheet' : ''); box.setAttribute('role','dialog'); box.setAttribute('aria-label', pname(k));
+  box.innerHTML = `<div class="pf-top">${av(p)}<div class="pf-id"><b>${esc(pname(k))}</b><span>${esc(p.sub||'')}</span>${typeof presChip==='function'?presChip(k):''}</div>
+      <button type="button" class="pf-x" aria-label="Close" onclick="pfClose()">✕</button></div>
+    ${shared.length?`<div class="pf-row"><span class="hint">Works with you on</span><div class="pf-cl">${shared.map(c=>`<span class="chip">${esc(c.name)}</span>`).join('')}</div></div>`:''}
+    <div class="pf-acts">${me?'<span class="hint">This is you</span>':isClient?`<span class="hint">Clients are messaged in their client group</span>`:`<button type="button" class="btn primary" onclick="pfMessage('${k}')">💬 ${dm&&chatMsgs(dm.id).length?'Open chat':'Message'}</button>`}</div>
+    ${dm&&chatMsgs(dm.id).length?`<div class="pf-last hint">Last message ${esc(shortWhen(chatMsgs(dm.id).map(m=>m.at).sort().pop()))}</div>`:''}`;
+  document.body.appendChild(box); PF = box;
+  if(!box.classList.contains('sheet')){ const r = anchor.getBoundingClientRect(); const w = 300; box.style.width = w+'px'; const h = box.offsetHeight;
+    box.style.left = Math.max(8, Math.min(innerWidth - w - 8, r.left))+'px'; box.style.top = (r.bottom + 8 + h < innerHeight ? r.bottom + 8 : Math.max(8, r.top - h - 8))+'px'; }
+  setTimeout(()=>{ document.addEventListener('mousedown', pfOutside, true); document.addEventListener('keydown', pfKey, true); box.querySelector('.btn.primary')?.focus({preventScroll:true}); }, 0);
+}
+/* who is behind a profile circle / name on a message */
+function pfTarget(t){
+  const hit = t?.closest?.('.msg[data-mid] > .avatar, .msg[data-mid] .who'); if(!hit) return null;
+  if(hit.closest('.bubble,.reacts,.thr-foot,.rx-pick')) return null;
+  const m = MESSAGES.find(x=>x.id===hit.closest('.msg[data-mid]').dataset.mid); if(!m || m.sys || m.kind==='call') return null;
+  return {k:m.by, el:hit};
+}
+document.addEventListener('click', e=>{ const t = pfTarget(e.target); if(!t) return; e.preventDefault(); e.stopPropagation();
+  if(PF && PF.dataset.k===t.k){ pfClose(); return; } pfOpen(t.k, t.el); if(PF) PF.dataset.k = t.k; }, true);
+document.addEventListener('keydown', e=>{ if((e.key==='Enter'||e.key===' ') && e.target.matches?.('.msg[data-mid] > .avatar, .msg[data-mid] .who')){ const t = pfTarget(e.target); if(t){ e.preventDefault(); pfOpen(t.k, t.el); } } });
+/* make the circles and names look and act like buttons (keyboard too) */
+{ const _mc = msgCore; msgCore = function(m){ let h = _mc.apply(this, arguments); if(typeof h!=='string' || !m || m.sys || m.kind==='call' || m.by===PERSON) return h;
+    const label = `View ${esc(pname(m.by))}’s profile`;
+    h = h.replace(/(<div class="msg [^"]*" data-mid="[^"]+">)<span class="avatar/, `$1<span role="button" tabindex="0" title="${label}" aria-label="${label}" class="avatar`);
+    return h.replace('<div class="who">', `<div class="who" role="button" tabindex="0" title="${label}">`); }; }
 
 CC_BOOT();
 </script>

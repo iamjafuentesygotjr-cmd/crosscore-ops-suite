@@ -19258,7 +19258,7 @@ function canSetMembers(c){
   if(BACKEND?.mode!=='live') return true;
   const dbr = BACKEND?.profile?.role;
   if(['hr','ceo','coo','creative'].includes(ROLE) || ['head','hr'].includes(dbr)) return true;
-  if(dbr==='pm' && c?.kind==='client' && c.client && (pmsOf(c.client).includes(PERSON) || client(c.client)?.mgr===PERSON)) return true;
+  if(dbr==='pm' && ['client','clientline'].includes(c?.kind) && c.client && (pmsOf(c.client).includes(PERSON) || client(c.client)?.mgr===PERSON)) return true;
   return false;
 }
 { const _ec = ensureChats; ensureChats = function(){
@@ -19497,6 +19497,35 @@ const MS_FETCHED = new Map();
     const id = CHAT_OPEN; if(BACKEND?.mode==='live' && id && typeof fetchChat==='function' && Date.now() - (MS_FETCHED.get(id)||0) > 120000){
       MS_FETCHED.set(id, Date.now()); const n = MESSAGES.length; fetchChat(id).then(()=>{ if(MESSAGES.length!==n && CURRENT==='chat' && CHAT_OPEN===id) RENDER.chat(true); }); }
     return r; }; }
+
+/* 4. ONE client → VA relationship. A VA assigned to a client — on the client team or as a Lead Gen VA — is connected to
+   that client account: the client workspace, the client's group chat and the chat with the client's own portal login.
+   (Lead Gen VAs used to be a separate list, so a Lead Gen VA such as Erica on Kylee's account was in the client-portal chat
+   but not in Kylee's group chat, and didn't get Kylee in her workspace list.) */
+function clientVAs(cid){ const c = client(cid); const cfg = LEADCFG.find(x=>x.id===cid);
+  return uniq([...(c?.team||[]), ...(cfg?.vas||[])]).filter(k=>PEOPLE[k] && PEOPLE[k].role!=='client'); }
+{ const _ec = ensureChats; ensureChats = function(){
+    /* managers' portals fold Lead Gen VAs into the client team (one list, recorded in the assignment log) */
+    CLIENTS.forEach(c=>{ if(isEnded(c) || typeof canSetMembers!=='function' || !canSetMembers({kind:'client', client:c.id})) return;
+      const cfg = LEADCFG.find(x=>x.id===c.id); const add = (cfg?.vas||[]).filter(k=>PEOPLE[k] && PEOPLE[k].role!=='client' && !(c.team||[]).includes(k) && !pmsOf(c.id).includes(k));
+      if(!add.length) return;
+      c.team = uniq([...(c.team||[]), ...add]); c.resp = {...(c.resp||{})}; add.forEach(k=>{ if(!c.resp[k]) c.resp[k] = 'Lead Gen VA'; });
+      c.assignLog = [...(c.assignLog||[]), {at:nowISO(), by:PERSON, note:`Connected ${add.map(pname).join(', ')} (assigned in Lead Gen) to the client account`}]; });
+    const r = _ec.apply(this, arguments);
+    CHATS.forEach(ch=>{ if(ch.kind!=='client' || !ch.client || typeof canSetMembers!=='function' || !canSetMembers(ch)) return;
+      const c = client(ch.client); if(!c || isEnded(c)) return; const act = new Set(activePeople());
+      const want = uniq([...(ch.members||[]), ...clientVAs(c.id).filter(k=>act.has(k))]).sort();
+      if(JSON.stringify(want)!==JSON.stringify([...(ch.members||[])].sort())) ch.members = want; });
+    return r; }; }
+/* the VA's own client list includes the clients they're assigned to through Lead Gen */
+{ const _ci = clientIdsFor; clientIdsFor = function(k){ const r = _ci.apply(this, arguments); const p = PEOPLE[k];
+    if(!p || p.role==='client' || ['ceo','coo','creative','hr'].includes(p.role)) return r;
+    const extra = LEADCFG.filter(cfg=>(cfg.vas||[]).includes(k)).map(cfg=>cfg.id).filter(id=>client(id) && !isEnded(client(id)));
+    return uniq([...r, ...extra]); }; }
+/* Lead Gen assignment changes also bring membership up to date on managers' portals */
+{ let t = null; const _ore = onRemoteEvent; onRemoteEvent = function(ev){ _ore(ev);
+    if(BACKEND?.mode==='live' && ev?.coll==='leadcfg' && ['head','hr','pm'].includes(BACKEND?.profile?.role)){
+      clearTimeout(t); t = setTimeout(()=>{ try{ rebuildPeople(); const b = JSON.stringify([CHATS.map(c=>[c.id,c.members]), CLIENTS.map(c=>c.team)]); ensureChats(); if(JSON.stringify([CHATS.map(c=>[c.id,c.members]), CLIENTS.map(c=>c.team)])!==b) recordChange(); }catch(e){ console.warn(e); } }, 1500); } }; }
 
 CC_BOOT();
 </script>

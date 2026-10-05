@@ -2615,7 +2615,24 @@ body.cb-font,body.cb-font h1,body.cb-font h2,body.cb-font h3,body.cb-font .btn{f
 .pf-last{margin-top:8px;text-align:center}
 [data-theme="dark"] .pf-pop{background:rgba(40,24,13,.96);border-color:rgba(255,200,150,.16)}
 @media (pointer:coarse){.msg[data-mid] > .avatar[role=button]{min-width:36px;min-height:36px}}
+/* ===== Solid sidebar whenever it sits over the page (Oct 2026) =====
+   Desktop: collapsed sidebar shown on hover/peek floats over the content → fully opaque.
+   Docked sidebar (not over content) stays glass, but never so transparent that text behind shows through.
+   Lightweight (no-blur) mode: shell panels become solid, because glass without blur reads as see-through. */
+:root{--sb-solid:#FFF6EC;--sb-solid-2:#FDEBD8}
+[data-theme="dark"]{--sb-solid:#1C130C;--sb-solid-2:#160F09}
+body.nav-collapsed .sidebar,body.nav-collapsed.nav-peek .sidebar,body.nav-open .sidebar{
+  background:linear-gradient(180deg,var(--sb-solid),var(--sb-solid-2))!important;-webkit-backdrop-filter:none!important;backdrop-filter:none!important;
+  z-index:130!important;box-shadow:0 0 0 1px rgba(196,96,10,.12),28px 0 60px -24px rgba(90,36,0,.45)!important}
+@media(min-width:861px){
+  .sidebar{background:linear-gradient(180deg,rgba(255,250,244,.94),rgba(255,242,228,.90))!important}
+  [data-theme="dark"] .sidebar{background:linear-gradient(180deg,rgba(36,24,15,.96),rgba(28,19,12,.94))!important}
+  body.nav-collapsed .sidebar,body.nav-collapsed.nav-peek .sidebar{background:linear-gradient(180deg,var(--sb-solid),var(--sb-solid-2))!important}
+}
+body.glass-lite .sidebar,body.glass-lite .topbar{background:linear-gradient(180deg,var(--sb-solid),var(--sb-solid-2))!important}
+@media (prefers-reduced-transparency:reduce){.sidebar,.topbar{background:var(--sb-solid)!important}}
 </style>
+
 
 
 

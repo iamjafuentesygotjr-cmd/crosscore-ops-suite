@@ -19193,7 +19193,7 @@ async function syncCatchUp(reason){
     for(let page=0; page<10; page++){
       const r = await BACKEND.sb.from('cc_records').select('collection,id,data,updated_at').gt('updated_at', from).order('updated_at', {ascending:true}).limit(1000);
       if(r.error) throw r.error; const rows = r.data||[]; if(!rows.length) break;
-      SYNC.applyRemote(rows.filter(x=>COLL[x.collection]).map(x=>({collection:x.collection, id:x.id, data:x.data})), []);
+      SYNC.applyRemote(rows.filter(x=>COLL[x.collection]).map(x=>({collection:x.collection, id:x.id, data:x.data, updated_at:x.updated_at})), []);
       total += rows.length; from = rows[rows.length-1].updated_at; CU.since = Math.max(CU.since, Date.parse(from)||0);
       if(rows.length < 1000) break;
     }
@@ -19230,8 +19230,8 @@ function tagMsgNotifs(beforeN, msgs){
 { const _st = sendThreadReply; sendThreadReply = function(){ const nB = NOTIFS2.length, mB = MESSAGES.length; const r = _st.apply(this, arguments); tagMsgNotifs(nB, MESSAGES.slice(mB).filter(m=>m.by===PERSON)); return r; }; }
 async function fetchChat(chatId){
   if(BACKEND?.mode!=='live') return;
-  try{ const r = await BACKEND.sb.from('cc_records').select('collection,id,data').eq('collection','messages').eq('scope', chatId).order('updated_at', {ascending:false}).limit(300);
-    if(!r.error && r.data?.length) SYNC.applyRemote(r.data.map(x=>({collection:x.collection, id:x.id, data:x.data})), []); }catch(e){}
+  try{ const r = await BACKEND.sb.from('cc_records').select('collection,id,data,updated_at').eq('collection','messages').eq('scope', chatId).order('updated_at', {ascending:false}).limit(300);
+    if(!r.error && r.data?.length) SYNC.applyRemote(r.data.map(x=>({collection:x.collection, id:x.id, data:x.data, updated_at:x.updated_at})), []); }catch(e){}
 }
 function flashMsg(id){ const w = el('mw-'+id) || document.querySelector(`.msg[data-mid="${id}"]`)?.closest('.mwrap'); if(!w) return false;
   w.scrollIntoView({block:'center'}); const b = w.querySelector('.bubble'); if(b){ b.classList.remove('rx-flash'); void b.offsetWidth; b.classList.add('rx-flash'); } return true; }
@@ -19372,6 +19372,99 @@ document.addEventListener('keydown', e=>{ if((e.key==='Enter'||e.key===' ') && e
     const label = `View ${esc(pname(m.by))}’s profile`;
     h = h.replace(/(<div class="msg [^"]*" data-mid="[^"]+">)<span class="avatar/, `$1<span role="button" tabindex="0" title="${label}" aria-label="${label}" class="avatar`);
     return h.replace('<div class="who">', `<div class="who" role="button" tabindex="0" title="${label}">`); }; }
+
+/* ===== 59_syncguard.js ===== */
+/* ================= SYNC ORDERING GUARD (Oct 2026) — the server is the source of truth, newest version always wins =================
+   Root causes found (e.g. Yamille: phone notified, laptop missing the message):
+   • A laptop opening from its saved copy re-downloads everything to reconcile. Records that arrived live DURING that
+     download (a new message, an edit) were then deleted ("not in the download") or overwritten by the older downloaded copy.
+   • The background load and the reconcile applied rows without checking which version was newer.
+   • Live events that arrived before the portal finished starting were dropped.
+   Fix, for every collection and every portal:
+   • Every row carries its server timestamp (updated_at). A device keeps the newest it has seen per record and ignores
+     anything older — live events, background pages, catch-up and reconcile all follow the same rule.
+   • Rows from a download are tagged with when that download started; a record changed on this device after that moment
+     (by the user or by a live event) is not replaced or deleted by the download.
+   • Live events received before the portal is ready are queued and applied as soon as it is. */
+
+const SG = {srvAt:new Map(), localAt:new Map(), q:[], qt:null};
+const sgKey = (c, id) => c + '|' + id;
+const sgStale = (r, c) => {                          /* true = an older copy than one we already have → ignore */
+  const coll = r.collection || c; const k = sgKey(coll, r.id);
+  if(r._snap && (SG.localAt.get(k)||0) > r._snap) return true;        /* changed here after this download began */
+  if(!r.updated_at) return false;
+  const t = Date.parse(r.updated_at); const cur = SG.srvAt.get(k) || 0;
+  if(t < cur) return true; SG.srvAt.set(k, t); return false;
+};
+/* 1. downloads carry updated_at and the moment they started */
+LiveBackend.loadColl = async function(c, onChunk, filter){
+  const page = 1000; let last = null; const snap = Date.now();
+  for(;;){
+    let data = null;
+    for(let a=0;;a++){
+      let q = this.sb.from('cc_records').select('collection,id,data,updated_at').eq('collection', c);
+      if(filter) q = filter(q); if(last!==null) q = q.gt('id', last);
+      const r = await q.order('id').limit(page);
+      if(!r.error){ data = r.data; break; }
+      if(a>=2) throw r.error; await new Promise(res=>setTimeout(res, 400*(a+1)));
+    }
+    data.forEach(r=>{ r._snap = snap; });
+    if(data.length) onChunk(data);
+    if(data.length<page) return;
+    last = data[data.length-1].id;
+  }
+};
+/* 2. live events carry updated_at too */
+LiveBackend.subscribe = function(cb){
+  if(this.channel) this.sb.removeChannel(this.channel);
+  this.channel = this.sb.channel('cc-records')
+    .on('postgres_changes', {event:'*', schema:'public', table:'cc_records'}, p=>{
+      if(p.eventType==='DELETE') cb([], [{collection:p.old.collection, id:p.old.id}]);
+      else cb([{collection:p.new.collection, id:p.new.id, data:p.new.data, updated_at:p.new.updated_at}], []);
+    })
+    .subscribe(status=>{
+      if(status==='SUBSCRIBED'){ const wasOff = !this.online; this.online = true; syncUI(); if(wasOff || SYNC.needResync){ SYNC.needResync = false; if(typeof syncCatchUp==='function') syncCatchUp('reconnect'); SYNC.resync(); } SYNC.flush(); }
+      if(['CHANNEL_ERROR','TIMED_OUT','CLOSED'].includes(status)){ this.online = false; SYNC.needResync = true; syncUI(); }
+    });
+};
+/* 3. one ordering rule for every way rows arrive */
+{ const _ar = SYNC.applyRemote.bind(SYNC);
+  SYNC.applyRemote = function(ups, dels){
+    if(!this.ready){ SG.q.push([ups, dels]); clearTimeout(SG.qt); SG.qt = setTimeout(sgDrain, 300); return; }
+    const now = Date.now();
+    const U = (ups||[]).filter(r=>!sgStale(r)); U.forEach(r=>{ if(!r._snap) SG.localAt.set(sgKey(r.collection, r.id), now); });
+    const D = (dels||[]).filter(r=>!(r._snap && (SG.localAt.get(sgKey(r.collection, r.id))||0) > r._snap));
+    D.forEach(r=>{ if(!r._snap) SG.localAt.set(sgKey(r.collection, r.id), now); });
+    return _ar(U, D);
+  }; }
+function sgDrain(){ if(!SYNC.ready){ SG.qt = setTimeout(sgDrain, 300); return; } const Q = SG.q.splice(0); Q.forEach(([u,d])=>SYNC.applyRemote(u, d)); }
+{ const _mb = SYNC.mergeBulk.bind(SYNC); SYNC.mergeBulk = function(c, rows){ return _mb(c, (rows||[]).filter(r=>!sgStale(r, c))); }; }
+/* our own writes count as changes made here */
+{ const _w = LiveBackend.write; LiveBackend.write = async function(ups, dels){ const now = Date.now();
+    (ups||[]).forEach(r=>SG.localAt.set(sgKey(r.collection, r.id), now)); (dels||[]).forEach(r=>SG.localAt.set(sgKey(r.collection, r.id), now));
+    return _w.apply(this, arguments); }; }
+{ const _dw = DemoBackend.write; if(_dw) DemoBackend.write = async function(ups, dels){ const now = Date.now();
+    (ups||[]).forEach(r=>SG.localAt.set(sgKey(r.collection, r.id), now)); (dels||[]).forEach(r=>SG.localAt.set(sgKey(r.collection, r.id), now));
+    return _dw.apply(this, arguments); }; }
+/* 4. the full reconcile never deletes or rolls back what changed while it was downloading */
+SYNC.resync = async function(){
+  if(this._resyncing) { this._resyncAgain = true; return; }
+  this._resyncing = true; const t0 = Date.now();
+  try{
+    const rows = await BACKEND.loadAll(); if(!rows) return;
+    rows.forEach(r=>{ if(!r._snap) r._snap = t0; });
+    const grouped = {}; rows.forEach(r=>(grouped[r.collection]=grouped[r.collection]||{})[r.id] = r);
+    const ups = [], dels = [];
+    Object.keys(COLL).forEach(c=>{
+      const server = grouped[c] || {};
+      Object.values(server).forEach(r=>ups.push({collection:c, id:r.id, data:r.data, updated_at:r.updated_at, _snap:r._snap}));
+      (this.last[c]||new Map()).forEach((_, id)=>{ const k = sgKey(c, id);
+        if(!(id in server) && !this.pending.has(this.key(c, id)) && (SG.localAt.get(k)||0) < t0) dels.push({collection:c, id, _snap:t0}); });
+    });
+    this.applyRemote(ups, dels);
+  }catch(e){ console.warn('Resync failed', e); }
+  finally{ this._resyncing = false; if(this._resyncAgain){ this._resyncAgain = false; setTimeout(()=>SYNC.resync(), 1000); } }
+};
 
 CC_BOOT();
 </script>

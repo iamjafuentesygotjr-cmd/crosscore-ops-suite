@@ -19527,6 +19527,56 @@ function clientVAs(cid){ const c = client(cid); const cfg = LEADCFG.find(x=>x.id
     if(BACKEND?.mode==='live' && ev?.coll==='leadcfg' && ['head','hr','pm'].includes(BACKEND?.profile?.role)){
       clearTimeout(t); t = setTimeout(()=>{ try{ rebuildPeople(); const b = JSON.stringify([CHATS.map(c=>[c.id,c.members]), CLIENTS.map(c=>c.team)]); ensureChats(); if(JSON.stringify([CHATS.map(c=>[c.id,c.members]), CLIENTS.map(c=>c.team)])!==b) recordChange(); }catch(e){ console.warn(e); } }, 1500); } }; }
 
+/* 5. tags only notify people who are in the chat (no "you were tagged" for a chat they can't open); the sender is told */
+{ const _fm = findMentions; findMentions = function(t, c){ const L = _fm.apply(this, arguments) || []; if(!c || c.kind==='dm') return L;
+    const mem = new Set(c.members||[]); const out = L.filter(k=>!mem.has(k));
+    if(out.length) setTimeout(()=>toast(`${out.map(first).join(', ')} ${out.length>1?'aren’t':'isn’t'} in this chat yet — add them under Members so they can see it`), 50);
+    return L.filter(k=>mem.has(k)); }; }
+/* 6. when I'm added to a chat, load its whole history right away (not only new messages) */
+{ const _ore = onRemoteEvent; onRemoteEvent = function(ev){ _ore(ev);
+    if(ev?.coll==='chats' && BACKEND?.mode==='live' && typeof fetchChat==='function') setTimeout(()=>{ myChats().forEach(c=>{ if(!MS_FETCHED.has(c.id) && !chatMsgs(c.id).length){ MS_FETCHED.set(c.id, Date.now()); fetchChat(c.id).then(()=>{ if(CURRENT==='chat') RENDER.chat(); }); } }); }, 600); }; }
+
+/* ===== 61_retention.js ===== */
+/* ================= CLIENT RETENTION (Oct 2026) — accepted clients are never removed by the roster sync =================
+   Root cause (Arnab Pal): the one-time "active client roster" sync compares clients with a roster built into the code
+   (2026-09-30) and lists every client NOT in it under "Remove" — ticked by default — and heads were prompted to apply it on
+   every sign-in. A client created and accepted after that date (Arnab) appeared in that list; applying it permanently
+   deleted the client, its chats, registration and HR records.
+   Fix (the onboarding flow Pau → HR → GC → Active is unchanged):
+   • A client created after the roster date, or accepted by HR, is "retained": never listed for removal, never purged.
+   • Heads are no longer prompted once the roster has been applied; the roster is only about the old clients it lists.
+   • The database refuses to delete a retained client or its group chat unless it went through the Ended Contract workflow
+     (supabase/update-retention.sql).
+   • Settings → Active client roster → "Restore removed clients" puts clients back from the backup file the roster sync
+     downloads before it removes anything. */
+const ROSTER_CUTOFF = typeof ROSTER_VER!=='undefined' ? ROSTER_VER : '2026-09-30';
+function clientRetained(c){ if(!c) return false; if(c.retained) return true;
+  const made = String(c.createdAt||c.acceptedAt||'').slice(0,10); return !!made && made > ROSTER_CUTOFF; }
+/* 1. retained clients are never on the roster's remove list */
+{ const _rp = rosterPlan; rosterPlan = function(){ const p = _rp.apply(this, arguments); p.remove = (p.remove||[]).filter(x=>!clientRetained(x.c)); return p; }; }
+{ const _ra = rosterApply; rosterApply = function(ids, keep){ const safe = (ids||[]).filter(id=>!clientRetained(client(id)));
+    if(safe.length!==(ids||[]).length) toast('Kept '+((ids||[]).length-safe.length)+' active client(s) that were accepted after the roster was made');
+    return _ra.call(this, safe, [...(keep||[]), ...(ids||[]).filter(id=>clientRetained(client(id)))]); }; }
+/* 2. mark retained clients (managers' portals, once) — every client created after the roster, plus every new one */
+function retainMigrate(){ if(!SYNC.ready || !(isFullAccess() || isExec() || ROLE==='hr' || ROLE==='manager')) return; let ch = false;
+  CLIENTS.forEach(c=>{ if(!c.retained && !isEnded(c) && clientRetained(c)){ c.retained = true; c.retainedAt = nowISO(); ch = true; } });
+  if(ch) recordChange(); }
+{ const _sp = setPerson; setPerson = function(p){ _sp(p); setTimeout(()=>{ try{ retainMigrate(); }catch(e){ console.warn(e); } }, 4000); }; }
+{ const _ore = onRemoteEvent; onRemoteEvent = function(ev){ _ore(ev); if(ev?.coll==='clients') setTimeout(retainMigrate, 1200); }; }
+/* 3. restore from the backup file the roster sync downloads before removing anything */
+function rosterRestore(){ const i = document.createElement('input'); i.type = 'file'; i.accept = '.json,application/json';
+  i.onchange = async () => { try{ const j = JSON.parse(await i.files[0].text());
+      const rows = []; (j.clients||[]).forEach(c=>rows.push(['clients', c]));
+      Object.entries(j.records||{}).forEach(([coll, L])=>(L||[]).forEach(o=>rows.push([coll, o])));
+      (j.serverRows||[]).forEach(r=>rows.push([r.collection, r.data]));
+      let n = 0; rows.forEach(([coll, o])=>{ const C = COLL[coll]; if(!C || !o?.id) return; const arr = C.get()||[]; if(arr.some(x=>String(x.id)===String(o.id))) return; arr.push(coll==='clients' ? {...o, retained:true, restoredAt:nowISO(), restoredBy:PERSON} : o); n++; });
+      rebuildPeople(); ensureChats(); recordChange(); audit(`Restored ${n} records (${(j.clients||[]).map(c=>c.name).join(', ')}) from a roster backup`); RENDER[CURRENT]?.();
+      toast(n ? `Restored ${(j.clients||[]).length} client(s) and ${n} records` : 'Nothing to restore — those records already exist'); }
+    catch(e){ toast('That file isn’t a Cross Core roster backup: '+e.message); } };
+  i.click(); }
+{ const _rc = rosterAdminCard; rosterAdminCard = function(){ const h = _rc.apply(this, arguments); if(!h) return h;
+    return h.replace(`<button class="btn" onclick="go('monitor')">Client Monitoring</button>`, `<button class="btn" onclick="go('monitor')">Client Monitoring</button> <button class="btn" onclick="rosterRestore()">↺ Restore removed clients</button>`); }; }
+
 CC_BOOT();
 </script>
 </body>

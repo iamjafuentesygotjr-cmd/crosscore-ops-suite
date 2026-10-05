@@ -19252,13 +19252,18 @@ async function closeSysNotifs(match){ try{ const reg = await navigator.serviceWo
     return r; }; }
 { const _on = openNotif; openNotif = function(id){ const n = NOTIFS2.find(x=>x.id===id); if(n && !n.read && n.to===PERSON){ n.read = true; recordChange(); } closeSysNotifs(d=>d.nid===id); return _on.apply(this, arguments); }; }
 
-/* ---------- 3. only chat managers recalculate group membership ---------- */
+/* ---------- 3. group membership is recalculated only by people who manage that chat ----------
+   heads and HR: every chat · a PM: the client groups of the clients they manage · everyone else: never (keeps the server's list) */
+function canSetMembers(c){
+  if(BACKEND?.mode!=='live') return true;
+  const dbr = BACKEND?.profile?.role;
+  if(['hr','ceo','coo','creative'].includes(ROLE) || ['head','hr'].includes(dbr)) return true;
+  if(dbr==='pm' && c?.kind==='client' && c.client && (pmsOf(c.client).includes(PERSON) || client(c.client)?.mgr===PERSON)) return true;
+  return false;
+}
 { const _ec = ensureChats; ensureChats = function(){
-    const live = BACKEND?.mode==='live'; const can = !live || ['hr','ceo','coo','creative'].includes(ROLE) || ['head','hr'].includes(BACKEND?.profile?.role);
-    if(can) return _ec.apply(this, arguments);
     const keep = new Map(CHATS.map(c=>[c.id, c.members ? [...c.members] : c.members])); const r = _ec.apply(this, arguments);
-    CHATS.forEach(c=>{ if(keep.has(c.id)) c.members = keep.get(c.id); }); return r; }; }
-
+    CHATS.forEach(c=>{ if(keep.has(c.id) && !canSetMembers(c)) c.members = keep.get(c.id); }); return r; }; }
 /* ---------- 4. notification opt-outs everyone can read (only the owner can change theirs) ---------- */
 let NOTIFOFF = [];
 COLL.notifoff = {get:()=>NOTIFOFF, set:v=>NOTIFOFF=v};
@@ -19465,6 +19470,33 @@ SYNC.resync = async function(){
   }catch(e){ console.warn('Resync failed', e); }
   finally{ this._resyncing = false; if(this._resyncAgain){ this._resyncAgain = false; setTimeout(()=>SYNC.resync(), 1000); } }
 };
+
+/* ===== 60_msgsync.js ===== */
+/* ================= MESSAGING SYNC ACROSS DEVICES (Oct 2026) =================
+   • Assignment changes (a VA added to a client's team, a new PM) bring the client's group chat membership up to date on
+     the server within seconds — on whichever manager's portal is open — so new members see the full history and receive
+     every message, notification and read status like everyone else.
+   • Unread counts use the furthest point read on ANY of your devices (per-chat read records), so reading on the tablet
+     clears the badge on the laptop and the phone.
+   • Opening a conversation fetches its latest history from the server, so every device shows the same messages.
+   • The database merges read positions (they only move forward), so two devices saving at the same moment can't undo
+     each other (supabase/update-msgsync.sql). */
+
+/* 1. membership converges right after assignment changes, on a manager's portal */
+{ let t = null; const _ore = onRemoteEvent; onRemoteEvent = function(ev){ _ore(ev);
+    if(BACKEND?.mode==='live' && ['clients','employees'].includes(ev?.coll) && ['head','hr','pm'].includes(BACKEND?.profile?.role)){
+      clearTimeout(t); t = setTimeout(()=>{ try{ const before = JSON.stringify(CHATS.map(c=>[c.id, c.members])); rebuildPeople(); ensureChats();
+        if(JSON.stringify(CHATS.map(c=>[c.id, c.members]))!==before) recordChange(); }catch(e){ console.warn(e); } }, 1500); } }; }
+/* 2. one read position per chat across all my devices */
+{ const _lr = chatLastRead; chatLastRead = function(id){ const a = _lr.apply(this, arguments) || '';
+    const r = typeof CHATREADS!=='undefined' ? CHATREADS.find(x=>x.id===id+'|'+PERSON) : null; const b = r?.seen || '';
+    return a > b ? a : b; }; }
+/* 3. opening a conversation pulls its latest history from the server (once every 2 minutes per chat) */
+const MS_FETCHED = new Map();
+{ const _rc = RENDER.chat; RENDER.chat = function(){ const r = _rc.apply(this, arguments);
+    const id = CHAT_OPEN; if(BACKEND?.mode==='live' && id && typeof fetchChat==='function' && Date.now() - (MS_FETCHED.get(id)||0) > 120000){
+      MS_FETCHED.set(id, Date.now()); const n = MESSAGES.length; fetchChat(id).then(()=>{ if(MESSAGES.length!==n && CURRENT==='chat' && CHAT_OPEN===id) RENDER.chat(true); }); }
+    return r; }; }
 
 CC_BOOT();
 </script>

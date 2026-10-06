@@ -2659,7 +2659,10 @@ body.glass-lite .sidebar,body.glass-lite .topbar{background:linear-gradient(180d
 .setup-mon{margin-bottom:16px}.setup-row{display:flex;gap:10px;align-items:center;padding:9px 4px;border-bottom:1px solid var(--line)}.setup-row:last-child{border-bottom:0}
 .coo-sched{padding:10px 12px;border-radius:14px;background:rgba(255,255,255,.45);border:1px solid var(--line);margin-bottom:12px;font-size:13px}
 [data-theme="dark"] .coo-sched{background:rgba(255,190,130,.05)}
+.ver-bar{position:fixed;left:50%;bottom:calc(16px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:200;display:flex;gap:12px;align-items:center;padding:10px 12px 10px 18px;border-radius:999px;background:#1F1408;color:#FFE9CF;font:600 13.5px Inter,sans-serif;box-shadow:0 20px 50px -14px rgba(0,0,0,.55)}
+.ver-bar .btn{padding:6px 14px}
 </style>
+
 
 
 
@@ -20479,6 +20482,29 @@ async function cooPostFromModal(){ const ch = CHATS.find(c=>c.id===el('paPostC')
   const v = await cooVerify(r.ids.map(id=>mk('messages', id)));
   if(v.ok){ closeModal(); toast(`Posted in ${chatTitle(ch)}${r.tagged.length?` · tagged ${r.tagged.map(first).join(', ')}`:''}`); }
   else { btn.disabled = false; btn.textContent = 'Retry'; toast('Not posted: '+v.why); } }
+
+/* ===== 69_version.js ===== */
+/* ================= VERSION STAMP + AUTOMATIC UPDATE CHECK (Oct 2026) =================
+   The footer shows which build is running ("Build 2026-10-07 · 1"), and every open portal checks every few minutes
+   (and whenever it comes back to the foreground) whether a newer build has been published. If so it shows
+   "New version available — Update now" instead of quietly running old code. */
+const BUILD_ID = '2026-10-06 · 21:55';
+function verStamp(){ const f = el('footNote'); if(f && !f.dataset.v){ f.dataset.v = 1; f.textContent = `Cross Core Ops Suite v8 · Build ${BUILD_ID}`; } }
+async function verCheck(){
+  if(!/^https?:/.test(location.protocol)) return;
+  try{ const r = await fetch(location.pathname + '?v=' + Date.now(), {cache:'no-store'}); if(!r.ok) return; const t = await r.text();
+    const m = t.match(/const BUILD_ID = '([^']+)'/); if(!m || m[1]===BUILD_ID || m[1]==='__BUILD_ID__') return;
+    if(el('verBar')) return;
+    document.body.insertAdjacentHTML('beforeend', `<div id="verBar" class="ver-bar">✨ A new version of the portal is available <span class="hint" style="color:inherit;opacity:.8">(${esc(m[1])})</span><button class="btn primary" onclick="verUpdate()">Update now</button></div>`);
+  }catch(e){}
+}
+async function verUpdate(){ try{ await SYNC.flush?.(); }catch(e){} try{ const regs = await navigator.serviceWorker?.getRegistrations?.(); (regs||[]).forEach(r=>r.update?.()); }catch(e){}
+  try{ const ks = await caches?.keys?.(); await Promise.all((ks||[]).map(k=>caches.delete(k))); }catch(e){}
+  location.replace(location.pathname + '?v=' + Date.now()); }
+setInterval(verCheck, 5*60e3);
+document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='visible') verCheck(); });
+{ const _sp = setPerson; setPerson = function(p){ _sp(p); verStamp(); setTimeout(verCheck, 8000); }; }
+setTimeout(verStamp, 1500);
 
 CC_BOOT();
 </script>

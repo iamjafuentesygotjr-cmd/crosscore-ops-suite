@@ -2661,7 +2661,10 @@ body.glass-lite .sidebar,body.glass-lite .topbar{background:linear-gradient(180d
 [data-theme="dark"] .coo-sched{background:rgba(255,190,130,.05)}
 .ver-bar{position:fixed;left:50%;bottom:calc(16px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:200;display:flex;gap:12px;align-items:center;padding:10px 12px 10px 18px;border-radius:999px;background:#1F1408;color:#FFE9CF;font:600 13.5px Inter,sans-serif;box-shadow:0 20px 50px -14px rgba(0,0,0,.55)}
 .ver-bar .btn{padding:6px 14px}
+.ops-opt{justify-content:space-between}.ops-opt>span:first-child{display:flex;flex-direction:column;gap:1px}.ops-who{font:500 11px Inter,sans-serif;color:var(--ink-3)}
+.ops-opt .ops-n{white-space:nowrap}
 </style>
+
 
 
 
@@ -20488,7 +20491,7 @@ async function cooPostFromModal(){ const ch = CHATS.find(c=>c.id===el('paPostC')
    The footer shows which build is running ("Build 2026-10-07 · 1"), and every open portal checks every few minutes
    (and whenever it comes back to the foreground) whether a newer build has been published. If so it shows
    "New version available — Update now" instead of quietly running old code. */
-const BUILD_ID = '2026-10-06 · 21:55';
+const BUILD_ID = '2026-10-07 · 01:54';
 function verStamp(){ const f = el('footNote'); if(f && !f.dataset.v){ f.dataset.v = 1; f.textContent = `Cross Core Ops Suite v8 · Build ${BUILD_ID}`; } }
 async function verCheck(){
   if(!/^https?:/.test(location.protocol)) return;
@@ -20505,6 +20508,190 @@ setInterval(verCheck, 5*60e3);
 document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='visible') verCheck(); });
 { const _sp = setPerson; setPerson = function(p){ _sp(p); verStamp(); setTimeout(verCheck, 8000); }; }
 setTimeout(verStamp, 1500);
+
+/* ===== 70_avail.js ===== */
+/* ================= COO ASSISTANT — "FIND A TIME" WORKFLOW FOR ANY GC (Oct 2026) =================
+   One instruction runs the whole thing:
+     “COO, ask the Operations GC what time they're available tomorrow for a meeting.”
+     “Book a meeting for the Operations team tomorrow — ask the GC if they're available around 10 PM, give options,
+      then book it and confirm.”      “Check with Marketing when they're available for a meeting.”
+   1. Finds the GC (Operations, Marketing, Core, any group or client GC) and who's required (its members; + Core / heads
+      when asked; + anyone named). 2. Posts an interactive availability poll (times free on JA's calendar) tagging everyone.
+   3. Tracks answers live (available / unavailable / pending per time). 4. Books the best time — as soon as everyone can
+      make one, or when everyone has answered, or at the deadline — with a Meet/Zoom link and invitations.
+   5. Confirms in the same GC. 6. Follows up by itself: nudges people who haven't answered, reminds people who haven't
+      accepted the invite, posts reschedules / cancellations in the GC.
+   Follow-up commands: “follow up with the people who haven't responded”, “check who still hasn't accepted the invite”,
+   “send the meeting details to the GC”, “remind everyone 30 minutes before the meeting”,
+   “reschedule the Operations meeting to the best available time”. */
+
+/* polls and votes are visible to the poll's own participants (not only Operations) */
+COLL.opspoll.aud = p => p?.attendees ? uniq([cooKey(), ...p.attendees, ...HEADS]).filter(Boolean) : opsAud();
+COLL.opsvotes.aud = v => { const p = OPSPOLL.find(x=>x.id===v?.poll); return p?.attendees ? uniq([cooKey(), ...p.attendees, ...HEADS]).filter(Boolean) : opsAud(); };
+
+/* ---------- understanding the instruction ---------- */
+const AV_INTENT = s => /\b(availab|free)\w*/.test(s) && /\b(meeting|call|sync|huddle|catch[- ]?up|time)\b/.test(s)
+  || /\b(book|schedule|set up|arrange|plan)\b.*\bmeeting\b.*\b(gc|team|group)\b/.test(s) && !/\b(at|@)\s*\d{1,2}(:\d{2})?\s*(am|pm)\b/.test(s.replace(/\b(around|asking[^.]*?)\s+\d{1,2}(:\d{2})?\s*(am|pm)\b/g,''))
+  || /\b(when|what time)\b.*\b(available|free|works?)\b/.test(s);
+function avChat(s){ const C = CHATS.filter(c=>c.kind!=='dm' && c.kind!=='clientline' && !c.archived);   /* any group the COO can see — the assistant can post in all of them */
+  const fw = c => chatTitle(c).toLowerCase().split(/[\s·(]+/)[0];
+  const keys = c => { const t = chatTitle(c).toLowerCase(); const k = [t, t.replace(/\s+(team|gc|group)$/,'')]; if(fw(c).length>=4 && C.filter(x=>fw(x)===fw(c)).length===1) k.push(fw(c)); return uniq(k); };
+  const hit = C.map(c=>({c, k:keys(c).filter(k=>nameRe(k).test(s)).sort((a,b)=>b.length-a.length)[0]})).filter(x=>x.k).sort((a,b)=>b.k.length-a.k.length)[0];
+  if(hit) return hit.c; if(/\boperations?\b/.test(s)) return opsChat();
+  /* several chats start with the same word ("Marketing Department", "Marketing · Sales & Outreach"): use the main team / department chat */
+  for(const w of uniq(C.map(fw)).filter(w=>w.length>=4 && nameRe(w).test(s))){ const L = C.filter(c=>fw(c)===w);
+    const main = L.filter(c=>new RegExp(`^${reEsc(w)}(\\s+(team|department|dept|group|gc))?$`,'i').test(chatTitle(c).trim()));
+    if(main.length===1) return main[0]; if(L.length>1){ avChat.ambiguous = L; return null; } } const cl = cmdClient(s); return cl ? (CHATS.find(x=>x.kind==='client' && x.client===cl.id) || null) : null; }
+function avDay(s){ const now = new Date(); let d = manilaDate();
+  if(/\btomorrow\b/.test(s)) d = manilaDate(new Date(Date.now()+864e5));
+  const md = s.match(/\b(jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\.?\s+(\d{1,2})(?:,?\s*(\d{4}))?/);
+  if(md){ const mi = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'].indexOf(md[1].slice(0,3)); const y = +(md[3]||phParts(now).y); d = `${y}-${String(mi+1).padStart(2,'0')}-${String(+md[2]).padStart(2,'0')}`; }
+  const wd = !md && !/\b(today|tonight|tomorrow)\b/.test(s) && s.match(/\b(mon|tues?|wed(nes)?|thu(rs)?|fri|sat(ur)?|sun)(day)?\b/);
+  if(wd){ const want = ['sun','mon','tue','wed','thu','fri','sat'].indexOf(wd[1].slice(0,3)); for(let i=1;i<=7;i++){ const x = new Date(Date.now()+i*864e5); if(new Date(x.getTime()+8*3600e3).getUTCDay()===want){ d = manilaDate(x); break; } } }
+  return d; }
+function avTimes(s, day){ const hm = (h, mi=0) => new Date(`${day}T${String(h).padStart(2,'0')}:${String(mi).padStart(2,'0')}:00+08:00`);
+  const p = t => { const m = t.match(/(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/); let h = +m[1]; const mi = +(m[2]||0); if(m[3]==='pm' && h<12) h += 12; if(m[3]==='am' && h===12) h = 0; if(!m[3] && h>=1 && h<=11) h += 12; return [h, mi]; };
+  let L = []; const btw = s.match(/\bbetween\s+(\d{1,2}(?::\d{2})?\s*(?:am|pm)?)\s+(?:and|to|-)\s+(\d{1,2}(?::\d{2})?\s*(?:am|pm)?)/);
+  const at = s.match(/\b(?:around|about|at|by|@|near)\s+(\d{1,2}(?::\d{2})?\s*(?:am|pm)?)/) || s.match(/\b(\d{1,2}(?::\d{2})?\s*(?:am|pm))\b/);
+  if(btw){ let [h1,m1] = p(btw[1]), [h2,m2] = p(btw[2]); if(h2 < h1) h2 += 12; for(let t = h1*60+m1; t <= h2*60+m2 - 30 && L.length < 8; t += 30) L.push(hm(Math.floor(t/60), t%60)); }
+  else if(at){ const [h, mi] = p(at[1]); const single = /\bif (they|everyone|you)('re| are)? (available|free)\b/.test(s) && !/\b(options|choices|few times|other times|around)\b/.test(s);
+    L = single ? [hm(h, mi)] : [-60, -30, 0, 30].map(d=>{ const t = h*60+mi+d; return hm(Math.floor(t/60), t%60); }); }
+  else L = [[21,0],[21,30],[22,0],[22,30]].map(([h,mi])=>hm(h,mi));
+  const mins = +(s.match(/\bfor\s+(\d+)\s*(?:min|minutes)\b/)?.[1] || (s.match(/\bfor\s+(\d+)\s*(?:hr|hrs|hour|hours)\b/)?.[1]||1)*60);
+  return {mins, opts:L.filter(d=>d.getTime() > Date.now() + 15*60e3).map(d=>({id:'o'+d.toISOString().replace(/\D/g,'').slice(0,12), start:d.toISOString(), end:new Date(d.getTime()+mins*60e3).toISOString(), busy:busyFor(cooKey(), d.toISOString(), new Date(d.getTime()+mins*60e3).toISOString())}))}; }
+function avTitle(t, ch){ return (t.match(/\*{0,2}\s*meeting title:?\s*\*{0,2}:?\s*([^*\n]+?)(?:\s*\*\*|\n|$)/i)?.[1] || t.match(/\b(?:called|titled|named)\s+["“]?(.+?)["”]?(?:\s+(?:at|on|for|tomorrow|today)\b|[.,]|$)/i)?.[1]
+  || (ch ? `${chatTitle(ch).replace(/\s+(team|gc|group chat)$/i,'')} Meeting` : 'Team Meeting')).trim(); }
+function avPurpose(t){ return (t.match(/\b(?:agenda|purpose):?\s*\*{0,2}\s*(.+?)(?:\n|$)/i)?.[1] || t.match(/\b(?:to discuss|about|regarding)\s+(.+?)(?:[.!]|$)/i)?.[1] || '').replace(/\b(tomorrow|today|tonight)\b.*$/i,'').trim(); }
+
+/* ---------- start the workflow ---------- */
+async function avStart(text){
+  const s = text.toLowerCase().replace(/^\s*coo[,:]?\s*/,'');
+  avChat.ambiguous = null; const ch = avChat(s); if(!ch) return avChat.ambiguous ? `Which one — ${avChat.ambiguous.map(c=>'“'+chatTitle(c)+'”').join(' or ')}?` : 'Which group chat should I ask? (e.g. “the Operations GC”, “Marketing”, or a client’s GC)';
+  const day = avDay(s); const {opts, mins} = avTimes(s, day); const free = opts.filter(o=>!o.busy);
+  if(!opts.length) return `Those times on ${mtDate(day+'T04:00:00Z',{long:true})} have already passed — which day or times should I offer?`;
+  if(!free.length) return `You’re busy at all of those times on ${mtDate(day+'T04:00:00Z')} — which other times should I offer?`;
+  let need = gcMembersToTag(ch);
+  if(/\b(core team|core)\b/.test(s) && /\binclud/.test(s)) need.push(...(CHATS.find(c=>c.id==='chat-core')?.members||[]));
+  if(/\b(heads|department heads|executives?)\b/.test(s) && /\binclud/.test(s)) need.push(...HEADS);
+  need.push(...cmdPeople(s)); need = uniq(need).filter(k=>PEOPLE[k] && k!==cooKey() && PEOPLE[k].role!=='client' && !isAssistantKey(k));
+  const title = avTitle(text, ch), purpose = avPurpose(text);
+  const dup = OPSPOLL.find(p=>p.kind==='adhoc' && p.status==='collecting' && p.chat===ch.id && p.day===day);
+  if(dup) return `There’s already an open availability poll for ${dup.title} in ${chatTitle(ch)} (${mtDate(day+'T04:00:00Z')}). Say “follow up with the people who haven’t responded” to nudge them.`;
+  const first0 = new Date(free[0].start).getTime();
+  const poll = {id:uid('AP'), kind:'adhoc', chat:ch.id, title, purpose, day, mins, attendees:need, options:free.map(({busy,...o})=>o), round:1, status:'collecting', by:PERSON,
+    createdAt:nowISO(), deadline:new Date(Math.max(Date.now()+60*60e3, Math.min(first0 - 2*3600e3, Date.now()+12*3600e3))).toISOString(), log:[]};
+  OPSPOLL.push(poll);
+  const mid = 'M-av-'+poll.id; const dstr = mtDate(day+'T04:00:00Z',{long:true});
+  const body = `📅 ${title} — Availability\nHi team! We need to schedule ${/meeting$/i.test(title)?'the '+title:title} for ${dstr}${purpose?` to discuss ${purpose}`:''}.\nPlease tap every time that works for you (Philippine time) — or “I can’t make any of these”. I’ll book the best time and send the calendar invite.`;
+  const tagged = need.filter(k=>(ch.members||[]).includes(k));
+  MESSAGES.push({id:mid, chat:ch.id, by:'asst:'+COO_ASST, kind:'opspoll', poll:poll.id, round:1, text:body, at:nowISO(), files:[], ...(tagged.length?{mentions:tagged}:{})});
+  if(tagged.length) notifyAs('asst:'+COO_ASST, tagged, 'message', `🗳️ COO Assistant in <b>${esc(chatTitle(ch))}</b>: when are you available for ${esc(title)} (${esc(dstr)})?`, {view:'chat', arg:ch.id, msg:mid}, mid);
+  poll.msg = mid; recordChange();
+  const v = await cooVerify([mk('opspoll', poll.id), mk('messages', mid)]);
+  if(!v.ok){ return `⚠ I couldn’t post the availability poll: ${v.why}. Say “retry”.`; }
+  const skipped = opts.filter(o=>o.busy).map(o=>mtTime(o.start));
+  return `✅ I’ve asked ${chatTitle(ch)} when they’re available for “${title}” on ${dstr}.\n🗳️ Options (PH time): ${poll.options.map(o=>mtTime(o.start)).join(' · ')}${skipped.length?`  (skipped ${skipped.join(', ')} — you’re busy)`:''}\n👥 Required: ${need.map(first).join(', ')||'everyone in the chat'}\n\nI’ll book the best time as soon as everyone can make one (or when they’ve all answered, at the latest ${mtTime(poll.deadline)}), add it to your calendar with a meeting link and invitations, confirm in the GC, and nudge anyone who hasn’t answered.`;
+}
+
+/* ---------- live tracking, booking and follow-ups ---------- */
+async function avBook(poll, o, why){
+  if(poll.status!=='collecting' || poll.booking) return; poll.booking = true;
+  const t = opsTally(poll); const coo = poll.by || cooKey(); const id = 'mt'+poll.id.replace(/[^A-Za-z0-9]/g,'').toLowerCase();
+  let m = MEETINGS.find(x=>x.id===id);
+  if(!m){ const link = await calLink(poll.title, o.start, poll.mins||60);
+    m = {id, title:poll.title, kind:'Meeting', start:o.start, end:o.end, organizer:coo, participants:poll.attendees.filter(k=>k!==coo), link:link.url, linkNote:link.url?'':link.why,
+      notes:[poll.purpose&&`Agenda: ${poll.purpose}`, 'Booked by the COO Assistant from the availability poll.'].filter(Boolean).join('\n'), chat:poll.chat, poll:poll.id, status:'scheduled', createdAt:nowISO(), createdBy:'asst:'+COO_ASST, history:[{at:nowISO(), by:'asst:'+COO_ASST, act:`Booked — ${why}`}]};
+    MEETINGS.push(m);
+    const yes = new Set(t.opt.find(x=>x.id===o.id)?.yes||[]);
+    m.participants.filter(k=>yes.has(k)).forEach(k=>{ if(!MTRSVP.some(r=>r.id===id+'|'+k)) MTRSVP.push({id:id+'|'+k, meeting:id, person:k, st:'accepted', at:nowISO(), note:'Chose this time in the poll'}); });
+    notifyAs('asst:'+COO_ASST, m.participants, 'meeting', `📅 <b>${esc(m.title)}</b> is booked for ${esc(mtDate(m.start))} · ${esc(mtTime(m.start))} — it’s in your calendar`, {view:'schedule', meeting:id}, 'N-'+id); }
+  poll.status = 'confirmed'; poll.slot = o; poll.meeting = id; poll.link = m.link; poll.confirmedAt = nowISO(); poll.booking = false;
+  const ch = CHATS.find(c=>c.id===poll.chat); const cant = poll.attendees.filter(k=>!(t.opt.find(x=>x.id===o.id)?.yes||[]).includes(k));
+  if(ch) cooSendTagged({kind:'chat', chat:ch, who:poll.attendees}, `✅ Confirmed: ${m.title}\nThe ${m.title} is confirmed for ${mtDate(m.start,{long:true})} at ${mtTime(m.start)} (PH time).\nThe calendar invite has been sent to all required participants.${m.link?`\nMeeting link: ${m.link}`:''}${poll.purpose?`\nAgenda: ${poll.purpose}`:''}\nSee you there!`, 'avok-'+poll.id);
+  if(cant.length) cooSendTagged({kind:'dm', who:cant}, `Hi! ${m.title} was booked for ${mtDate(m.start,{long:true})} at ${mtTime(m.start)} — the time most of the team could make. If you can’t join, please let JA know and decline the invite in your Calendar so we can catch you up.`, 'avcant-'+poll.id);
+  if(poll.by && poll.by!==PERSON) notifyAs('asst:'+COO_ASST, [poll.by], 'meeting', `✅ I booked <b>${esc(m.title)}</b> for ${esc(mtDate(m.start))} · ${esc(mtTime(m.start))} (${esc(why)})`, {view:'schedule', meeting:id}, 'N-book-'+id);
+  recordChange(); if(CURRENT==='chat') RENDER.chat();
+}
+function avTick(){
+  if(typeof canRunOps!=='function' || !canRunOps()) return; const now = Date.now(); let ch = false;
+  OPSPOLL.filter(p=>p.kind==='adhoc' && p.status==='collecting').forEach(p=>{ const t = opsTally(p); if(!t.opt.length) return;
+    const all = t.opt.find(o=>o.yes.length===t.need.length && t.need.length);
+    const best = t.opt.slice().sort((a,b)=>b.yes.length-a.yes.length || a.start.localeCompare(b.start))[0];
+    if(all) return avBook(p, all, 'everyone can make it');
+    if(!t.pending.length && best?.yes.length) return avBook(p, best, `best time — ${best.yes.length} of ${t.need.length} available`);
+    if(now >= new Date(p.deadline).getTime()){ if(best?.yes.length) return avBook(p, best, `deadline reached — ${best.yes.length} of ${t.need.length} available`);
+      if(!p.failNoted){ p.failNoted = true; notifyAs('asst:'+COO_ASST, [p.by||cooKey()], 'reminder', `⚠ Nobody picked a time for <b>${esc(p.title)}</b> yet. Tell me new times and I’ll ask again.`, {view:'chat', arg:p.chat, msg:p.msg}, 'N-avfail-'+p.id); ch = true; } return; }
+    const half = new Date(p.createdAt).getTime() + (new Date(p.deadline) - new Date(p.createdAt))/2;
+    if(t.pending.length && now >= half && !p.nudged){ p.nudged = true; const c = CHATS.find(x=>x.id===p.chat); if(c) cooSendTagged({kind:'chat', chat:c, who:t.pending}, `Friendly reminder 🙂 please pick the times that work for you for ${p.title} (poll above) — I’ll book it by ${mtTime(p.deadline)}.`, 'avnudge-'+p.id); ch = true; }
+  });
+  /* invitations not yet accepted, 3 hours before */
+  MEETINGS.filter(m=>m.poll && m.status!=='cancelled' && !mtPast(m) && new Date(m.start) - now < 3*3600e3 && new Date(m.start) - now > 30*60e3).forEach(m=>{
+    const pend = (m.participants||[]).filter(k=>mtSt(m,k)==='pending'); const id = 'avinv-'+m.id; if(!pend.length || MESSAGES.some(x=>x.id==='M-cmd-'+id)) return;
+    const c = CHATS.find(x=>x.id===m.chat); if(c){ cooSendTagged({kind:'chat', chat:c, who:pend}, `Please accept the calendar invite for ${m.title} today at ${mtTime(m.start)} (PH time) so we know you’re joining. Thank you!`, id); ch = true; } });
+  if(ch) recordChange();
+}
+setInterval(avTick, 30000);
+{ const _ore = onRemoteEvent; onRemoteEvent = function(ev){ _ore(ev); if(ev?.coll==='opsvotes') setTimeout(avTick, 900); }; }
+
+/* ---------- the poll card: available / unavailable / pending per time, with names ---------- */
+opsPollCard = function(m){ const poll = OPSPOLL.find(x=>x.id===m.poll); if(!poll) return ''; const t = opsTally(poll); const cur = m.round===poll.round && poll.status==='collecting';
+  const mine = t.ans(PERSON); const can = t.need.includes(PERSON);
+  if(poll.status==='confirmed' && poll.slot) return `<div class="ops-poll done">✅ Booked: <b>${esc(mtDate(poll.slot.start,{long:true}))} · ${esc(mtTime(poll.slot.start))}</b>${poll.meeting?` · <a href="#" onclick="mtOpen('${poll.meeting}');return false">Open in Calendar</a>`:''}</div>`;
+  if(!cur) return `<div class="ops-poll old">Round ${m.round} closed — see the newest options below.</div>`;
+  return `<div class="ops-poll">${t.opt.map(o=>{ const busy = can && busyFor(PERSON, o.start, o.end); const on = mine?.yes?.includes(o.id); const pend = t.pending.length;
+      return `<button type="button" class="ops-opt ${on?'on':''} ${busy?'busy':''}" ${can?`onclick="opsVote('${poll.id}',${poll.round},'${o.id}')"`:'disabled'} title="${esc(o.yes.length?'Available: '+o.yes.map(first).join(', '):'Nobody yet')}">
+        <span><b>${esc(mtTime(o.start))}</b>${poll.kind==='adhoc'?'':' · '+esc(mtDate(o.start))}${busy?' <em>· you have a meeting</em>':''}<span class="ops-who">${o.yes.length?esc(o.yes.map(first).join(', ')):''}</span></span>
+        <span class="ops-n">✓ ${o.yes.length} · ✕ ${o.no.length} · ⏳ ${pend}</span></button>`; }).join('')}
+    ${can?`<div class="ops-foot"><button type="button" class="btn ${mine?.none?'on':''}" onclick="opsVote('${poll.id}',${poll.round},'none')">✕ I can’t make any of these</button><button type="button" class="btn ghost" onclick="opsAlt('${poll.id}')">Suggest another time</button></div>`:''}
+    <div class="hint">${t.answered.length}/${t.need.length} answered${t.pending.length?` · waiting for ${esc(t.pending.map(first).join(', '))}`:''}${poll.deadline?` · booking by ${esc(mtTime(poll.deadline))}`:''}</div></div>`; };
+
+/* ---------- connected changes: reschedules / cancellations are posted in the meeting's GC ---------- */
+{ const _mv = calMove; calMove = function(m, start, mins){ const r = _mv.apply(this, arguments); const c = CHATS.find(x=>x.id===m.chat);
+    if(c) cooSendTagged({kind:'chat', chat:c, who:m.participants}, `🔁 Rescheduled: ${m.title} is now ${mtDate(m.start,{long:true})} at ${mtTime(m.start)} (PH time). Your calendar invite was updated — please accept it again.${m.link?`\nMeeting link: ${m.link}`:''}`, 'avmv-'+m.id+'-'+m.start.replace(/\D/g,'').slice(0,12)); return r; }; }
+{ const _cc = calCancel; calCancel = function(m){ const r = _cc.apply(this, arguments); const c = CHATS.find(x=>x.id===m.chat);
+    if(c) cooSendTagged({kind:'chat', chat:c, who:m.participants}, `❌ Cancelled: ${m.title} on ${mtDate(m.start,{long:true})} at ${mtTime(m.start)} won’t happen. It was removed from your calendar.`, 'avcx-'+m.id); return r; }; }
+
+/* ---------- follow-up commands ---------- */
+const avLatestMeeting = s => { const L = calFind(s); return L[0] || mtList().filter(m=>m.organizer===PERSON && m.status!=='cancelled' && !mtPast(m)).sort((a,b)=>a.start.localeCompare(b.start))[0] || null; };
+async function avFollow(text){ const s = text.toLowerCase();
+  if(/\b(haven'?t|have not|not yet|didn'?t|no)\b.*\b(respond|answer|repl|vot|pick)/.test(s) || /\bnon[- ]?responders?\b/.test(s)){
+    const p = OPSPOLL.filter(x=>x.status==='collecting' && (!x.by || x.by===PERSON)).sort((a,b)=>(b.createdAt||'').localeCompare(a.createdAt||''))[0];
+    if(p){ const t = opsTally(p); if(!t.pending.length) return `Everyone has answered the ${p.title} poll.`; const c = CHATS.find(x=>x.id===p.chat) || opsChat();
+      const r = cooSendTagged({kind:'chat', chat:c, who:t.pending}, `Friendly reminder 🙂 please pick the times that work for you for ${p.title} (poll above). Thank you!`, uid('F'));
+      const v = await cooVerify(r.ids.map(id=>mk('messages', id))); return v.ok ? `✅ Nudged ${t.pending.map(first).join(', ')} in ${chatTitle(c)}.` : `⚠ Couldn’t post: ${v.why}.`; }
+    const m = avLatestMeeting(s); if(!m) return 'There’s no open poll or upcoming meeting of yours to follow up on.';
+    const pend = m.participants.filter(k=>mtSt(m,k)==='pending'); if(!pend.length) return `Everyone has answered the invite for ${m.title}.`;
+    const c = CHATS.find(x=>x.id===m.chat); const r = cooSendTagged(c ? {kind:'chat', chat:c, who:pend} : {kind:'dm', who:pend}, `Please accept or decline the invite for ${m.title} (${mtDate(m.start)} · ${mtTime(m.start)} PH time). Thank you!`, uid('F'));
+    const v = await cooVerify(r.ids.map(id=>mk('messages', id))); return v.ok ? `✅ Followed up with ${pend.map(first).join(', ')}${c?' in '+chatTitle(c):' privately'}.` : `⚠ Couldn’t send: ${v.why}.`; }
+  if(/\b(who|check)\b.*\b(accept|declin|invite|rsvp|confirm)/.test(s)){ const m = avLatestMeeting(s); if(!m) return 'You have no upcoming meetings.';
+    const g = st => m.participants.filter(k=>mtSt(m,k)===st).map(first); return `${m.title} — ${mtDate(m.start)} · ${mtTime(m.start)}\n✅ Accepted: ${g('accepted').join(', ')||'—'}\n❌ Declined: ${g('declined').join(', ')||'—'}\n⏳ No answer yet: ${g('pending').join(', ')||'—'}${g('reschedule').length?`\n🔁 Asked to reschedule: ${g('reschedule').join(', ')}`:''}\nSay “follow up with the people who haven’t responded” and I’ll nudge them.`; }
+  if(/\bsend\b.*\b(meeting )?details\b|\bpost\b.*\bdetails\b/.test(s)){ const m = avLatestMeeting(s); if(!m) return 'Which meeting?'; const c = avChat(s) || CHATS.find(x=>x.id===m.chat); if(!c) return 'Which group chat should I send the details to?';
+    const r = cooSendTagged({kind:'chat', chat:c, who:m.participants}, `📅 ${m.title}\n${mtDate(m.start,{long:true})} · ${mtTime(m.start)}–${mtTime(m.end)} (PH time)${m.link?`\nMeeting link: ${m.link}`:''}${m.notes?`\n${m.notes.split('\n')[0]}`:''}\nIt’s in your calendar — see you there!`, uid('D'));
+    const v = await cooVerify(r.ids.map(id=>mk('messages', id))); return v.ok ? `✅ Sent the details of ${m.title} to ${chatTitle(c)}${r.tagged.length?` tagging ${r.tagged.map(first).join(', ')}`:''}.` : `⚠ Couldn’t send: ${v.why}.`; }
+  if(/\bremind (everyone|the team|all|them)\b.*\b(\d+)\s*min/.test(s) || /\b(\d+)\s*min(ute)?s? before\b/.test(s)){ const m = avLatestMeeting(s); if(!m) return 'Which meeting?'; const mins = +(s.match(/(\d+)\s*min/)?.[1]||30);
+    const at = new Date(new Date(m.start).getTime() - mins*60e3); if(at < Date.now()) return `It’s already less than ${mins} minutes before ${m.title}.`; const c = CHATS.find(x=>x.id===m.chat) || avChat(s);
+    const q = {id:uid('CQ'), at:at.toISOString(), target:c?{kind:'chat', chat:c.id, who:m.participants}:{kind:'dm', chat:null, who:m.participants}, label:c?`${chatTitle(c)} group chat`:'participants (private)', mentions:c?m.participants.filter(k=>(c.members||[]).includes(k)):undefined,
+      dms:c?undefined:m.participants.map(k=>({k, chat:dmId(cooKey(),k), members:[cooKey(),k].sort()})), asst:'asst:'+COO_ASST, from:PERSON,
+      text:`⏰ ${m.title} starts in ${mins} minutes (${mtTime(m.start)} PH time).${m.link?` Join here: ${m.link}`:''}`, topic:{kind:'free'}, status:'scheduled', by:PERSON, createdAt:nowISO()};
+    q.notifText = `🔔 COO Assistant: ${q.text}`; COOQ.push(q); recordChange(); const v = await cooVerify([mk('cooqueue', q.id)]);
+    return v.ok ? `🕒 I’ll remind ${c?chatTitle(c)+' (tagging everyone)':'every participant privately'} at ${mtTime(q.at)} — ${mins} minutes before ${m.title}. It goes out even if you’re offline.` : `⚠ Couldn’t schedule it: ${v.why}.`; }
+  if(/\b(reschedule|move)\b.*\bbest (available )?time\b/.test(s)){ const m = avLatestMeeting(s); const p = m && OPSPOLL.find(x=>x.id===m.poll); if(!p) return 'I don’t have availability answers for that meeting — tell me the new time instead.';
+    const t = opsTally(p); const cur = t.opt.find(o=>o.start===m.start); const alt = t.opt.filter(o=>o.start!==m.start).sort((a,b)=>b.yes.length-a.yes.length || a.start.localeCompare(b.start))[0];
+    if(!alt || alt.yes.length <= (cur?.yes.length||0)) return `${m.title} is already at the best time from the poll — ${mtTime(m.start)} (${cur?.yes.length||0} of ${t.need.length} available). Tell me a specific time if you still want to move it.`;
+    calMove(m, alt.start, p.mins); const v = await cooVerify([mk('meetings', m.id)]); return v.ok ? `🔁 Moved ${m.title} to ${mtTime(alt.start)} (${alt.yes.length} of ${t.need.length} available), updated everyone’s calendar and posted it in the GC.` : `⚠ Couldn’t reschedule: ${v.why}.`; }
+  return null; }
+
+/* ---------- plug into the conversation (before the other commands) ---------- */
+{ const _ce = cooExec; cooExec = async function(text){ text = String(text).replace(/[’‘]/g,"'").replace(/[“”]/g,'"'); const s = text.toLowerCase().replace(/^\s*coo[,:]?\s*/,'');
+    const f = await avFollow(s); if(f) return f;
+    if(AV_INTENT(s)) { const run = () => avStart(text); COO_LAST.fn = run; return await run(); }
+    return _ce.call(this, text.replace(/^\s*coo[,:]?\s*/i,'')); }; }
+{ const _pi = paIntent; paIntent = function(a, text){ const s = String(text).replace(/[’‘]/g,"'").toLowerCase().replace(/^\s*coo[,:]?\s*/,'');
+    if(isCooA(a) && PERSON===a.pm && (AV_INTENT(s) || /\b(haven'?t|have not)\b.*\b(respond|answer)|\bwho\b.*\b(accept|invite)|\bmeeting details\b|\bminutes? before\b|\bbest (available )?time\b/.test(s))){
+      const tag = uid('W'); setTimeout(async ()=>{ let r; try{ r = await cooExec(text); }catch(e){ r = `⚠ That didn’t work: ${e.message}. Say “retry”.`; }
+        const conv = paConv(a); const msg = conv.msgs.find(x=>x.wait===tag) || [...conv.msgs].reverse().find(x=>x.role==='assistant' && x.text==='⏳ On it…'); if(msg){ msg.text = r==null ? cooAnswer(text) : r; delete msg.wait; aiSaveConv(conv); if(CURRENT==='pa') RENDER.pa(); } }, 30);
+      window.__lastWait = tag; return {reply:'⏳ On it…', wait:tag}; }
+    return _pi.apply(this, arguments); }; }
 
 CC_BOOT();
 </script>

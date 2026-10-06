@@ -2634,7 +2634,16 @@ body.glass-lite .sidebar,body.glass-lite .topbar{background:linear-gradient(180d
 .mt-lnote{margin-top:6px;font-size:12.5px;color:var(--ink-2);display:flex;gap:8px;align-items:center;flex-wrap:wrap}.mt-lnote .btn{padding:4px 10px;font-size:12px}
 #mtL.mt-flash{animation:mtFlash 1.2s ease}@keyframes mtFlash{0%,60%{box-shadow:0 0 0 3px rgba(24,138,78,.35);border-color:#18A05A}}
 @media (prefers-reduced-motion:reduce){#mtL.mt-flash{animation:none}}
+/* ===== COO Assistant dashboard (Oct 2026) ===== */
+.coo-dash{margin-bottom:16px}.coo-qs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.coo-sec{border-top:1px solid var(--line);padding:6px 0}.coo-sec summary{cursor:pointer;font:700 13.5px Inter,sans-serif;padding:6px 2px;display:flex;align-items:center;gap:8px;list-style:none}
+.coo-sec summary::-webkit-details-marker{display:none}.coo-sec summary::before{content:'›';display:inline-block;transition:transform .15s;font-size:16px;color:var(--ink-3)}.coo-sec[open] summary::before{transform:rotate(90deg)}
+.coo-row{display:flex;gap:10px;align-items:center;padding:8px 6px;border-radius:12px}.coo-row:hover{background:rgba(255,255,255,.4)}
+.coo-row b{font-size:13px}.coo-acts{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}.coo-acts .btn{padding:4px 10px;font-size:12px}
+.call-card.missed .cc-ico{background:rgba(229,72,77,.12);color:#C2272D}
+@media(max-width:640px){.coo-row{flex-direction:column;align-items:stretch}.coo-acts{justify-content:flex-start}}
 </style>
+
 
 
 
@@ -9009,7 +9018,7 @@ function callsAdminCard(){
     <button class="btn primary" onclick="saveSettings('calls')">Save call settings</button>
     <div class="nav-label" style="padding:16px 0 6px">Automatic Google Meet links</div>
     <div id="gmStatus" class="info-item" style="margin-bottom:8px"><span class="hint">Status</span>${BACKEND.mode==='live'?'<span class="spinner" style="display:inline-block"></span>':'Needs the live database'}</div>
-    ${BACKEND.mode==='live'?`<div class="grid cols-2"><div class="field"><label>Google OAuth client ID</label><input id="gmClient" placeholder="…apps.googleusercontent.com"></div><div class="field"><label>Client secret</label><input id="gmSecret" type="password" placeholder="Leave empty to keep the saved one"></div></div>
+    ${BACKEND.mode==='live'?`<div class="grid cols-2"><div class="field"><label>Google OAuth client ID</label><input id="gmClient" placeholder="…apps.googleusercontent.com"></div><div class="field"><label>Client secret</label><input id="gmSecret" type="password" autocomplete="new-password" readonly onfocus="this.removeAttribute('readonly')" data-lpignore="true" data-1p-ignore placeholder="Leave empty to keep the saved one"></div></div>
       <div class="hint" style="margin-bottom:8px">In Google Cloud, add this as an authorized redirect URI: <span class="calc">${esc(redirect)}</span></div>
       <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" onclick="saveGoogleClient()">Save client</button><button class="btn primary" onclick="connectGoogle()">Connect Google account</button><button class="btn" onclick="if(confirm('Disconnect the Google account?'))disconnectGoogle()">Disconnect</button></div>`:''}
   </div></div>`;
@@ -18964,8 +18973,8 @@ function mtNewOn(dk){ mtModal(); setTimeout(()=>{ if(el('mtD')) el('mtD').value 
 { let t = null; const _ore = onRemoteEvent; onRemoteEvent = function(ev){ _ore(ev); if(['meetings','mtrsvp'].includes(ev?.coll)){ clearTimeout(t); t = setTimeout(()=>{ buildNav(); if(CURRENT==='schedule') RENDER.schedule(); if(CURRENT==='dashboard') RENDER.dashboard(); }, 300); } }; }
 
 /* ================= AI ASSISTANT — 30-minute reminders · 5-minute attendance follow-up ================= */
-function mtNotifOnce(id, to, m, text, link){ if(NOTIFS2.some(n=>n.id===id)) return false;
-  NOTIFS2.unshift({id, to, type:'meeting', text, link:link||{view:'schedule', meeting:m.id}, by:PERSON, asst:mtAsst(m), at:nowISO(), read:false}); return true; }
+function mtNotifOnce(id, to, m, text, link, asst){ if(NOTIFS2.some(n=>n.id===id)) return false;
+  NOTIFS2.unshift({id, to, type:'meeting', text, link:link||{view:'schedule', meeting:m.id}, by:PERSON, asst:asst||mtAsst(m), at:nowISO(), read:false}); return true; }
 function mtRemText(m, k){ const ppl = (m.participants||[]).filter(x=>x!==k).map(first).slice(0,5).join(', ');
   return `⏰ <b>${esc(m.title)}</b> starts in 30 minutes — ${esc(mtTime(m.start))} · organized by ${esc(k===m.organizer?'you':pname(m.organizer))}${ppl?` · with ${esc(ppl)}`:''}${m.notes?` · ${esc(coraTrim(m.notes,80))}`:''}${m.link?` · <a href="${esc(m.link)}" target="_blank" rel="noopener">Join link</a>`:''}`; }
 function mtTick(){
@@ -18979,11 +18988,11 @@ function mtTick(){
     }
     /* about 5 minutes after the start: follow up with anyone who hasn't joined */
     if(now >= s + 5*60e3 && now < Math.min(e, s + 30*60e3) && m.link){
-      if(PERSON!==m.organizer && going(PERSON) && !mtJoined(m, PERSON) && mtNotifOnce(`mt5|${m.id}|${PERSON}`, PERSON, m, `🔔 <b>${esc(m.title)}</b> started 5 minutes ago — please join when you can. <a href="${esc(m.link)}" target="_blank" rel="noopener">Join meeting</a>`)){ ch = true; toast(`🔔 ${m.title} has started — join when you can`); }
+      if(PERSON!==m.organizer && going(PERSON) && !mtJoined(m, PERSON) && mtNotifOnce(`mt5|${m.id}|${PERSON}`, PERSON, m, `🔔 <b>${esc(m.title)}</b> started 5 minutes ago — please join when you can. <a href="${esc(m.link)}" target="_blank" rel="noopener">Join meeting</a>`, null, typeof mtAsstFor==='function'?mtAsstFor(PERSON, m):null)){ ch = true; toast(`🔔 ${m.title} has started — join when you can`); }
       if(m.organizer===PERSON){ const missing = (m.participants||[]).filter(k=>going(k) && !mtJoined(m, k) && PEOPLE[k]);
         missing.forEach(k=>{ const cid = dmId(m.organizer, k); let c = CHATS.find(x=>x.id===cid); if(!c){ c = {id:cid, kind:'dm', name:'', members:[m.organizer,k].sort(), at:nowISO()}; CHATS.push(c); }
-          const mid = `mt5-${m.id}-${k}`; if(!MESSAGES.some(x=>x.id===mid)){ MESSAGES.push({id:mid, chat:cid, by:mtAsst(m), text:`Hi ${first(k)}! Your meeting with ${first(m.organizer)}, “${m.title}”, started 5 minutes ago. Please join when you can. ${m.link}`, at:nowISO(), files:[], ai:true}); ch = true; }
-          if(mtNotifOnce(`mt5|${m.id}|${k}`, k, m, `🔔 <b>${esc(m.title)}</b> started 5 minutes ago — please join when you can. <a href="${esc(m.link)}" target="_blank" rel="noopener">Join meeting</a>`)) ch = true; });
+          const mid = `mt5-${m.id}-${k}`; if(!MESSAGES.some(x=>x.id===mid)){ MESSAGES.push({id:mid, chat:cid, by:(typeof mtAsstFor==='function'?mtAsstFor(k, m):mtAsst(m)), kind:'assistant', text:`Hi ${first(k)}! Your meeting with ${first(m.organizer)}, “${m.title}”, started 5 minutes ago. Please join when you can. ${m.link}`, at:nowISO(), files:[], ai:true}); ch = true; }
+          if(mtNotifOnce(`mt5|${m.id}|${k}`, k, m, `🔔 <b>${esc(m.title)}</b> started 5 minutes ago — please join when you can. <a href="${esc(m.link)}" target="_blank" rel="noopener">Join meeting</a>`, null, typeof mtAsstFor==='function'?mtAsstFor(k, m):null)) ch = true; });
         /* PMs & heads get an attendance summary for the meetings they run */
         if(mtLeadRole(PERSON) && (m.participants||[]).length){ const joined = (m.participants||[]).filter(k=>mtJoined(m,k)); const dec = (m.participants||[]).filter(k=>mtSt(m,k)==='declined');
           if(!NOTIFS2.some(n=>n.id===`mtatt|${m.id}`)){ NOTIFS2.unshift({id:`mtatt|${m.id}`, to:PERSON, type:'meeting', by:PERSON, asst:mtAsst(m), at:nowISO(), read:false, link:{view:'schedule', meeting:m.id},
@@ -19624,7 +19633,7 @@ async function mtMakeZoom(){
     return h + `<div class="card" id="zmCard"><div class="card-h"><h3>Zoom meetings</h3></div><div class="card-b">
       <p class="hint" style="margin-bottom:10px">Lets “Create Zoom link” make real Zoom meetings and fill in the link. In the Zoom App Marketplace (marketplace.zoom.us) → Develop → Build App → <b>Server-to-Server OAuth</b>, add the scope <b>meeting:write:meeting:admin</b> (or meeting:write), activate it, then paste its three keys here. They’re stored on the server only.</p>
       <div id="zmStatus" class="hint" style="margin-bottom:8px"></div>
-      <div class="grid cols-3"><div class="field"><label>Account ID</label><input id="zmAcc" autocomplete="off"></div><div class="field"><label>Client ID</label><input id="zmId" autocomplete="off"></div><div class="field"><label>Client Secret</label><input id="zmSec" type="password" autocomplete="off"></div></div>
+      <div class="grid cols-3"><div class="field"><label>Account ID</label><input id="zmAcc" autocomplete="off" data-lpignore="true" data-1p-ignore></div><div class="field"><label>Client ID</label><input id="zmId" autocomplete="off" data-lpignore="true" data-1p-ignore></div><div class="field"><label>Client Secret</label><input id="zmSec" type="password" autocomplete="new-password" readonly onfocus="this.removeAttribute('readonly')" data-lpignore="true" data-1p-ignore placeholder="Paste the Zoom Client Secret"></div></div>
       <button class="btn primary" onclick="zoomSave()">Save & test Zoom</button></div></div>`; }; }
 async function zoomRefresh(){ const b = el('zmStatus'); if(!b) return; if(BACKEND.mode!=='live'){ b.textContent = 'Connect on the live portal.'; return; }
   const r = await leadFn('zoom_status', {}).catch(()=>null); b.innerHTML = r?.configured ? '<span class="badge b-done">Connected</span> Zoom links can be created' : '<span class="badge b-missed">Not connected</span>'; }
@@ -19632,6 +19641,189 @@ async function zoomSave(){ const v = {account_id:el('zmAcc').value.trim(), clien
   if(!v.account_id || !v.client_id || !v.client_secret) return toast('Paste all three keys');
   const r = await leadFn('zoom_config', v).catch(e=>({error:e.message})); if(r?.ok){ toast('Zoom connected'); el('zmSec').value = ''; } else toast(r?.error||'Could not connect Zoom'); zoomRefresh(); }
 { const _rs = RENDER.settings; if(_rs) RENDER.settings = function(){ const r = _rs.apply(this, arguments); setTimeout(zoomRefresh, 50); return r; }; }
+
+/* ===== 63_coo.js ===== */
+/* ================= COO ASSISTANT · EVALUATION FOLLOW-UPS · MEETING NO-SHOW CALLS (Oct 2026) =================
+   • Every employee (VAs included) has the Calendar. Follow-ups for a participant who hasn't joined come from THEIR assigned
+     PM's assistant (Cora when they have none): a chat message after 5 minutes, and after 10 minutes an in-system call that
+     rings on their portal and stays in their messages as a missed call. Nothing is sent once they join or the meeting is
+     cancelled.
+   • COO Assistant: a dedicated assistant for the COO (same core functions as the PM Assistants) with company-wide oversight:
+     overdue tasks, approvals waiting on the COO, client registrations to review, meetings today, unanswered invitations,
+     missed meetings, and VA evaluations (3rd-month and monthly). Its page has an action dashboard with Open · Follow up ·
+     Tag in chat; approve / reject always stay with the COO.
+   • Evaluation follow-ups: at the end of each VA's third month and at every month end, missing evaluations are followed up
+     with the responsible PM(s) and HR — once a day, privately, until submitted. A status report lists submitted and missing
+     evaluations with owners and deadlines (never invented grades).
+   • The COO Assistant is a member of every company and internal client group chat (new ones included); it posts only what
+     the chat's members may see — HR/evaluation follow-ups always go privately. Every follow-up is logged. */
+
+/* ---------- meeting follow-ups come from the participant's own PM assistant ---------- */
+const vaPMs = k => activePeople().filter(p=>PEOPLE[p]?.role==='manager' && overseenBy(p).includes(k));
+function mtAsstFor(k, m){ for(const pm of vaPMs(k)){ const a = typeof paForPM==='function' && paForPM(pm); if(a) return 'asst:'+a.id; } return 'asst:cora'; }
+const asstName = key => (typeof assistant==='function' && assistant(key)?.name) || 'Cora';
+/* 10 minutes after the start: an in-system call that shows up as a missed call if it isn't answered */
+function mtCallTick(){
+  if(!SYNC.ready || !PEOPLE[PERSON]) return; const now = Date.now(); let ch = false;
+  for(const m of MEETINGS){ if(m.status==='cancelled' || m.organizer!==PERSON || !m.link) continue;
+    const s = new Date(m.start).getTime(), e = new Date(m.end).getTime(); if(now < s + 10*60e3 || now >= Math.min(e, s + 30*60e3)) continue;
+    (m.participants||[]).filter(k=>PEOPLE[k] && mtSt(m,k)!=='declined' && !mtJoined(m,k)).forEach(k=>{
+      const id = `mt10-${m.id}-${k}`; if(MESSAGES.some(x=>x.id===id)) return;
+      const cid = dmId(m.organizer, k); if(!CHATS.find(x=>x.id===cid)) CHATS.push({id:cid, kind:'dm', name:'', members:[m.organizer,k].sort(), at:nowISO()});
+      const by = mtAsstFor(k, m);
+      MESSAGES.push({id, chat:cid, by, kind:'call', asstCall:true, status:'missed', meeting:m.id, to:k, at:nowISO(), files:[], text:''});
+      if(typeof mtNotifOnce==='function') mtNotifOnce(`mt10|${m.id}|${k}`, k, m, `📞 Missed call from <b>${esc(asstName(by))}</b> — <b>${esc(m.title)}</b> started 10 minutes ago. <a href="${esc(m.link)}" target="_blank" rel="noopener">Join meeting</a>`, null, by);
+      ch = true; }); }
+  if(ch) recordChange();
+}
+setInterval(mtCallTick, 30000);
+/* the call rings on the participant's own portal while it's fresh */
+const MT_RUNG = new Set();
+function mtRing(){
+  const now = Date.now();
+  MESSAGES.filter(x=>x.kind==='call' && x.asstCall && x.to===PERSON && x.status==='missed' && !MT_RUNG.has(x.id) && now - new Date(x.at).getTime() < 90e3).forEach(x=>{
+    MT_RUNG.add(x.id); const m = MEETINGS.find(y=>y.id===x.meeting); if(!m || m.status==='cancelled' || mtJoined(m, PERSON)) return;
+    try{ typeof ringTone==='function' && ringTone(); }catch(e){}
+    openModal('📞 Incoming call', `<div style="text-align:center;padding:6px 0 4px"><div style="font-size:42px">📞</div><b style="font-size:16px">${esc(asstName(x.by))}</b>
+      <p class="hint" style="margin:8px 0 14px">Your meeting <b>${esc(m.title)}</b> started ${Math.max(10, Math.round((now - new Date(m.start).getTime())/60000))} minutes ago.</p>
+      <div style="display:flex;gap:8px;justify-content:center"><button class="btn primary" onclick="mtAnswer('${x.id}')">🎥 Join meeting</button><button class="btn" onclick="closeModal()">Not now</button></div></div>`);
+  });
+}
+function mtAnswer(id){ const x = MESSAGES.find(y=>y.id===id); const m = x && MEETINGS.find(y=>y.id===x.meeting); if(x){ x.status = 'answered'; x.answeredAt = nowISO(); recordChange(); } closeModal(); if(m) mtJoin(m.id); }
+setInterval(mtRing, 5000);
+{ const _cc = callCard; callCard = function(m){ if(!m?.asstCall) return _cc.apply(this, arguments); const mt = MEETINGS.find(y=>y.id===m.meeting);
+    const ans = m.status==='answered';
+    return `<div class="call-card ${ans?'':'missed'}"><div class="cc-ico">📞</div><div style="flex:1;min-width:0"><b>${ans?'Answered':'Missed'} call from ${esc(asstName(m.by))}</b>
+      <div class="hint">${clock(m.at)}${mt?` · ${esc(mt.title)} had started 10 minutes earlier`:''}</div></div>
+      ${mt && mt.link && !mtPast(mt) && mt.status!=='cancelled' ? `<button class="btn primary" onclick="mtJoin('${mt.id}')">Join meeting</button>` : ''}</div>`; }; }
+{ const _mp = msgPreview; msgPreview = function(m){ if(m?.kind==='call' && m.asstCall) return `📞 ${m.status==='answered'?'Call':'Missed call'} from ${asstName(m.by)}`; return _mp.apply(this, arguments); }; }
+
+/* ---------- the COO Assistant ---------- */
+const COO_ASST = 'pa-coo';
+const cooKey = () => Object.keys(PEOPLE).find(k=>PEOPLE[k]?.role==='coo') || (PEOPLE.ja ? 'ja' : null);
+{ const _pa = pmAssistants; pmAssistants = function(){ const L = _pa.apply(this, arguments); const k = cooKey();
+    if(k && !L.some(a=>a.id===COO_ASST) && !(S().pmAssistants||[]).some(a=>a.id===COO_ASST && a.off)) L.push({id:COO_ASST, pm:k, name:'COO Assistant', face:k, coo:true, key:'asst:'+COO_ASST});
+    return L; }; }
+const isCooA = a => a && (a.id===COO_ASST || a.coo);
+const fmtD = d => d ? new Date(String(d).length===10 ? d+'T00:00:00' : d).toLocaleDateString('en-PH', {month:'short', day:'numeric'}) : '';
+
+/* evaluations: 3rd month and monthly */
+const evalDate = v => { const d = new Date(v.date || v.at || 0); return isNaN(d) ? null : d; };
+const ym = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+function evalStatus(){
+  const today = new Date(); const out = [];
+  const vas = EMPLOYEES.filter(e=>['Active','On Probation'].includes(e.status) && PEOPLE[e.id] && !['ceo','coo','creative','hr','manager'].includes(PEOPLE[e.id].role));
+  const lastDay = new Date(today.getFullYear(), today.getMonth()+1, 0).getDate();
+  const periods = [ym(new Date(today.getFullYear(), today.getMonth()-1, 1))]; if(today.getDate()===lastDay) periods.push(ym(today));
+  vas.forEach(e=>{ const evs = EVALS.filter(v=>v.empId===e.id); const owners = uniq([...vaPMs(e.id), ...HR_KEYS()]);
+    /* third month */
+    const st = /^\d{4}-\d{2}-\d{2}/.test(e.start||'') ? new Date(e.start+'T00:00:00') : null;
+    if(st){ const due = new Date(st); due.setMonth(due.getMonth()+3);
+      if(today >= due && today - due < 120*864e5){ const done = evs.some(v=>{ const d = evalDate(v); return d && d >= new Date(due.getTime() - 21*864e5); });
+        out.push({kind:'third', emp:e.id, period:'3rd-month review', due:iso(due), done, owners, overdueDays:done?0:Math.floor((today-due)/864e5)}); } }
+    /* monthly */
+    periods.forEach(p=>{ const [y, mo] = p.split('-').map(Number); const end = new Date(y, mo, 0);
+      if(st && st > end) return;
+      const done = evs.some(v=>{ const d = evalDate(v); return d && ym(d)===p; }) || evs.some(v=>String(v.period||v.month||'')===p);
+      out.push({kind:'monthly', emp:e.id, period:end.toLocaleDateString('en-PH',{month:'long', year:'numeric'}), periodKey:p, due:iso(end), done, owners, overdueDays:done?0:Math.max(0, Math.floor((today-end)/864e5))}); }); });
+  return out;
+}
+/* everything the COO should know or chase */
+function cooItems(){
+  const today = manilaDate(), I = [];
+  TASKS.filter(t=>t.due && !t.archived && !['Completed','Published','Archived','Cancelled'].includes(t.status) && iso(t.due) < today).slice(0,60)
+    .forEach(t=>I.push({sec:'overdue', key:'task:'+t.id, title:t.title, sub:`${cname(t.client)||'Internal'} · due ${fmtD(iso(t.due))} · ${t.status}`, who:[t.assignee].filter(k=>PEOPLE[k]), client:t.client, open:`openTask('${t.id}')`}));
+  (typeof approvalQueue==='function' ? approvalQueue() : []).forEach(t=>I.push({sec:'approve', key:'appr:'+t.id, title:t.title, sub:`${cname(t.client)||''} · waiting for your approval`, who:[], open:`openTask('${t.id}')`, decide:true}));
+  BRIEFS.filter(b=>b.kind==='registration' && b.status==='Registered').forEach(b=>I.push({sec:'approve', key:'reg:'+b.id, title:`Client registration — ${b.name||b.clientName||'New client'}`, sub:`Registered by ${first(b.by)} · review it`, who:[], open:`go('orgsetup')`, decide:true}));
+  mtList().filter(m=>m.status!=='cancelled' && mtDay(m.start)===today).forEach(m=>I.push({sec:'meet', key:'mt:'+m.id, title:m.title, sub:`${mtTime(m.start)} – ${mtTime(m.end)} · by ${first(m.organizer)}`, who:[], open:`mtOpen('${m.id}')`}));
+  MEETINGS.filter(m=>m.status!=='cancelled' && !mtPast(m) && new Date(m.start) - Date.now() < 3*864e5).forEach(m=>{ const pend = (m.participants||[]).filter(k=>mtSt(m,k)==='pending');
+    if(pend.length && (m.organizer===cooKey() || isExec())) I.push({sec:'invite', key:'inv:'+m.id, title:m.title, sub:`${mtDate(m.start)} ${mtTime(m.start)} · no answer yet from ${pend.map(first).join(', ')}`, who:pend, open:`mtOpen('${m.id}')`}); });
+  MEETINGS.filter(m=>m.status!=='cancelled' && mtPast(m) && Date.now() - new Date(m.end) < 7*864e5).forEach(m=>{ const miss = (m.participants||[]).filter(k=>mtSt(m,k)!=='declined' && !mtJoined(m,k));
+    if(miss.length) I.push({sec:'missed', key:'mm:'+m.id, title:m.title, sub:`${mtDate(m.start)} · didn’t join: ${miss.map(first).join(', ')}`, who:miss, open:`mtOpen('${m.id}')`}); });
+  evalStatus().filter(x=>!x.done).forEach(x=>I.push({sec:'eval', key:`ev:${x.kind}:${x.emp}:${x.periodKey||x.due}`, title:`${pname(x.emp)} — ${x.kind==='third'?'3rd-month evaluation':'monthly evaluation · '+x.period}`, sub:`Due ${fmtD(x.due)}${x.overdueDays?` · ${x.overdueDays} day(s) overdue`:''} · owners: ${x.owners.map(first).join(', ')||'—'}`, who:x.owners, open:`go('evals')`, private:true, ev:x}));
+  return I;
+}
+const COO_SECS = [['approve','Pending your approval'],['overdue','Overdue tasks & deadlines'],['eval','VA evaluations missing'],['meet','Your meetings today'],['invite','Unanswered invitations'],['missed','Missed meetings (last 7 days)']];
+
+/* ---------- follow-ups (logged, once a day per item and person) ---------- */
+function cooFollow(key, k, auto){
+  const it = cooItems().find(x=>x.key===key); const coo = cooKey(); if(!it || !PEOPLE[k] || !coo) return 'gone';
+  const day = manilaDate(); const logId = `CF-${key}-${k}-${day}`; if(PALOG.some(l=>l.id===logId)) return 'already';
+  const text = it.sec==='eval' ? `Hi ${first(k)}! Friendly follow-up from the COO’s office: ${it.title.replace(' — ',"'s ")} is still missing (due ${fmtD(it.ev.due)}). Please submit it in HR → Evaluations. Thank you!`
+    : it.sec==='overdue' ? `Hi ${first(k)}! Following up on “${it.title}” — it was due ${it.sub.split(' · ')[1]?.replace('due ','')}. Can you share an update or the new ETA?`
+    : it.sec==='invite' ? `Hi ${first(k)}! Please accept, decline or request a new time for “${it.title}” in your Calendar.`
+    : it.sec==='missed' ? `Hi ${first(k)}! We missed you in “${it.title}”. Could you let us know what happened?` : `Hi ${first(k)}! Quick follow-up on “${it.title}”.`;
+  const cid = dmId(coo, k); if(!CHATS.find(c=>c.id===cid)) CHATS.push({id:cid, kind:'dm', name:'', members:[coo,k].sort(), at:nowISO()});
+  const mid = 'M-coo-'+logId.replace(/[^A-Za-z0-9-]/g,''); if(MESSAGES.some(m=>m.id===mid)) return 'already';
+  MESSAGES.push({id:mid, chat:cid, by:'asst:'+COO_ASST, kind:'assistant', text, at:nowISO(), files:[]});
+  if(typeof notifyAs==='function') notifyAs('asst:'+COO_ASST, [k], 'reminder', `🔔 COO Assistant: ${esc(coraTrim(text, 110))}`, {view:'chat', arg:cid, msg:mid}, mid);
+  PALOG.unshift({id:logId, pa:COO_ASST, pm:coo, kind:'coo-followup', item:key, status:'Sent', text, to:[k], at:nowISO(), date:day, sentBy:PERSON, auto:!!auto, msg:mid, chat:cid});
+  return 'sent';
+}
+function cooFollowAll(key){ const it = cooItems().find(x=>x.key===key); if(!it) return; let n = 0; (it.who||[]).forEach(k=>{ if(cooFollow(key, k)==='sent') n++; }); recordChange(); toast(n ? `Followed up with ${n} ${n>1?'people':'person'}` : 'Already followed up today'); RENDER[CURRENT]?.(); }
+/* tag in the client's group chat — only for client work, only people in that chat */
+function cooTag(key){ const it = cooItems().find(x=>x.key===key); if(!it?.client || it.private) return;
+  const c = client(it.client); const ch = CHATS.find(x=>x.kind==='client' && x.client===it.client); if(!c || !ch) return toast('No group chat for this client');
+  const who = (it.who||[]).filter(k=>(ch.members||[]).includes(k)); if(!who.length) return toast('The responsible person isn’t in this client’s group chat');
+  const mid = `M-coo-tag-${key.replace(/[^A-Za-z0-9-]/g,'')}-${manilaDate()}`; if(MESSAGES.some(m=>m.id===mid)) return toast('Already tagged today');
+  MESSAGES.push({id:mid, chat:ch.id, by:'asst:'+COO_ASST, kind:'assistant', text:`${who.map(k=>'@'+pname(k)).join(' ')} quick check on “${it.title}” (${it.sub.split(' · ')[1]||''}) — could you share an update here? Thank you!`, at:nowISO(), files:[], mentions:who});
+  if(typeof notifyAs==='function') notifyAs('asst:'+COO_ASST, who, 'reminder', `🔔 COO Assistant tagged you in <b>${esc(chatTitle(ch))}</b>: ${esc(it.title)}`, {view:'chat', arg:ch.id, msg:mid}, mid);
+  PALOG.unshift({id:'CT-'+mid, pa:COO_ASST, pm:cooKey(), kind:'coo-tag', item:key, status:'Sent', to:who, at:nowISO(), date:manilaDate(), sentBy:PERSON, msg:mid, chat:ch.id});
+  recordChange(); toast('Tagged in '+chatTitle(ch)); }
+/* automatic, daily: evaluations (PM + HR) and unanswered invitations — stops by itself once resolved */
+function cooAuto(){
+  if(!SYNC.ready || !(PERSON===cooKey() || isHead(PERSON) || ROLE==='hr')) return; const cfg = {evals:true, invites:true, ...(S().cooAuto||{})};
+  const h = new Date().toLocaleString('en-US', {timeZone:'Asia/Manila', hour:'numeric', hour12:false})|0; if(h < 9 || h > 18) return;
+  let n = 0; cooItems().forEach(it=>{ if(n > 25) return;
+    if((it.sec==='eval' && cfg.evals) || (it.sec==='invite' && cfg.invites)) (it.who||[]).forEach(k=>{ if(cooFollow(it.key, k, true)==='sent') n++; }); });
+  if(n) recordChange();
+}
+setInterval(cooAuto, 10*60e3);
+{ const _sp = setPerson; setPerson = function(p){ _sp(p); setTimeout(cooAuto, 20000); }; }
+
+/* ---------- the COO action dashboard (on the COO Assistant's page) ---------- */
+function cooDashHTML(){
+  const I = cooItems(); const logs = PALOG.filter(l=>l.pa===COO_ASST).slice(0,6);
+  const row = it => `<div class="coo-row"><div style="flex:1;min-width:0"><b>${esc(it.title)}</b><div class="hint">${esc(it.sub)}</div></div>
+    <div class="coo-acts"><button class="btn" onclick="${it.open}">${it.decide?'Review & decide':'Open'}</button>${(it.who||[]).length?`<button class="btn" onclick="cooFollowAll('${esc(it.key)}')">Follow up</button>`:''}${it.client && !it.private && (it.who||[]).length?`<button class="btn ghost" onclick="cooTag('${esc(it.key)}')">Tag in chat</button>`:''}</div></div>`;
+  return `<div class="card coo-dash"><div class="card-h"><h3>🧭 COO action dashboard</h3><div style="display:flex;gap:6px"><button class="btn" onclick="cooEvalReport()">Evaluation status report</button></div></div><div class="card-b">
+    <div class="coo-qs">${['What do I need to follow up on today?','What is pending my approval?','Which reports or deadlines are overdue?','What meetings do I have today?','Which VA evaluations are still missing?'].map(q=>`<button class="chip" onclick="cooAsk(${JSON.stringify(q).replace(/"/g,'&quot;')})">${esc(q)}</button>`).join('')}</div>
+    ${COO_SECS.map(([s,l])=>{ const L = I.filter(x=>x.sec===s); return `<details class="coo-sec" ${L.length&&['approve','overdue','eval','meet'].includes(s)?'open':''}><summary>${l} <span class="pill">${L.length}</span></summary>${L.slice(0,25).map(row).join('')||'<div class="hint" style="padding:8px 2px">Nothing here 🎉</div>'}${L.length>25?`<div class="hint">+${L.length-25} more</div>`:''}</details>`; }).join('')}
+    <div class="hint" style="margin-top:10px">Approvals and rejections stay with you — “Review & decide” opens the record. Evaluation follow-ups go privately to the PM(s) and HR once a day until submitted.${logs.length?` Last follow-up: ${esc(logs[0].text?coraTrim(logs[0].text,60):logs[0].kind)} → ${(logs[0].to||[]).map(first).join(', ')} (${esc(shortWhen(logs[0].at))}).`:''}</div>
+  </div></div>`;
+}
+function cooAsk(q){ const inp = document.querySelector('#v-pa textarea, #v-pa input[type=text]'); if(inp){ inp.value = q; inp.dispatchEvent(new Event('input')); }
+  const a = pmAssistants().find(isCooA); if(a && typeof paAsk==='function') paAsk(q); else toast(cooAnswer(q).replace(/<[^>]+>/g,'')); }
+function cooAnswer(q){ const I = cooItems(); const ql = q.toLowerCase();
+  const pick = s => I.filter(x=>x.sec===s);
+  const list = (L, empty) => L.length ? L.slice(0,12).map(x=>`• ${x.title} — ${x.sub}`).join('\n') + (L.length>12?`\n…and ${L.length-12} more (see the dashboard)`:'') : empty;
+  if(/approv|decision|decide/.test(ql)) return `Pending your approval (${pick('approve').length}):\n`+list(pick('approve'), 'Nothing is waiting for your approval.');
+  if(/overdue|deadline|late/.test(ql)) return `Overdue (${pick('overdue').length}):\n`+list(pick('overdue'), 'No overdue tasks.');
+  if(/meeting|calendar|schedule/.test(ql)) return `Your meetings today (${pick('meet').length}):\n`+list(pick('meet'), 'No meetings today.')+(pick('invite').length?`\n\nUnanswered invitations: ${pick('invite').length}`:'');
+  if(/evaluat|grade|grading|review/.test(ql)) return `VA evaluations still missing (${pick('eval').length}):\n`+list(pick('eval'), 'All due evaluations are submitted.');
+  const s = COO_SECS.map(([k,l])=>`${l}: ${pick(k).length}`).join('\n');
+  return `Today’s follow-ups:\n${s}\n\nTop items:\n`+list([...pick('approve'), ...pick('overdue'), ...pick('eval'), ...pick('invite')], 'You’re all caught up.');
+}
+function cooEvalReport(){ const R = evalStatus(); const miss = R.filter(x=>!x.done), ok = R.filter(x=>x.done);
+  openModal('VA evaluation status', `<p class="hint" style="margin-bottom:8px">${ok.length} submitted · <b>${miss.length} missing</b> · grades are shown only where an evaluation was actually submitted.</p>
+    <div style="overflow-x:auto"><table class="tbl"><thead><tr><th>VA</th><th>Evaluation</th><th>Deadline</th><th>Status</th><th>Responsible</th></tr></thead><tbody>
+    ${[...miss, ...ok].map(x=>{ const v = x.done ? EVALS.filter(e=>e.empId===x.emp).sort((a,b)=>(evalDate(b)||0)-(evalDate(a)||0))[0] : null; const avg = v?.scores?.length ? (v.scores.reduce((a,b)=>a+b,0)/v.scores.length).toFixed(1) : null;
+      return `<tr><td>${esc(pname(x.emp))}</td><td>${x.kind==='third'?'3rd-month':'Monthly · '+esc(x.period)}</td><td>${esc(fmtD(x.due))}</td><td>${x.done?`<span class="badge b-done">Submitted${avg?` · avg ${avg}/5`:''}</span>`:`<span class="badge b-missed">Missing${x.overdueDays?` · ${x.overdueDays}d overdue`:''}</span>`}</td><td>${esc(x.owners.map(first).join(', ')||'—')}</td></tr>`; }).join('')||'<tr><td colspan="5" class="hint">No evaluations are due right now.</td></tr>'}
+    </tbody></table></div>${miss.length?`<button class="btn primary" style="margin-top:12px" onclick="cooEvalFollowAll()">Follow up on all missing now</button>`:''}`, true); }
+function cooEvalFollowAll(){ let n = 0; cooItems().filter(x=>x.sec==='eval').forEach(it=>(it.who||[]).forEach(k=>{ if(cooFollow(it.key, k)==='sent') n++; })); recordChange(); toast(n?`Sent ${n} follow-up(s)`:'Everyone was already followed up today'); closeModal(); }
+/* hook into the assistant page, its answers and its AI context */
+{ const _rp = RENDER.pa; RENDER.pa = function(){ const r = _rp.apply(this, arguments); const a = typeof paSel==='function' ? paSel() : null; const v = el('v-pa');
+    if(v && isCooA(a) && PERSON===a.pm && !v.querySelector('.coo-dash')){ const head = v.querySelector('.page-head'); head ? head.insertAdjacentHTML('afterend', cooDashHTML()) : v.insertAdjacentHTML('afterbegin', cooDashHTML()); }
+    return r; }; }
+{ const _pl = paLocal; paLocal = function(a, q){ if(isCooA(a)) return cooAnswer(q); return _pl.apply(this, arguments); }; }
+{ const _pc = paContext; paContext = function(a){ const base = _pc.apply(this, arguments); if(!isCooA(a)) return base;
+    return base + '\n\nCOMPANY-WIDE STATUS FOR THE COO (use these facts; never invent grades or approvals):\n' + cooAnswer('summary') + '\n\nWhen asked to approve or reject, explain that the COO decides in the record — the assistant only prepares and follows up.'; }; }
+
+/* ---------- member of every company and internal client group chat ---------- */
+const cooInChat = c => c && !['dm','clientline'].includes(c.kind) && (c.kind==='client' || c.kind==='group' || /^chat-/.test(c.id));
+{ const _cm = chatMembersModal; chatMembersModal = function(id){ const r = _cm.apply(this, arguments); const c = CHATS.find(x=>x.id===id); const b = el('modalBody');
+    if(b && cooInChat(c) && cooKey()) b.insertAdjacentHTML('beforeend', `<div class="list-row" style="opacity:.95">${typeof aiAva==='function'?aiAva('asst:'+COO_ASST, 30):'🤖'}<div style="flex:1"><b style="font-size:13px">COO Assistant</b> <span class="badge">AI assistant</span><div class="hint">Follows up on pending actions for the COO · posts only what members of this chat may see</div></div></div>`);
+    return r; }; }
 
 CC_BOOT();
 </script>

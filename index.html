@@ -19566,6 +19566,15 @@ function clientVAs(cid){ const c = client(cid); const cfg = LEADCFG.find(x=>x.id
 { const _ore = onRemoteEvent; onRemoteEvent = function(ev){ _ore(ev);
     if(ev?.coll==='chats' && BACKEND?.mode==='live' && typeof fetchChat==='function') setTimeout(()=>{ myChats().forEach(c=>{ if(!MS_FETCHED.has(c.id) && !chatMsgs(c.id).length){ MS_FETCHED.set(c.id, Date.now()); fetchChat(c.id).then(()=>{ if(CURRENT==='chat') RENDER.chat(); }); } }); }, 600); }; }
 
+/* 7. a group chat you were just added to (new client, new group, new assignment) appears right away with a heads-up */
+const MY_CHATS = {set:null};
+function chatsAddedCheck(){ if(!PEOPLE[PERSON]) return; const now = new Set(myChats().map(c=>c.id));
+  if(MY_CHATS.set){ const added = [...now].filter(id=>!MY_CHATS.set.has(id)).map(id=>CHATS.find(c=>c.id===id)).filter(c=>c && c.kind!=='dm');
+    added.slice(0,3).forEach(c=>toast(`💬 You were added to “${chatTitle(c)}”`)); if(added.length){ buildNav(); if(CURRENT==='chat') RENDER.chat(); } }
+  MY_CHATS.set = now; }
+{ const _ore = onRemoteEvent; onRemoteEvent = function(ev){ _ore(ev); if(ev?.coll==='chats' || ev?.coll==='clients') setTimeout(chatsAddedCheck, 700); }; }
+{ const _sp = setPerson; setPerson = function(p){ _sp(p); MY_CHATS.set = null; setTimeout(chatsAddedCheck, 3000); }; }
+
 /* ===== 61_retention.js ===== */
 /* ================= CLIENT RETENTION (Oct 2026) — accepted clients are never removed by the roster sync =================
    Root cause (Arnab Pal): the one-time "active client roster" sync compares clients with a roster built into the code

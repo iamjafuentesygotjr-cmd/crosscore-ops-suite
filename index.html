@@ -2657,7 +2657,10 @@ body.glass-lite .sidebar,body.glass-lite .topbar{background:linear-gradient(180d
 .setup-item.ok .si-ic{background:rgba(24,160,90,.15);color:#11713F}.setup-item.ok b{color:var(--ink-2);font-weight:500}
 .setup-item.miss .si-ic{background:rgba(229,72,77,.14);color:#C2272D}
 .setup-mon{margin-bottom:16px}.setup-row{display:flex;gap:10px;align-items:center;padding:9px 4px;border-bottom:1px solid var(--line)}.setup-row:last-child{border-bottom:0}
+.coo-sched{padding:10px 12px;border-radius:14px;background:rgba(255,255,255,.45);border:1px solid var(--line);margin-bottom:12px;font-size:13px}
+[data-theme="dark"] .coo-sched{background:rgba(255,190,130,.05)}
 </style>
+
 
 
 
@@ -20178,6 +20181,133 @@ LiveBackend.write = async function(ups, dels){
 { const _mc = msgCore; msgCore = function(m){ let h = _mc.apply(this, arguments); if(typeof h!=='string' || !(m?._undelivered || DELIVERY.refused.has(m?.id))) return h;
     return h.replace(/(<div class="when"[^>]*>)/, `$1<span class="undeliv" title="The server refused this message — the recipients did not get it">⚠ Not delivered</span> `); }; }
 { const _sg = msgSig; msgSig = (m, prev) => _sg(m, prev) + (DELIVERY.refused.has(m?.id) ? '|x' : ''); }
+
+/* ===== 67_coocmd.js ===== */
+/* ================= COO ASSISTANT — CONVERSATION COMMANDS (Oct 2026) =================
+   In the COO Assistant chat JA can say things like:
+     “Follow up in the Operations GC now about the pending client onboarding.”
+     “At 3 PM today, remind the assigned PM in the Policy Pulse GC to upload the SOP.”
+     “Send HR a personal message asking for an update on the incomplete client setup.”
+   The assistant works out the recipient (a group chat, a client's GC, HR, the assigned PM, or a person by name), the purpose
+   and the timing (now, “at 3 PM”, “tomorrow 9 AM”, “in 30 minutes” — Philippine time), adds the relevant task context
+   (unfinished setups, missing SOP, missing evaluations, overdue tasks) and sends it as the COO Assistant — or schedules it.
+   Scheduled messages re-check their context when due (e.g. skipped if the SOP was already uploaded), can be listed and
+   cancelled (“show scheduled”, “cancel scheduled”), and “undo” removes the last message within 10 minutes.
+   Everything else the assistant does is unchanged. */
+
+let COOQ = [];
+COLL.cooqueue = {get:()=>COOQ, set:v=>COOQ=v, aud:()=>uniq([cooKey(), ...HEADS]).filter(Boolean)};
+const CMD_RE = /^(please\s+)?(follow[\s-]?up|remind|send|message|tell|ask|notify|post|ping|nudge|text|dm)\b|\b(remind|follow[\s-]?up with|send (a )?(personal )?message|message (to )?)\b/i;
+const isQuestion = t => /^(what|which|who|how|when|where|is|are|do|does|can|show me)\b/i.test(t.trim()) && !/^(can you|could you)\s+(send|remind|follow|message|tell|ask|post)/i.test(t.trim());
+
+/* ---------- timing (Philippine time) ---------- */
+function cmdWhen(t){ const s = t.toLowerCase(); const now = Date.now();
+  let m = s.match(/\bin\s+(\d+)\s*(min|minute|minutes|hr|hrs|hour|hours)\b/); if(m) return {at:new Date(now + (+m[1])*(m[2].startsWith('h')?3600e3:60e3)).toISOString(), label:`in ${m[1]} ${m[2].startsWith('h')?'hour(s)':'minute(s)'}`};
+  m = s.match(/\b(?:at|by|around)\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)?\b/) || s.match(/\b(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b/);
+  if(m){ let h = +m[1]; const mi = +(m[2]||0); const ap = m[3]; if(ap==='pm' && h<12) h += 12; if(ap==='am' && h===12) h = 0; if(!ap && h>=1 && h<=7) h += 12;
+    let day = manilaDate(); if(/\btomorrow\b/.test(s)) day = manilaDate(new Date(now + 864e5));
+    const wd = s.match(/\b(mon|tues?|wed(nes)?|thu(rs)?|fri|sat(ur)?|sun)(day)?\b/); if(wd && !/\btoday|tomorrow\b/.test(s)){ const want = ['sun','mon','tue','wed','thu','fri','sat'].indexOf(wd[1].slice(0,3)); for(let i=1;i<=7;i++){ const d = new Date(now + i*864e5); if(new Date(d.getTime()+8*3600e3).getUTCDay()===want){ day = manilaDate(d); break; } } }
+    let at = new Date(`${day}T${String(h).padStart(2,'0')}:${String(mi).padStart(2,'0')}:00+08:00`);
+    if(at.getTime() < now - 60e3 && !/\btoday\b/.test(s) && day===manilaDate()) at = new Date(at.getTime() + 864e5);
+    return {at:at.toISOString(), label:`${mtDate(at.toISOString())} at ${mtTime(at.toISOString())} (PH time)`, past: at.getTime() < now - 60e3}; }
+  if(/\btomorrow\b/.test(s)){ const at = new Date(`${manilaDate(new Date(now+864e5))}T09:00:00+08:00`); return {at:at.toISOString(), label:`tomorrow at 9:00 AM (PH time)`}; }
+  return {now:true, label:'now'};
+}
+/* ---------- who / where ---------- */
+const nameRe = n => new RegExp(`\\b${String(n).toLowerCase().replace(/[.*+?^${}()|[\]\\]/g,'\\$&')}\\b`);
+function cmdClient(s){ const L = CLIENTS.filter(c=>!isEnded(c)).map(c=>({c, keys:uniq([c.name, ...String(c.name).split(/[·(),\-–]/).map(x=>x.trim()).filter(x=>x.length>3)])}));
+  const hit = L.filter(x=>x.keys.some(k=>nameRe(k).test(s))).sort((a,b)=>b.c.name.length-a.c.name.length)[0]; return hit?.c || null; }
+function cmdPeople(s){ return Object.keys(PEOPLE).filter(k=>{ const p = PEOPLE[k]; if(!p || p.role==='client' || k===PERSON || isAssistantKey?.(k)) return false;
+    const f = first(k).toLowerCase(); return f.length>2 && (nameRe(f).test(s) || nameRe(pname(k).toLowerCase()).test(s)); }); }
+function cmdTarget(t, topic){ const s = t.toLowerCase(); const personal = /\b(personal|private(ly)?|direct(ly)?|dm|pm me|one[- ]on[- ]one)\b/.test(s) && !/\b(gc|group chat)\b/.test(s.replace(/\bpm\b/,''));
+  const cl = cmdClient(s) || (topic.client ? client(topic.client) : null);
+  const roleHR = /\bhr\b/.test(s); const rolePM = /\b(assigned |the |client'?s? |their )?pms?\b|\bproject managers?\b/.test(s) && !/\bat\s+\d/.test(s.replace(/\d+\s*pm/g,''));
+  let who = []; if(roleHR) who.push(...HR_KEYS()); if(rolePM) who.push(...(cl ? pmsOf(cl.id) : (topic.pms||[])));
+  who.push(...cmdPeople(s).filter(k=>!who.includes(k))); who = uniq(who).filter(k=>PEOPLE[k] && k!==cooKey());
+  if(/\boperations?\b/.test(s) && /\b(gc|group|chat|channel)\b|\boperations\b/.test(s) && !personal) return {kind:'chat', chat:opsChat(), label:'Operations group chat', who: who.length ? who : (topic.owners||[]).filter(k=>PEOPLE[k] && k!==cooKey())};
+  if(!personal && /\b(gc|group chat|group)\b/.test(s)){
+    if(cl){ const ch = CHATS.find(x=>x.kind==='client' && x.client===cl.id) || CHATS.find(x=>x.id===cl.chatId); return {kind:'chat', chat:ch, label:`${cl.name} group chat`, who:who.length?who:pmsOf(cl.id), client:cl}; }
+    const named = CHATS.filter(c=>c.name && c.kind!=='dm' && nameRe(c.name.toLowerCase()).test(s))[0]; if(named) return {kind:'chat', chat:named, label:`${chatTitle(named)} group chat`, who};
+    if(/\bclient\b/.test(s)) return {ask:'Which client’s group chat should I post in? e.g. “in the Policy Pulse GC”.'};
+  }
+  if(who.length) return {kind:'dm', who, label:who.map(pname).join(', ')+' (private message)', client:cl};
+  return {ask:'Who should I send it to? e.g. “in the Operations GC”, “HR”, “the assigned PM in the Policy Pulse GC”, or a person’s name.'};
+}
+/* ---------- what (purpose + task context) ---------- */
+function cmdTopic(t){ const s = t.toLowerCase(); const cl = cmdClient(s); const T = {client:cl?.id||null, kind:'free', lines:[]};
+  const setups = (typeof setupOpen==='function' ? setupOpen() : []).filter(x=>x.miss.length && (!cl || x.c.id===cl.id));
+  if(/\bsop\b/.test(s)){ T.kind = 'sop'; const L = (cl ? [cl] : setups.map(x=>x.c)).filter(c=>{ const sop = sopFor?.(c.id); return !sop || !['Approved','Published','Active'].includes(sop.status); });
+    T.clients = L.map(c=>c.id); T.pms = uniq(L.flatMap(c=>pmsOf(c.id))); T.owners = T.pms; T.lines = L.map(c=>`• ${c.name} — SOP ${sopFor?.(c.id)?('still in '+sopFor(c.id).status):'not started'} (PM: ${pmsOf(c.id).map(first).join(', ')||'unassigned'})`); }
+  else if(/\b(onboard\w*|set[- ]?up\w*)\b/.test(s)){ T.kind = 'setup'; T.clients = setups.map(x=>x.c.id); T.pms = uniq(setups.flatMap(x=>pmsOf(x.c.id))); T.owners = uniq(setups.flatMap(x=>x.owners)).filter(k=>['manager','hr'].includes(PEOPLE[k]?.role));
+    T.lines = setups.map(x=>`• ${x.c.name} — ${x.done}/${x.total} done · still needed: ${x.miss.map(m=>m.label.split(' — ')[0]).join(', ')} (${x.owners.map(first).join(', ')||'unassigned'})`); }
+  else if(/\b(evaluat|grade|grading)\b/.test(s)){ T.kind = 'eval'; const miss = typeof evalStatus==='function' ? evalStatus().filter(x=>!x.done) : []; T.owners = uniq(miss.flatMap(x=>x.owners)); T.lines = miss.slice(0,12).map(x=>`• ${pname(x.emp)} — ${x.kind==='third'?'3rd-month':'monthly · '+x.period} (${x.owners.map(first).join(', ')})`); }
+  else if(/\boverdue|deadline|late\b/.test(s)){ T.kind = 'overdue'; const L = (typeof cooItems==='function' ? cooItems() : []).filter(x=>x.sec==='overdue' && (!cl || x.client===cl.id)); T.owners = uniq(L.flatMap(x=>x.who||[])); T.lines = L.slice(0,10).map(x=>`• ${x.title} — ${x.sub}`); }
+  const pm = t.match(/\b(?:about|regarding|re:|on)\s+(.+?)(?:[.!]|$)/i), to = t.match(/\bto\s+((?:upload|send|submit|finish|complete|update|share|prepare|check|review|fix|add|confirm|join|reply|answer)\b.+?)(?:[.!]|$)/i), ask = t.match(/\b(?:asking|ask(?:ing)? (?:them|him|her)?\s*)(?:for|about|to)?\s+(.+?)(?:[.!]|$)/i),
+        say = t.match(/\b(?:saying|that says|tell(?:ing)? (?:them|him|her|everyone|the team)?\s*(?:that)?)[:\s]+["“]?(.+?)["”]?$/i);
+  const clean = x => x.replace(/\b(at|by|around)\s+\d{1,2}(:\d{2})?\s*(am|pm)?\b.*$/i,'').replace(/\b(now|today|tomorrow|right away|asap)\b/gi,'').replace(/\bin the [\w &'.-]+ (gc|group chat)\b/i,'').trim().replace(/[,\s]+$/,'');
+  T.say = say ? say[1].trim() : null; T.to = to ? clean(to[1]) : null; T.about = pm ? clean(pm[1]) : null; T.ask = ask ? clean(ask[1]) : null;
+  return T;
+}
+function cmdCompose(target, T){ const who = (target.who||[]).filter(k=>PEOPLE[k]); const tags = target.kind==='chat' ? who.map(k=>'@'+pname(k)).join(' ') : '';
+  const hi = target.kind==='dm' ? `Hi ${who.length===1?first(who[0]):'team'}!` : `Hi, team!`;
+  let body = T.say ? T.say : T.to ? `Reminder from the COO’s office: please ${T.to.replace(/^to\s+/,'')}.` : T.ask ? `Could you share ${T.ask.replace(/^(for|about|on)\s+/i,'').replace(/^(an?|the)\s+update/i,'an update')}?` : T.about ? `Following up on ${T.about}.` : 'Quick follow-up from the COO’s office.';
+  if(T.kind==='setup' && T.lines.length) body += ` Here’s what’s still open:\n${T.lines.join('\n')}`;
+  else if(T.kind==='sop' && T.lines.length) body += `\n${T.lines.join('\n')}`;
+  else if((T.kind==='eval' || T.kind==='overdue') && T.lines.length) body += `\n${T.lines.join('\n')}`;
+  if(T.kind==='setup' && T.clients?.length===1 && typeof setupLink==='function') body += `\nContinue the setup: ${setupLink(T.clients[0])}`;
+  return `${tags ? tags+' ' : ''}${hi} ${body}${target.kind==='dm' ? ' Thank you!' : ' Thank you!'}`.replace(/\s+\n/g,'\n').trim();
+}
+/* ---------- send as the COO Assistant ---------- */
+function cooSend(target, text, ref){ const key = 'asst:'+COO_ASST, out = [];
+  if(target.kind==='chat'){ const ch = target.chat; if(!ch) return null; const mentions = (target.who||[]).filter(k=>(ch.members||[]).includes(k));
+    const id = 'M-cmd-'+(ref||uid('')).replace(/[^A-Za-z0-9-]/g,''); if(MESSAGES.some(m=>m.id===id)) return [id];
+    MESSAGES.push({id, chat:ch.id, by:key, kind:'assistant', text, at:nowISO(), files:[], ...(mentions.length?{mentions}:{})});
+    if(mentions.length && typeof notifyAs==='function') notifyAs(key, mentions, 'reminder', `🔔 COO Assistant in <b>${esc(chatTitle(ch))}</b>: ${esc(coraTrim(text.replace(/@/g,''),110))}`, {view:'chat', arg:ch.id, msg:id}, id);
+    out.push(id); }
+  else (target.who||[]).forEach(k=>{ const cid = dmId(cooKey(), k); if(!CHATS.find(c=>c.id===cid)) CHATS.push({id:cid, kind:'dm', name:'', members:[cooKey(),k].sort(), at:nowISO()});
+    const id = ('M-cmd-'+(ref||uid(''))+'-'+k).replace(/[^A-Za-z0-9-]/g,''); if(MESSAGES.some(m=>m.id===id)) return;
+    const t = (target.who.length>1 ? text.replace(/^Hi team!/, `Hi ${first(k)}!`) : text);
+    MESSAGES.push({id, chat:cid, by:key, kind:'assistant', text:t, at:nowISO(), files:[]});
+    if(typeof notifyAs==='function') notifyAs(key, [k], 'reminder', `🔔 COO Assistant: ${esc(coraTrim(t,110))}`, {view:'chat', arg:cid, msg:id}, id); out.push(id); });
+  PALOG.unshift({id:'CMD-'+(ref||uid('')), pa:COO_ASST, pm:cooKey(), kind:'coo-command', status:'Sent', text, to:target.who||[], chat:target.chat?.id||null, msgs:out, at:nowISO(), date:manilaDate(), sentBy:PERSON});
+  recordChange(); return out; }
+/* scheduled messages: sent by whichever JA / head / HR portal is open when due; context re-checked first */
+function cooQueueTick(){ if(typeof canRunOps!=='function' || !canRunOps()) return; const now = Date.now(); let ch = false;
+  COOQ.filter(q=>q.status==='scheduled' && new Date(q.at).getTime() <= now).forEach(q=>{
+    if(q.topic?.kind==='sop' && (q.topic.clients||[]).length && q.topic.clients.every(cid=>{ const s = sopFor?.(cid); return s && ['Approved','Published','Active'].includes(s.status); })){ q.status = 'skipped'; q.note = 'SOP already done'; ch = true; return; }
+    if(q.topic?.kind==='setup' && (q.topic.clients||[]).length && typeof setupOpen==='function' && !setupOpen().some(x=>q.topic.clients.includes(x.c.id) && x.miss.length)){ q.status = 'skipped'; q.note = 'setup already complete'; ch = true; return; }
+    const target = q.target.kind==='chat' ? {kind:'chat', chat:CHATS.find(c=>c.id===q.target.chat), who:q.target.who} : {kind:'dm', who:q.target.who};
+    const sent = cooSend(target, q.text, q.id); q.status = sent ? 'sent' : 'failed'; q.sentAt = nowISO(); q.msgs = sent||[]; ch = true; });
+  if(ch){ recordChange(); if(CURRENT==='pa') RENDER.pa(); }
+}
+setInterval(cooQueueTick, 30000);
+/* ---------- the command itself ---------- */
+function cooCommand(text){
+  const s = text.trim(); const sl = s.toLowerCase();
+  if(/^(undo|unsend|delete (that|the last)( message)?)\b/.test(sl)){ const l = PALOG.find(x=>x.kind==='coo-command' && x.sentBy===PERSON); if(!l || Date.now()-new Date(l.at) > 10*60e3) return 'There’s nothing I sent in the last 10 minutes to undo.';
+    (l.msgs||[]).forEach(id=>{ const m = MESSAGES.find(x=>x.id===id); if(m){ m.deleted = true; m.text = ''; } }); l.status = 'Undone'; recordChange(); return '↩️ Done — I removed that message.'; }
+  if(/\b(show|list|what('?s| is| are)?)\b.*\bscheduled\b/.test(sl)){ const L = COOQ.filter(q=>q.status==='scheduled'); return L.length ? 'Scheduled messages:\n'+L.map(q=>`• ${mtDate(q.at)} ${mtTime(q.at)} → ${q.label}: “${coraTrim(q.text,70)}”`).join('\n')+'\nSay “cancel scheduled” to cancel the next one, or use Cancel on the dashboard.' : 'Nothing is scheduled.'; }
+  if(/\bcancel\b.*\b(scheduled|reminder|message)\b/.test(sl)){ const L = COOQ.filter(q=>q.status==='scheduled').sort((a,b)=>a.at.localeCompare(b.at)); const all = /\ball\b/.test(sl);
+    if(!L.length) return 'Nothing is scheduled.'; (all?L:[L[0]]).forEach(q=>{ q.status = 'cancelled'; q.cancelledAt = nowISO(); }); recordChange(); return all ? `Cancelled ${L.length} scheduled message(s).` : `Cancelled: ${mtDate(L[0].at)} ${mtTime(L[0].at)} → ${L[0].label}.`; }
+  if(isQuestion(s) || !CMD_RE.test(s)) return null;
+  const T = cmdTopic(s); const target = cmdTarget(s, T); if(target.ask) return target.ask;
+  if(target.kind==='chat' && !target.chat) return target.label==='Operations group chat' ? 'I can’t find a group chat named “Operations”.' : 'I can’t find that group chat.';
+  const when = cmdWhen(s); const msg = cmdCompose(target, T);
+  if(when.past) return `${when.label} has already passed — tell me another time, or say “now”.`;
+  if(when.now){ const ids = cooSend(target, msg, uid('C')); if(!ids?.length) return 'I couldn’t send that — check the recipient.';
+    return `✅ Sent to ${target.label}:\n“${msg}”\n\n(Say “undo” within 10 minutes to remove it.)`; }
+  const q = {id:uid('CQ'), at:when.at, target:{kind:target.kind, chat:target.chat?.id||null, who:target.who||[]}, label:target.label, text:msg, topic:{kind:T.kind, clients:T.clients||[]}, status:'scheduled', by:PERSON, createdAt:nowISO()};
+  COOQ.push(q); recordChange();
+  return `🕒 Scheduled for ${when.label} → ${target.label}:\n“${msg}”\n\n${T.kind==='sop'||T.kind==='setup'?'I’ll double-check first and skip it if it’s already done. ':''}Say “show scheduled” or “cancel scheduled” any time.`;
+}
+{ const _pi = paIntent; paIntent = function(a, text){ if(isCooA(a) && PERSON===a.pm){ const r = cooCommand(text); if(r) return {reply:r}; } return _pi.apply(this, arguments); }; }
+/* scheduled list on the COO dashboard */
+{ const _cd = cooDashHTML; cooDashHTML = function(){ const h = _cd.apply(this, arguments); const L = COOQ.filter(q=>q.status==='scheduled').sort((a,b)=>a.at.localeCompare(b.at));
+    const recent = COOQ.filter(q=>q.status!=='scheduled').sort((a,b)=>(b.sentAt||b.cancelledAt||'').localeCompare(a.sentAt||a.cancelledAt||'')).slice(0,3);
+    const box = `<div class="coo-sched"><b>🕒 Scheduled messages</b> <span class="hint">· tell me “at 3 PM remind … in the … GC”</span>${L.map(q=>`<div class="coo-row"><div style="flex:1;min-width:0"><b>${esc(mtDate(q.at))} · ${esc(mtTime(q.at))}</b> → ${esc(q.label)}<div class="hint">${esc(coraTrim(q.text,120))}</div></div><button class="btn ghost" onclick="cooCancelQ('${q.id}')">Cancel</button></div>`).join('') || '<div class="hint" style="padding:6px 2px">Nothing scheduled.</div>'}
+      ${recent.map(q=>`<div class="hint">• ${esc(q.status)}${q.note?` (${esc(q.note)})`:''} — ${esc(q.label)} · ${esc(mtDate(q.at))} ${esc(mtTime(q.at))}</div>`).join('')}</div>`;
+    return h.replace('<div class="coo-qs">', box + '<div class="coo-qs">'); }; }
+function cooCancelQ(id){ const q = COOQ.find(x=>x.id===id); if(!q) return; q.status = 'cancelled'; q.cancelledAt = nowISO(); recordChange(); RENDER.pa?.(); toast('Scheduled message cancelled'); }
 
 CC_BOOT();
 </script>

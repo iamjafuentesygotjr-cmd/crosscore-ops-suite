@@ -2650,7 +2650,15 @@ body.glass-lite .sidebar,body.glass-lite .topbar{background:linear-gradient(180d
 .ops-poll.done{font-size:13px}.ops-poll.old{font-size:12px;color:var(--ink-3)}
 .ops-cards{display:grid;grid-template-columns:1.4fr 1fr;gap:16px;margin-bottom:16px}@media(max-width:1000px){.ops-cards{grid-template-columns:1fr}}
 [data-theme="dark"] .ops-opt{background:rgba(255,190,130,.06)}
+/* ===== Client setup monitor (Oct 2026) ===== */
+.setup-card{margin-bottom:14px}.setup-card.ok .card-b{font-size:13px}
+.setup-item{display:flex;gap:10px;align-items:center;padding:7px 4px;border-radius:10px}.setup-item b{font-size:13px;font-weight:600}
+.si-ic{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;font:800 12px Inter,sans-serif;flex:none}
+.setup-item.ok .si-ic{background:rgba(24,160,90,.15);color:#11713F}.setup-item.ok b{color:var(--ink-2);font-weight:500}
+.setup-item.miss .si-ic{background:rgba(229,72,77,.14);color:#C2272D}
+.setup-mon{margin-bottom:16px}.setup-row{display:flex;gap:10px;align-items:center;padding:9px 4px;border-bottom:1px solid var(--line)}.setup-row:last-child{border-bottom:0}
 </style>
+
 
 
 
@@ -20005,6 +20013,112 @@ function opsCardsHTML(){ const mk = opsMonthKey(opsNow()); const G = gradeStatus
     return r; }; }
 { const _rp = RENDER.pa; RENDER.pa = function(){ const r = _rp.apply(this, arguments); const v = el('v-pa'); const d = v?.querySelector('.coo-dash');
     if(d && !v.querySelector('.ops-cards')) d.insertAdjacentHTML('afterend', opsCardsHTML()); return r; }; }
+
+/* ===== 65_setup.js ===== */
+/* ================= CLIENT SETUP MONITOR (Oct 2026) =================
+   Every new client gets a setup checklist (details, team, group chat, SOP, brand kit, onboarding hand-off, finance package)
+   with an owner for each item (HR or the client's PM). The checklist sits at the top of the client's Overview while HR /
+   PMs set the client up; "Mark setup complete" warns and blocks while required items are missing (company heads can
+   override with a reason, which is recorded).
+   The COO Assistant follows up in the Operations group chat — tagging the responsible HR / PM, listing what's left and
+   linking straight to the setup — once a day while it's unfinished (after the first day), and stops when everything is
+   done. JA's portal shows every unfinished setup, owners, deadlines and the follow-up history. */
+
+const SETUP_SINCE = '2026-09-30';                                   /* clients created after the active-client roster */
+const setupDays = () => +(S().setupDays) || 3;
+function setupTracked(c){ if(!c || isEnded(c) || c.status==='Archived' || (typeof isInternalClient==='function' && isInternalClient(c))) return false;
+  if(c.setup?.status==='complete') return false; return !!c.setup || String(c.createdAt||'').slice(0,10) > SETUP_SINCE; }
+const pmsLive = c => (pmsOf(c.id)||[]).filter(k=>PEOPLE[k]);
+function setupItems(c){
+  const sop = typeof sopFor==='function' ? sopFor(c.id) : null; const reg = BRIEFS.find(b=>b.clientId===c.id || b.id===c.regId);
+  const tbd = v => !v || /^to be defined/i.test(String(v).trim()) || String(v).trim()==='—';
+  const pm = pmsLive(c).length ? 'pm' : 'hr';
+  const I = [
+    {k:'details', label:'Client details — industry, contact and package / deliverables', ok:!tbd(c.industry) && !tbd(c.contact) && (!tbd(c.package) || !tbd(c.deliverables) || (c.services||[]).length), owner:'hr', go:'edit'},
+    {k:'pm', label:'Project manager assigned', ok:pmsLive(c).length>0, owner:'hr', go:'edit'},
+    {k:'team', label:'VA team assigned with responsibilities', ok:(c.team||[]).filter(k=>PEOPLE[k]).length>0, owner:'hr', go:'edit'},
+    {k:'chat', label:'Client group chat created', ok:!!(c.chatId && CHATS.find(x=>x.id===c.chatId)), owner:'hr', go:'edit'},
+    {k:'sop', label:'SOP written and approved', ok:!!sop && ['Approved','Published','Active'].includes(sop.status) && (sop.sections||[]).length>0, owner:pm, go:'sop', note: !sop ? 'no SOP yet' : sop.status==='Setup' ? 'still in setup' : ''},
+    {k:'brand', label:'Brand kit — logo, colors, fonts and tone of voice', ok:!!c.logo && (c.colors||[]).length>0 && !tbd(c.fonts) && !tbd(c.tone), owner:pm, go:'overview',
+      note:[!c.logo&&'logo', !(c.colors||[]).length&&'colors', tbd(c.fonts)&&'fonts', tbd(c.tone)&&'tone'].filter(Boolean).join(', ')},
+    {k:'onboard', label:'Onboarding hand-off completed (welcome sent, PM briefed)', ok:!reg || reg.status==='Onboarded', owner:'hr', go:'orgsetup'},
+    {k:'finance', label:'Finance package recorded', ok:FINCLIENTS.some(f=>f.client===c.id && f.status!=='Draft') || !!c.package, owner:'hr', go:'finance'},
+  ];
+  return I.map(x=>({...x, who: x.owner==='pm' ? pmsLive(c) : HR_KEYS().filter(k=>PEOPLE[k])}));
+}
+function setupState(c){ const I = setupItems(c); const miss = I.filter(x=>!x.ok); const created = new Date(c.createdAt||Date.now());
+  const due = new Date(created.getTime() + setupDays()*864e5);
+  return {c, items:I, miss, done:I.length - miss.length, total:I.length, due, overdue: miss.length>0 && Date.now() > due.getTime(), owners:uniq(miss.flatMap(x=>x.who))}; }
+const setupOpen = () => CLIENTS.filter(setupTracked).map(setupState).filter(s=>s.miss.length || s.c.setup?.status!=='complete');
+const setupLink = cid => `${location.origin}${location.pathname}#setup=${encodeURIComponent(cid)}`;
+function setupGo(cid, item){ openClient(cid); setTimeout(()=>{ if(item==='edit' && typeof orgModal==='function') orgModal(cid);
+    else if(item==='sop'){ WS.tab='sop'; RENDER.clientws?.(); } else if(item==='finance') go('finance'); else if(item==='orgsetup') go('orgsetup');
+    else document.querySelector('.setup-card')?.scrollIntoView({block:'center'}); }, 200); }
+/* "#setup=<id>" links (from the Operations chat) open the client's setup */
+function setupHash(){ const m = location.hash.match(/^#setup=([^&]+)/); if(!m || !SYNC.ready || !PEOPLE[PERSON]) return; const id = decodeURIComponent(m[1]);
+  history.replaceState(null, '', location.pathname + location.search); if(client(id)) setupGo(id); }
+window.addEventListener('hashchange', setupHash);
+document.addEventListener('click', e=>{ const a = e.target.closest?.('a[href*="#setup="]'); if(!a) return; e.preventDefault(); const id = decodeURIComponent(a.getAttribute('href').split('#setup=')[1]||''); if(client(id)) setupGo(id); }, true);
+{ const _sp = setPerson; setPerson = function(p){ _sp(p); setTimeout(setupHash, 1500); setTimeout(setupTick, 25000); }; }
+
+/* ---------- checklist on the client's Overview + completion gate ---------- */
+const canSetup = c => isFullAccess() || isExec() || ROLE==='hr' || pmsOf(c.id).includes(PERSON);
+function setupCardHTML(c){ if(!setupTracked(c) && c.setup?.status!=='complete') return ''; if(!canSetup(c)) return '';
+  if(c.setup?.status==='complete') return `<div class="card setup-card ok"><div class="card-b">✅ <b>Setup complete</b> <span class="hint">· ${esc(first(c.setup.by))} · ${esc(dstr(c.setup.completedAt))}${c.setup.override?` · override: “${esc(c.setup.override)}”`:''}</span></div></div>`;
+  const s = setupState(c); const pct = Math.round(s.done/s.total*100);
+  return `<div class="card setup-card"><div class="card-h"><h3>🧩 Client setup — ${s.done}/${s.total}</h3><span class="hint">${s.overdue?'<b style="color:#B42323">Overdue</b> · ':''}due ${esc(dstr(s.due.toISOString()))}</span></div><div class="card-b">
+    <div class="big-bar" style="height:7px;margin-bottom:10px"><i style="width:${pct}%"></i></div>
+    ${s.items.map(x=>`<div class="setup-item ${x.ok?'ok':'miss'}"><span class="si-ic">${x.ok?'✓':'!'}</span><div style="flex:1;min-width:0"><b>${esc(x.label)}</b>${!x.ok?`<div class="hint">${x.note?esc('Missing: '+x.note)+' · ':''}Owner: ${esc(x.who.map(first).join(', ')||(x.owner==='pm'?'PM (not assigned)':'HR'))}</div>`:''}</div>${!x.ok?`<button class="btn ghost" onclick="setupGo('${c.id}','${x.go}')">Fix</button>`:''}</div>`).join('')}
+    <button class="btn ${s.miss.length?'':'primary'}" style="margin-top:10px" onclick="setupComplete('${c.id}')">Mark setup complete</button></div></div>`; }
+function setupComplete(cid){ const c = client(cid); if(!c || !canSetup(c)) return; const s = setupState(c);
+  if(!s.miss.length){ c.setup = {...(c.setup||{}), status:'complete', completedAt:nowISO(), by:PERSON}; audit(`Marked the setup of ${c.name} complete`); recordChange(); RENDER[CURRENT]?.(); return toast('Setup complete 🎉'); }
+  openModal('Setup isn’t finished yet', `<p style="margin-bottom:10px">${esc(c.name)} still has <b>${s.miss.length} required item${s.miss.length>1?'s':''}</b> missing. The client shouldn’t proceed until these are done:</p>
+    ${s.miss.map(x=>`<div class="setup-item miss"><span class="si-ic">!</span><div style="flex:1"><b>${esc(x.label)}</b><div class="hint">Owner: ${esc(x.who.map(first).join(', ')||'unassigned')}</div></div><button class="btn ghost" onclick="closeModal();setupGo('${c.id}','${x.go}')">Fix</button></div>`).join('')}
+    ${isHead(PERSON)||isFullAccess()?`<div class="field" style="margin-top:12px"><label>Company heads only — complete anyway (reason is recorded)</label><input id="suWhy" placeholder="e.g. Client will send the logo next week"></div>
+      <button class="btn danger" onclick="setupOverride('${c.id}')">Complete with missing items</button>`:'<p class="hint" style="margin-top:10px">Finish the items above, then mark the setup complete.</p>'}`); }
+function setupOverride(cid){ const c = client(cid); const why = el('suWhy')?.value.trim(); if(!why) return toast('Give a reason — it is recorded');
+  c.setup = {...(c.setup||{}), status:'complete', completedAt:nowISO(), by:PERSON, override:why, missingAtClose:setupState(c).miss.map(x=>x.k)}; audit(`Completed the setup of ${c.name} with missing items: ${why}`); recordChange(); closeModal(); RENDER[CURRENT]?.(); }
+{ const _rw = RENDER.clientws; if(_rw) RENDER.clientws = function(){ const r = _rw.apply(this, arguments); const c = client(WS.client); const v = el('v-clientws');
+    if(v && c && WS.tab==='overview' && !v.querySelector('.setup-card')){ const h = setupCardHTML(c); if(h){ const anchor = v.querySelector('.ws-tabs, .tabs'); anchor ? anchor.insertAdjacentHTML('afterend', h) : v.insertAdjacentHTML('afterbegin', h); } }
+    return r; }; }
+
+/* ---------- COO Assistant follow-ups in the Operations group chat ---------- */
+function setupTick(){
+  if(typeof canRunOps!=='function' || !canRunOps() || !opsChat()) return; const h = phParts(new Date()).h; if(h < 9 || h > 19) return; let ch = false;
+  setupOpen().forEach(s=>{ const c = s.c; if(!s.miss.length) return;
+    if(Date.now() - new Date(c.createdAt||0).getTime() < 24*3600e3) return;             /* give HR / PMs the first day */
+    const id = `M-setup-${c.id}-${manilaDate()}`.replace(/[^A-Za-z0-9-]/g,''); if(MESSAGES.some(m=>m.id===id)) return;
+    const who = s.owners.filter(k=>PEOPLE[k] && k!==cooKey());
+    const list = s.miss.map(x=>`• ${x.label}${x.note?` (missing: ${x.note})`:''} — ${x.who.map(first).join(', ')||'unassigned'}`).join('\n');
+    const text = `${opsTag(who)} ${s.overdue?'⚠️ The setup for':'Reminder: the setup for'} ${c.name} is ${s.overdue?'overdue':'not finished yet'} (${s.done}/${s.total} done, due ${dstr(s.due.toISOString())}). Still needed:\n${list}\nContinue the setup: ${setupLink(c.id)}`;
+    if(opsPost(id, text, who)){ const l = PALOG.find(x=>x.id==='OPS-'+id); if(l){ l.kind = 'setup'; l.client = c.id; l.missing = s.miss.map(x=>x.k); } ch = true; } });
+  if(ch) recordChange();
+}
+setInterval(setupTick, 15*60e3);
+{ const _ore = onRemoteEvent; onRemoteEvent = function(ev){ _ore(ev); if(['clients','sops','briefs','finclients'].includes(ev?.coll) && CURRENT==='clientws'){ clearTimeout(window.__suT); window.__suT = setTimeout(()=>RENDER.clientws?.(), 400); } }; }
+
+/* ---------- JA's portal: everything still unfinished ---------- */
+function setupMonitorHTML(){ const L = setupOpen().filter(s=>s.miss.length).sort((a,b)=>b.overdue-a.overdue || a.due-b.due);
+  const lastFu = cid => PALOG.find(l=>l.kind==='setup' && l.client===cid);
+  return `<div class="card setup-mon"><div class="card-h"><h3>🧩 Client setups in progress</h3><span class="hint">${L.length} unfinished · ${L.filter(s=>s.overdue).length} overdue</span></div><div class="card-b">
+    ${L.map(s=>{ const f = lastFu(s.c.id); return `<div class="setup-row"><div style="flex:1;min-width:0"><b>${esc(s.c.name)}</b> <span class="badge ${s.overdue?'b-missed':'b-pending'}">${s.done}/${s.total}${s.overdue?' · overdue':''}</span>
+      <div class="hint">Due ${esc(dstr(s.due.toISOString()))} · missing: ${esc(s.miss.map(x=>x.label.split(' — ')[0]).join(', '))}</div>
+      <div class="hint">Owners: ${esc(s.owners.map(first).join(', ')||'unassigned')}${f?` · last follow-up ${esc(shortWhen(f.at))} in Operations`:' · no follow-up yet'}</div></div>
+      <button class="btn" onclick="setupGo('${s.c.id}')">Open setup</button></div>`; }).join('') || '<div class="hint">Every new client is fully set up 🎉</div>'}
+  </div></div>`; }
+{ const _rd = RENDER.dashboard; RENDER.dashboard = function(){ const r = _rd.apply(this, arguments); const v = el('v-dashboard');
+    if(v && (PERSON===cooKey() || isHead(PERSON)) && !v.querySelector('.setup-mon')){ const after = v.querySelector('.ops-cards') || v.querySelector('.page-head'); after?.insertAdjacentHTML('afterend', setupMonitorHTML()); }
+    return r; }; }
+{ const _rp = RENDER.pa; RENDER.pa = function(){ const r = _rp.apply(this, arguments); const v = el('v-pa'); const d = v?.querySelector('.ops-cards') || v?.querySelector('.coo-dash');
+    if(d && !v.querySelector('.setup-mon')) d.insertAdjacentHTML('afterend', setupMonitorHTML()); return r; }; }
+/* the COO Assistant's answers and dashboard include unfinished setups */
+{ const _ci = cooItems; cooItems = function(){ const I = _ci.apply(this, arguments);
+    setupOpen().filter(s=>s.miss.length).forEach(s=>I.push({sec:'setup', key:'setup:'+s.c.id, title:`${s.c.name} — setup ${s.done}/${s.total}`, sub:`due ${fmtD(iso(s.due))}${s.overdue?' · overdue':''} · missing: ${s.miss.map(x=>x.label.split(' — ')[0]).join(', ')}`, who:s.owners.filter(k=>['manager','hr'].includes(PEOPLE[k]?.role)), direct:s.owners, vas:[], open:`setupGo('${s.c.id}')`}));
+    return I; }; }
+if(typeof COO_SECS!=='undefined' && !COO_SECS.some(x=>x[0]==='setup')) COO_SECS.splice(2, 0, ['setup','Client setups not finished']);
+{ const _ca = cooAnswer; cooAnswer = function(q){ if(/setup|onboard|sop/i.test(q||'')){ const L = setupOpen().filter(s=>s.miss.length);
+      return L.length ? `Client setups not finished (${L.length}):\n` + L.map(s=>`• ${s.c.name} — ${s.done}/${s.total}${s.overdue?' (overdue)':''} · missing: ${s.miss.map(x=>x.label.split(' — ')[0]).join(', ')} · owners: ${s.owners.map(first).join(', ')}`).join('\n') : 'Every new client is fully set up.'; }
+    return _ca.apply(this, arguments); }; }
 
 CC_BOOT();
 </script>

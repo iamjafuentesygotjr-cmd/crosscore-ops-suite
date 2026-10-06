@@ -20334,7 +20334,7 @@ function gcMembersToTag(ch){ return (ch?.members||[]).filter(k=>PEOPLE[k] && k!=
 function cooSendTagged(target, text, ref){ const key = 'asst:'+COO_ASST; const res = {ids:[], tagged:[], dmFallback:[]};
   if(target.kind==='chat'){ const ch = target.chat; if(!ch) return null;
     const want = uniq(target.who||[]).filter(k=>PEOPLE[k] && k!==cooKey()); const inChat = want.filter(k=>(ch.members||[]).includes(k)); const outside = want.filter(k=>!inChat.includes(k));
-    let body = text; inChat.forEach(k=>{ if(!new RegExp('@'+reEsc(pname(k))).test(body)) body = '@'+pname(k)+' '+body; });
+    let body = text; inChat.forEach(k=>{ if(!new RegExp('@'+reEsc(pname(k))+'|@'+reEsc(first(k))+'(?![\\w])','i').test(body)) body = '@'+pname(k)+' '+body; });
     outside.forEach(k=>{ body = body.replace(new RegExp('@'+reEsc(pname(k))+'\\s*'), ''); });
     const id = ('M-cmd-'+(ref||uid(''))).replace(/[^A-Za-z0-9-]/g,'');
     if(!MESSAGES.some(m=>m.id===id)){ MESSAGES.push({id, chat:ch.id, by:key, kind:'assistant', text:body.trim(), at:nowISO(), files:[], ...(inChat.length?{mentions:inChat}:{})});
@@ -20372,7 +20372,7 @@ async function calLink(title, start, mins){ if(BACKEND.mode!=='live') return {ur
     if(r?.url) return {url:r.url}; return {url:(callCfg().meetLinks||[])[0]||'', why:r?.error||'no link returned'}; }catch(e){ return {url:(callCfg().meetLinks||[])[0]||'', why:e.message}; } }
 async function calUpsert({title, start, mins, people, client:cid, notes}){
   const end = new Date(new Date(start).getTime() + mins*60e3).toISOString();
-  let m = MEETINGS.find(x=>x.organizer===PERSON && x.status!=='cancelled' && Math.abs(new Date(x.start) - new Date(start)) < 10*60e3 && (x.title===title || (cid && x.client===cid)));
+  let m = MEETINGS.find(x=>x.organizer===PERSON && x.status!=='cancelled' && Math.abs(new Date(x.start) - new Date(start)) < 10*60e3);   /* your meeting at that time = the same meeting, whatever its name */
   const created = !m; const keys = [];
   if(!m){ const link = await calLink(title, start, mins); m = {id:'mt'+Math.random().toString(36).slice(2,12), title, kind:'Meeting', start, end, organizer:PERSON, participants:uniq(people).filter(k=>k!==PERSON && PEOPLE[k]),
       link:link.url, linkNote:link.url?'':link.why, client:cid||null, notes:notes||'', status:'scheduled', createdAt:nowISO(), createdBy:'asst:'+COO_ASST, history:[{at:nowISO(), by:PERSON, act:'Scheduled by the COO Assistant'}]};
@@ -20395,7 +20395,7 @@ function calAvail(t){ const w = calWhen(t); const day = w.at ? manilaDate(new Da
 
 /* ---------- 5. the conversation: do it, then report what actually happened ---------- */
 const COO_LAST = {fn:null, text:''};
-const isCalCmd = s => /\b(meeting|call|calendar|invite|invitation|schedule a|book)\b/.test(s) && /\b(add|create|schedule|book|set up|invite|remind|reschedule|move|cancel|update|change)\b/.test(s);
+const isCalCmd = s => /\b(meeting|call|calendar|invite|invitation|schedule a|book)\b/.test(s) && /\b(add|create|schedule|book|set up|invite|remind|reminders?|reschedule|move|cancel|update|change)\b/.test(s);
 async function cooExec(text){ const s = text.toLowerCase().trim();
   if(/^(retry|try again)\b/.test(s)){ if(!COO_LAST.fn) return 'There’s nothing to retry.'; return await COO_LAST.fn(); }
   if(/\b(am i free|my availability|what('?s| is) on my calendar|my schedule|free (at|tomorrow|tonight|today))\b/.test(s)) return calAvail(text);
@@ -20407,18 +20407,19 @@ async function cooExec(text){ const s = text.toLowerCase().trim();
     if(/\b(move|reschedule|push|change)\b/.test(s) && /\b(meeting|call|event)\b/.test(s)){ const L = calFind(text.replace(/\bto\b.*$/,'')); const w = calWhen(text.replace(/^.*?\bto\b/,'')); if(!L.length) return 'Which meeting should I move? (say its name or client)'; if(!w.at) return `What time should I move “${L[0].title}” to?`; if(w.past) return `${w.label} has already passed — what time instead?`;
       const m = L[0]; calMove(m, w.at, null); const v = await cooVerify([mk('meetings', m.id)]); return v.ok ? `🔁 Moved “${m.title}” to ${w.label}. ${m.participants.map(first).join(', ')||'Participants'} were notified and asked to confirm again.` : `I couldn’t reschedule it: ${v.why}.`; }
     /* create (and optionally remind a GC about) a meeting */
-    if(isCalCmd(s) || (/\bremind\b/.test(s) && /\bmeeting\b/.test(s))){
+    if(isCalCmd(s) || (/\bremind(ers?)?\b/.test(s) && /\bmeeting\b/.test(s))){
       const w = calWhen(text); if(!w.at) return 'What time should the meeting be? (e.g. “tonight at 10 PM”)'; if(w.past) return `${w.label} has already passed — what time instead?`;
       const T = cmdTopic(text); const tgt = cmdTarget(text, T); const ch = tgt.kind==='chat' ? tgt.chat : null; const cl = cmdClient(s) || (ch?.client ? client(ch.client) : null);
       let people = []; if(ch && /\b(all|every(one)?|participants|members|team)\b/.test(s)) people = gcMembersToTag(ch); people = uniq([...people, ...(tgt.who||[])]).filter(k=>k!==PERSON);
       if(!people.length && !ch) return 'Who should I invite? (a group chat, “HR”, “the PMs”, or names)';
-      const title = (text.match(/\b(?:called|titled|named)\s+["“]?(.+?)["”]?(?:\s+(?:at|on|for|tonight|tomorrow)\b|[.,]|$)/i)?.[1]) || (cl ? `${cl.name.split(/[(·]/)[0].trim()} meeting` : ch ? `${chatTitle(ch)} meeting` : 'Meeting');
+      const named = text.match(/\b(?:called|titled|named)\s+["“]?(.+?)["”]?(?:\s+(?:at|on|for|tonight|tomorrow|today)\b|[.,]|$)/i)?.[1] || text.match(/\b(?:about|for|re)\s+(?:the\s+|our\s+|tonight'?s\s+|today'?s\s+)?([A-Z][\w&'.-]*(?:\s+[A-Z][\w&'.-]*)*\s+[Mm]eeting)\b/)?.[1];
+      const title = named || (cl ? `${cl.name.split(/[(·]/)[0].trim()} meeting` : ch ? `${chatTitle(ch)} meeting` : 'Meeting');
       const wantsCal = /\b(calendar|invite|invitation|schedule|book|create|set up)\b/.test(s) || /\bmeeting\b/.test(s);
       const out = []; const keys = []; let mtg = null;
       if(wantsCal){ const r = await calUpsert({title, start:w.at, mins:w.mins, people, client:cl?.id}); mtg = r.m; keys.push(...r.keys);
         out.push(`${r.created?'📅 Created':'📅 Updated'} “${mtg.title}” — ${mtDate(mtg.start,{long:true})} · ${mtTime(mtg.start)}–${mtTime(mtg.end)} (PH time) on your calendar; invitations sent to ${mtg.participants.map(first).join(', ')||'no one'}.`);
         out.push(mtg.link ? `🔗 Meeting link: ${mtg.link}` : `⚠ No meeting link yet (${mtg.linkNote||'not created'}) — add one in the Calendar.`); out.push('⏰ The 30-minute reminder and no-show follow-ups are on.'); }
-      if(/\bremind\b/.test(s) && ch){ const msg = `Hi, team! ⏰ Reminder: ${mtg?`“${mtg.title}” is ${mtDay(mtg.start)===manilaDate()?'tonight':'on '+mtDate(mtg.start)} at ${mtTime(mtg.start)} (PH time).${mtg.link?' Join here: '+mtg.link:''} Please check your calendar invitation.`:`our meeting is ${w.label}.`} Thank you!`;
+      if(/\bremind(ers?)?\b/.test(s) && ch){ const msg = `Hi, team! ⏰ Reminder: ${mtg?`“${mtg.title}” is ${mtDay(mtg.start)===manilaDate()?'tonight':'on '+mtDate(mtg.start)} at ${mtTime(mtg.start)} (PH time).${mtg.link?' Join here: '+mtg.link:''} Please check your calendar invitation.`:`our meeting is ${w.label}.`} Thank you!`;
         const r = cooSendTagged({kind:'chat', chat:ch, who:people}, msg, uid('R')); keys.push(...r.ids.map(id=>mk('messages', id)));
         out.push(`💬 Posted the reminder in ${chatTitle(ch)}${r.tagged.length?` tagging ${r.tagged.map(first).join(', ')}`:''}.${r.dmFallback.length?` ${r.dmFallback.map(first).join(', ')} ${r.dmFallback.length>1?'aren’t':'isn’t'} in that chat, so I messaged them privately.`:''}`); }
       const v = await cooVerify(keys); return v.ok ? '✅ Done.\n'+out.join('\n') : `⚠ Not everything went through: ${v.why}.\nWhat I attempted:\n${out.join('\n')}`;
@@ -20433,7 +20434,7 @@ async function cooExec(text){ const s = text.toLowerCase().trim();
 /* run it inside the existing conversation (placeholder → real result) */
 { const _pi = paIntent; paIntent = function(a, text){
     if(isCooA(a) && PERSON===a.pm){ const s = text.toLowerCase().trim();
-      const mine = /^(retry|try again)\b/.test(s) || /\b(am i free|my availability|on my calendar|my schedule)\b/.test(s) || isCalCmd(s) || (/\bremind\b/.test(s) && /\bmeeting\b/.test(s)) || ((CMD_RE.test(s) && !isQuestion(text)) && !/^remind me\b/.test(s));
+      const mine = /^(retry|try again)\b/.test(s) || /\b(am i free|my availability|on my calendar|my schedule)\b/.test(s) || isCalCmd(s) || (/\bremind(ers?)?\b/.test(s) && /\bmeeting\b/.test(s)) || ((CMD_RE.test(s) && !isQuestion(text)) && !/^remind me\b/.test(s));
       if(mine){ const tag = uid('W'); setTimeout(async ()=>{ let r; try{ r = await cooExec(text); }catch(e){ r = `⚠ That didn’t work: ${e.message}. Say “retry” to try again.`; }
           const conv = paConv(a); const msg = conv.msgs.find(x=>x.wait===tag) || [...conv.msgs].reverse().find(x=>x.role==='assistant' && x.text==='⏳ On it…'); if(msg){ msg.text = r==null ? cooAnswer(text) : r; delete msg.wait; aiSaveConv(conv); if(CURRENT==='pa') RENDER.pa(); } }, 30);
         return {reply:'⏳ On it…', wait:tag}; } }
@@ -20454,6 +20455,30 @@ async function cooExec(text){ const s = text.toLowerCase().trim();
 { const _ct = cmdTarget; cmdTarget = function(t, topic){ const r = _ct.apply(this, arguments);
     if(r?.kind==='chat' && r.chat && /\b(tag|mention|ping)\s+(all|everyone|every one|everybody|the team|all (the )?(participants|members))\b|\b(tag|mention)\s+all\b/i.test(t)) r.who = uniq([...(r.who||[]), ...gcMembersToTag(r.chat)]);
     return r; }; }
+
+/* ---------- "Post as COO Assistant" (Draft messages): every group chat JA is in, real mentions, verified ---------- */
+function cooPostChats(){ return myChats().filter(c=>c.kind!=='dm' && c.kind!=='clientline' && (c.members||[]).includes(PERSON)).sort((a,b)=>chatTitle(a).localeCompare(chatTitle(b))); }
+{ const _pm = paPostModal; paPostModal = function(id, i){ const a = assistant(id); if(!isCooA(a)) return _pm.apply(this, arguments);
+    const m = paConv(a).msgs[i]; if(!m) return; const mm = String(m.text).match(/###\s*Message\s*\n([\s\S]+)$/i);
+    const text = (mm ? mm[1] : m.text).replace(/\[\[[A-Z]+:[^|\]]+\|([^\]]+)\]\]/g,'$1').replace(/\[([^\]]+)\]\((https?:[^)]+)\)/g,'$2').trim();
+    const C = cooPostChats(); const tl = text.toLowerCase();
+    const guess = C.find(c=>c.kind==='client' && c.client && client(c.client) && tl.includes(client(c.client).name.toLowerCase().split(/[\s(·]/)[0])) || C.find(c=>tl.includes(chatTitle(c).toLowerCase())) || null;
+    openModal(`Post as ${a.name}`, `<div class="pa-preview-h">${aiAva(a.id, 36)}<div><b>${esc(a.name)}</b><div class="hint">Posts in the chosen group chat. Everyone written as @Name (e.g. @Tricia) is tagged and notified.</div></div></div>
+      <div class="field"><label>Group chat</label><select id="paPostC" onchange="cooPostPreviewTags()"><option value="">— choose a group chat —</option>${C.map(c=>`<option value="${c.id}" ${c===guess?'selected':''}>${esc(chatTitle(c))}${c.kind==='client'?' · client':''}</option>`).join('')}</select></div>
+      <div class="field"><label>Message</label><textarea id="paPostT" rows="8" oninput="cooPostPreviewTags()">${esc(text)}</textarea><div id="paPostTags" class="hint" style="margin-top:6px"></div></div>
+      <button class="btn primary" id="paPostGo" onclick="cooPostFromModal()">Post in group chat</button>`);
+    cooPostPreviewTags(); }; }
+function cooPostPreviewTags(){ const ch = CHATS.find(c=>c.id===el('paPostC')?.value); const t = el('paPostT')?.value||''; const b = el('paPostTags'); if(!b) return;
+  if(!ch){ b.textContent = 'Choose the group chat to post in.'; return; }
+  const tagged = findMentionsAll(t, ch); const named = (t.match(/@[A-Z][\w.]*(?:\s[A-Z][\w.]*)?/g)||[]).map(x=>x.slice(1));
+  const missing = named.filter(n=>!tagged.some(k=>pname(k).toLowerCase().startsWith(n.toLowerCase()) || first(k).toLowerCase()===n.toLowerCase().split(' ')[0]));
+  b.innerHTML = (tagged.length ? `Will tag: <b>${esc(tagged.map(first).join(', '))}</b>` : 'No one tagged — write @Name to tag someone.') + (missing.length ? ` · <span style="color:#B42323">not in this chat: ${esc(missing.join(', '))}</span>` : ''); }
+async function cooPostFromModal(){ const ch = CHATS.find(c=>c.id===el('paPostC')?.value); const text = el('paPostT')?.value.trim(); if(!ch) return toast('Choose a group chat'); if(!text) return toast('Write the message');
+  const btn = el('paPostGo'); btn.disabled = true; btn.textContent = 'Posting…';
+  const who = findMentionsAll(text, ch); const r = cooSendTagged({kind:'chat', chat:ch, who}, text, uid('P'));
+  const v = await cooVerify(r.ids.map(id=>mk('messages', id)));
+  if(v.ok){ closeModal(); toast(`Posted in ${chatTitle(ch)}${r.tagged.length?` · tagged ${r.tagged.map(first).join(', ')}`:''}`); }
+  else { btn.disabled = false; btn.textContent = 'Retry'; toast('Not posted: '+v.why); } }
 
 CC_BOOT();
 </script>

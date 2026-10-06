@@ -2631,7 +2631,11 @@ body.nav-collapsed .sidebar,body.nav-collapsed.nav-peek .sidebar,body.nav-open .
 }
 body.glass-lite .sidebar,body.glass-lite .topbar{background:linear-gradient(180deg,var(--sb-solid),var(--sb-solid-2))!important}
 @media (prefers-reduced-transparency:reduce){.sidebar,.topbar{background:var(--sb-solid)!important}}
+.mt-lnote{margin-top:6px;font-size:12.5px;color:var(--ink-2);display:flex;gap:8px;align-items:center;flex-wrap:wrap}.mt-lnote .btn{padding:4px 10px;font-size:12px}
+#mtL.mt-flash{animation:mtFlash 1.2s ease}@keyframes mtFlash{0%,60%{box-shadow:0 0 0 3px rgba(24,138,78,.35);border-color:#18A05A}}
+@media (prefers-reduced-motion:reduce){#mtL.mt-flash{animation:none}}
 </style>
+
 
 
 
@@ -19568,7 +19572,7 @@ function rosterRestore(){ const i = document.createElement('input'); i.type = 'f
   i.onchange = async () => { try{ const j = JSON.parse(await i.files[0].text());
       const rows = []; (j.clients||[]).forEach(c=>rows.push(['clients', c]));
       Object.entries(j.records||{}).forEach(([coll, L])=>(L||[]).forEach(o=>rows.push([coll, o])));
-      (j.serverRows||[]).forEach(r=>rows.push([r.collection, r.data]));
+      [...(j.serverRows||[]), ...(Array.isArray(j.server)?j.server:[])].forEach(r=>{ if(r?.collection && r.collection!=='palog') rows.push([r.collection, r.data]); });
       let n = 0; rows.forEach(([coll, o])=>{ const C = COLL[coll]; if(!C || !o?.id) return; const arr = C.get()||[]; if(arr.some(x=>String(x.id)===String(o.id))) return; arr.push(coll==='clients' ? {...o, retained:true, restoredAt:nowISO(), restoredBy:PERSON} : o); n++; });
       rebuildPeople(); ensureChats(); recordChange(); audit(`Restored ${n} records (${(j.clients||[]).map(c=>c.name).join(', ')}) from a roster backup`); RENDER[CURRENT]?.();
       toast(n ? `Restored ${(j.clients||[]).length} client(s) and ${n} records` : 'Nothing to restore — those records already exist'); }
@@ -19576,6 +19580,58 @@ function rosterRestore(){ const i = document.createElement('input'); i.type = 'f
   i.click(); }
 { const _rc = rosterAdminCard; rosterAdminCard = function(){ const h = _rc.apply(this, arguments); if(!h) return h;
     return h.replace(`<button class="btn" onclick="go('monitor')">Client Monitoring</button>`, `<button class="btn" onclick="go('monitor')">Client Monitoring</button> <button class="btn" onclick="rosterRestore()">↺ Restore removed clients</button>`); }; }
+
+/* ===== 62_meetlinks.js ===== */
+/* ================= MEETING LINKS — one click fills the field (Oct 2026) =================
+   "Create Google Meet link" and "Create Zoom link" create the meeting and put its URL straight into the Meeting link field.
+   When the company account isn't connected yet, the form says so and (for company heads) opens the setup directly.
+   Zoom uses a company Server-to-Server OAuth app (Administration → Video calls → Zoom). */
+function mtLinkNote(html){ let n = el('mtLinkNote'); if(!n){ el('mtL')?.closest('.field')?.insertAdjacentHTML('beforeend', '<div id="mtLinkNote" class="mt-lnote"></div>'); n = el('mtLinkNote'); } if(n) n.innerHTML = html||''; }
+function mtLinkBusy(btn, on, label){ if(!btn) return; btn.disabled = on; if(on){ btn.dataset.t = btn.innerHTML; btn.innerHTML = '<span class="spinner" style="display:inline-block"></span> '+label; } else if(btn.dataset.t) btn.innerHTML = btn.dataset.t; }
+function mtSetLink(url, what){ const f = el('mtL'); if(!f) return; f.value = url; f.classList.remove('mt-flash'); void f.offsetWidth; f.classList.add('mt-flash');
+  mtLinkNote(`✓ ${what} link added — <a href="${esc(url)}" target="_blank" rel="noopener">test it</a>`); toast(`${what} link added`); }
+const mtSetupBtn = () => isHead(PERSON) || isFullAccess() ? ` <button type="button" class="btn" onclick="closeModal();go('settings');setTimeout(()=>document.querySelector('#zmCard,#gmStatus')?.scrollIntoView({block:'center'}),400)">Open setup</button>` : ' Ask a company head to connect it.';
+mtMakeMeet = async function(){
+  const btn = document.querySelector('[onclick="mtMakeMeet()"]'); mtLinkBusy(btn, true, 'Creating…'); mtLinkNote('');
+  try{
+    if(BACKEND.mode==='live'){
+      const r = await leadFn('meet_link', {callId:'mt'+Math.random().toString(36).slice(2,12)}).catch(e=>({error:e.message}));
+      if(r?.url) return mtSetLink(r.url, 'Google Meet');
+      const L = callCfg().meetLinks||[]; if(L.length){ return mtSetLink(L[Math.floor(Math.random()*L.length)], 'Google Meet (standby)'); }
+      return mtLinkNote(`⚠ ${esc(r?.error||'Google Meet couldn’t create a link')}.${/not connected/i.test(r?.error||'')?mtSetupBtn():''}`);
+    }
+    const r = await getMeetLink({id:'mt-new', callId:'mt'+Math.random().toString(36).slice(2,12)});
+    if(r?.url) return mtSetLink(r.url, 'Google Meet');
+    mtLinkNote('Google Meet links are created on the live portal once the company Google account is connected.'+mtSetupBtn());
+  } finally { mtLinkBusy(btn, false); }
+};
+async function mtMakeZoom(){
+  const btn = document.querySelector('[onclick="mtMakeZoom()"]'); mtLinkBusy(btn, true, 'Creating…'); mtLinkNote('');
+  try{
+    if(BACKEND.mode!=='live') return mtLinkNote('Zoom links are created on the live portal once the company Zoom app is connected.'+mtSetupBtn());
+    const d = el('mtD')?.value, s = el('mtS')?.value, e = el('mtE')?.value; const start = d && s ? mtIso(d, s) : null;
+    const dur = d && s && e ? Math.max(15, Math.round((new Date(mtIso(d, e)) - new Date(mtIso(d, s)))/60000)) : 30;
+    const r = await leadFn('zoom_link', {topic:el('mtT')?.value||'Cross Core meeting', start, duration:dur}).catch(x=>({error:x.message}));
+    if(r?.url){ mtSetLink(r.url, 'Zoom'); if(r.passcode) mtLinkNote(`✓ Zoom link added — passcode <b>${esc(r.passcode)}</b> is included in the link · <a href="${esc(r.url)}" target="_blank" rel="noopener">test it</a>`); return; }
+    mtLinkNote(`⚠ ${esc(r?.error||'Zoom couldn’t create a link')}.${/isn’t connected|not connected/i.test(r?.error||'')?mtSetupBtn():''}`);
+  } finally { mtLinkBusy(btn, false); }
+}
+{ const _mm = mtModal; mtModal = function(){ const r = _mm.apply(this, arguments);
+    const mb = document.querySelector('#modalBody [onclick="mtMakeMeet()"]'); if(mb && !document.querySelector('[onclick="mtMakeZoom()"]')){ mb.innerHTML = '🎥 Create Google Meet link'; mb.insertAdjacentHTML('afterend', '<button type="button" class="btn" onclick="mtMakeZoom()">🔷 Create Zoom link</button>'); mb.parentElement.style.flexWrap = 'wrap'; }
+    return r; }; }
+/* Administration → Video calls: connect the company Zoom app */
+{ const _ca = callsAdminCard; callsAdminCard = function(){ const h = _ca.apply(this, arguments); if(!h || !(isHead(PERSON) || isFullAccess())) return h;
+    return h + `<div class="card" id="zmCard"><div class="card-h"><h3>Zoom meetings</h3></div><div class="card-b">
+      <p class="hint" style="margin-bottom:10px">Lets “Create Zoom link” make real Zoom meetings and fill in the link. In the Zoom App Marketplace (marketplace.zoom.us) → Develop → Build App → <b>Server-to-Server OAuth</b>, add the scope <b>meeting:write:meeting:admin</b> (or meeting:write), activate it, then paste its three keys here. They’re stored on the server only.</p>
+      <div id="zmStatus" class="hint" style="margin-bottom:8px"></div>
+      <div class="grid cols-3"><div class="field"><label>Account ID</label><input id="zmAcc" autocomplete="off"></div><div class="field"><label>Client ID</label><input id="zmId" autocomplete="off"></div><div class="field"><label>Client Secret</label><input id="zmSec" type="password" autocomplete="off"></div></div>
+      <button class="btn primary" onclick="zoomSave()">Save & test Zoom</button></div></div>`; }; }
+async function zoomRefresh(){ const b = el('zmStatus'); if(!b) return; if(BACKEND.mode!=='live'){ b.textContent = 'Connect on the live portal.'; return; }
+  const r = await leadFn('zoom_status', {}).catch(()=>null); b.innerHTML = r?.configured ? '<span class="badge b-done">Connected</span> Zoom links can be created' : '<span class="badge b-missed">Not connected</span>'; }
+async function zoomSave(){ const v = {account_id:el('zmAcc').value.trim(), client_id:el('zmId').value.trim(), client_secret:el('zmSec').value.trim()};
+  if(!v.account_id || !v.client_id || !v.client_secret) return toast('Paste all three keys');
+  const r = await leadFn('zoom_config', v).catch(e=>({error:e.message})); if(r?.ok){ toast('Zoom connected'); el('zmSec').value = ''; } else toast(r?.error||'Could not connect Zoom'); zoomRefresh(); }
+{ const _rs = RENDER.settings; if(_rs) RENDER.settings = function(){ const r = _rs.apply(this, arguments); setTimeout(zoomRefresh, 50); return r; }; }
 
 CC_BOOT();
 </script>

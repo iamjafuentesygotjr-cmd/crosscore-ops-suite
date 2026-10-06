@@ -20491,7 +20491,7 @@ async function cooPostFromModal(){ const ch = CHATS.find(c=>c.id===el('paPostC')
    The footer shows which build is running ("Build 2026-10-07 · 1"), and every open portal checks every few minutes
    (and whenever it comes back to the foreground) whether a newer build has been published. If so it shows
    "New version available — Update now" instead of quietly running old code. */
-const BUILD_ID = '2026-10-07 · 01:54';
+const BUILD_ID = '2026-10-07 · 02:27';
 function verStamp(){ const f = el('footNote'); if(f && !f.dataset.v){ f.dataset.v = 1; f.textContent = `Cross Core Ops Suite v8 · Build ${BUILD_ID}`; } }
 async function verCheck(){
   if(!/^https?:/.test(location.protocol)) return;
@@ -20690,6 +20690,57 @@ async function avFollow(text){ const s = text.toLowerCase();
     if(isCooA(a) && PERSON===a.pm && (AV_INTENT(s) || /\b(haven'?t|have not)\b.*\b(respond|answer)|\bwho\b.*\b(accept|invite)|\bmeeting details\b|\bminutes? before\b|\bbest (available )?time\b/.test(s))){
       const tag = uid('W'); setTimeout(async ()=>{ let r; try{ r = await cooExec(text); }catch(e){ r = `⚠ That didn’t work: ${e.message}. Say “retry”.`; }
         const conv = paConv(a); const msg = conv.msgs.find(x=>x.wait===tag) || [...conv.msgs].reverse().find(x=>x.role==='assistant' && x.text==='⏳ On it…'); if(msg){ msg.text = r==null ? cooAnswer(text) : r; delete msg.wait; aiSaveConv(conv); if(CURRENT==='pa') RENDER.pa(); } }, 30);
+      window.__lastWait = tag; return {reply:'⏳ On it…', wait:tag}; }
+    return _pi.apply(this, arguments); }; }
+
+/* ===== 71_avfix.js ===== */
+/* ================= "FIND A TIME" — JA's adjustments (Oct 2026) =================
+   • Operations meetings: required = JA + HR + PMs only (other members of the Operations GC can see the poll but aren't
+     required or tagged). Say “… include Norman” to add someone.
+   • Progress reports (booked, nudged, nobody answered, deadline) go to JA in the COO Assistant section — never into the GC.
+     The GC only gets the poll itself and the final confirmation.
+   • “Cancel the poll” / “delete the poll” removes the poll message from the GC and stops the workflow.
+   • Titles are cleaned (no stray quotes / asterisks). */
+{ const _t = avTitle; avTitle = function(){ return String(_t.apply(this, arguments)).replace(/^[\s"“”'*]+|[\s"“”'*]+$/g,'').replace(/["“”]{2,}/g,'').trim() || 'Team Meeting'; }; }
+/* required people for Operations = PMs + HR (+ anyone named) */
+{ const _s = avStart; avStart = async function(text){ const s = text.toLowerCase();
+    const ch = avChat(s.replace(/^\s*coo[,:]?\s*/,''));
+    if(ch && (ch===opsChat() || /\boperations?\b/.test(chatTitle(ch).toLowerCase()))){
+      const keep = uniq([...opsPeople(), ...cmdPeople(s)]).filter(k=>k!==cooKey());
+      const _g = gcMembersToTag; gcMembersToTag = c => c===ch ? keep : _g(c);
+      try{ return await _s.apply(this, arguments); } finally { gcMembersToTag = _g; } }
+    return _s.apply(this, arguments); }; }
+/* progress reports go to JA's COO Assistant section */
+function avReport(p, text){ const coo = p.by || cooKey(); p.log = [...(p.log||[]), {at:nowISO(), text}];
+  const id = ('N-avrep-'+p.id+'-'+(p.log.length)).replace(/[^A-Za-z0-9-]/g,'');
+  if(!NOTIFS2.some(n=>n.id===id)) NOTIFS2.unshift({id, to:coo, type:'reminder', text:`🤖 COO Assistant: ${esc(text)}`, link:{view:'pa', pa:COO_ASST}, by:PERSON, asst:'asst:'+COO_ASST, at:nowISO(), read:false});
+  if(PERSON===coo){ try{ const a = pmAssistants().find(isCooA); const conv = paConv(a); if(conv){ conv.msgs.push({role:'assistant', text, at:nowISO()}); aiSaveConv(conv); if(CURRENT==='pa') RENDER.pa(); } }catch(e){} } }
+{ const _b = avBook; avBook = async function(poll, o, why){ const was = poll.status; const r = await _b.apply(this, arguments);
+    if(was==='collecting' && poll.status==='confirmed'){ const m = MEETINGS.find(x=>x.id===poll.meeting);
+      avReport(poll, `✅ Booked “${poll.title}” for ${mtDate(o.start,{long:true})} at ${mtTime(o.start)} (PH time) — ${why}. Invites sent to ${(m?.participants||[]).map(first).join(', ')}${m?.link?`; link: ${m.link}`:''}. I posted the confirmation in ${chatTitle(CHATS.find(c=>c.id===poll.chat)||{name:'the GC'})}.`); recordChange(); }
+    return r; }; }
+/* "nobody answered" goes to JA's section too (it was a bell notification before) */
+{ const _t = avTick; avTick = function(){ const before = new Map(OPSPOLL.filter(p=>p.kind==='adhoc').map(p=>[p.id, [p.failNoted, p.nudged]])); const r = _t.apply(this, arguments);
+    OPSPOLL.filter(p=>p.kind==='adhoc').forEach(p=>{ const [f, n] = before.get(p.id)||[];
+      if(p.failNoted && !f) avReport(p, `⚠ Nobody picked a time for “${p.title}” before the deadline. Tell me new times and I’ll ask again.`);
+      if(p.nudged && !n) avReport(p, `🔔 I reminded ${opsTally(p).pending.map(first).join(', ')||'the people who hadn’t answered'} to pick a time for “${p.title}”.`); });
+    return r; }; }
+/* cancel / delete the poll */
+async function avCancel(text){ const s = text.toLowerCase(); const L = OPSPOLL.filter(p=>p.kind==='adhoc' && ['collecting','confirmed'].includes(p.status) && (!p.by || p.by===PERSON)).sort((a,b)=>(b.createdAt||'').localeCompare(a.createdAt||''));
+  const ch = avChat(s); const p = (ch ? L.find(x=>x.chat===ch.id) : null) || L[0]; if(!p) return 'There’s no availability poll to cancel.';
+  if(p.status==='confirmed') return `“${p.title}” is already booked — say “cancel the ${p.title}” to cancel the meeting instead.`;
+  p.status = 'cancelled'; p.cancelledAt = nowISO();
+  const ids = MESSAGES.filter(m=>m.poll===p.id || m.id==='M-av-'+p.id || (m.id||'').includes(p.id)).map(m=>m.id);
+  ids.forEach(id=>{ const i = MESSAGES.findIndex(m=>m.id===id); if(i>=0) MESSAGES.splice(i, 1); });
+  NOTIFS2.filter(n=>ids.includes(n.link?.msg)).forEach(n=>{ n.read = true; });
+  recordChange(); const v = await cooVerify([mk('opspoll', p.id), ...ids.map(id=>mk('messages', id))]);
+  return v.ok ? `🗑️ Removed the “${p.title}” poll from ${chatTitle(CHATS.find(c=>c.id===p.chat)||{name:'the GC'})} and stopped it. Say the request again whenever you’re ready.` : `⚠ Couldn’t remove it: ${v.why}.`; }
+{ const _ce = cooExec; cooExec = async function(text){ const s = String(text).replace(/[’‘]/g,"'").toLowerCase();
+    if(/\b(cancel|delete|remove|undo|scrap)\b.*\b(poll|availability( request| message)?)\b/.test(s)) return await avCancel(s);
+    return _ce.apply(this, arguments); }; }
+{ const _pi = paIntent; paIntent = function(a, text){ const s = String(text).replace(/[’‘]/g,"'").toLowerCase();
+    if(isCooA(a) && PERSON===a.pm && /\b(cancel|delete|remove|undo|scrap)\b.*\b(poll|availability)\b/.test(s)){ const tag = uid('W');
+      setTimeout(async ()=>{ const r = await cooExec(text); const conv = paConv(a); const msg = conv.msgs.find(x=>x.wait===tag) || [...conv.msgs].reverse().find(x=>x.role==='assistant' && x.text==='⏳ On it…'); if(msg){ msg.text = r; delete msg.wait; aiSaveConv(conv); if(CURRENT==='pa') RENDER.pa(); } }, 30);
       window.__lastWait = tag; return {reply:'⏳ On it…', wait:tag}; }
     return _pi.apply(this, arguments); }; }
 

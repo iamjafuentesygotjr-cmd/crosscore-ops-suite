@@ -19655,7 +19655,7 @@ async function zoomSave(){ const v = {account_id:el('zmAcc').value.trim(), clien
    • Evaluation follow-ups: at the end of each VA's third month and at every month end, missing evaluations are followed up
      with the responsible PM(s) and HR — once a day, privately, until submitted. A status report lists submitted and missing
      evaluations with owners and deadlines (never invented grades).
-   • The COO Assistant is a member of every company and internal client group chat (new ones included); it posts only what
+   • The COO Assistant follows up with PMs and HR only (PMs handle their VAs). It is a member of every company and internal client group chat (new ones included); it posts only what
      the chat's members may see — HR/evaluation follow-ups always go privately. Every follow-up is logged. */
 
 /* ---------- meeting follow-ups come from the participant's own PM assistant ---------- */
@@ -19741,8 +19741,17 @@ function cooItems(){
   MEETINGS.filter(m=>m.status!=='cancelled' && mtPast(m) && Date.now() - new Date(m.end) < 7*864e5).forEach(m=>{ const miss = (m.participants||[]).filter(k=>mtSt(m,k)!=='declined' && !mtJoined(m,k));
     if(miss.length) I.push({sec:'missed', key:'mm:'+m.id, title:m.title, sub:`${mtDate(m.start)} · didn’t join: ${miss.map(first).join(', ')}`, who:miss, open:`mtOpen('${m.id}')`}); });
   evalStatus().filter(x=>!x.done).forEach(x=>I.push({sec:'eval', key:`ev:${x.kind}:${x.emp}:${x.periodKey||x.due}`, title:`${pname(x.emp)} — ${x.kind==='third'?'3rd-month evaluation':'monthly evaluation · '+x.period}`, sub:`Due ${fmtD(x.due)}${x.overdueDays?` · ${x.overdueDays} day(s) overdue`:''} · owners: ${x.owners.map(first).join(', ')||'—'}`, who:x.owners, open:`go('evals')`, private:true, ev:x}));
-  return I;
+  return I.map(it=>{ const vas = (it.who||[]).filter(k=>!cooIsMgrHr(k));
+    return {...it, vas, direct:(it.who||[]).filter(cooIsMgrHr), who:cooRoute(it)}; });
 }
+/* the COO Assistant follows up with PMs and HR only — a VA's item goes to the client's PM(s) (or the VA's PMs), HR as fallback */
+const cooIsMgrHr = k => ['manager','hr'].includes(PEOPLE[k]?.role);
+function cooRoute(it){ const out = [];
+  (it.who||[]).forEach(k=>{ if(cooIsMgrHr(k)) return out.push(k);
+    const pms = (it.client ? pmsOf(it.client) : vaPMs(k)).filter(p=>PEOPLE[p] && PEOPLE[p].role==='manager');
+    (pms.length ? pms : HR_KEYS()).forEach(p=>out.push(p)); });
+  if(!out.length && it.client && it.sec==='overdue') pmsOf(it.client).filter(p=>PEOPLE[p]).forEach(p=>out.push(p));
+  return uniq(out).filter(k=>k!==cooKey() && PEOPLE[k]); }
 const COO_SECS = [['approve','Pending your approval'],['overdue','Overdue tasks & deadlines'],['eval','VA evaluations missing'],['meet','Your meetings today'],['invite','Unanswered invitations'],['missed','Missed meetings (last 7 days)']];
 
 /* ---------- follow-ups (logged, once a day per item and person) ---------- */
@@ -19750,9 +19759,9 @@ function cooFollow(key, k, auto){
   const it = cooItems().find(x=>x.key===key); const coo = cooKey(); if(!it || !PEOPLE[k] || !coo) return 'gone';
   const day = manilaDate(); const logId = `CF-${key}-${k}-${day}`; if(PALOG.some(l=>l.id===logId)) return 'already';
   const text = it.sec==='eval' ? `Hi ${first(k)}! Friendly follow-up from the COO’s office: ${it.title.replace(' — ',"'s ")} is still missing (due ${fmtD(it.ev.due)}). Please submit it in HR → Evaluations. Thank you!`
-    : it.sec==='overdue' ? `Hi ${first(k)}! Following up on “${it.title}” — it was due ${it.sub.split(' · ')[1]?.replace('due ','')}. Can you share an update or the new ETA?`
-    : it.sec==='invite' ? `Hi ${first(k)}! Please accept, decline or request a new time for “${it.title}” in your Calendar.`
-    : it.sec==='missed' ? `Hi ${first(k)}! We missed you in “${it.title}”. Could you let us know what happened?` : `Hi ${first(k)}! Quick follow-up on “${it.title}”.`;
+    : it.sec==='overdue' ? `Hi ${first(k)}! ${(it.vas||[]).length?`${(it.vas||[]).map(first).join(' & ')}’s task`:'The task'} “${it.title}”${it.client?` for ${cname(it.client)}`:''} is overdue (${it.sub.split(' · ')[1]||'past due'}). Could you check in${(it.vas||[]).length?` with ${(it.vas||[]).map(first).join(' & ')}`:''} and share an update or the new ETA?`
+    : it.sec==='invite' ? ((it.direct||[]).includes(k) ? `Hi ${first(k)}! Please accept, decline or request a new time for “${it.title}” in your Calendar.` : `Hi ${first(k)}! ${(it.vas||[]).map(first).join(' & ')} hasn’t answered the invitation for “${it.title}” yet — could you remind them?`)
+    : it.sec==='missed' ? ((it.direct||[]).includes(k) ? `Hi ${first(k)}! You weren’t in “${it.title}”. Could you let the COO know what happened?` : `Hi ${first(k)}! ${(it.vas||[]).map(first).join(' & ')} didn’t join “${it.title}”. Could you follow up with them?`) : `Hi ${first(k)}! Quick follow-up on “${it.title}”.`;
   const cid = dmId(coo, k); if(!CHATS.find(c=>c.id===cid)) CHATS.push({id:cid, kind:'dm', name:'', members:[coo,k].sort(), at:nowISO()});
   const mid = 'M-coo-'+logId.replace(/[^A-Za-z0-9-]/g,''); if(MESSAGES.some(m=>m.id===mid)) return 'already';
   MESSAGES.push({id:mid, chat:cid, by:'asst:'+COO_ASST, kind:'assistant', text, at:nowISO(), files:[]});
@@ -19766,7 +19775,7 @@ function cooTag(key){ const it = cooItems().find(x=>x.key===key); if(!it?.client
   const c = client(it.client); const ch = CHATS.find(x=>x.kind==='client' && x.client===it.client); if(!c || !ch) return toast('No group chat for this client');
   const who = (it.who||[]).filter(k=>(ch.members||[]).includes(k)); if(!who.length) return toast('The responsible person isn’t in this client’s group chat');
   const mid = `M-coo-tag-${key.replace(/[^A-Za-z0-9-]/g,'')}-${manilaDate()}`; if(MESSAGES.some(m=>m.id===mid)) return toast('Already tagged today');
-  MESSAGES.push({id:mid, chat:ch.id, by:'asst:'+COO_ASST, kind:'assistant', text:`${who.map(k=>'@'+pname(k)).join(' ')} quick check on “${it.title}” (${it.sub.split(' · ')[1]||''}) — could you share an update here? Thank you!`, at:nowISO(), files:[], mentions:who});
+  MESSAGES.push({id:mid, chat:ch.id, by:'asst:'+COO_ASST, kind:'assistant', text:`${who.map(k=>'@'+pname(k)).join(' ')} quick check on “${it.title}”${(it.vas||[]).length?` (${(it.vas||[]).map(first).join(' & ')})`:''} — it’s ${it.sub.split(' · ')[1]||'overdue'}. Could you check in and share an update here? Thank you!`, at:nowISO(), files:[], mentions:who});
   if(typeof notifyAs==='function') notifyAs('asst:'+COO_ASST, who, 'reminder', `🔔 COO Assistant tagged you in <b>${esc(chatTitle(ch))}</b>: ${esc(it.title)}`, {view:'chat', arg:ch.id, msg:mid}, mid);
   PALOG.unshift({id:'CT-'+mid, pa:COO_ASST, pm:cooKey(), kind:'coo-tag', item:key, status:'Sent', to:who, at:nowISO(), date:manilaDate(), sentBy:PERSON, msg:mid, chat:ch.id});
   recordChange(); toast('Tagged in '+chatTitle(ch)); }
@@ -19775,7 +19784,8 @@ function cooAuto(){
   if(!SYNC.ready || !(PERSON===cooKey() || isHead(PERSON) || ROLE==='hr')) return; const cfg = {evals:true, invites:true, ...(S().cooAuto||{})};
   const h = new Date().toLocaleString('en-US', {timeZone:'Asia/Manila', hour:'numeric', hour12:false})|0; if(h < 9 || h > 18) return;
   let n = 0; cooItems().forEach(it=>{ if(n > 25) return;
-    if((it.sec==='eval' && cfg.evals) || (it.sec==='invite' && cfg.invites)) (it.who||[]).forEach(k=>{ if(cooFollow(it.key, k, true)==='sent') n++; }); });
+    if(it.sec==='eval' && cfg.evals) (it.who||[]).forEach(k=>{ if(cooFollow(it.key, k, true)==='sent') n++; });
+    if(it.sec==='invite' && cfg.invites) (it.direct||[]).forEach(k=>{ if(cooFollow(it.key, k, true)==='sent') n++; }); });
   if(n) recordChange();
 }
 setInterval(cooAuto, 10*60e3);
@@ -19785,7 +19795,7 @@ setInterval(cooAuto, 10*60e3);
 function cooDashHTML(){
   const I = cooItems(); const logs = PALOG.filter(l=>l.pa===COO_ASST).slice(0,6);
   const row = it => `<div class="coo-row"><div style="flex:1;min-width:0"><b>${esc(it.title)}</b><div class="hint">${esc(it.sub)}</div></div>
-    <div class="coo-acts"><button class="btn" onclick="${it.open}">${it.decide?'Review & decide':'Open'}</button>${(it.who||[]).length?`<button class="btn" onclick="cooFollowAll('${esc(it.key)}')">Follow up</button>`:''}${it.client && !it.private && (it.who||[]).length?`<button class="btn ghost" onclick="cooTag('${esc(it.key)}')">Tag in chat</button>`:''}</div></div>`;
+    <div class="coo-acts"><button class="btn" onclick="${it.open}">${it.decide?'Review & decide':'Open'}</button>${(it.who||[]).length?`<button class="btn" title="Follow up with ${esc((it.who||[]).map(first).join(', '))}" onclick="cooFollowAll('${esc(it.key)}')">Follow up · ${esc((it.who||[]).map(first).slice(0,2).join(', '))}${(it.who||[]).length>2?' +'+((it.who||[]).length-2):''}</button>`:''}${it.client && !it.private && (it.who||[]).length?`<button class="btn ghost" onclick="cooTag('${esc(it.key)}')">Tag in chat</button>`:''}</div></div>`;
   return `<div class="card coo-dash"><div class="card-h"><h3>🧭 COO action dashboard</h3><div style="display:flex;gap:6px"><button class="btn" onclick="cooEvalReport()">Evaluation status report</button></div></div><div class="card-b">
     <div class="coo-qs">${['What do I need to follow up on today?','What is pending my approval?','Which reports or deadlines are overdue?','What meetings do I have today?','Which VA evaluations are still missing?'].map(q=>`<button class="chip" onclick="cooAsk(${JSON.stringify(q).replace(/"/g,'&quot;')})">${esc(q)}</button>`).join('')}</div>
     ${COO_SECS.map(([s,l])=>{ const L = I.filter(x=>x.sec===s); return `<details class="coo-sec" ${L.length&&['approve','overdue','eval','meet'].includes(s)?'open':''}><summary>${l} <span class="pill">${L.length}</span></summary>${L.slice(0,25).map(row).join('')||'<div class="hint" style="padding:8px 2px">Nothing here 🎉</div>'}${L.length>25?`<div class="hint">+${L.length-25} more</div>`:''}</details>`; }).join('')}

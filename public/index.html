@@ -2642,7 +2642,16 @@ body.glass-lite .sidebar,body.glass-lite .topbar{background:linear-gradient(180d
 .coo-row b{font-size:13px}.coo-acts{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}.coo-acts .btn{padding:4px 10px;font-size:12px}
 .call-card.missed .cc-ico{background:rgba(229,72,77,.12);color:#C2272D}
 @media(max-width:640px){.coo-row{flex-direction:column;align-items:stretch}.coo-acts{justify-content:flex-start}}
+/* ===== Operations poll + COO cards (Oct 2026) ===== */
+.ops-poll{display:flex;flex-direction:column;gap:6px;margin-top:8px;min-width:260px}
+.ops-opt{display:flex;gap:6px;align-items:center;text-align:left;border:1.5px solid var(--line);background:rgba(255,255,255,.7);border-radius:12px;padding:8px 10px;font:500 13px Inter,sans-serif;color:var(--ink);cursor:pointer;transition:transform .12s,border-color .15s}
+.ops-opt:active{transform:scale(.98)}.ops-opt.on{border-color:#18A05A;background:rgba(24,160,90,.10)}.ops-opt.busy{opacity:.75}.ops-opt em{color:#B42323;font-style:normal;font-size:12px}
+.ops-opt .ops-n{margin-left:auto;font:700 11px Inter,sans-serif;color:var(--ink-3)}.ops-foot{display:flex;gap:6px;flex-wrap:wrap}.ops-foot .btn{padding:5px 10px;font-size:12px}.ops-foot .btn.on{border-color:#E5484D!important}
+.ops-poll.done{font-size:13px}.ops-poll.old{font-size:12px;color:var(--ink-3)}
+.ops-cards{display:grid;grid-template-columns:1.4fr 1fr;gap:16px;margin-bottom:16px}@media(max-width:1000px){.ops-cards{grid-template-columns:1fr}}
+[data-theme="dark"] .ops-opt{background:rgba(255,190,130,.06)}
 </style>
+
 
 
 
@@ -19834,6 +19843,168 @@ const cooInChat = c => c && !['dm','clientline'].includes(c.kind) && (c.kind==='
 { const _cm = chatMembersModal; chatMembersModal = function(id){ const r = _cm.apply(this, arguments); const c = CHATS.find(x=>x.id===id); const b = el('modalBody');
     if(b && cooInChat(c) && cooKey()) b.insertAdjacentHTML('beforeend', `<div class="list-row" style="opacity:.95">${typeof aiAva==='function'?aiAva('asst:'+COO_ASST, 30):'🤖'}<div style="flex:1"><b style="font-size:13px">COO Assistant</b> <span class="badge">AI assistant</span><div class="hint">Follows up on pending actions for the COO · posts only what members of this chat may see</div></div></div>`);
     return r; }; }
+
+/* ===== 64_opsflow.js ===== */
+/* ================= COO ASSISTANT — MONTHLY OPERATIONS WORKFLOWS (Oct 2026) =================
+   1. Third-week grading: on the 15th (start of the third week) the COO Assistant posts in the Operations group chat, tagging
+      PMs and HR, to prepare and submit the VAs' overall grades and evaluation reports. Every day after, anyone whose VAs are
+      still missing gets ONE private follow-up listing them — until submitted. JA's portal shows the progress.
+   2. Operations meeting: on the third-week Monday the assistant posts a poll in the Operations chat with slots between
+      5:00 and 10:00 PM (PH time) that are free on JA's calendar; each person's portal also marks slots that clash with THEIR
+      calendar (calendars stay private). Votes are one record per person. If someone can't make it, the assistant asks them
+      for alternatives, asks the group to re-plan and posts new options — until everyone agrees.
+   3. When everyone agrees it announces it, creates the meeting with a Google Meet (or Zoom) link, adds it to every calendar
+      (normal reminders and no-show follow-ups apply), shows it in JA's portal and posts the confirmation in the chat.
+   Runs on the portals of JA, company heads and HR; every message and meeting has a fixed id, so nothing is sent twice. */
+
+let OPSPOLL = [], OPSVOTES = [];
+const opsAud = () => uniq([cooKey(), ...opsPeople(), ...HEADS]).filter(Boolean);
+COLL.opspoll = {get:()=>OPSPOLL, set:v=>OPSPOLL=v, aud:()=>opsAud()};
+COLL.opsvotes = {get:()=>OPSVOTES, set:v=>OPSVOTES=v, aud:()=>opsAud()};
+const opsChat = () => CHATS.find(c=>!c.archived && /operations/i.test(c.name||'') && c.kind!=='dm') || null;
+const opsPeople = () => activePeople().filter(k=>['manager','hr'].includes(PEOPLE[k]?.role));      /* required: PMs + HR (and JA) */
+const opsNow = () => window.OPS_NOW ? new Date(window.OPS_NOW) : new Date();
+const phParts = d => { const s = new Date(d.getTime() + 8*3600e3); return {y:s.getUTCFullYear(), m:s.getUTCMonth()+1, d:s.getUTCDate(), wd:s.getUTCDay(), h:s.getUTCHours()}; };
+const opsMonthKey = d => { const p = phParts(d); return `${p.y}-${String(p.m).padStart(2,'0')}`; };
+const opsMonthName = k => new Date(k+'-15T00:00:00').toLocaleDateString('en-PH', {month:'long', year:'numeric'});
+const isThirdWeek = d => { const p = phParts(d); return p.d >= 15 && p.d <= 21; };
+const canRunOps = () => SYNC.ready && PEOPLE[PERSON] && (PERSON===cooKey() || isHead(PERSON) || ROLE==='hr');
+function opsPost(id, text, mentions, extra={}){ const ch = opsChat(); if(!ch || MESSAGES.some(m=>m.id===id)) return false;
+  MESSAGES.push({id, chat:ch.id, by:'asst:'+COO_ASST, kind:'assistant', text, at:nowISO(), files:[], ...(mentions?.length?{mentions:mentions.filter(k=>(ch.members||[]).includes(k))}:{}), ...extra});
+  if(mentions?.length && typeof notifyAs==='function') notifyAs('asst:'+COO_ASST, mentions, 'reminder', `🔔 COO Assistant in <b>${esc(chatTitle(ch))}</b>: ${esc(coraTrim(text.replace(/@/g,''), 100))}`, {view:'chat', arg:ch.id, msg:id}, id);
+  PALOG.unshift({id:'OPS-'+id, pa:COO_ASST, pm:cooKey(), kind:'ops', status:'Sent', text, to:mentions||[], at:nowISO(), date:manilaDate(), sentBy:PERSON, msg:id, chat:ch.id}); return true; }
+const opsTag = L => L.map(k=>'@'+pname(k)).join(' ');
+
+/* ---------- 1. grading ---------- */
+function gradeStatus(mk){
+  const [y, mo] = mk.split('-').map(Number); const end = new Date(y, mo, 0);
+  const vas = EMPLOYEES.filter(e=>['Active','On Probation'].includes(e.status) && PEOPLE[e.id] && !['ceo','coo','creative','hr','manager'].includes(PEOPLE[e.id].role));
+  return vas.map(e=>{ const v = EVALS.filter(x=>x.empId===e.id).find(x=>{ const d = evalDate(x); return d && (ym(d)===mk || (d > end && d - end < 10*864e5 && String(x.period||'')===mk)); });
+    return {emp:e.id, pms:vaPMs(e.id), owners:uniq([...vaPMs(e.id), ...HR_KEYS()]), done:!!v, ev:v||null, at:v?evalDate(v):null, by:v?.by||null, due:iso(end),
+      review: v ? (v.status && !/approved/i.test(v.status) ? v.status : v.ack ? 'Acknowledged' : 'Awaiting acknowledgement') : null,
+      overdue: !v && opsNow() > new Date(end.getTime() + 864e5)}; });
+}
+function gradeTick(){
+  if(!canRunOps()) return; const now = opsNow(); const p = phParts(now); if(p.d < 15 || p.h < 9 || p.h > 20) return; const mk = opsMonthKey(now); let ch = false;
+  if(opsPost(`M-ops-grade-${mk}`, `Hi, team! 📋 It’s the third week of ${opsMonthName(mk)}. ${opsTag(opsPeople())} please prepare and submit your VAs’ overall grades and evaluation reports for ${opsMonthName(mk)} by ${fmtD(gradeStatus(mk)[0]?.due||'')}. I’ll follow up privately on anything still missing — thank you!`, opsPeople())) ch = true;
+  if(p.d >= 16){ const miss = gradeStatus(mk).filter(x=>!x.done); const by = {};
+    miss.forEach(x=>(x.pms.length ? x.pms : HR_KEYS()).forEach(k=>(by[k]=by[k]||[]).push(x.emp)));
+    if(miss.length) HR_KEYS().forEach(k=>{ by[k] = uniq([...(by[k]||[]), ...miss.map(x=>x.emp)]); });
+    Object.entries(by).forEach(([k, L])=>{ if(!PEOPLE[k] || k===cooKey()) return; const id = `M-ops-gfu-${mk}-${k}-${manilaDate()}`; if(MESSAGES.some(m=>m.id===id)) return;
+      const cid = dmId(cooKey(), k); if(!CHATS.find(c=>c.id===cid)) CHATS.push({id:cid, kind:'dm', name:'', members:[cooKey(),k].sort(), at:nowISO()});
+      const text = `Hi ${first(k)}! Friendly follow-up on the ${opsMonthName(mk)} grades — still missing for ${L.map(first).join(', ')} (due ${fmtD(gradeStatus(mk)[0]?.due)}). Please submit them in HR → Evaluations. Thank you!`;
+      MESSAGES.push({id, chat:cid, by:'asst:'+COO_ASST, kind:'assistant', text, at:nowISO(), files:[]});
+      if(typeof notifyAs==='function') notifyAs('asst:'+COO_ASST, [k], 'reminder', `🔔 COO Assistant: ${esc(coraTrim(text, 110))}`, {view:'chat', arg:cid, msg:id}, id);
+      PALOG.unshift({id:'GFU-'+id, pa:COO_ASST, pm:cooKey(), kind:'grading', status:'Sent', text, to:[k], at:nowISO(), date:manilaDate(), sentBy:PERSON, msg:id, chat:cid}); ch = true; }); }
+  if(ch) recordChange();
+}
+
+/* ---------- 2. Operations meeting poll ---------- */
+const SLOT_HOURS = [17, 18, 19, 20, 21];                                          /* 1-hour slots, all inside 5–10 PM */
+const slotISO = (dateStr, h) => new Date(`${dateStr}T${String(h).padStart(2,'0')}:00:00+08:00`).toISOString();
+function busyFor(k, s, e){ return MEETINGS.some(m=>m.status!=='cancelled' && (m.organizer===k || (m.participants||[]).includes(k)) && mtSt(m,k)!=='declined' && new Date(m.start) < new Date(e) && new Date(m.end) > new Date(s)); }
+function opsOptions(fromDate, n=6, avoid=[]){
+  const out = []; const day = new Date(fromDate);
+  for(let i=1; i<=10 && out.length<n; i++){ const d = new Date(day.getTime() + i*864e5); const p = phParts(d); if(p.wd===0) continue;
+    const ds = `${p.y}-${String(p.m).padStart(2,'0')}-${String(p.d).padStart(2,'0')}`;
+    for(const h of [19, 18, 20, 17, 21]){ const s = slotISO(ds, h), e = slotISO(ds, h+1);
+      if(avoid.includes(s) || busyFor(cooKey(), s, e) || out.some(o=>o.start.slice(0,10)===s.slice(0,10))) continue; out.push({id:'o'+ds.replace(/-/g,'')+h, start:s, end:e}); break; } }
+  return out;
+}
+const pollFor = mk => OPSPOLL.find(x=>x.id==='OP-'+mk);
+const votesOf = (poll, round) => OPSVOTES.filter(v=>v.poll===poll.id && v.round===(round ?? poll.round));
+function opsNeeded(poll){ return uniq([cooKey(), ...(poll.attendees||[])]).filter(k=>PEOPLE[k]); }
+function opsTally(poll){ const V = votesOf(poll); const need = opsNeeded(poll).filter(k=>k!==cooKey());
+  const ans = k => V.find(v=>v.person===k);
+  const opt = (poll.options||[]).map(o=>({...o, yes:need.filter(k=>ans(k)?.yes?.includes(o.id)), no:need.filter(k=>ans(k) && !ans(k).yes?.includes(o.id))}));
+  return {need, answered:need.filter(ans), pending:need.filter(k=>!ans(k)), none:need.filter(k=>ans(k)?.none), opt, ans}; }
+function pollTick(){
+  if(!canRunOps()) return; const now = opsNow(); const p = phParts(now); const mk = opsMonthKey(now); let ch = false;
+  let poll = pollFor(mk);
+  if(!poll && isThirdWeek(now) && p.wd >= 1 && p.h >= 9 && opsChat()){                   /* third-week Monday (or the first run after it) */
+    poll = {id:'OP-'+mk, month:mk, round:1, status:'collecting', attendees:opsPeople(), options:opsOptions(now), createdAt:nowISO(), log:[]};
+    OPSPOLL.push(poll); ch = true;
+    opsPost(`M-ops-poll-${mk}-1`, `Hi, team! 🗓️ It’s time to plan our ${opsMonthName(mk)} Operations meeting. ${opsTag(poll.attendees)} please tap the times that work for you (all between 5:00–10:00 PM Philippine time, already free on JA’s calendar). If none work, tap “I can’t make any of these” and tell me what does.`, poll.attendees, {kind:'opspoll', poll:poll.id, round:1});
+  }
+  if(!poll || poll.status!=='collecting') { if(ch) recordChange(); return; }
+  const t = opsTally(poll);
+  const win = t.opt.find(o=>o.yes.length===t.need.length);
+  if(win){ if(ch) recordChange(); opsConfirm(poll, win); return; }                    /* every required person ticked the same slot */
+  if(t.pending.length===0 && !win){                                                       /* everyone answered, no common slot */
+    const best = t.opt.slice().sort((a,b)=>b.yes.length-a.yes.length)[0]; const blockers = best ? best.no : t.none;
+    if(poll.round < 5){ blockers.forEach(k=>{ const id = `M-ops-alt-${mk}-${poll.round}-${k}`; if(!MESSAGES.some(m=>m.id===id)) opsPost(id, `${opsTag([k])} it looks like ${best?`${mtDate(best.start)} at ${mtTime(best.start)} works for ${best.yes.map(first).join(' and ')||'others'}, but not for you`:'none of the times work for you'}. Which evenings between 5–10 PM work better for you this week or next?`, [k]); });
+      const avoid = (poll.options||[]).map(o=>o.start); poll.round += 1; const lastOpt = (poll.options||[]).map(o=>new Date(o.start)).sort((x,y)=>y-x)[0]; const from = new Date(Math.max(opsNow().getTime(), (lastOpt?lastOpt.getTime():0) - 4*864e5)); poll.options = opsOptions(from, 6, avoid); poll.updatedAt = nowISO();
+      opsPost(`M-ops-poll-${mk}-${poll.round}`, `Thanks, everyone! We don’t have a time that works for all yet — are you open to rescheduling? Here are new options (5:00–10:00 PM, free on JA’s calendar). Please tap all that work for you.`, poll.attendees, {kind:'opspoll', poll:poll.id, round:poll.round}); ch = true; }
+  }
+  if(ch) recordChange();
+}
+async function opsConfirm(poll, o){
+  if(poll.status!=='collecting' || poll.creating) return; poll.creating = true; const mk = poll.month;
+  opsPost(`M-ops-ok-${mk}`, `Great news — everyone can make it on ${mtDate(o.start,{long:true})} at ${mtTime(o.start)}. I’ll create the meeting and generate the meeting link now. ⏳`, []);
+  let link = '';
+  try{ if(BACKEND.mode==='live'){ const prov = S().opsMeetProvider || 'google';
+      const r = prov==='zoom' ? await leadFn('zoom_link', {topic:`Operations meeting — ${opsMonthName(mk)}`, start:o.start, duration:60}) : await leadFn('meet_link', {callId:('ops'+mk.replace('-','')+o.id).toLowerCase().replace(/[^a-z0-9]/g,'').slice(0,40)});
+      link = r?.url || ''; }
+    if(!link){ const L = callCfg().meetLinks||[]; link = L[0] || ''; } }catch(e){ const L = callCfg().meetLinks||[]; link = L[0] || ''; }
+  const id = 'mtops'+mk.replace('-',''); const coo = cooKey();
+  if(!MEETINGS.some(m=>m.id===id)){
+    MEETINGS.push({id, title:`Operations meeting — ${opsMonthName(mk)}`, kind:'Meeting', start:o.start, end:o.end, organizer:coo, participants:opsNeeded(poll).filter(k=>k!==coo), link,
+      notes:'Please prepare your reports, grading updates and concerns for discussion. Scheduled by the COO Assistant.', status:'scheduled', createdAt:nowISO(), createdBy:'asst:'+COO_ASST, history:[{at:nowISO(), by:'asst:'+COO_ASST, act:'Scheduled after everyone agreed'}]});
+    opsNeeded(poll).filter(k=>k!==coo).forEach(k=>MTRSVP.push({id:id+'|'+k, meeting:id, person:k, st:'accepted', at:nowISO()}));
+    if(typeof notifyAs==='function') notifyAs('asst:'+COO_ASST, opsNeeded(poll).filter(k=>k!==PERSON), 'meeting', `📅 <b>Operations meeting — ${esc(opsMonthName(mk))}</b> is confirmed for ${esc(mtDate(o.start))} · ${esc(mtTime(o.start))}`, {view:'schedule', meeting:id}, 'N-'+id);
+  }
+  poll.status = 'confirmed'; poll.slot = o; poll.meeting = id; poll.link = link; poll.confirmedAt = nowISO(); poll.creating = false;
+  opsPost(`M-ops-confirm-${mk}`, `Hi, team! Our Operations meeting is confirmed for ${mtDate(o.start,{long:true,year:true})} at ${mtTime(o.start)} Philippine time. I’ve created the meeting link and added the invitation to JA’s calendar and everyone’s system calendar. Please check your calendar and prepare your reports, grading updates, and concerns for discussion. See you, and thank you!${link?`\n${link}`:''}`, opsNeeded(poll).filter(k=>k!==coo));
+  recordChange(); RENDER[CURRENT]?.();
+}
+/* voting — each person writes only their own record */
+function opsVote(pollId, round, optId){ const poll = OPSPOLL.find(x=>x.id===pollId); if(!poll || poll.status!=='collecting' || round!==poll.round) return toast('This poll has moved on — see the latest message');
+  const id = `${pollId}|${round}|${PERSON}`; let v = OPSVOTES.find(x=>x.id===id); if(!v){ v = {id, poll:pollId, round, person:PERSON, yes:[], none:false}; OPSVOTES.push(v); }
+  if(optId==='none'){ v.none = !v.none; if(v.none) v.yes = []; } else { v.none = false; v.yes = v.yes.includes(optId) ? v.yes.filter(x=>x!==optId) : [...v.yes, optId]; }
+  v.at = nowISO(); recordChange(); if(CURRENT==='chat') RENDER.chat(); setTimeout(pollTick, 400); }
+function opsAlt(pollId){ const t = prompt('Which evenings (5–10 PM, PH time) work for you? e.g. “Thu or Fri after 7 PM”'); if(!t) return;
+  const poll = OPSPOLL.find(x=>x.id===pollId); if(!poll) return; const id = `${pollId}|${poll.round}|${PERSON}`; let v = OPSVOTES.find(x=>x.id===id);
+  if(!v){ v = {id, poll:pollId, round:poll.round, person:PERSON, yes:[], none:true}; OPSVOTES.push(v); } v.alt = t.slice(0,200); v.at = nowISO(); recordChange(); toast('Thanks — the COO Assistant will use this for the next options'); }
+function opsPollCard(m){ const poll = OPSPOLL.find(x=>x.id===m.poll); if(!poll) return ''; const t = opsTally(poll); const cur = m.round===poll.round && poll.status==='collecting';
+  const mine = t.ans(PERSON); const can = t.need.includes(PERSON);
+  if(poll.status==='confirmed' && poll.slot) return `<div class="ops-poll done">✅ Confirmed: <b>${esc(mtDate(poll.slot.start,{long:true}))} · ${esc(mtTime(poll.slot.start))}</b>${poll.meeting?` · <a href="#" onclick="mtOpen('${poll.meeting}');return false">Open in Calendar</a>`:''}</div>`;
+  if(!cur) return `<div class="ops-poll old">Round ${m.round} closed — see the newest options below.</div>`;
+  return `<div class="ops-poll">${t.opt.map(o=>{ const busy = can && busyFor(PERSON, o.start, o.end); const on = mine?.yes?.includes(o.id);
+      return `<button type="button" class="ops-opt ${on?'on':''} ${busy?'busy':''}" ${can?`onclick="opsVote('${poll.id}',${poll.round},'${o.id}')"`:'disabled'}><b>${esc(mtDate(o.start))}</b> ${esc(mtTime(o.start))}–${esc(mtTime(o.end))}${busy?' <em>· you have a meeting</em>':''}<span class="ops-n">${o.yes.length}/${t.need.length} ✓</span></button>`; }).join('')}
+    ${can?`<div class="ops-foot"><button type="button" class="btn ${mine?.none?'on':''}" onclick="opsVote('${poll.id}',${poll.round},'none')">✕ I can’t make any of these</button><button type="button" class="btn ghost" onclick="opsAlt('${poll.id}')">Suggest another time</button></div>`:''}
+    <div class="hint">${t.answered.length}/${t.need.length} answered${t.pending.length?` · waiting for ${t.pending.map(first).join(', ')}`:''}</div></div>`; }
+{ const _mc = msgCore; msgCore = function(m){ const h = _mc.apply(this, arguments); if(m?.kind!=='opspoll' || typeof h!=='string') return h;
+    return h.replace(/(<div class="bubble[^"]*">[\s\S]*?)(<\/div>)/, `$1${opsPollCard(m)}$2`); }; }
+{ const _sg = msgSig; msgSig = (m, prev) => _sg(m, prev) + (m.kind==='opspoll' ? '|'+JSON.stringify([OPSPOLL.find(x=>x.id===m.poll)?.status, OPSVOTES.filter(v=>v.poll===m.poll).map(v=>v.person+v.yes.join(',')+v.none)]) : ''); }
+setInterval(()=>{ try{ gradeTick(); pollTick(); }catch(e){ console.warn(e); } }, 5*60e3);
+{ const _sp = setPerson; setPerson = function(p){ _sp(p); setTimeout(()=>{ try{ gradeTick(); pollTick(); }catch(e){ console.warn(e); } }, 15000); }; }
+{ const _ore = onRemoteEvent; onRemoteEvent = function(ev){ _ore(ev); if(ev?.coll==='opsvotes'){ setTimeout(pollTick, 800); if(CURRENT==='chat') RENDER.chat(); if(CURRENT==='dashboard' || CURRENT==='pa') RENDER[CURRENT](); } }; }
+
+/* ---------- JA's portal: grading progress + Operations meeting status ---------- */
+function opsCardsHTML(){ const mk = opsMonthKey(opsNow()); const G = gradeStatus(mk); const done = G.filter(x=>x.done).length; const poll = pollFor(mk);
+  const pct = G.length ? Math.round(done/G.length*100) : 0;
+  const grade = `<div class="card ops-card"><div class="card-h"><h3>📋 VA grades — ${esc(opsMonthName(mk))}</h3><span class="hint">${done}/${G.length} submitted · due ${esc(fmtD(G[0]?.due||''))}</span></div><div class="card-b">
+    <div class="big-bar" style="height:8px;margin-bottom:10px"><i style="width:${pct}%"></i></div>
+    <div style="overflow-x:auto;max-height:320px"><table class="tbl"><thead><tr><th>VA</th><th>PM</th><th>Status</th><th>Submitted</th><th></th></tr></thead><tbody>
+    ${G.sort((a,b)=>a.done-b.done).map(x=>`<tr><td>${esc(pname(x.emp))}</td><td>${esc(x.pms.map(first).join(', ')||'HR')}</td>
+      <td>${x.done?`<span class="badge b-done">Submitted</span>${x.review?` <span class="hint">${esc(x.review)}</span>`:''}`:`<span class="badge ${x.overdue?'b-missed':'b-pending'}">${x.overdue?'Overdue':'Pending'}</span>`}</td>
+      <td>${x.done?`${esc(fmtD(iso(x.at)))} · ${esc(first(x.by)||'')}`:'—'}</td><td>${x.ev?`<button class="btn ghost" onclick="followLink({view:'evals', eval:'${x.ev.id}'})">Open</button>`:''}</td></tr>`).join('')}
+    </tbody></table></div></div></div>`;
+  let meet = '';
+  if(poll){ const t = opsTally(poll);
+    meet = `<div class="card ops-card"><div class="card-h"><h3>🗓️ Operations meeting — ${esc(opsMonthName(mk))}</h3><span class="hint">${poll.status==='confirmed'?'Confirmed':`Collecting availability · round ${poll.round}`}</span></div><div class="card-b">
+      ${poll.status==='confirmed'&&poll.slot?`<div><b>${esc(mtDate(poll.slot.start,{long:true,year:true}))} · ${esc(mtTime(poll.slot.start))} PH time</b></div>${poll.link?`<div class="hint" style="margin:4px 0">🔗 <a href="${esc(poll.link)}" target="_blank" rel="noopener">${esc(poll.link)}</a></div>`:''}<div class="hint">Attendees: ${opsNeeded(poll).map(first).join(', ')}</div>${poll.meeting?`<button class="btn" style="margin-top:8px" onclick="mtOpen('${poll.meeting}')">Open in Calendar</button>`:''}`
+      : `${t.opt.map(o=>`<div class="list-row"><div style="flex:1"><b style="font-size:13px">${esc(mtDate(o.start))} · ${esc(mtTime(o.start))}</b><div class="hint">✓ ${esc(o.yes.map(first).join(', ')||'—')}${o.no.length?` · ✕ ${esc(o.no.map(first).join(', '))}`:''}</div></div><span class="pill">${o.yes.length}/${t.need.length}</span></div>`).join('')}
+         <div class="hint" style="margin-top:6px">${t.pending.length?`Waiting for: ${esc(t.pending.map(first).join(', '))}`:'Everyone has answered'}${t.none.length?` · can’t make any: ${esc(t.none.map(first).join(', '))}`:''}${votesOf(poll).filter(v=>v.alt).map(v=>` · ${esc(first(v.person))} suggests “${esc(v.alt)}”`).join('')}</div>`}
+    </div></div>`; }
+  else meet = `<div class="card ops-card"><div class="card-h"><h3>🗓️ Operations meeting — ${esc(opsMonthName(mk))}</h3></div><div class="card-b"><div class="hint">The COO Assistant starts coordinating on the Monday of the third week${opsChat()?'':' — it needs a group chat named “Operations”'}.</div></div></div>`;
+  return `<div class="ops-cards">${grade}${meet}</div>`;
+}
+{ const _rd = RENDER.dashboard; RENDER.dashboard = function(){ const r = _rd.apply(this, arguments); const v = el('v-dashboard');
+    if(v && PERSON===cooKey() && !v.querySelector('.ops-cards')){ const head = v.querySelector('.page-head'); head?.insertAdjacentHTML('afterend', opsCardsHTML()); }
+    return r; }; }
+{ const _rp = RENDER.pa; RENDER.pa = function(){ const r = _rp.apply(this, arguments); const v = el('v-pa'); const d = v?.querySelector('.coo-dash');
+    if(d && !v.querySelector('.ops-cards')) d.insertAdjacentHTML('afterend', opsCardsHTML()); return r; }; }
 
 CC_BOOT();
 </script>

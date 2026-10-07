@@ -2700,6 +2700,16 @@ body.glass-lite .sidebar,body.glass-lite .topbar{background:linear-gradient(180d
 
 
 
+<style>
+/* ===== real-time + assistant responsiveness (Oct 2026) ===== */
+.ce-stale{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--warn-bg);border:1px solid rgba(227,147,18,.3);border-radius:10px;padding:8px 12px;margin-bottom:10px;font-size:12.5px}
+.pa-live{min-height:22px}
+.pa-caret{display:inline-block;width:7px;height:14px;margin-left:2px;vertical-align:-2px;background:currentColor;opacity:.55;animation:paBlink 1s steps(2) infinite}
+@keyframes paBlink{50%{opacity:0}}
+.pa-err{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:8px;padding:8px 10px;border-radius:10px;background:var(--bad-bg,#FDECEC);color:var(--bad,#B42323);font-size:12.5px}
+.pa-err .btn{padding:4px 10px;font-size:12px}
+.pa-retry{margin-left:6px}
+</style>
 </head>
 <body>
 <div class="login" id="login">
@@ -13743,7 +13753,7 @@ function pushCollect(ups){
   ups.forEach(r=>{
     if(PUSH.done.has(r.collection+'|'+r.id)) return;
     if(r.collection==='notifs'){ const d = r.data; if(d.by!==PERSON || !d.to || d.to===PERSON || d.read) return; PUSH.done.add('notifs|'+r.id); if(!pushIsActive(d.to)) items.push({kind:'notif', id:r.id}); }
-    if(r.collection==='messages'){ const d = r.data; if(d.by!==PERSON) return; PUSH.done.add('messages|'+r.id);
+    if(r.collection==='messages'){ const d = r.data; if(d.by!==PERSON && !/^asst:/.test(d.by||'')) return;   /* posts the assistant made from this device count as this person's */ PUSH.done.add('messages|'+r.id);
       const c = CHATS.find(x=>x.id===d.chat); if(!c || c.kind==='dm' || d.thread) return;      /* DMs and thread replies already create a notification */
       const to = (c.members||[]).filter(k=>k!==PERSON && PEOPLE[k] && !(d.mentions||[]).includes(k) && !pushIsActive(k));   /* @mentions already create one */
       if(to.length) items.push({kind:'msg', id:r.id, to}); }
@@ -20272,7 +20282,7 @@ function cmdTopic(t){ const s = t.toLowerCase(); const cl = cmdClient(s); const 
   else if(/\boverdue|deadline|late\b/.test(s)){ T.kind = 'overdue'; const L = (typeof cooItems==='function' ? cooItems() : []).filter(x=>x.sec==='overdue' && (!cl || x.client===cl.id)); T.owners = uniq(L.flatMap(x=>x.who||[])); T.lines = L.slice(0,10).map(x=>`• ${x.title} — ${x.sub}`); }
   const pm = t.match(/\b(?:about|regarding|re:|on)\s+(.+?)(?:[.!]|$)/i), to = t.match(/\bto\s+((?:upload|send|submit|finish|complete|update|share|prepare|check|review|fix|add|confirm|join|reply|answer)\b.+?)(?:[.!]|$)/i), ask = t.match(/\b(?:asking|ask(?:ing)? (?:them|him|her)?\s*)(?:for|about|to)?\s+(.+?)(?:[.!]|$)/i),
         say = t.match(/\b(?:saying|that says|tell(?:ing)? (?:them|him|her|everyone|the team)?\s*(?:that)?)[:\s]+["“]?(.+?)["”]?$/i);
-  const clean = x => x.replace(/,?\s*(and\s+)?(tag|mention|ping)\b.*$/i,'').replace(/\b(at|by|around)\s+\d{1,2}(:\d{2})?\s*(am|pm)?\b.*$/i,'').replace(/\b(now|today|tomorrow|right away|asap)\b/gi,'').replace(/\bin the [\w &'.-]+ (gc|group chat)\b/i,'').trim().replace(/[,\s]+$/,'');
+  const clean = x => x.replace(/,?\s*(and\s+)?(tag|mention|ping)\b.*$/i,'').replace(/\b(at|by|around)\s+\d{1,2}(:\d{2})?\s*(am|pm)?\b.*$/i,'').replace(/\b(now|today|tomorrow|tonight|right away|asap)\b(?!['’]s)/gi,'').replace(/\s{2,}/g,' ').replace(/\bin the [\w &'.-]+ (gc|group chat)\b/i,'').trim().replace(/[,\s]+$/,'');
   T.say = say ? say[1].trim() : null; T.to = to ? clean(to[1]) : null; T.about = pm ? clean(pm[1]) : null; T.ask = ask ? clean(ask[1]) : null;
   return T;
 }
@@ -21364,6 +21374,240 @@ function fbTicketUpdates(){ if(!SYNC.ready || PERSON!==cooKey() || S().fbFix1) r
   const s = SETTINGS.find(x=>x.id==='global'); if(s){ s.fbFix1 = nowISO(); } recordChange(); if(n) toast(`${n} fixed tickets moved to For Testing — reporters were notified`); }
 
 CC_BOOT();
+/* ===== 79_rtsync.js ===== */
+/* ================= REAL-TIME DELIVERY FOR EVERY DEVICE (Oct 2026) =================
+   Root causes found (phone notified but laptop / tablet not updated, Content Board out of step):
+   1. Every device listened to ALL changes of the whole records table. Supabase re-checked the security rules for every
+      change × every connected device; read receipts and last-active times multiply with every group-chat member, so under
+      real load the queue fell behind or hit the project's real-time limit and some devices got changes late or never.
+      → The database now sends each committed change once, straight to the private channel of each person allowed to see
+        it (supabase/update-realtime-broadcast.sql). A device joins only its own channel. Until that file is run, the
+        portal keeps using the old method.
+   2. The write path was replaced by the delivery guarantee (66) after the push (32) and ordering guard (59) had hooked
+      into it, which silently removed both hooks: no "after it's saved" push dispatch, and downloads could roll back or
+      delete records just written on this device. → Both are restored on top of the current write path; push goes out
+      only for records the server accepted.
+   3. Incoming changes were applied one at a time (re-render + cache write each). → They are batched (≈40 ms) and applied
+      together; large records are fetched by id.
+   4. A dropped live connection is re-joined with back-off and followed by an incremental catch-up ("everything changed
+      since …"); the full reconcile stays for long absences. The sign-in token is handed to the live connection whenever it
+      refreshes, a silently dead connection is detected on wake/focus/heartbeat and re-joined with back-off, and there is
+      only ever one live subscription per device.
+   5. An open Content Board card shows the latest saved version when someone else changes it (or a notice while you type). */
+
+const RT = {mode:null, gen:0, chans:[], st:{}, info:null, cb:null, backoff:0, retryT:null, lastEvt:0, joinedAt:0, q:new Map(), qt:null, stats:{evt:0, batches:0, fetched:0}};
+const _pgSubscribe = LiveBackend.subscribe;   /* the previous (postgres_changes) method — fallback */
+async function rtInfo(){ try{ const {data, error} = await BACKEND.sb.rpc('cc_rt_info'); return error ? {broadcast:false} : (data||{broadcast:false}); }catch(e){ return {broadcast:false}; } }
+const rtMe = () => BACKEND?.profile?.person_key || PERSON;
+LiveBackend.subscribe = function(cb){ RT.cb = cb || RT.cb || ((u,d)=>SYNC.applyRemote(u,d)); rtConnect(); };
+async function rtConnect(){
+  const sb = BACKEND?.sb; if(!sb || BACKEND.mode!=='live') return;
+  const gen = ++RT.gen; clearTimeout(RT.retryT);
+  RT.chans.forEach(ch=>{ try{ sb.removeChannel(ch); }catch(e){} }); RT.chans = []; RT.st = {};
+  if(BACKEND.channel){ try{ sb.removeChannel(BACKEND.channel); }catch(e){} BACKEND.channel = null; }
+  if(!RT.info) RT.info = await rtInfo();
+  if(gen!==RT.gen) return;
+  if(!RT.info.broadcast){ RT.mode = 'pg'; return _pgSubscribe.call(LiveBackend, RT.cb); }
+  RT.mode = 'bc';
+  try{ const {data:{session}} = await sb.auth.getSession(); if(session?.access_token) await sb.realtime.setAuth(session.access_token); }catch(e){}
+  if(gen!==RT.gen) return;
+  ['cc:u:'+rtMe(), 'cc:all'].forEach(topic=>{
+    const ch = sb.channel(topic, {config:{private:true, broadcast:{self:true, ack:false}}})
+      .on('broadcast', {event:'rec'}, m=>{ if(gen===RT.gen) rtQueue(m.payload); })
+      .subscribe((st, err)=>{ if(gen===RT.gen) rtStatus(topic, st, err); });
+    RT.chans.push(ch); });
+  BACKEND.channel = RT.chans[0];
+}
+function rtStatus(topic, st, err){
+  RT.st[topic] = st;
+  if(st==='SUBSCRIBED'){
+    if(!RT.chans.every(ch=>RT.st[ch.topic.replace(/^realtime:/,'')]==='SUBSCRIBED')) return;
+    const wasOff = !BACKEND.online || SYNC.needResync; BACKEND.online = true; RT.backoff = 0; RT.joinedAt = Date.now(); syncUI();
+    if(wasOff || RT.needCatch){ RT.needCatch = false; SYNC.needResync = false; if(typeof syncCatchUp==='function') syncCatchUp('reconnect'); }
+    SYNC.flush(); return;
+  }
+  if(['CHANNEL_ERROR','TIMED_OUT','CLOSED'].includes(st)){
+    RT.needCatch = true;
+    /* the server refused the private channel (policy not installed) → previous method */
+    if(st==='CHANNEL_ERROR' && /unauthori|not allowed|denied|permission|policy/i.test(String(err?.message||err||''))){ RT.info = {broadcast:false}; }
+    if(!navigator.onLine) BACKEND.online = false; syncUI(); rtRetry();
+  }
+}
+function rtRetry(){ clearTimeout(RT.retryT); const wait = Math.min(30000, 800 * Math.pow(2, RT.backoff++)) + Math.random()*400;
+  RT.retryT = setTimeout(()=>{ if(BACKEND?.mode==='live' && navigator.onLine) rtConnect(); }, wait); }
+/* batch incoming changes; newest version per record wins; big records are fetched */
+function rtQueue(p){ if(!p || !p.c || !COLL[p.c]) return; RT.stats.evt++; RT.lastEvt = Date.now();
+  const k = p.c+'|'+p.id; const cur = RT.q.get(k);
+  if(!cur || p.op==='D' || !cur.at || !p.at || p.at >= cur.at) RT.q.set(k, p);
+  if(!RT.qt) RT.qt = setTimeout(rtFlushQ, 40); }
+async function rtFlushQ(){
+  RT.qt = null; const items = [...RT.q.values()]; RT.q.clear(); if(!items.length) return; RT.stats.batches++;
+  const ups = [], dels = [], big = {};
+  items.forEach(p=>{ if(p.op==='D') dels.push({collection:p.c, id:p.id}); else if(p.big || p.data===undefined) (big[p.c] = big[p.c]||[]).push(p.id); else ups.push({collection:p.c, id:p.id, data:p.data, updated_at:p.at}); });
+  for(const [c, ids] of Object.entries(big)){ try{ const {data} = await BACKEND.sb.from('cc_records').select('collection,id,data,updated_at').eq('collection', c).in('id', ids); (data||[]).forEach(r=>ups.push(r)); RT.stats.fetched += (data||[]).length; }catch(e){ RT.needCatch = true; } }
+  try{ (RT.cb||((u,d)=>SYNC.applyRemote(u,d)))(ups, dels); }catch(e){ console.warn('apply', e); }
+}
+/* the token used by the live connection follows every sign-in refresh (private channels check it) */
+let RT_AUTH_HOOKED = false;
+function rtHookAuth(){ if(RT_AUTH_HOOKED || !BACKEND?.sb) return; RT_AUTH_HOOKED = true;
+  BACKEND.sb.auth.onAuthStateChange((ev, s)=>{ if(s?.access_token && ['TOKEN_REFRESHED','SIGNED_IN'].includes(ev)){ try{ BACKEND.sb.realtime.setAuth(s.access_token); }catch(e){} } }); }
+{ const _sp = setPerson; setPerson = function(p){ _sp.apply(this, arguments); if(BACKEND?.mode==='live'){ rtHookAuth(); } }; }
+/* a silently dead connection (phone asleep, laptop lid closed, Wi-Fi switch) is detected and re-joined */
+function rtAlive(){ const sb = BACKEND?.sb; if(!sb || BACKEND.mode!=='live' || !SYNC.ready) return true;
+  const sockOk = sb.realtime?.isConnected?.() !== false;
+  const chOk = RT.mode==='pg' ? ['joined','joining'].includes(BACKEND.channel?.state) : RT.chans.length && RT.chans.every(ch=>['joined','joining'].includes(ch.state));
+  return sockOk && chOk; }
+function rtCheck(reason){ if(BACKEND?.mode!=='live' || !SYNC.ready || !navigator.onLine) return; if(!rtAlive()){ RT.needCatch = true; rtConnect(); } else if(typeof syncCatchUp==='function') syncCatchUp(reason); }
+document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='visible') setTimeout(()=>rtCheck('visible'), 150); });
+window.addEventListener('online', ()=>setTimeout(()=>rtCheck('online'), 300));
+window.addEventListener('focus', ()=>rtCheck('focus'));
+setInterval(()=>{ if(document.visibilityState==='visible') rtCheck('heartbeat'); }, 30000);
+/* ---------- restore the hooks that the write path lost (ordering guard + push after commit) ---------- */
+{ const _w = LiveBackend.write; LiveBackend.write = async function(ups, dels){
+    const now = Date.now(); (ups||[]).forEach(r=>SG.localAt.set(sgKey(r.collection, r.id), now)); (dels||[]).forEach(r=>SG.localAt.set(sgKey(r.collection, r.id), now));
+    const r = await _w.apply(this, arguments);
+    /* reaching here means the server accepted the batch (refused messages are listed by the delivery guard) */
+    try{ const ok = (ups||[]).filter(x=>!(x.collection==='messages' && DELIVERY.refused.has(x.id)) && !(x.collection==='notifs' && DELIVERY.refused.has(notifMsgId(x))));
+      if(typeof pushCollect==='function') pushCollect(ok); }catch(e){ console.warn('push', e); }
+    return r; }; }
+
+/* ---------- the local copy for instant opening is written when the portal is idle ---------- */
+SYNC.saveCache = function(now){ if(BACKEND?.mode!=='live' || !PERSON) return;
+  clearTimeout(this._ct); const run = () => { try{ const rows = []; Object.keys(COLL).forEach(c=>(COLL[c].get()||[]).forEach(o=>rows.push({collection:c, id:String(o.id), data:o})));
+      CCIDB.set(this.cacheKey(), {at:Date.now(), rows:JSON.parse(JSON.stringify(rows))}); }catch(e){} };
+  this._ct = setTimeout(()=>{ if(window.requestIdleCallback) requestIdleCallback(run, {timeout:4000}); else run(); }, now ? 50 : 4000); };
+
+/* ---------- Content Board: an open card follows changes made by others ---------- */
+{ const _ot = openTask; openTask = function(id){ const r = _ot.apply(this, arguments); const t = TASKS.find(x=>x.id===id); const sig = t ? JSON.stringify([t.status, t.title, t.caption, t.notes, t.assignee, t.due, (t.history||[]).length, (t.outputs||[]).length, t.updatedAt]) : '';
+    MODAL_CTX = {task:id, sig, refresh:()=>{ if(!el('teTitle')) return; const x = TASKS.find(y=>y.id===id); if(!x){ closeModal(); return toast('That card was deleted by someone else'); }
+      const s2 = JSON.stringify([x.status, x.title, x.caption, x.notes, x.assignee, x.due, (x.history||[]).length, (x.outputs||[]).length, x.updatedAt]); if(s2===MODAL_CTX.sig) return;
+      const typing = document.activeElement && ['INPUT','TEXTAREA','SELECT'].includes(document.activeElement.tagName) && el('modal')?.contains(document.activeElement);
+      if(!typing){ const st = el('modalBody')?.scrollTop||0; openTask(id); const b = el('modalBody'); if(b) b.scrollTop = st; toast(`Updated by ${first(x.updatedBy||x.history?.slice(-1)[0]?.who||'a teammate')}`); }
+      else if(!el('ceStale')) el('modalBody')?.insertAdjacentHTML('afterbegin', `<div id="ceStale" class="ce-stale">${esc(first(x.updatedBy||x.history?.slice(-1)[0]?.who||'A teammate'))} just changed this card — <button class="btn ghost" onclick="openTask('${id}')">Show the latest</button></div>`); }};
+    return r; }; }
+
+/* diagnostics: Administration → “Sync status” can show this; also handy in the console */
+function rtStatusText(){ return `${RT.mode==='bc'?'Direct delivery':'Table listener'} · ${rtAlive()?'connected':'reconnecting'} · ${RT.stats.evt} changes received in ${RT.stats.batches} batches`; }
+
+/* a card assigned to you shows on your board even when its client isn't in your client list yet (it already reaches your
+   devices — the board just hid it) */
+{ const _bt = boardTasks; boardTasks = function(){ const T = _bt.apply(this, arguments); if(!scoped()) return T;
+    const ids = new Set(T.map(t=>t.id));
+    const extra = TASKS.filter(t=>!ids.has(t.id) && t.assignee===PERSON && (TF.client==='all' || t.client===TF.client));
+    return extra.length ? T.concat(extra) : T; }; }
+/* ===== 80_asstperf.js ===== */
+/* ================= ASSISTANT RESPONSIVENESS — COO Assistant (Jose) & PM assistants (Oct 2026) =================
+   Root causes of "stuck on Drafting / Loading":
+   • Questions waited for the whole AI answer (no streaming) and the server call had NO time limit, so a slow or stuck
+     AI request kept "Drafting…" on screen forever.
+   • Actions showed a fixed "⏳ On it…" until everything finished; confirmation polled the server every 0.5 s.
+   Now:
+   • Answers stream into the bubble as they are written; nothing for 25 s or no answer in 75 s → a clear error with Retry.
+   • Actions show progress: Understanding request → Preparing action → Sending → Sent ✓, and never spin forever
+     (after 45 s: “taking longer than usual” + Retry; the result still replaces it if it arrives).
+   • Confirmation waits for the server's acknowledgement directly (checked every 120 ms) — still never “done” before the
+     server has it.
+   • Only the context for the request is sent (the assistant's own clients, capped), and conversations stay capped. */
+
+const AIX = {stream:null, live:'', stage:'', stageAt:0, t0:0, firstAt:0, failed:null};
+const _aiChatOrig = aiChat;
+function aiTimeout(p, ms, msg){ let t; return Promise.race([p, new Promise((_, bad)=>{ t = setTimeout(()=>bad(new Error(msg||'timeout')), ms); })]).finally(()=>clearTimeout(t)); }
+/* one streaming request with first-token and total limits; falls back to a single (time-limited) answer on older servers */
+async function aiStreamX(system, prompt, onText, {first=25000, total=75000}={}){
+  if(BACKEND?.mode!=='live') return _aiChatOrig(system, prompt);
+  if(AIX.stream===false) return aiTimeout(_aiChatOrig(system, prompt), total, 'The AI service took too long to answer.').catch(e=>({text:null, note:e.message}));
+  const ctrl = new AbortController(); let got = false; const tFirst = setTimeout(()=>{ if(!got) ctrl.abort('first'); }, first); const tAll = setTimeout(()=>ctrl.abort('total'), total);
+  try{
+    const {data} = await BACKEND.sb.auth.getSession(); const token = data?.session?.access_token;
+    const r = await fetch(String(CC_CONFIG.SUPABASE_URL).replace(/\/$/,'')+'/functions/v1/cc-admin', {method:'POST', signal:ctrl.signal,
+      headers:{'Content-Type':'application/json', apikey:CC_CONFIG.SUPABASE_ANON_KEY, Authorization:'Bearer '+(token||CC_CONFIG.SUPABASE_ANON_KEY)}, body:JSON.stringify({action:'ai_stream', system, prompt})});
+    if(!/text\/plain/.test(r.headers.get('content-type')||'')){
+      got = true; const d = await r.json().catch(()=>({}));
+      if(/Unknown action/i.test(d.error||'')){ AIX.stream = false; return aiTimeout(_aiChatOrig(system, prompt), total, 'The AI service took too long to answer.').catch(e=>({text:null, note:e.message})); }
+      if(d.error) return {text:null, note:'Could not reach the AI service ('+d.error+').', err:true};
+      if(d.configured===false) return {text:null, note:'The AI provider is not connected yet — a company head connects it in Administration → Finance & Cora.'};
+      return {text:d.text||null};
+    }
+    AIX.stream = true;
+    const rd = r.body.getReader(); const dec = new TextDecoder(); let t = '';
+    for(;;){ const {done, value} = await rd.read(); if(done) break; got = true; t += dec.decode(value, {stream:true}); const shown = t.replace(/\n*\[\[CC_ERR[\s\S]*$/, ''); if(shown) onText?.(shown); }
+    const m = t.match(/\n*\[\[CC_ERROR:([\s\S]*?)\]\]\s*$/); if(m){ t = t.slice(0, m.index); if(!t.trim()) return {text:null, note:'Could not reach the AI service ('+m[1]+').', err:true}; }
+    return {text:t.trim() ? t : null, note:t.trim() ? '' : 'The AI service returned an empty answer.', err:!t.trim()};
+  }catch(e){ const why = ctrl.signal.reason; return {text:null, err:true, note: why==='first' ? 'The AI service didn’t start answering within 25 seconds.' : why==='total' ? 'The AI service took too long to answer.' : 'Could not reach the AI service ('+e.message+').'}; }
+  finally{ clearTimeout(tFirst); clearTimeout(tAll); }
+}
+/* every non-streamed AI call is time-limited too (no endless spinners anywhere) */
+aiChat = async function(system, prompt){
+  if(typeof PA!=='undefined' && PA.busy && CURRENT==='pa'){   /* the assistant chat: stream into the bubble */
+    AIX.live = ''; AIX.t0 = Date.now(); AIX.firstAt = 0; paStage('Thinking…');
+    const r = await aiStreamX(system, prompt, t=>{ if(!AIX.firstAt) AIX.firstAt = Date.now(); AIX.live = t; paLivePaint(); });
+    AIX.live = ''; AIX.failed = r.err ? {note:r.note} : null; return r;
+  }
+  return aiTimeout(_aiChatOrig(system, prompt), 60000, 'timeout').catch(()=>({text:null, note:'The AI service took too long to answer.'}));
+};
+/* the "Drafting…" bubble shows the stage, then the words as they arrive */
+function paStage(t){ AIX.stage = t; AIX.stageAt = Date.now(); paLivePaint(); }
+function paLivePaint(){ if(CURRENT!=='pa') return; const body = el('paBody'); if(!body) return;
+  const bubs = [...body.querySelectorAll('.cora-m.assistant')]; const live = bubs.reverse().find(b=>/Drafting…/.test(b.textContent) || b.classList.contains('pa-live')); if(!live) return;
+  live.classList.add('pa-live');
+  live.innerHTML = AIX.live ? coraRender(AIX.live)+'<span class="pa-caret"></span>' : `<span class="spinner" style="display:inline-block;vertical-align:middle"></span> ${esc(AIX.stage||'Drafting…')}`;
+  if(body.scrollHeight - body.scrollTop - body.clientHeight < 160) body.scrollTop = body.scrollHeight; }
+{ const _rp = RENDER.pa; RENDER.pa = function(){ const r = _rp.apply(this, arguments);
+    if(typeof PA!=='undefined' && PA.busy) paLivePaint();
+    /* actions in progress: show the stage instead of a frozen “On it…” */
+    const body = el('paBody'); if(body){ const ph = [...body.querySelectorAll('.cora-m.assistant')].filter(b=>b.textContent.trim().startsWith('⏳ On it…')).pop();
+      if(ph){ const slow = AIX.stageAt && Date.now() - AIX.stageAt > 45000; ph.classList.add('pa-live');
+        ph.innerHTML = `<span class="spinner" style="display:inline-block;vertical-align:middle"></span> ${esc(slow ? 'Taking longer than usual — still working…' : (AIX.stage||'Understanding request…'))}${slow?' <button class="btn ghost pa-retry" onclick="paRetryLast()">↻ Retry</button>':''}`; } }
+    /* an answer that failed: Retry next to it */
+    const a = typeof paSel==='function' ? paSel() : null; const conv = a && paConv(a); const last = conv?.msgs?.[conv.msgs.length-1];
+    if(last && last.role==='assistant' && (last.failed || /Could not reach the AI service|took too long|didn’t start answering|⚠ That (didn’t work|took too long)/.test((last.note||'')+' '+last.text))){
+      const bub = [...(body?.querySelectorAll('.cora-m.assistant')||[])].pop(); if(bub && !bub.querySelector('.pa-retry')) bub.insertAdjacentHTML('beforeend', `<div class="pa-err"><span>${esc(last.failed?.note||'That didn’t go through.')}</span><button class="btn primary pa-retry" onclick="paRetryLast()">↻ Retry</button></div>`); }
+    return r; }; }
+/* failed AI answers are marked as such (instead of silently swapping in a records summary) */
+{ const _ask = paAsk; paAsk = async function(q){ const a = paSel(); const conv0 = a && paConv(a); const n0 = conv0?.msgs?.length||0; AIX.failed = null;
+    if(a && !PA.busy) paStage('Understanding request…');
+    const r = await _ask.apply(this, arguments);
+    const conv = a && paConv(a); const last = conv?.msgs?.[conv.msgs.length-1];
+    if(AIX.failed && last && last.role==='assistant' && (conv.msgs.length > n0)){ last.failed = {note:AIX.failed.note, q:conv.msgs.filter(m=>m.role==='user').pop()?.text}; aiSaveConv(conv); if(CURRENT==='pa') RENDER.pa(); }
+    return r; }; }
+function paRetryLast(){ const a = paSel(); if(!a) return; const conv = paConv(a);
+  const lastA = [...conv.msgs].reverse().find(m=>m.role==='assistant');
+  let i = conv.msgs.length-1; while(i>=0 && conv.msgs[i].role!=='user') i--; if(i<0) return; const q = conv.msgs[i].text;
+  PA.busy = false;
+  /* a COO action: “retry” repeats the same action (same ids — never sent twice) */
+  if(typeof isCooA==='function' && isCooA(a) && typeof COO_LAST!=='undefined' && COO_LAST.fn && /^(⚠|⏳)/.test(lastA?.text||'')) return paAsk('retry');
+  conv.msgs = conv.msgs.slice(0, i); aiSaveConv(conv); RENDER.pa(); paAsk(q); }
+
+/* ---------- COO actions: visible progress, server-confirmed, never endless ---------- */
+if(typeof cooExec==='function'){ const _ce = cooExec; cooExec = async function(text){ paStage('Preparing action…');
+    try{ const r = await _ce.apply(this, arguments); paStage(''); return r; } catch(e){ paStage(''); throw e; } }; }
+if(typeof cooVerify==='function'){ cooVerify = async function(keys, timeout=12000){ const t0 = Date.now(); paStage('Sending…');
+    for(;;){
+      await SYNC.flush?.();
+      const refused = keys.filter(k=>DELIVERY?.refused?.has(k.split('|')[1])); if(refused.length) return {ok:false, why:'the server refused it (permissions)'};
+      const pend = keys.filter(k=>SYNC.pending?.has?.(k)); if(!pend.length && !SYNC.busy){ paStage('Sent ✓'); return {ok:true}; }
+      if(BACKEND.mode==='live' && !navigator.onLine) return {ok:false, why:'you’re offline — it will go out automatically when you reconnect'};
+      if(Date.now() - t0 > timeout) return {ok:false, why:'the server didn’t confirm in time — it may still arrive; say “retry” to try again'};
+      await new Promise(r=>setTimeout(r, 120)); } };
+  /* remember what the last action tried to save, so “retry” finishes THAT attempt instead of creating a second copy */
+  const _cv = cooVerify; cooVerify = async function(keys){ const v = await _cv.apply(this, arguments); if(typeof COO_LAST!=='undefined'){ COO_LAST.keys = [...(keys||[])]; COO_LAST.ok = !!v.ok; } return v; }; }
+if(typeof cooExec==='function' && typeof COO_LAST!=='undefined'){ const _ce2 = cooExec; cooExec = async function(text){
+    const s = String(text||'').toLowerCase().trim();
+    if(/^(retry|try again)\b/.test(s) && COO_LAST.keys?.length && COO_LAST.ok===false){
+      const keys = COO_LAST.keys; const local = keys.filter(k=>{ const [c, ...rest] = k.split('|'); const id = rest.join('|'); return (COLL[c]?.get()||[]).some(o=>String(o.id)===id); });
+      if(local.length===keys.length){             /* the same records are still here: send / confirm those (same ids → never twice) */
+        const v = await cooVerify(keys);
+        if(!v.ok) return `⚠ Still not confirmed: ${v.why}.`;
+        const chats = uniq(keys.filter(k=>k.startsWith('messages|')).map(k=>MESSAGES.find(m=>m.id===k.split('|').slice(1).join('|'))?.chat).filter(Boolean)).map(id=>chatTitle(CHATS.find(c=>c.id===id)||{id}));
+        COO_LAST.keys = []; return `✅ Done — it went through on the retry (sent once, no duplicates)${chats.length?`: delivered to ${chats.join(', ')}`:''}.`; }
+      /* the earlier attempt is gone (e.g. undone) → run the action again */ }
+    return _ce2.apply(this, arguments); }; }
+/* watchdog: no “⏳ On it…” older than 90 s */
+setInterval(()=>{ try{ if(typeof PA==='undefined' || !PEOPLE[PERSON]) return; const a = paSel(); const conv = a && paConv(a); if(!conv) return; let ch = false;
+    conv.msgs.forEach(m=>{ if(m.role==='assistant' && m.text==='⏳ On it…' && Date.parse(m.at||0) && Date.now() - Date.parse(m.at) > 90000){ m.text = '⚠ That took too long and may not have gone through. Tap Retry or say “retry”.'; delete m.wait; m.failed = {note:'No confirmation from the server.'}; ch = true; } });
+    if(PA.busy && AIX.t0 && Date.now() - AIX.t0 > 100000){ PA.busy = false; ch = true; }
+    if(ch){ aiSaveConv(conv); if(CURRENT==='pa') RENDER.pa(); }
+    else if(CURRENT==='pa' && AIX.stageAt && Date.now() - AIX.stageAt > 45000) RENDER.pa(); }catch(e){} }, 5000);
 </script>
 </body>
 </html>

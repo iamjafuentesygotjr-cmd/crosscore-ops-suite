@@ -20073,6 +20073,7 @@ const SETUP_SINCE = '2026-09-30';                                   /* clients c
 const setupDays = () => +(S().setupDays) || 3;
 function setupTracked(c){ if(!c || isEnded(c) || c.status==='Archived' || (typeof isInternalClient==='function' && isInternalClient(c))) return false;
   if(c.setup?.status==='complete') return false; return !!c.setup || String(c.createdAt||'').slice(0,10) > SETUP_SINCE; }
+const asList = v => Array.isArray(v) ? v : (v && typeof v==='object') ? Object.values(v) : [];
 const pmsLive = c => (pmsOf(c.id)||[]).filter(k=>PEOPLE[k]);
 function setupItems(c){
   const sop = typeof sopFor==='function' ? sopFor(c.id) : null; const reg = BRIEFS.find(b=>b.clientId===c.id || b.id===c.regId);
@@ -20083,8 +20084,10 @@ function setupItems(c){
     {k:'pm', label:'Project manager assigned', ok:pmsLive(c).length>0, owner:'hr', go:'edit'},
     {k:'team', label:'VA team assigned with responsibilities', ok:(c.team||[]).filter(k=>PEOPLE[k]).length>0, owner:'hr', go:'edit'},
     {k:'chat', label:'Client group chat created', ok:!!(c.chatId && CHATS.find(x=>x.id===c.chatId)), owner:'hr', go:'edit'},
-    (()=>{ const files = (sop?.files||[]).length, written = (sop?.sections||[]).some(x=>String(x.b||x.body||x.text||'').trim().length>20);
-      const inDocs = (c.docs||[]).some(f=>/\bsop\b|standard operating/i.test(String(f.name||f.title||f)));
+    (()=>{ /* SOP sections are saved as {overview:'…', …} (older drafts: a list) — read both */
+      const secs = sop?.sections; const secTexts = Array.isArray(secs) ? secs.map(x=>x?.b||x?.body||x?.text||x) : (secs && typeof secs==='object') ? Object.values(secs) : [];
+      const files = asList(sop?.files).length, written = secTexts.some(v=>String(v||'').trim().length>20);
+      const inDocs = asList(c.docs).some(f=>/\bsop\b|standard operating/i.test(String(f?.name||f?.title||f)));
       const has = files>0 || written || inDocs;
       return {k:'sop', label:'SOP attached by the PM', ok:has, owner:'pm', go:'sop', note: has ? '' : 'no SOP attached yet'}; })(),
     {k:'brand', label:'Brand kit — logo, colors, fonts and tone of voice', ok:!!c.logo && (c.colors||[]).length>0 && !tbd(c.fonts) && !tbd(c.tone), owner:pm, go:'overview',
@@ -20521,7 +20524,7 @@ async function cooPostFromModal(){ const ch = CHATS.find(c=>c.id===el('paPostC')
    The footer shows which build is running ("Build 2026-10-07 · 1"), and every open portal checks every few minutes
    (and whenever it comes back to the foreground) whether a newer build has been published. If so it shows
    "New version available — Update now" instead of quietly running old code. */
-const BUILD_ID = '2026-10-07 · 05:02';
+const BUILD_ID = '2026-10-08 · 1';
 function verStamp(){ const f = el('footNote'); if(f && !f.dataset.v){ f.dataset.v = 1; f.textContent = `Cross Core Ops Suite v8 · Build ${BUILD_ID}`; } }
 async function verCheck(){
   if(!/^https?:/.test(location.protocol)) return;
@@ -21566,7 +21569,15 @@ function paLivePaint(){ if(CURRENT!=='pa') return; const body = el('paBody'); if
 /* failed AI answers are marked as such (instead of silently swapping in a records summary) */
 { const _ask = paAsk; paAsk = async function(q){ const a = paSel(); const conv0 = a && paConv(a); const n0 = conv0?.msgs?.length||0; AIX.failed = null;
     if(a && !PA.busy) paStage('Understanding request…');
-    const r = await _ask.apply(this, arguments);
+    let r;
+    try{ r = await _ask.apply(this, arguments); }
+    catch(e){   /* a broken record or bug must never leave “Drafting…” spinning: end it with a clear error + Retry */
+      console.warn('assistant', e); PA.busy = false; AIX.live = ''; paStage('');
+      const cv = a && paConv(a);
+      if(cv){ const lastM = cv.msgs[cv.msgs.length-1]; if(lastM?.role==='assistant' && /^⏳/.test(lastM.text||'')) cv.msgs.pop();
+        cv.msgs.push({role:'assistant', text:'⚠ I couldn’t finish that — something in the data tripped me up. Tap Retry, or ask in a different way.', at:nowISO(), failed:{note:'Error: '+String(e?.message||e).slice(0,120)}}); aiSaveConv(cv); }
+      if(CURRENT==='pa') try{ RENDER.pa(); }catch(e2){}
+      return; }
     const conv = a && paConv(a); const last = conv?.msgs?.[conv.msgs.length-1];
     if(AIX.failed && last && last.role==='assistant' && (conv.msgs.length > n0)){ last.failed = {note:AIX.failed.note, q:conv.msgs.filter(m=>m.role==='user').pop()?.text}; aiSaveConv(conv); if(CURRENT==='pa') RENDER.pa(); }
     return r; }; }
@@ -21605,7 +21616,7 @@ if(typeof cooExec==='function' && typeof COO_LAST!=='undefined'){ const _ce2 = c
 /* watchdog: no “⏳ On it…” older than 90 s */
 setInterval(()=>{ try{ if(typeof PA==='undefined' || !PEOPLE[PERSON]) return; const a = paSel(); const conv = a && paConv(a); if(!conv) return; let ch = false;
     conv.msgs.forEach(m=>{ if(m.role==='assistant' && m.text==='⏳ On it…' && Date.parse(m.at||0) && Date.now() - Date.parse(m.at) > 90000){ m.text = '⚠ That took too long and may not have gone through. Tap Retry or say “retry”.'; delete m.wait; m.failed = {note:'No confirmation from the server.'}; ch = true; } });
-    if(PA.busy && AIX.t0 && Date.now() - AIX.t0 > 100000){ PA.busy = false; ch = true; }
+    if(PA.busy){ AIX.busySince = AIX.busySince || Date.now(); if(Date.now() - Math.max(AIX.busySince, AIX.t0||0) > 100000){ PA.busy = false; AIX.busySince = 0; ch = true; } } else AIX.busySince = 0;
     if(ch){ aiSaveConv(conv); if(CURRENT==='pa') RENDER.pa(); }
     else if(CURRENT==='pa' && AIX.stageAt && Date.now() - AIX.stageAt > 45000) RENDER.pa(); }catch(e){} }, 5000);
 </script>

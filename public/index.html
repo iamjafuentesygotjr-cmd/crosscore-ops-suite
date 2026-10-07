@@ -2710,6 +2710,15 @@ body.glass-lite .sidebar,body.glass-lite .topbar{background:linear-gradient(180d
 .pa-err .btn{padding:4px 10px;font-size:12px}
 .pa-retry{margin-left:6px}
 </style>
+<style>
+.li-item{display:flex;gap:12px;align-items:flex-start;padding:10px 0;border-top:1px solid var(--line,#eee)}
+.li-item.overdue{background:linear-gradient(90deg,rgba(180,35,35,.06),transparent)}
+.li-q{font-size:13px;margin:4px 0;color:var(--ink,#222)}
+.li-act{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;max-width:260px}
+.li-act .btn{padding:5px 10px;font-size:12px}
+.li-shot{font-size:20px;text-decoration:none}
+@media (max-width:640px){.li-item{flex-wrap:wrap}.li-act{max-width:none;justify-content:flex-start}}
+</style>
 </head>
 <body>
 <div class="login" id="login">
@@ -20564,7 +20573,7 @@ async function cooPostFromModal(){ const ch = CHATS.find(c=>c.id===el('paPostC')
    The footer shows which build is running ("Build 2026-10-07 · 1"), and every open portal checks every few minutes
    (and whenever it comes back to the foreground) whether a newer build has been published. If so it shows
    "New version available — Update now" instead of quietly running old code. */
-const BUILD_ID = '2026-10-08 · 2';
+const BUILD_ID = '2026-10-08 · 3';
 function verStamp(){ const f = el('footNote'); if(f && !f.dataset.v){ f.dataset.v = 1; f.textContent = `Cross Core Ops Suite v8 · Build ${BUILD_ID}`; } }
 async function verCheck(){
   if(!/^https?:/.test(location.protocol)) return;
@@ -21741,6 +21750,272 @@ if(typeof opsConfirm==='function'){ const _oc = opsConfirm; opsConfirm = async f
     const coo = cooKey(); const who = typeof opsNeeded==='function' ? opsNeeded(poll) : (poll.attendees||[]);
     if(!(typeof avMayBook==='function' ? avMayBook(poll, uniq([coo, ...who])) : uniq([coo, ...who]).includes(PERSON))) return;
     return _oc.apply(this, arguments); }; }
+/* ===== 82_liaudit.js ===== */
+/* ================= DAILY LINKEDIN ENGAGEMENT AUDIT — Jose (COO Assistant), every lead generation client (Oct 2026) =================
+   Every day Jose checks, per lead generation client, that the assigned VA did the LinkedIn engagement the client's SOP asks
+   for: comment on the client's posts and reply to the comments people leave on them (e.g. Vishal Kalia's comment on
+   Arnab Pal's post).
+   • Sources: the client's LinkedIn profile / post links (client page + audit settings), the assigned engagement VA(s),
+     the PM, and the client's SOP / VA responsibilities (which actions are required).
+   • Verification: a LinkedIn data source the company connects (Administration → audit settings; an automation/webhook
+     allowed to read the client's public posts — the portal never logs in to LinkedIn itself), a PM / COO check recorded
+     with the post or comment ("I checked — no reply yet"), or the VA's own link to their comment / reply.
+   • 24-hour grace period from when each post or comment was published before anything is flagged.
+   • Overdue → one reminder per client per day in the client's GC, tagging the VA and the PM, with the screenshot (from the
+     data source or uploaded; otherwise an evidence card built from the captured post / comment, labelled as such), the
+     direct link and what still needs doing. Unresolved items are followed up in the next day's audit ("2nd reminder"),
+     never twice the same day, and stop as soon as completion is verified.
+   • Nothing to check against (no data source reachable, no human check, no VA link) → "Unable to verify", never "missed".
+   • JA's COO portal shows every client's audit: results, pending actions, VA, PM and status. */
+
+let LIENG = [], LIITEMS = [], LIAUDIT = [];
+const liAudFor = cid => uniq([...(typeof lgAud==='function' ? lgAud(cid) : []), ...HR_KEYS(), ...HEADS, cooKey()]).filter(Boolean);
+COLL.liengage = {get:()=>LIENG,   set:v=>LIENG=v,   aud:o=>liAudFor(o.client||o.id)};
+COLL.liitems  = {get:()=>LIITEMS, set:v=>LIITEMS=v, aud:o=>liAudFor(o.client)};
+COLL.liaudit  = {get:()=>LIAUDIT, set:v=>LIAUDIT=v, aud:o=>liAudFor(o.client)};
+
+const LI_GRACE = 24*3600e3;
+const LI = {src:null, srcAt:0, busy:new Set(), view:null};
+const liHash = s => { let h = 5381; for(const ch of String(s)) h = ((h<<5) + h + ch.charCodeAt(0)) >>> 0; return h.toString(36); };
+const liNorm = u => String(u||'').toLowerCase().replace(/^https?:\/\/(www\.|[a-z]{2}\.)?/,'').replace(/[?#].*$/,'').replace(/\/+$/,'');
+const liAgo = iso => { const m = Math.round((Date.now() - new Date(iso).getTime())/60e3); return m < 60 ? `${Math.max(m,1)}m ago` : m < 48*60 ? `${Math.round(m/60)}h ago` : `${Math.round(m/1440)}d ago`; };
+const liWhen = iso => iso ? `${mtDate(iso)} · ${mtTime(iso)}` : '—';
+
+/* ---------- which clients, who, what ---------- */
+function liClients(){ return CLIENTS.filter(c=>c.status==='Active' && !isEnded(c) && typeof lgIsLeadGen==='function' && lgIsLeadGen(c)); }
+function liCfg(cid){ return LIENG.find(x=>x.id===cid) || null; }
+function liProfiles(c){ const cfg = liCfg(c.id); const L = [...(cfg?.profiles||[])];
+  if(c.leadLink?.url) L.push(c.leadLink.url); if(c.linkedin) L.push(c.linkedin); (c.links||[]).filter(l=>l.platform==='linkedin' && l.url).forEach(l=>L.push(l.url));
+  return uniq(L.map(String).filter(u=>/linkedin\.com\//i.test(u))); }
+function liVAs(c){ const cfg = liCfg(c.id); if(cfg?.vas?.length) return cfg.vas.filter(k=>PEOPLE[k]);
+  const eng = (c.team||[]).filter(k=>PEOPLE[k] && /comment|engag|repl|linkedin/i.test(String(c.resp?.[k]||'')));
+  if(eng.length) return eng; return (typeof lgVAs==='function' ? lgVAs(c.id) : (c.team||[])).filter(k=>PEOPLE[k] && !HEADS.includes(k)); }
+const liPMs = c => (pmsOf(c.id)||[]).filter(k=>PEOPLE[k]);
+/* required actions: commenting on the client's posts and replying to the comments on them (the engagement SOP for lead
+   generation clients); the PM can switch either off per client in the audit settings */
+function liRules(c){ const cfg = liCfg(c.id); return cfg?.rules || {comment:true, reply:true}; }
+const liCan = c => isFullAccess() || isExec() || isHead(PERSON) || PERSON===cooKey() || ROLE==='hr' || pmsOf(c.id).includes(PERSON);
+const liIsVA = c => liVAs(c).includes(PERSON);
+function liWho(c){ const cfg = liCfg(c.id);
+  const client = {names:uniq([c.name, c.contact].filter(x=>x && x!=='—').map(x=>String(x).toLowerCase().split(/[(·]/)[0].trim())), urls:liProfiles(c).map(liNorm)};
+  const vas = liVAs(c).map(k=>({k, names:[pname(k).toLowerCase()], urls:[cfg?.vaProfiles?.[k]].filter(Boolean).map(liNorm)}));
+  return {client, vas}; }
+const liMatch = (x, id) => !!x && ((x.url && id.urls.includes(liNorm(x.url))) || (x.name && id.names.includes(String(x.name).toLowerCase().trim())));
+
+/* ---------- the LinkedIn data source (optional) ---------- */
+async function liSource(force){ if(BACKEND?.mode!=='live') return {configured:false};
+  if(!force && LI.src && Date.now() - LI.srcAt < 10*60e3) return LI.src;
+  try{ LI.src = await aiInvoke({action:'li_status'}); }catch(e){ LI.src = {configured:false, error:e.message}; } LI.srcAt = Date.now(); return LI.src; }
+
+/* ---------- bring posts / comments in from the data source ---------- */
+function liUpsert(it){ let x = LIITEMS.find(i=>i.id===it.id); if(!x){ LIITEMS.push(it); return it; }
+  Object.entries(it).forEach(([k,v])=>{ if(v!==undefined && v!=='' && !(k==='done' && x.done)) x[k] = v; }); return x; }
+function liIngest(c, d){ const W = liWho(c); const now = nowISO(); const seen = [];
+  (d.posts||[]).forEach(p=>{ const purl = p.url || p.id; if(!purl) return;
+    const pid = 'LIP-'+liHash(liNorm(purl));
+    const vaC = (p.comments||[]).find(cm=>W.vas.some(v=>liMatch(cm, v)));
+    const post = liUpsert({id:pid, client:c.id, kind:'post', url:p.url||'', author:p.name||c.name, authorUrl:p.url?'':'', text:p.text||'', publishedAt:p.at||'', byClient:true, ref:false, source:'connector', shot:p.screenshot?{name:'LinkedIn screenshot', url:p.screenshot}:undefined,
+      lastCheck:{at:d.checkedAt||now, how:'connector', state:vaC?'done':'missing'}});
+    if(vaC && !post.done) post.done = {how:'connector', at:vaC.at||now, url:vaC.url||'', by:W.vas.find(v=>liMatch(vaC, v))?.k||'', note:'Comment found on LinkedIn'};
+    seen.push(pid);
+    (p.comments||[]).forEach(cm=>{ if(liMatch(cm, W.client) || W.vas.some(v=>liMatch(cm, v))) return;   /* the client's / VA's own comments are actions, not items */
+      const cid = 'LIC-'+liHash(liNorm(cm.url||cm.id||(purl+'|'+cm.name+'|'+cm.at)));
+      const rep = (cm.replies||[]).find(r=>liMatch(r, W.client) || W.vas.some(v=>liMatch(r, v)));
+      const it = liUpsert({id:cid, client:c.id, kind:'comment', url:cm.url||'', postUrl:p.url||'', post:pid, author:cm.name||'Someone', authorUrl:cm.url?'':'', text:cm.text||'', publishedAt:cm.at||'', source:'connector',
+        shot:cm.screenshot?{name:'LinkedIn screenshot', url:cm.screenshot}:undefined, lastCheck:{at:d.checkedAt||now, how:'connector', state:rep?'done':'missing'}});
+      if(rep && !it.done) it.done = {how:'connector', at:rep.at||now, url:rep.url||'', by:liMatch(rep, W.client)?'client':(W.vas.find(v=>liMatch(rep, v))?.k||''), note:'Reply found on LinkedIn'};
+      seen.push(cid); }); });
+  return seen; }
+
+/* ---------- one item's state ---------- */
+function liNeed(it, c){ if(it.ref) return null; const R = liRules(c); return it.kind==='post' ? (R.comment ? 'comment' : null) : (R.reply ? 'reply' : null); }
+function liState(it, c, run){ const need = liNeed(it, c); if(!need || it.removed) return {st:'n/a'};
+  if(it.done) return {st:'done', need};
+  const pub = it.publishedAt ? new Date(it.publishedAt).getTime() : new Date(it.addedAt||Date.now()).getTime(); const due = pub + LI_GRACE;
+  if(Date.now() < due) return {st:'grace', need, due};
+  /* verified "not done yet": the data source (this run) or a person who checked LinkedIn */
+  const chk = it.lastCheck; const srcDown = run && run.srcError;
+  if(chk?.state==='missing' && chk.how==='person') return {st:'overdue', need, due, why:`checked by ${first(chk.by)} ${liAgo(chk.at)}`};
+  if(chk?.state==='missing' && chk.how==='connector' && !srcDown && (!run || run.seen?.includes(it.id) || Date.now() - new Date(chk.at).getTime() < 26*3600e3)) return {st:'overdue', need, due, why:'checked on LinkedIn'};
+  return {st:'unverifiable', need, due, why: srcDown ? `LinkedIn data source unavailable (${run.srcError})` : 'no LinkedIn data source connected and no check or VA link yet'}; }
+const LI_ST = {done:['✓ Done','b-approved'], grace:['⏳ Within 24 h','b-pending'], overdue:['⚠ Overdue','b-missed'], unverifiable:['? Unable to verify','b-draft'], 'n/a':['Not required','b-draft']};
+const liWhat = (it, c) => it.kind==='post' ? `Comment on ${c.name}’s post` : `Reply to ${it.author}’s comment on ${c.name}’s post`;
+
+/* ---------- evidence: the real screenshot if we have one, otherwise a labelled card built from the captured text ---------- */
+async function liEvidence(it, c){ if(it.shot) return it.shot; if(it.card) return it.card;
+  try{ const W = 1000, pad = 36; const cv = document.createElement('canvas'); const g = cv.getContext('2d'); g.font = '22px Inter, Arial, sans-serif';
+    const wrap = (t, w) => { const out = []; let line = ''; String(t||'').split(/\s+/).forEach(word=>{ const tst = line ? line+' '+word : word; if(g.measureText(tst).width > w && line){ out.push(line); line = word; } else line = tst; }); if(line) out.push(line); return out.slice(0, 8); };
+    const lines = wrap(it.text || '(no text captured)', W - pad*2 - 24); const H = 300 + lines.length*32; cv.width = W; cv.height = H;
+    g.fillStyle = '#ffffff'; g.fillRect(0, 0, W, H); g.fillStyle = '#0A66C2'; g.fillRect(0, 0, W, 8);
+    g.fillStyle = '#5f6368'; g.font = '18px Inter, Arial, sans-serif'; g.fillText(`LinkedIn · ${c.name} · ${it.kind==='post'?'client post':'comment on the client’s post'}`, pad, 44);
+    g.fillStyle = '#111'; g.font = 'bold 26px Inter, Arial, sans-serif'; g.fillText(it.kind==='post' ? (it.author||c.name) : it.author, pad, 92);
+    g.fillStyle = '#5f6368'; g.font = '18px Inter, Arial, sans-serif'; g.fillText(`${it.publishedAt ? 'Published '+liWhen(it.publishedAt)+' (PH)' : 'Added '+liWhen(it.addedAt)}`, pad, 122);
+    g.fillStyle = '#f3f6f8'; g.fillRect(pad, 140, W - pad*2, lines.length*32 + 28); g.fillStyle = '#111'; g.font = '22px Inter, Arial, sans-serif'; lines.forEach((l, i)=>g.fillText(l, pad+12, 176 + i*32));
+    const y = 170 + lines.length*32 + 30; g.fillStyle = '#B42323'; g.font = 'bold 20px Inter, Arial, sans-serif'; g.fillText(`No ${it.kind==='post'?'comment from the VA':'reply from the client / VA'} found as of ${liWhen(nowISO())} (PH)`, pad, y);
+    g.fillStyle = '#5f6368'; g.font = '15px Inter, Arial, sans-serif'; g.fillText(`${(it.url||it.postUrl||'').slice(0, 110)}`, pad, y + 30); g.fillText('Evidence card generated by Cross Core from the captured post / comment — not a LinkedIn screenshot.', pad, y + 54);
+    const blob = await new Promise(r=>cv.toBlob(r, 'image/png')); if(!blob) return null;
+    const f = new File([blob], `evidence-${c.name.replace(/\W+/g,'-').toLowerCase()}-${it.id}.png`, {type:'image/png'});
+    const ref = await storeFile(f); if(ref){ it.card = {...ref, generated:true}; return it.card; } }catch(e){ console.warn('evidence card', e); }
+  return null; }
+
+/* ---------- the audit for one client ---------- */
+async function liAuditClient(c, {manual=false, day:dayOpt=null}={}){
+  if(LI.busy.has(c.id)) return null; LI.busy.add(c.id);
+  try{
+    const day = dayOpt || manilaDate(); const run = {seen:[], srcError:null, source:'manual'};
+    const src = await liSource(manual); const profiles = liProfiles(c);
+    const trackedPosts = LIITEMS.filter(i=>i.client===c.id && i.kind==='post' && i.url && !i.removed).map(i=>i.url);
+    if(src.configured && (profiles.length || trackedPosts.length)){
+      run.source = 'connector';
+      try{ const d = await aiInvoke({action:'li_activity', profiles, posts:trackedPosts, since:new Date(Date.now()-14*864e5).toISOString(), client:c.id});
+        if(d?.ok===false) run.srcError = d.error || 'no answer'; else if(d?.configured===false) run.source = 'manual'; else run.seen = liIngest(c, d); }
+      catch(e){ run.srcError = e.message; } }
+    else if(src.configured && !profiles.length) run.srcError = 'no LinkedIn profile link set for this client';
+    const items = LIITEMS.filter(i=>i.client===c.id && !i.removed);
+    const R = items.map(it=>({it, s:liState(it, c, run)})).filter(x=>x.s.st!=='n/a');
+    const overdue = R.filter(x=>x.s.st==='overdue'), unver = R.filter(x=>x.s.st==='unverifiable');
+    const aid = `LA-${c.id}-${day}`; let a = LIAUDIT.find(x=>x.id===aid);
+    if(!a){ a = {id:aid, client:c.id, day}; LIAUDIT.push(a); }
+    Object.assign(a, {ranAt:nowISO(), ranBy:PERSON, source:run.source, srcError:run.srcError||'', vas:liVAs(c), pms:liPMs(c), rules:liRules(c), profiles,
+      counts:{done:R.filter(x=>x.s.st==='done').length, grace:R.filter(x=>x.s.st==='grace').length, overdue:overdue.length, unverifiable:unver.length},
+      overdue:overdue.map(x=>x.it.id), unverifiable:unver.map(x=>x.it.id)});
+    /* items: remember state + reminders */
+    R.forEach(({it, s})=>{ if(it.lastState!==s.st){ it.lastState = s.st; it.stateAt = nowISO(); } if(s.st==='done' && !it.verifiedAt && it.done?.how==='connector') it.verifiedAt = nowISO(); });
+    /* one reminder per client per day, in the client's GC, tagging the VA and the PM */
+    const ch = CHATS.find(x=>x.id===c.chatId); const mid = `M-liaudit-${c.id}-${day}`.replace(/[^A-Za-z0-9-]/g,'');
+    if(ch && (overdue.length || unver.length) && !MESSAGES.some(m=>m.id===mid) && !a.postedId){
+      const vas = liVAs(c), pms = liPMs(c); const tag = uniq([...vas, ...pms]); const files = [];
+      for(const {it} of overdue){ const ev = await liEvidence(it, c); if(ev) files.push(ev); }
+      const nth = it => { const n = (it.reminders||[]).filter(d=>d!==day).length; return n ? ` (${n+1}${['st','nd','rd'][((n+1)%10)-1] && ![11,12,13].includes(n+1) ? ['st','nd','rd'][((n+1)%10)-1] : 'th'} reminder)` : ''; };
+      const line = ({it, s}) => `• ${liWhat(it, c)}${it.kind==='comment' && it.text ? `: “${coraTrim(it.text, 90)}”` : it.text ? ` (“${coraTrim(it.text, 60)}”)` : ''} — published ${it.publishedAt ? liAgo(it.publishedAt) : 'over a day ago'}${nth(it)}\n  ${it.url || it.postUrl || 'link not captured'}\n  To do: ${s.need==='reply' ? `reply to ${it.author} on LinkedIn following the SOP` : 'leave a comment on the post following the SOP'}, then tap “Done” in the audit and paste the link to your ${s.need}.`;
+      let text = `${tag.map(k=>'@'+pname(k)).join(' ')} 🔎 Daily LinkedIn engagement audit — ${c.name} (${mtDate(nowISO(),{long:true})})`;
+      if(overdue.length) text += `\nStill needed (more than 24 hours since it was published):\n${overdue.map(line).join('\n')}`;
+      if(unver.length) text += `\n\nCouldn’t verify on LinkedIn — please confirm with the link of your comment / reply:\n${unver.map(({it})=>`• ${liWhat(it, c)} — ${it.url || it.postUrl || 'link not captured'}`).join('\n')}`;
+      text += `\n\nOpen the audit: ${location.origin}${location.pathname}#liaudit=${encodeURIComponent(c.id)}`;
+      const inChat = tag.filter(k=>(ch.members||[]).includes(k));
+      MESSAGES.push({id:mid, chat:ch.id, by:'asst:'+COO_ASST, kind:'assistant', sub:'liaudit', text, at:nowISO(), files, ...(inChat.length?{mentions:inChat}:{})});
+      if(inChat.length) notifyAs('asst:'+COO_ASST, inChat, 'message', `🔎 Jose — LinkedIn engagement audit for <b>${esc(c.name)}</b>: ${overdue.length} overdue${unver.length?`, ${unver.length} to confirm`:''}`, {view:'chat', arg:ch.id, msg:mid}, mid);
+      const out = tag.filter(k=>!inChat.includes(k)); if(out.length) notifyAs('asst:'+COO_ASST, out, 'reminder', `🔎 LinkedIn engagement audit — <b>${esc(c.name)}</b>: ${overdue.length} overdue action${overdue.length===1?'':'s'}`, {view:'chat', arg:ch.id, msg:mid}, mid);
+      [...overdue, ...unver].forEach(({it})=>{ it.reminders = uniq([...(it.reminders||[]), day]); });
+      a.postedId = mid; a.postedAt = nowISO(); }
+    recordChange(); if(LI.view===c.id && el('liModal')) liOpen(c.id); if(CURRENT==='pa' || CURRENT==='dashboard') RENDER[CURRENT]?.();
+    return a;
+  } finally { LI.busy.delete(c.id); } }
+
+/* ---------- every day (from 9 AM PH) on the COO / heads / HR portals, or the client's PM ---------- */
+async function liTick(){ if(!SYNC.ready || !PEOPLE[PERSON] || BACKEND?.mode==='live' && !navigator.onLine) return;
+  const h = phParts(new Date()).h; if(h < 9 || h > 21) return; const day = manilaDate();
+  const runner = (typeof canRunOps==='function' && canRunOps());
+  for(const c of liClients()){ if(LIAUDIT.some(a=>a.client===c.id && a.day===day)) continue;
+    if(!runner && !pmsOf(c.id).includes(PERSON)) continue;
+    if(PERSON!==cooKey() && h < 10 && !pmsOf(c.id).includes(PERSON)) continue;       /* JA's portal / the PM go first */
+    await liAuditClient(c); } }
+setInterval(liTick, 10*60e3);
+{ const _sp = setPerson; setPerson = function(p){ _sp.apply(this, arguments); setTimeout(liTick, 20000); }; }
+
+/* ---------- VA / PM actions ---------- */
+function liDone(id){ const it = LIITEMS.find(x=>x.id===id); if(!it) return; const c = client(it.client);
+  openModal('Mark as done', `<p style="margin-bottom:10px">${esc(liWhat(it, c))}</p>
+    <div class="field"><label>Link to your ${it.kind==='post'?'comment':'reply'} on LinkedIn *</label><input id="liDoneUrl" placeholder="https://www.linkedin.com/feed/update/…"></div>
+    <button class="btn primary" style="width:100%" onclick="liDoneSave('${id}')">Save</button>`); }
+function liDoneSave(id){ const it = LIITEMS.find(x=>x.id===id); const u = (el('liDoneUrl')?.value||'').trim(); if(!/linkedin\.com\//i.test(u)) return toast('Paste the link to your comment / reply on LinkedIn');
+  it.done = {how:liCan(client(it.client))&&!liIsVA(client(it.client))?'pm':'va', by:PERSON, at:nowISO(), url:u}; it.lastState = 'done'; it.stateAt = nowISO(); recordChange(); closeModal(); toast('Marked done — follow-ups stop for this item'); if(LI.view) liOpen(LI.view); }
+function liUndo(id){ const it = LIITEMS.find(x=>x.id===id); if(!it || !liCan(client(it.client))) return; delete it.done; it.lastState = ''; recordChange(); if(LI.view) liOpen(LI.view); }
+function liRemove(id){ const it = LIITEMS.find(x=>x.id===id); if(!it || !liCan(client(it.client))) return; it.removed = {by:PERSON, at:nowISO()}; recordChange(); if(LI.view) liOpen(LI.view); }
+function liCheck(id){ const it = LIITEMS.find(x=>x.id===id); if(!it || !liCan(client(it.client))) return; it.lastCheck = {at:nowISO(), how:'person', by:PERSON, state:'missing'}; recordChange(); toast('Recorded: checked on LinkedIn — not done yet'); if(LI.view) liOpen(LI.view); }
+let LI_SHOT = null;
+function liAdd(cid){ const c = client(cid); LI_SHOT = null; const posts = LIITEMS.filter(i=>i.client===cid && i.kind==='post' && !i.removed);
+  openModal(`Add a LinkedIn post or comment — ${c.name}`, `
+    <div class="field"><label>What is it?</label><select id="liK" onchange="el('liCm').style.display=this.value==='comment'?'':'none'"><option value="comment">A comment someone left on ${esc(c.name)}’s post (needs a reply)</option><option value="post">${esc(c.name)}’s post (needs the VA’s comment)</option></select></div>
+    <div class="field"><label>Link to the post *</label><input id="liPU" list="liPosts" placeholder="https://www.linkedin.com/posts/…"><datalist id="liPosts">${posts.map(p=>`<option value="${esc(p.url)}">`).join('')}</datalist></div>
+    <div id="liCm"><div class="grid cols-2"><div class="field"><label>Who commented *</label><input id="liA" placeholder="e.g. Vishal Kalia"></div><div class="field"><label>Link to the comment (if you have it)</label><input id="liCU" placeholder="https://…commentUrn…"></div></div></div>
+    <div class="field"><label>Text (copy the comment / first line of the post)</label><textarea id="liT" rows="2" placeholder="e.g. Arnab Pal this is wonderful, would love to learn more about it"></textarea></div>
+    <div class="grid cols-2"><div class="field"><label>Published (PH time)</label><input id="liAt" type="datetime-local" value="${new Date(Date.now()-864e5+8*3600e3).toISOString().slice(0,16)}"></div>
+      <div class="field"><label>Screenshot</label><button class="btn" type="button" onclick="pickFiles({accept:'image/*'}).then(f=>{ LI_SHOT=f[0]||null; el('liShotN').textContent = LI_SHOT ? '✓ '+LI_SHOT.name : ''; })">📷 Upload screenshot</button> <span id="liShotN" class="hint"></span></div></div>
+    <label class="switch-row" style="margin:6px 0 12px"><input type="checkbox" id="liChk" checked style="width:auto"> I checked LinkedIn — there is no ${'reply / comment'} from the client or the VA yet</label>
+    <button class="btn primary" style="width:100%" onclick="liAddSave('${cid}')">Add to the audit</button>`); }
+function liAddSave(cid){ const c = client(cid); const k = el('liK').value, pu = el('liPU').value.trim(), cu = (el('liCU')?.value||'').trim(), a = (el('liA')?.value||'').trim(), t = el('liT').value.trim();
+  if(!/linkedin\.com\//i.test(pu)) return toast('Paste the LinkedIn link of the post'); if(k==='comment' && !a) return toast('Who left the comment?');
+  const at = el('liAt').value ? new Date(el('liAt').value+':00+08:00').toISOString() : nowISO(); const pid = 'LIP-'+liHash(liNorm(pu));
+  if(!LIITEMS.some(i=>i.id===pid)) LIITEMS.push({id:pid, client:cid, kind:'post', url:pu, author:c.name, text:k==='post'?t:'', publishedAt:k==='post'?at:'', source:'manual', addedBy:PERSON, addedAt:nowISO(), ref:k!=='post'});   /* a post added only as the parent of a comment is a reference, not a task */
+  const id = k==='post' ? pid : 'LIC-'+liHash(liNorm(cu || (pu+'|'+a.toLowerCase()+'|'+t.slice(0,40).toLowerCase())));
+  const base = {client:cid, source:'manual', addedBy:PERSON, addedAt:nowISO(), ...(LI_SHOT?{shot:LI_SHOT}:{}), ...(el('liChk').checked?{lastCheck:{at:nowISO(), how:'person', by:PERSON, state:'missing'}}:{})};
+  if(k==='post') Object.assign(LIITEMS.find(i=>i.id===pid), base, {text:t, publishedAt:at, ref:false});
+  else { const ex = LIITEMS.find(i=>i.id===id); const it = {id, kind:'comment', url:cu, postUrl:pu, post:pid, author:a, text:t, publishedAt:at, ...base}; if(ex) Object.assign(ex, it); else LIITEMS.push(it); }
+  recordChange(); closeModal(); toast('Added — it’s checked in every daily audit until it’s done'); liOpen(cid); }
+
+/* ---------- settings (per client) + the LinkedIn data source (company heads) ---------- */
+async function liSettings(cid){ const c = client(cid); const cfg = liCfg(cid) || {}; const R = liRules(c); const vas = liVAs(c); const src = await liSource(true);
+  const team = uniq([...(c.team||[]), ...(typeof lgVAs==='function'?lgVAs(cid):[])]).filter(k=>PEOPLE[k]);
+  openModal(`LinkedIn engagement audit — ${c.name}`, `
+    <div class="field"><label>Client’s LinkedIn profile / page links (one per line)</label><textarea id="liP" rows="2">${esc(liProfiles(c).join('\n'))}</textarea></div>
+    <div class="field"><label>Engagement VA(s)</label><div class="chipsel" id="liV">${team.map(k=>`<label><input type="checkbox" value="${k}" ${vas.includes(k)?'checked':''}>${esc(pname(k))}</label>`).join('')||'<span class="hint">No VA on this client yet</span>'}</div></div>
+    <div class="field"><label>VA LinkedIn profiles (so comments / replies can be matched)</label>${team.map(k=>`<div style="display:flex;gap:8px;align-items:center;margin-bottom:6px"><span style="min-width:140px">${esc(first(k))}</span><input data-vp="${k}" value="${esc(cfg.vaProfiles?.[k]||'')}" placeholder="https://www.linkedin.com/in/…"></div>`).join('')}</div>
+    <div class="field"><label>Required by the SOP</label><label class="switch-row"><input type="checkbox" id="liRc" ${R.comment?'checked':''} style="width:auto"> Comment on every post of ${esc(c.name)}</label><label class="switch-row"><input type="checkbox" id="liRr" ${R.reply?'checked':''} style="width:auto"> Reply to the comments people leave on ${esc(c.name)}’s posts</label></div>
+    <button class="btn primary" style="width:100%;margin-bottom:14px" onclick="liSettingsSave('${cid}')">Save</button>
+    <div class="card" style="padding:12px"><b>LinkedIn data source</b> <span class="badge ${src.configured?'b-approved':'b-draft'}">${src.configured?'Connected':'Not connected'}</span>
+      <p class="hint" style="margin:6px 0">Without it, the audit uses the checks your team records and the VAs’ links; anything it can’t check is marked “Unable to verify”, never “missed”. The data source is an automation (e.g. n8n, Make or Apify) your company is allowed to use to read the client’s public posts — the portal never signs in to LinkedIn.</p>
+      ${isHead(PERSON)||isFullAccess()?`<div class="grid cols-2"><div class="field"><label>Address (https://…)</label><input id="liSrcU" placeholder="https://your-automation.example/linkedin"></div><div class="field"><label>Access token (optional)</label><input id="liSrcT" type="password" placeholder="kept on the server"></div></div><button class="btn" onclick="liSrcSave()">Save data source</button>`:'<span class="hint">A company head connects it.</span>'}</div>`); }
+function liSettingsSave(cid){ const c = client(cid); let cfg = liCfg(cid); if(!cfg){ cfg = {id:cid, client:cid}; LIENG.push(cfg); }
+  cfg.profiles = el('liP').value.split(/\s+/).map(s=>s.trim()).filter(u=>/linkedin\.com\//i.test(u));
+  cfg.vas = [...document.querySelectorAll('#liV input:checked')].map(x=>x.value);
+  cfg.vaProfiles = Object.fromEntries([...document.querySelectorAll('[data-vp]')].map(x=>[x.dataset.vp, x.value.trim()]).filter(([,v])=>v));
+  cfg.rules = {comment:el('liRc').checked, reply:el('liRr').checked}; cfg.updatedBy = PERSON; cfg.updatedAt = nowISO();
+  recordChange(); closeModal(); toast('Saved'); liOpen(cid); }
+async function liSrcSave(){ try{ const d = await aiInvoke({action:'li_config', url:el('liSrcU').value.trim(), token:el('liSrcT').value}); LI.src = null; toast(d.configured?'LinkedIn data source connected':'Data source removed'); }catch(e){ toast(e.message); } }
+
+/* ---------- views ---------- */
+function liClientSummary(c){ const a = LIAUDIT.filter(x=>x.client===c.id).sort((x,y)=>y.day.localeCompare(x.day))[0];
+  const R = LIITEMS.filter(i=>i.client===c.id && !i.removed).map(it=>({it, s:liState(it, c, a ? {srcError:a.srcError, seen:null} : null)})).filter(x=>x.s.st!=='n/a');
+  const n = st => R.filter(x=>x.s.st===st).length; return {a, R, done:n('done'), grace:n('grace'), overdue:n('overdue'), unver:n('unverifiable')}; }
+function liPanelHTML(){ const L = liClients(); if(!L.length) return '';
+  const rows = L.map(c=>{ const s = liClientSummary(c); const st = s.overdue ? ['Action needed','b-missed'] : s.unver ? ['Unable to verify','b-draft'] : s.R.length ? ['All done','b-approved'] : ['Nothing tracked yet','b-draft'];
+    return `<div class="setup-row"><div style="flex:1;min-width:0"><b>${esc(c.name)}</b> <span class="badge ${st[1]}">${st[0]}</span>
+      <div class="hint">VA ${esc(liVAs(c).map(first).join(', ')||'—')} · PM ${esc(liPMs(c).map(first).join(', ')||'—')} · ${s.a?`audited ${esc(liAgo(s.a.ranAt))} (${s.a.source==='connector'?(s.a.srcError?'LinkedIn data source unavailable':'checked on LinkedIn'):'team checks + VA links'})`:'not audited yet today'}</div>
+      <div class="hint">✓ ${s.done} done · ⏳ ${s.grace} within 24 h · ⚠ ${s.overdue} overdue · ? ${s.unver} unable to verify${s.a?.postedId?' · reminder posted in the GC':''}</div></div>
+      <button class="btn" onclick="liOpen('${c.id}')">Open</button></div>`; }).join('');
+  return `<div class="card li-mon"><div class="card-h"><h3>🔎 LinkedIn engagement audit — lead generation clients</h3><span class="hint">daily · 24-hour grace period</span></div><div class="card-b">${rows}</div></div>`; }
+function liOpen(cid){ const c = client(cid); if(!c) return; LI.view = cid; const s = liClientSummary(c); const can = liCan(c), va = liIsVA(c);
+  const order = {overdue:0, unverifiable:1, grace:2, done:3};
+  const rows = s.R.sort((x,y)=>(order[x.s.st]-order[y.s.st]) || String(y.it.publishedAt).localeCompare(String(x.it.publishedAt))).map(({it, s:st})=>{ const [lab, cls] = LI_ST[st.st]; const ev = it.shot || it.card;
+    return `<div class="li-item ${st.st}"><div style="flex:1;min-width:0"><div><span class="badge ${cls}">${lab}</span> <b>${esc(liWhat(it, c))}</b>${(it.reminders||[]).length?` <span class="hint">· reminded ${(it.reminders||[]).length}×</span>`:''}</div>
+      ${it.text?`<div class="li-q">“${esc(coraTrim(it.text, 200))}”</div>`:''}
+      <div class="hint">Published ${it.publishedAt?esc(liWhen(it.publishedAt)+' · '+liAgo(it.publishedAt)):'—'}${st.due?` · due ${esc(liWhen(new Date(st.due).toISOString()))}`:''}${st.why?` · ${esc(st.why)}`:''}</div>
+      <div class="hint">${(it.url||it.postUrl)?`<a href="${esc(it.url||it.postUrl)}" target="_blank" rel="noopener">Open on LinkedIn ↗</a>`:'no link'}${it.done?` · done ${esc(liAgo(it.done.at))}${it.done.by&&PEOPLE[it.done.by]?' by '+esc(first(it.done.by)):it.done.by==='client'?' (client account)':''}${it.done.url?` · <a href="${esc(it.done.url)}" target="_blank" rel="noopener">their ${it.kind==='post'?'comment':'reply'} ↗</a>`:''} (${esc({connector:'verified on LinkedIn', va:'VA link', pm:'recorded by '+(it.done.by?first(it.done.by):'PM')}[it.done.how]||it.done.how)})`:''}</div></div>
+      ${ev?`<a href="#" class="li-shot" onclick="openFileRef(this);return false" data-f='${esc(JSON.stringify(ev))}' title="${ev.generated?'Evidence card (not a LinkedIn screenshot)':'Screenshot'}">📷</a>`:''}
+      <div class="li-act">${!it.done && (va||can)?`<button class="btn primary" onclick="liDone('${it.id}')">Done — add link</button>`:''}${!it.done && can?`<button class="btn ghost" onclick="liCheck('${it.id}')" title="I looked on LinkedIn — not done yet">Checked: not yet</button>`:''}${it.done && can?`<button class="btn ghost" onclick="liUndo('${it.id}')">Reopen</button>`:''}${can?`<button class="btn ghost" onclick="liRemove('${it.id}')" title="Not needed">✕</button>`:''}</div></div>`; }).join('');
+  const html = `<div id="liModal"><div class="hint" style="margin-bottom:10px">VA ${esc(liVAs(c).map(pname).join(', ')||'— (set in settings)')} · PM ${esc(liPMs(c).map(pname).join(', ')||'—')} · Required: ${[liRules(c).comment&&'comment on the client’s posts', liRules(c).reply&&'reply to comments on them'].filter(Boolean).join(' and ')||'nothing'} · Profile: ${liProfiles(c).map(u=>`<a href="${esc(u)}" target="_blank" rel="noopener">${esc(liNorm(u).replace('linkedin.com',''))}</a>`).join(', ')||'not set'}</div>
+    ${s.a?`<div class="hint" style="margin-bottom:10px">Last audit ${esc(liAgo(s.a.ranAt))} by ${esc(first(s.a.ranBy))} — ${s.a.source==='connector'?(s.a.srcError?`LinkedIn data source unavailable (${esc(s.a.srcError)}) → open items marked “Unable to verify”`:'checked on LinkedIn'):'no LinkedIn data source: team checks and VA links'}${s.a.postedId?` · reminder posted in the GC ${esc(liAgo(s.a.postedAt))}`:''}</div>`:''}
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">${can?`<button class="btn primary" onclick="liAuditClient(client('${cid}'),{manual:true}).then(()=>toast('Audit done'))">▶ Run the audit now</button><button class="btn" onclick="liAdd('${cid}')">+ Add a post / comment</button><button class="btn ghost" onclick="liSettings('${cid}')">⚙ Settings</button>`:''}</div>
+    ${rows||'<div class="hint">Nothing tracked yet. Add the client’s posts / comments (or connect the LinkedIn data source in ⚙ Settings) and the daily audit takes it from there.</div>'}</div>`;
+  if(el('liModal')){ el('liModal').outerHTML = html; } else openModal(`🔎 LinkedIn engagement — ${c.name}`, html, true); }
+
+/* JA's COO portal + dashboard; the client's Engagement tab */
+{ const _rp = RENDER.pa; RENDER.pa = function(){ const r = _rp.apply(this, arguments); const v = el('v-pa'); if(!v || v.querySelector('.li-mon') || !(PERSON===cooKey() || isHead(PERSON))) return r;
+    const a = typeof paSel==='function' ? paSel() : null; if(!a || !isCooA(a)) return r; const after = v.querySelector('.setup-mon') || v.querySelector('.ops-cards') || v.querySelector('.coo-dash');
+    const h = liPanelHTML(); if(h && after) after.insertAdjacentHTML('afterend', h); return r; }; }
+{ const _rd = RENDER.dashboard; RENDER.dashboard = function(){ const r = _rd.apply(this, arguments); const v = el('v-dashboard');
+    if(v && (PERSON===cooKey() || isHead(PERSON)) && !v.querySelector('.li-mon')){ const after = v.querySelector('.setup-mon') || v.querySelector('.ops-cards') || v.querySelector('.page-head'); const h = liPanelHTML(); if(h) after?.insertAdjacentHTML('afterend', h); }
+    return r; }; }
+{ const _rw = RENDER.clientws; if(_rw) RENDER.clientws = function(){ const r = _rw.apply(this, arguments); const c = client(WS.client); const v = el('v-clientws');
+    if(v && c && WS.tab==='engagew' && lgIsLeadGen?.(c) && (liCan(c) || liIsVA(c)) && !v.querySelector('.li-ws')){ const s = liClientSummary(c);
+      v.insertAdjacentHTML('beforeend', `<div class="card li-ws" style="margin-top:14px"><div class="card-h"><h3>🔎 LinkedIn engagement audit</h3><button class="btn" onclick="liOpen('${c.id}')">Open</button></div><div class="card-b hint">✓ ${s.done} done · ⏳ ${s.grace} within 24 h · ⚠ ${s.overdue} overdue · ? ${s.unver} unable to verify</div></div>`); }
+    return r; }; }
+/* "#liaudit=<client>" links from the GC reminder open the audit */
+function liHashOpen(){ const m = location.hash.match(/^#liaudit=([^&]+)/); if(!m || !SYNC.ready || !PEOPLE[PERSON]) return; const id = decodeURIComponent(m[1]); history.replaceState(null, '', location.pathname + location.search); if(client(id)) liOpen(id); }
+window.addEventListener('hashchange', liHashOpen);
+document.addEventListener('click', e=>{ const a = e.target.closest?.('a[href*="#liaudit="]'); if(!a) return; e.preventDefault(); const id = decodeURIComponent(a.getAttribute('href').split('#liaudit=')[1]||''); if(client(id)) liOpen(id); }, true);
+{ const _sp2 = setPerson; setPerson = function(p){ _sp2.apply(this, arguments); setTimeout(liHashOpen, 1600); }; }
+{ const _ore = onRemoteEvent; onRemoteEvent = function(ev){ _ore(ev); if(['liitems','liaudit','liengage'].includes(ev?.coll)){ clearTimeout(LI.t); LI.t = setTimeout(()=>{ if(LI.view && el('liModal')) liOpen(LI.view); if(CURRENT==='pa'||CURRENT==='dashboard'){ document.querySelector('.li-mon')?.remove(); RENDER[CURRENT]?.(); } }, 400); } }; }
+
+/* Jose answers about it, and it's in his action list */
+if(typeof cooAnswer==='function'){ const _ca = cooAnswer; cooAnswer = function(q){ if(/linked ?in|engagement audit|reply to (the )?comments?|comment(ed)? on (the )?(client'?s )?posts?/i.test(q||'')){
+      const L = liClients().map(c=>({c, s:liClientSummary(c)})); if(!L.length) return 'There are no active lead generation clients to audit.';
+      return `LinkedIn engagement audit (24-hour grace period):\n` + L.map(({c, s})=>`• ${c.name} — ⚠ ${s.overdue} overdue · ? ${s.unver} unable to verify · ⏳ ${s.grace} within 24 h · ✓ ${s.done} done · VA ${liVAs(c).map(first).join(', ')||'—'} · PM ${liPMs(c).map(first).join(', ')||'—'}${s.a?` · audited ${liAgo(s.a.ranAt)}`:''}`).join('\n') + `\nOpen any client from “LinkedIn engagement audit” on this page for the posts, links and screenshots.`; }
+    return _ca.apply(this, arguments); }; }
+if(typeof cooItems==='function'){ const _ci = cooItems; cooItems = function(){ const I = _ci.apply(this, arguments);
+    liClients().forEach(c=>{ const s = liClientSummary(c); if(!s.overdue) return; I.push({sec:'setup', key:'li:'+c.id, title:`${c.name} — ${s.overdue} LinkedIn engagement action${s.overdue>1?'s':''} overdue`, sub:`VA ${liVAs(c).map(first).join(', ')||'—'} · PM ${liPMs(c).map(first).join(', ')||'—'}`, who:liPMs(c), direct:liVAs(c), vas:liVAs(c), open:`liOpen('${c.id}')`}); });
+    return I; }; }
 </script>
 </body>
 </html>

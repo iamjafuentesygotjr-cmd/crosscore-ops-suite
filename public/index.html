@@ -2717,6 +2717,10 @@ body.glass-lite .sidebar,body.glass-lite .topbar{background:linear-gradient(180d
 .li-act{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;max-width:260px}
 .li-act .btn{padding:5px 10px;font-size:12px}
 .li-shot{font-size:20px;text-decoration:none}
+.li-prof-row{display:flex;gap:12px;padding:10px 0;border-top:1px solid var(--line,#eee);align-items:flex-start}
+.li-prof-n{min-width:170px;max-width:200px}.li-prof-f{flex:1;display:flex;flex-direction:column;gap:6px;min-width:0}
+.li-prof-va{display:flex;gap:8px;align-items:center}.li-prof-va span{min-width:70px;font-size:12.5px;color:var(--ink-2,#555)}
+@media (max-width:640px){.li-prof-row{flex-direction:column}.li-prof-n{max-width:none}}
 @media (max-width:640px){.li-item{flex-wrap:wrap}.li-act{max-width:none;justify-content:flex-start}}
 </style>
 </head>
@@ -20573,7 +20577,7 @@ async function cooPostFromModal(){ const ch = CHATS.find(c=>c.id===el('paPostC')
    The footer shows which build is running ("Build 2026-10-07 · 1"), and every open portal checks every few minutes
    (and whenever it comes back to the foreground) whether a newer build has been published. If so it shows
    "New version available — Update now" instead of quietly running old code. */
-const BUILD_ID = '2026-10-08 · 3';
+const BUILD_ID = '2026-10-08 · 4';
 function verStamp(){ const f = el('footNote'); if(f && !f.dataset.v){ f.dataset.v = 1; f.textContent = `Cross Core Ops Suite v8 · Build ${BUILD_ID}`; } }
 async function verCheck(){
   if(!/^https?:/.test(location.protocol)) return;
@@ -21778,6 +21782,9 @@ const LI_GRACE = 24*3600e3;
 const LI = {src:null, srcAt:0, busy:new Set(), view:null};
 const liHash = s => { let h = 5381; for(const ch of String(s)) h = ((h<<5) + h + ch.charCodeAt(0)) >>> 0; return h.toString(36); };
 const liNorm = u => String(u||'').toLowerCase().replace(/^https?:\/\/(www\.|[a-z]{2}\.)?/,'').replace(/[?#].*$/,'').replace(/\/+$/,'');
+/* a comment's identity: LinkedIn's comment id (from the data source or the commentUrn in its link) — the post part of a
+   comment link is the same for every comment on that post */
+const liCKey = (url, id) => { if(id && /^\d{6,}$/.test(String(id))) return 'c:'+id; const u = decodeURIComponent(String(url||'')); const m = u.match(/(?:replyUrn|commentUrn)=urn:li:comment:\([^,]+,(\d+)\)/) || u.match(/(?:replyUrn|commentUrn)=([^&]+)/); return m ? 'c:'+m[1] : ''; };
 const liAgo = iso => { const m = Math.round((Date.now() - new Date(iso).getTime())/60e3); return m < 60 ? `${Math.max(m,1)}m ago` : m < 48*60 ? `${Math.round(m/60)}h ago` : `${Math.round(m/1440)}d ago`; };
 const liWhen = iso => iso ? `${mtDate(iso)} · ${mtTime(iso)}` : '—';
 
@@ -21800,30 +21807,44 @@ function liWho(c){ const cfg = liCfg(c.id);
   const client = {names:uniq([c.name, c.contact].filter(x=>x && x!=='—').map(x=>String(x).toLowerCase().split(/[(·]/)[0].trim())), urls:liProfiles(c).map(liNorm)};
   const vas = liVAs(c).map(k=>({k, names:[pname(k).toLowerCase()], urls:[cfg?.vaProfiles?.[k]].filter(Boolean).map(liNorm)}));
   return {client, vas}; }
-const liMatch = (x, id) => !!x && ((x.url && id.urls.includes(liNorm(x.url))) || (x.name && id.names.includes(String(x.name).toLowerCase().trim())));
+const liMatch = (x, id) => !!x && ([x.authorUrl].some(u=>u && (id.urls.includes(liNorm(u)) || (liSlug(u) && id.urls.map(v=>liSlug('https://'+v)).includes(liSlug(u))))) || [x.author, x.name].some(n=>n && id.names.includes(String(n).toLowerCase().trim())));
 
 /* ---------- the LinkedIn data source (optional) ---------- */
 async function liSource(force){ if(BACKEND?.mode!=='live') return {configured:false};
   if(!force && LI.src && Date.now() - LI.srcAt < 10*60e3) return LI.src;
   try{ LI.src = await aiInvoke({action:'li_status'}); }catch(e){ LI.src = {configured:false, error:e.message}; } LI.srcAt = Date.now(); return LI.src; }
 
+/* ---------- one daily read of every lead generation client's LinkedIn (all clients together) ---------- */
+async function liFetchAll(force){
+  if(LI.data && !force){ const age = Date.now() - LI.data.got; if(LI.data.pending ? age < 90e3 : age < 30*60e3) return LI.data; }
+  const profiles = uniq(liClients().flatMap(liProfiles)); const posts = uniq(LIITEMS.filter(i=>i.kind==='post' && i.url && !i.removed && i.source!=='connector').map(i=>i.url));   /* posts added by hand; the rest are found from the profiles */
+  let d; try{ d = await aiInvoke({action:'li_activity', profiles, posts, since:new Date(Date.now()-14*864e5).toISOString(), force:!!force && !!LI.data?.error}); }catch(e){ d = {ok:false, error:e.message}; }
+  LI.data = {got:Date.now(), pending:!!d?.pending, stage:d?.stage||'', error:d?.ok===false ? (d.error||'no answer') : '', configured:d?.configured, posts:d?.posts||[], checkedAt:d?.checkedAt||nowISO()};
+  if(LI.data.pending){ clearTimeout(LI.retryT); LI.retryT = setTimeout(()=>{ LI.data = null; liTick(); if(LI.view && el('liModal')) liOpen(LI.view); }, 100e3); }
+  return LI.data; }
+const liSlug = u => { const m = String(u||'').match(/linkedin\.com\/(in|company)\/([^/?#]+)/i); return m ? (m[1]+'/'+decodeURIComponent(m[2])).toLowerCase() : ''; };
+function liPostIsClient(p, c, profiles, tracked){ const mine = profiles.map(liSlug).filter(Boolean);
+  if(tracked.some(u=>liNorm(u)===liNorm(p.url))) return true;
+  if([p.authorUrl, p.target].some(u=>u && mine.includes(liSlug(u)))) return true;
+  if(p.authorId && mine.some(m=>m.endsWith('/'+String(p.authorId).toLowerCase()))) return true;
+  return false; }
 /* ---------- bring posts / comments in from the data source ---------- */
 function liUpsert(it){ let x = LIITEMS.find(i=>i.id===it.id); if(!x){ LIITEMS.push(it); return it; }
   Object.entries(it).forEach(([k,v])=>{ if(v!==undefined && v!=='' && !(k==='done' && x.done)) x[k] = v; }); return x; }
 function liIngest(c, d){ const W = liWho(c); const now = nowISO(); const seen = [];
   (d.posts||[]).forEach(p=>{ const purl = p.url || p.id; if(!purl) return;
-    const pid = 'LIP-'+liHash(liNorm(purl));
+    const pid = 'LIP-'+liHash(c.id+'|'+liNorm(purl));
     const vaC = (p.comments||[]).find(cm=>W.vas.some(v=>liMatch(cm, v)));
-    const post = liUpsert({id:pid, client:c.id, kind:'post', url:p.url||'', author:p.name||c.name, authorUrl:p.url?'':'', text:p.text||'', publishedAt:p.at||'', byClient:true, ref:false, source:'connector', shot:p.screenshot?{name:'LinkedIn screenshot', url:p.screenshot}:undefined,
+    const post = liUpsert({id:pid, client:c.id, kind:'post', url:p.url||'', author:p.author||p.name||c.name, authorUrl:p.authorUrl||'', text:p.text||'', publishedAt:p.publishedAt||p.at||'', byClient:true, ref:false, source:'connector', shot:p.screenshot?{name:'LinkedIn screenshot', url:p.screenshot}:undefined,
       lastCheck:{at:d.checkedAt||now, how:'connector', state:vaC?'done':'missing'}});
-    if(vaC && !post.done) post.done = {how:'connector', at:vaC.at||now, url:vaC.url||'', by:W.vas.find(v=>liMatch(vaC, v))?.k||'', note:'Comment found on LinkedIn'};
+    if(vaC && !post.done) post.done = {how:'connector', at:vaC.publishedAt||vaC.at||now, url:vaC.url||'', by:W.vas.find(v=>liMatch(vaC, v))?.k||'', note:'Comment found on LinkedIn'};
     seen.push(pid);
-    (p.comments||[]).forEach(cm=>{ if(liMatch(cm, W.client) || W.vas.some(v=>liMatch(cm, v))) return;   /* the client's / VA's own comments are actions, not items */
-      const cid = 'LIC-'+liHash(liNorm(cm.url||cm.id||(purl+'|'+cm.name+'|'+cm.at)));
-      const rep = (cm.replies||[]).find(r=>liMatch(r, W.client) || W.vas.some(v=>liMatch(r, v)));
-      const it = liUpsert({id:cid, client:c.id, kind:'comment', url:cm.url||'', postUrl:p.url||'', post:pid, author:cm.name||'Someone', authorUrl:cm.url?'':'', text:cm.text||'', publishedAt:cm.at||'', source:'connector',
+    (p.comments||[]).forEach(cm=>{ if(cm.isAuthor || liMatch(cm, W.client) || W.vas.some(v=>liMatch(cm, v))) return;   /* the client's / VA's own comments are actions, not items */
+      const cid = 'LIC-'+liHash(c.id+'|'+(liCKey(cm.url, cm.id) || (liNorm(purl)+'|'+String(cm.author||cm.name).toLowerCase()+'|'+(cm.publishedAt||cm.at))));
+      const rep = (cm.replies||[]).find(r=>r.isAuthor || liMatch(r, W.client) || W.vas.some(v=>liMatch(r, v)));
+      const it = liUpsert({id:cid, client:c.id, kind:'comment', url:cm.url||'', postUrl:p.url||'', post:pid, author:cm.author||cm.name||'Someone', authorUrl:cm.authorUrl||'', text:cm.text||'', publishedAt:cm.publishedAt||cm.at||'', source:'connector',
         shot:cm.screenshot?{name:'LinkedIn screenshot', url:cm.screenshot}:undefined, lastCheck:{at:d.checkedAt||now, how:'connector', state:rep?'done':'missing'}});
-      if(rep && !it.done) it.done = {how:'connector', at:rep.at||now, url:rep.url||'', by:liMatch(rep, W.client)?'client':(W.vas.find(v=>liMatch(rep, v))?.k||''), note:'Reply found on LinkedIn'};
+      if(rep && !it.done) it.done = {how:'connector', at:rep.publishedAt||rep.at||now, url:rep.url||'', by:(rep.isAuthor||liMatch(rep, W.client))?'client':(W.vas.find(v=>liMatch(rep, v))?.k||''), note:'Reply found on LinkedIn'};
       seen.push(cid); }); });
   return seen; }
 
@@ -21864,12 +21885,13 @@ async function liAuditClient(c, {manual=false, day:dayOpt=null}={}){
   try{
     const day = dayOpt || manilaDate(); const run = {seen:[], srcError:null, source:'manual'};
     const src = await liSource(manual); const profiles = liProfiles(c);
-    const trackedPosts = LIITEMS.filter(i=>i.client===c.id && i.kind==='post' && i.url && !i.removed).map(i=>i.url);
+    const trackedPosts = LIITEMS.filter(i=>i.client===c.id && i.kind==='post' && i.url && !i.removed && i.source!=='connector').map(i=>i.url);
     if(src.configured && (profiles.length || trackedPosts.length)){
       run.source = 'connector';
-      try{ const d = await aiInvoke({action:'li_activity', profiles, posts:trackedPosts, since:new Date(Date.now()-14*864e5).toISOString(), client:c.id});
-        if(d?.ok===false) run.srcError = d.error || 'no answer'; else if(d?.configured===false) run.source = 'manual'; else run.seen = liIngest(c, d); }
-      catch(e){ run.srcError = e.message; } }
+      const d = await liFetchAll(manual);
+      if(d.pending){ if(manual) toast(`LinkedIn data is being collected (${d.stage||'working'}) — the audit finishes by itself in a few minutes`); return null; }
+      if(d.error) run.srcError = d.error; else if(d.configured===false) run.source = 'manual';
+      else run.seen = liIngest(c, {posts:(d.posts||[]).filter(p=>liPostIsClient(p, c, profiles, trackedPosts)), checkedAt:d.checkedAt}); }
     else if(src.configured && !profiles.length) run.srcError = 'no LinkedIn profile link set for this client';
     const items = LIITEMS.filter(i=>i.client===c.id && !i.removed);
     const R = items.map(it=>({it, s:liState(it, c, run)})).filter(x=>x.s.st!=='n/a');
@@ -21936,9 +21958,9 @@ function liAdd(cid){ const c = client(cid); LI_SHOT = null; const posts = LIITEM
     <button class="btn primary" style="width:100%" onclick="liAddSave('${cid}')">Add to the audit</button>`); }
 function liAddSave(cid){ const c = client(cid); const k = el('liK').value, pu = el('liPU').value.trim(), cu = (el('liCU')?.value||'').trim(), a = (el('liA')?.value||'').trim(), t = el('liT').value.trim();
   if(!/linkedin\.com\//i.test(pu)) return toast('Paste the LinkedIn link of the post'); if(k==='comment' && !a) return toast('Who left the comment?');
-  const at = el('liAt').value ? new Date(el('liAt').value+':00+08:00').toISOString() : nowISO(); const pid = 'LIP-'+liHash(liNorm(pu));
+  const at = el('liAt').value ? new Date(el('liAt').value+':00+08:00').toISOString() : nowISO(); const pid = 'LIP-'+liHash(cid+'|'+liNorm(pu));
   if(!LIITEMS.some(i=>i.id===pid)) LIITEMS.push({id:pid, client:cid, kind:'post', url:pu, author:c.name, text:k==='post'?t:'', publishedAt:k==='post'?at:'', source:'manual', addedBy:PERSON, addedAt:nowISO(), ref:k!=='post'});   /* a post added only as the parent of a comment is a reference, not a task */
-  const id = k==='post' ? pid : 'LIC-'+liHash(liNorm(cu || (pu+'|'+a.toLowerCase()+'|'+t.slice(0,40).toLowerCase())));
+  const id = k==='post' ? pid : 'LIC-'+liHash(cid+'|'+(liCKey(cu) || (liNorm(pu)+'|'+a.toLowerCase()+'|'+t.slice(0,40).toLowerCase())));
   const base = {client:cid, source:'manual', addedBy:PERSON, addedAt:nowISO(), ...(LI_SHOT?{shot:LI_SHOT}:{}), ...(el('liChk').checked?{lastCheck:{at:nowISO(), how:'person', by:PERSON, state:'missing'}}:{})};
   if(k==='post') Object.assign(LIITEMS.find(i=>i.id===pid), base, {text:t, publishedAt:at, ref:false});
   else { const ex = LIITEMS.find(i=>i.id===id); const it = {id, kind:'comment', url:cu, postUrl:pu, post:pid, author:a, text:t, publishedAt:at, ...base}; if(ex) Object.assign(ex, it); else LIITEMS.push(it); }
@@ -21953,16 +21975,42 @@ async function liSettings(cid){ const c = client(cid); const cfg = liCfg(cid) ||
     <div class="field"><label>VA LinkedIn profiles (so comments / replies can be matched)</label>${team.map(k=>`<div style="display:flex;gap:8px;align-items:center;margin-bottom:6px"><span style="min-width:140px">${esc(first(k))}</span><input data-vp="${k}" value="${esc(cfg.vaProfiles?.[k]||'')}" placeholder="https://www.linkedin.com/in/…"></div>`).join('')}</div>
     <div class="field"><label>Required by the SOP</label><label class="switch-row"><input type="checkbox" id="liRc" ${R.comment?'checked':''} style="width:auto"> Comment on every post of ${esc(c.name)}</label><label class="switch-row"><input type="checkbox" id="liRr" ${R.reply?'checked':''} style="width:auto"> Reply to the comments people leave on ${esc(c.name)}’s posts</label></div>
     <button class="btn primary" style="width:100%;margin-bottom:14px" onclick="liSettingsSave('${cid}')">Save</button>
-    <div class="card" style="padding:12px"><b>LinkedIn data source</b> <span class="badge ${src.configured?'b-approved':'b-draft'}">${src.configured?'Connected':'Not connected'}</span>
-      <p class="hint" style="margin:6px 0">Without it, the audit uses the checks your team records and the VAs’ links; anything it can’t check is marked “Unable to verify”, never “missed”. The data source is an automation (e.g. n8n, Make or Apify) your company is allowed to use to read the client’s public posts — the portal never signs in to LinkedIn.</p>
-      ${isHead(PERSON)||isFullAccess()?`<div class="grid cols-2"><div class="field"><label>Address (https://…)</label><input id="liSrcU" placeholder="https://your-automation.example/linkedin"></div><div class="field"><label>Access token (optional)</label><input id="liSrcT" type="password" placeholder="kept on the server"></div></div><button class="btn" onclick="liSrcSave()">Save data source</button>`:'<span class="hint">A company head connects it.</span>'}</div>`); }
+    ${liSourceCardHTML(src)}`); }
 function liSettingsSave(cid){ const c = client(cid); let cfg = liCfg(cid); if(!cfg){ cfg = {id:cid, client:cid}; LIENG.push(cfg); }
   cfg.profiles = el('liP').value.split(/\s+/).map(s=>s.trim()).filter(u=>/linkedin\.com\//i.test(u));
   cfg.vas = [...document.querySelectorAll('#liV input:checked')].map(x=>x.value);
   cfg.vaProfiles = Object.fromEntries([...document.querySelectorAll('[data-vp]')].map(x=>[x.dataset.vp, x.value.trim()]).filter(([,v])=>v));
   cfg.rules = {comment:el('liRc').checked, reply:el('liRr').checked}; cfg.updatedBy = PERSON; cfg.updatedAt = nowISO();
   recordChange(); closeModal(); toast('Saved'); liOpen(cid); }
-async function liSrcSave(){ try{ const d = await aiInvoke({action:'li_config', url:el('liSrcU').value.trim(), token:el('liSrcT').value}); LI.src = null; toast(d.configured?'LinkedIn data source connected':'Data source removed'); }catch(e){ toast(e.message); } }
+async function liSrcSave(){ const prov = document.querySelector('input[name=liProv]:checked')?.value || 'apify';
+  try{ const d = await aiInvoke(prov==='apify' ? {action:'li_config', provider:'apify', token:el('liApT').value.trim()} : {action:'li_config', provider:'webhook', url:el('liSrcU').value.trim(), token:el('liSrcT').value});
+    LI.src = null; LI.data = null; toast(d.configured ? (prov==='apify' ? 'Apify connected — the daily LinkedIn check is on' : 'LinkedIn data source connected') : 'Data source removed');
+    const b = document.querySelector('.li-src'); if(b) b.outerHTML = liSourceCardHTML(await liSource(true)); }catch(e){ toast(e.message); } }
+function liSourceCardHTML(src){ const head = isHead(PERSON)||isFullAccess(); const prov = src.provider || 'apify';
+  return `<div class="card li-src" style="padding:12px"><b>LinkedIn data source</b> <span class="badge ${src.configured?'b-approved':'b-draft'}">${src.configured?`Connected · ${prov==='apify'?'Apify':'webhook'}`:'Not connected'}</span>
+    <p class="hint" style="margin:6px 0">Every morning the portal reads all lead generation clients’ recent posts and their comments / replies in one run (Apify: HarvestAPI “LinkedIn Profile Posts” + “LinkedIn Post Comments”, no LinkedIn login). Without a data source, the audit uses the checks your team records and the VAs’ links; anything it can’t check is “Unable to verify”, never “missed”.</p>
+    ${head?`<div style="display:flex;gap:14px;margin:6px 0 8px"><label class="switch-row"><input type="radio" name="liProv" value="apify" ${prov!=='webhook'?'checked':''} style="width:auto" onchange="document.querySelectorAll('.li-prov').forEach(x=>x.hidden=x.dataset.p!=='apify')"> Apify</label><label class="switch-row"><input type="radio" name="liProv" value="webhook" ${prov==='webhook'?'checked':''} style="width:auto" onchange="document.querySelectorAll('.li-prov').forEach(x=>x.hidden=x.dataset.p!=='webhook')"> Other automation (webhook)</label></div>
+      <div class="li-prov" data-p="apify" ${prov==='webhook'?'hidden':''}><div class="field"><label>Apify API token</label><input id="liApT" type="password" autocomplete="off" placeholder="${src.configured&&prov==='apify'?'saved — paste a new one to replace it':'apify_api_…'}"></div><p class="hint" style="margin:-4px 0 8px">Apify → Settings → API & Integrations → copy “Personal API token”. It is checked with Apify and kept on the server only (never shown again, never sent to other portals).</p></div>
+      <div class="li-prov" data-p="webhook" ${prov!=='webhook'?'hidden':''}><div class="grid cols-2"><div class="field"><label>Address (https://…)</label><input id="liSrcU" placeholder="https://your-automation.example/linkedin"></div><div class="field"><label>Access token (optional)</label><input id="liSrcT" type="password" placeholder="kept on the server"></div></div></div>
+      <button class="btn" onclick="liSrcSave()">Save data source</button>`:'<span class="hint">A company head connects it.</span>'}</div>`; }
+/* ---------- all lead generation clients' LinkedIn profiles on one screen ---------- */
+function liProfilesModal(){ const L = liClients();
+  const vaUrl = k => { for(const x of LIENG){ if(x.vaProfiles?.[k]) return x.vaProfiles[k]; } return ''; };
+  openModal('LinkedIn profiles — lead generation clients', `<p class="hint" style="margin-bottom:10px">Paste each client’s LinkedIn profile (or company page) link once. Add a VA’s own profile only if they reply from their own account — replies from the client’s account are recognised automatically. Jose checks these every morning.</p>
+    <div class="li-prof">${L.map(c=>`<div class="li-prof-row"><div class="li-prof-n"><b>${esc(c.name)}</b><div class="hint">PM ${esc(liPMs(c).map(first).join(', ')||'—')}</div></div>
+      <div class="li-prof-f"><input data-cp="${c.id}" value="${esc(liProfiles(c).join(' '))}" placeholder="https://www.linkedin.com/in/…">
+      ${liVAs(c).map(k=>`<div class="li-prof-va"><span>${esc(first(k))}</span><input data-vk="${k}" data-vc="${c.id}" value="${esc(liCfg(c.id)?.vaProfiles?.[k]||vaUrl(k))}" placeholder="VA’s own profile (optional)"></div>`).join('')}</div></div>`).join('')||'<div class="hint">No active lead generation clients.</div>'}</div>
+    <button class="btn primary" style="width:100%;margin-top:12px" onclick="liProfilesSave()">Save all</button>`, true); }
+function liProfilesSave(){ let bad = 0; const vaAll = {};
+  document.querySelectorAll('[data-vk]').forEach(x=>{ const v = x.value.trim(); if(v && /linkedin\.com\/in\//i.test(v)) vaAll[x.dataset.vk] = vaAll[x.dataset.vk] || v; });
+  liClients().forEach(c=>{ const inp = document.querySelector(`[data-cp="${c.id}"]`); if(!inp) return;
+    const urls = inp.value.split(/[\s,]+/).map(u=>u.trim()).filter(Boolean); const ok = urls.filter(u=>/linkedin\.com\/(in|company)\//i.test(u)); bad += urls.length - ok.length;
+    let cfg = liCfg(c.id); if(!cfg){ cfg = {id:c.id, client:c.id}; LIENG.push(cfg); }
+    cfg.profiles = ok; cfg.vaProfiles = {...(cfg.vaProfiles||{})};
+    document.querySelectorAll(`[data-vc="${c.id}"]`).forEach(x=>{ const v = x.value.trim() || vaAll[x.dataset.vk] || ''; if(v) cfg.vaProfiles[x.dataset.vk] = v; else delete cfg.vaProfiles[x.dataset.vk]; });
+    cfg.updatedBy = PERSON; cfg.updatedAt = nowISO(); });
+  LI.data = null; recordChange(); closeModal(); toast(bad ? `Saved — ${bad} link${bad>1?'s were':' was'} skipped (use linkedin.com/in/… or /company/… profile links)` : 'Saved — every client is checked each morning');
+  if(CURRENT==='pa'||CURRENT==='dashboard'){ document.querySelector('.li-mon')?.remove(); RENDER[CURRENT]?.(); } }
 
 /* ---------- views ---------- */
 function liClientSummary(c){ const a = LIAUDIT.filter(x=>x.client===c.id).sort((x,y)=>y.day.localeCompare(x.day))[0];
@@ -21974,7 +22022,7 @@ function liPanelHTML(){ const L = liClients(); if(!L.length) return '';
       <div class="hint">VA ${esc(liVAs(c).map(first).join(', ')||'—')} · PM ${esc(liPMs(c).map(first).join(', ')||'—')} · ${s.a?`audited ${esc(liAgo(s.a.ranAt))} (${s.a.source==='connector'?(s.a.srcError?'LinkedIn data source unavailable':'checked on LinkedIn'):'team checks + VA links'})`:'not audited yet today'}</div>
       <div class="hint">✓ ${s.done} done · ⏳ ${s.grace} within 24 h · ⚠ ${s.overdue} overdue · ? ${s.unver} unable to verify${s.a?.postedId?' · reminder posted in the GC':''}</div></div>
       <button class="btn" onclick="liOpen('${c.id}')">Open</button></div>`; }).join('');
-  return `<div class="card li-mon"><div class="card-h"><h3>🔎 LinkedIn engagement audit — lead generation clients</h3><span class="hint">daily · 24-hour grace period</span></div><div class="card-b">${rows}</div></div>`; }
+  return `<div class="card li-mon"><div class="card-h"><h3>🔎 LinkedIn engagement audit — lead generation clients</h3><span style="display:flex;gap:8px;align-items:center"><span class="hint">daily · 24-hour grace period</span>${liClients().some(liCan)?'<button class="btn" onclick="liProfilesModal()">LinkedIn profiles</button>':''}${isHead(PERSON)||isFullAccess()?`<button class="btn ghost" onclick="liSourceModal()">Data source</button>`:''}</span></div><div class="card-b">${rows}</div></div>`; }
 function liOpen(cid){ const c = client(cid); if(!c) return; LI.view = cid; const s = liClientSummary(c); const can = liCan(c), va = liIsVA(c);
   const order = {overdue:0, unverifiable:1, grace:2, done:3};
   const rows = s.R.sort((x,y)=>(order[x.s.st]-order[y.s.st]) || String(y.it.publishedAt).localeCompare(String(x.it.publishedAt))).map(({it, s:st})=>{ const [lab, cls] = LI_ST[st.st]; const ev = it.shot || it.card;
@@ -22016,6 +22064,8 @@ if(typeof cooAnswer==='function'){ const _ca = cooAnswer; cooAnswer = function(q
 if(typeof cooItems==='function'){ const _ci = cooItems; cooItems = function(){ const I = _ci.apply(this, arguments);
     liClients().forEach(c=>{ const s = liClientSummary(c); if(!s.overdue) return; I.push({sec:'setup', key:'li:'+c.id, title:`${c.name} — ${s.overdue} LinkedIn engagement action${s.overdue>1?'s':''} overdue`, sub:`VA ${liVAs(c).map(first).join(', ')||'—'} · PM ${liPMs(c).map(first).join(', ')||'—'}`, who:liPMs(c), direct:liVAs(c), vas:liVAs(c), open:`liOpen('${c.id}')`}); });
     return I; }; }
+
+async function liSourceModal(){ openModal('LinkedIn data source', liSourceCardHTML(await liSource(true))); }
 </script>
 </body>
 </html>

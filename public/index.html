@@ -20075,23 +20075,54 @@ function setupTracked(c){ if(!c || isEnded(c) || c.status==='Archived' || (typeo
   if(c.setup?.status==='complete') return false; return !!c.setup || String(c.createdAt||'').slice(0,10) > SETUP_SINCE; }
 const asList = v => Array.isArray(v) ? v : (v && typeof v==='object') ? Object.values(v) : [];
 const pmsLive = c => (pmsOf(c.id)||[]).filter(k=>PEOPLE[k]);
+/* What a client needs depends on the services it bought:
+   • lead generation (incl. ICP research / community engagement) without content or design work → no logo, colours, fonts
+     or brand kit; instead: details + lead-gen tasks, VA + PM, approved SOP, tone of voice, and the SOP / tone of voice
+     announced in the client's group chat;
+   • content planning, graphics, video, social media, website or ads (alone or combined) → the brand kit stays required. */
+const SVC_BRAND = /content|graphic|design|video|social media|website|paid ad/i;
+function setupKind(c){ const svc = asList(c?.services).map(String).filter(Boolean);
+  const brand = !svc.length || svc.some(x=>SVC_BRAND.test(x));
+  const lg = svc.some(x=>/lead/i.test(x)) || (typeof lgIsLeadGen==='function' && lgIsLeadGen(c));
+  return {brand, lg, lgOnly: lg && !brand}; }
+function setupToneOk(c){ const tbd = v => !v || /^to be defined/i.test(String(v).trim()) || String(v).trim()==='—';
+  if(!tbd(c.tone) || asList(c.toneList).filter(x=>!tbd(x)).length) return true;
+  const v = typeof vcRec==='function' ? vcRec(c.id) : VOICES?.find?.(x=>x.id===c.id);
+  return !!v && (asList(v.tone).filter(x=>!tbd(x)).length > 0 || String(v.sop||'').trim().length > 20 || asList(v.instructions).length > 0); }
+function setupAnnounced(c, sop){ if(sop?.status==='Published' || c.sop?.version) return true;
+  return MESSAGES.some(m=>m.chat===c.chatId && !['onboarding','opspoll'].includes(m.kind) && (m.kind==='sop' || m.kind==='setup' || (/\bSOP\b/.test(m.text||'') && /tone|voice/i.test(m.text||'')))); }
+function setupLgTasksOk(c){ const cfg = LEADCFG.find(x=>x.id===c.id);
+  return !!(cfg && (cfg.goal?.daily || asList(cfg.vas).length || asList(cfg.lists).length || cfg.portal || cfg.auto || asList(cfg.searches).length))
+    || LEADJOBS.some(j=>j.client===c.id) || LEADS.some(l=>l.client===c.id && !l.archived); }
 function setupItems(c){
   const sop = typeof sopFor==='function' ? sopFor(c.id) : null; const reg = BRIEFS.find(b=>b.clientId===c.id || b.id===c.regId);
   const tbd = v => !v || /^to be defined/i.test(String(v).trim()) || String(v).trim()==='—';
-  const pm = pmsLive(c).length ? 'pm' : 'hr';
+  const pm = pmsLive(c).length ? 'pm' : 'hr'; const K = setupKind(c);
+  const details = {k:'details', label:'Client details — industry, contact and package / deliverables', ok:!tbd(c.industry) && !tbd(c.contact) && (!tbd(c.package) || !tbd(c.deliverables) || asList(c.services).length), owner:'hr', go:'edit'};
+  const lgtasks = {k:'lgtasks', label:'Lead generation tasks configured (targets, lists, VA assignments)', ok:setupLgTasksOk(c), owner:pm, go:'leads'};
+  const pmI = {k:'pm', label:'Project manager assigned', ok:pmsLive(c).length>0, owner:'hr', go:'edit'};
+  const lgVa = (typeof lgVAs==='function' ? lgVAs(c.id) : []).filter(k=>PEOPLE[k] && !HEADS.includes(k));
+  if(K.lgOnly){
+    const sopOk = ['Approved','Published'].includes(sop?.status) || !!c.sop?.version;
+    const I = [details, lgtasks,
+      {k:'team', label:'Lead generation VA assigned', ok:asList(c.team).filter(k=>PEOPLE[k]).length>0 || lgVa.length>0, owner:'hr', go:'edit'}, pmI,
+      {k:'sop', label:'SOP prepared and approved', ok:sopOk, owner:'pm', go:'sop', note: sopOk ? '' : (sop ? `SOP is “${sop.status}” — approve it` : 'no SOP yet')},
+      {k:'tone', label:'Tone of voice configured', ok:setupToneOk(c), owner:'pm', go:'voice'},
+      {k:'announce', label:'SOP and tone of voice announced in the client group chat', ok:setupAnnounced(c, sop), owner:'pm', go:'sop', note: setupAnnounced(c, sop) ? '' : 'publish the SOP to the group chat'}];
+    return I.map(x=>({...x, who: x.owner==='pm' ? pmsLive(c) : HR_KEYS().filter(k=>PEOPLE[k])})); }
   const I = [
-    {k:'details', label:'Client details — industry, contact and package / deliverables', ok:!tbd(c.industry) && !tbd(c.contact) && (!tbd(c.package) || !tbd(c.deliverables) || (c.services||[]).length), owner:'hr', go:'edit'},
-    {k:'pm', label:'Project manager assigned', ok:pmsLive(c).length>0, owner:'hr', go:'edit'},
-    {k:'team', label:'VA team assigned with responsibilities', ok:(c.team||[]).filter(k=>PEOPLE[k]).length>0, owner:'hr', go:'edit'},
+    details, pmI,
+    {k:'team', label:'VA team assigned with responsibilities', ok:asList(c.team).filter(k=>PEOPLE[k]).length>0, owner:'hr', go:'edit'},
     {k:'chat', label:'Client group chat created', ok:!!(c.chatId && CHATS.find(x=>x.id===c.chatId)), owner:'hr', go:'edit'},
+    ...(K.lg ? [lgtasks] : []),
     (()=>{ /* SOP sections are saved as {overview:'…', …} (older drafts: a list) — read both */
       const secs = sop?.sections; const secTexts = Array.isArray(secs) ? secs.map(x=>x?.b||x?.body||x?.text||x) : (secs && typeof secs==='object') ? Object.values(secs) : [];
       const files = asList(sop?.files).length, written = secTexts.some(v=>String(v||'').trim().length>20);
       const inDocs = asList(c.docs).some(f=>/\bsop\b|standard operating/i.test(String(f?.name||f?.title||f)));
-      const has = files>0 || written || inDocs;
+      const has = files>0 || written || inDocs || ['Approved','Published'].includes(sop?.status);
       return {k:'sop', label:'SOP attached by the PM', ok:has, owner:'pm', go:'sop', note: has ? '' : 'no SOP attached yet'}; })(),
-    {k:'brand', label:'Brand kit — logo, colors, fonts and tone of voice', ok:!!c.logo && (c.colors||[]).length>0 && !tbd(c.fonts) && !tbd(c.tone), owner:pm, go:'overview',
-      note:[!c.logo&&'logo', !(c.colors||[]).length&&'colors', tbd(c.fonts)&&'fonts', tbd(c.tone)&&'tone'].filter(Boolean).join(', ')},
+    {k:'brand', label:'Brand kit — logo, colors, fonts and tone of voice', ok:!!c.logo && asList(c.colors).length>0 && !tbd(c.fonts) && setupToneOk(c), owner:pm, go:'overview',
+      note:[!c.logo&&'logo', !asList(c.colors).length&&'colors', tbd(c.fonts)&&'fonts', !setupToneOk(c)&&'tone'].filter(Boolean).join(', ')},
     {k:'onboard', label:'Onboarding hand-off completed (welcome sent, PM briefed)', ok:!reg || reg.status==='Onboarded', owner:'hr', go:'orgsetup'},
     {k:'finance', label:'Finance package recorded', ok:FINCLIENTS.some(f=>f.client===c.id && f.status!=='Draft') || !!c.package, owner:'hr', go:'finance'},
   ];
@@ -20103,7 +20134,7 @@ function setupState(c){ const I = setupItems(c); const miss = I.filter(x=>!x.ok)
 const setupOpen = () => CLIENTS.filter(setupTracked).map(setupState).filter(s=>s.miss.length || s.c.setup?.status!=='complete');
 const setupLink = cid => `${location.origin}${location.pathname}#setup=${encodeURIComponent(cid)}`;
 function setupGo(cid, item){ openClient(cid); setTimeout(()=>{ if(item==='edit' && typeof orgModal==='function') orgModal(cid);
-    else if(item==='sop'){ WS.tab='sop'; RENDER.clientws?.(); } else if(item==='finance') go('finance'); else if(item==='orgsetup') go('orgsetup');
+    else if(item==='sop'){ WS.tab='sop'; RENDER.clientws?.(); } else if(item==='leads'){ WS.tab='leadsw'; RENDER.clientws?.(); } else if(item==='voice'){ if(typeof vcProfileModal==='function') vcProfileModal(cid, 'profile'); else document.querySelector('.setup-card')?.scrollIntoView({block:'center'}); } else if(item==='finance') go('finance'); else if(item==='orgsetup') go('orgsetup');
     else document.querySelector('.setup-card')?.scrollIntoView({block:'center'}); }, 200); }
 /* "#setup=<id>" links (from the Operations chat) open the client's setup */
 function setupHash(){ const m = location.hash.match(/^#setup=([^&]+)/); if(!m || !SYNC.ready || !PEOPLE[PERSON]) return; const id = decodeURIComponent(m[1]);
@@ -20146,7 +20177,16 @@ function setupTick(){
   if(ch) recordChange();
 }
 setInterval(setupTick, 15*60e3);
-{ const _ore = onRemoteEvent; onRemoteEvent = function(ev){ _ore(ev); if(['clients','sops','briefs','finclients'].includes(ev?.coll) && CURRENT==='clientws'){ clearTimeout(window.__suT); window.__suT = setTimeout(()=>RENDER.clientws?.(), 400); } }; }
+/* everything that applies is done (checked from the saved records) → the setup is marked complete by itself and the
+   reminders stop; it stays open while anything required — e.g. a content client's logo — is missing */
+function setupAutoComplete(){ if(!SYNC.ready || !PEOPLE[PERSON]) return; let ch = false;
+  CLIENTS.filter(c=>setupTracked(c) && canSetup(c)).forEach(c=>{ const s = setupState(c); if(s.miss.length) return;
+    c.setup = {...(c.setup||{}), status:'complete', completedAt:nowISO(), by:PERSON, auto:true, items:s.items.map(x=>x.k)};
+    audit(`Setup of ${c.name} completed — all ${s.total} applicable requirements done${setupKind(c).lgOnly?' (lead generation client — no brand kit needed)':''}`); ch = true; });
+  if(ch){ recordChange(); if(CURRENT==='clientws') RENDER.clientws?.(); if(CURRENT==='dashboard') RENDER.dashboard?.(); } }
+setInterval(setupAutoComplete, 60e3);
+{ const _sp2 = setPerson; setPerson = function(p){ _sp2(p); setTimeout(setupAutoComplete, 12000); }; }
+{ const _ore = onRemoteEvent; onRemoteEvent = function(ev){ _ore(ev); if(['clients','sops','briefs','finclients','leadcfg','voices','messages'].includes(ev?.coll)){ clearTimeout(window.__suA); window.__suA = setTimeout(setupAutoComplete, 3000); } if(['clients','sops','briefs','finclients','leadcfg','voices'].includes(ev?.coll) && CURRENT==='clientws'){ clearTimeout(window.__suT); window.__suT = setTimeout(()=>RENDER.clientws?.(), 400); } }; }
 
 /* ---------- JA's portal: everything still unfinished ---------- */
 function setupMonitorHTML(){ const L = setupOpen().filter(s=>s.miss.length).sort((a,b)=>b.overdue-a.overdue || a.due-b.due);
@@ -20185,7 +20225,7 @@ if(typeof COO_SECS!=='undefined' && !COO_SECS.some(x=>x[0]==='setup')) COO_SECS.
    • A notification is sent only after its message was saved. If a message is refused, its notification is not sent and the
      sender sees "Not delivered" on that message instead of it vanishing. */
 
-const DELIVERY = {refused:new Set()};
+const DELIVERY = {refused:new Set(), refusedKeys:new Set()};   /* refusedKeys: any record (meetings, polls…) the server refused, as "collection|id" */
 const notifMsgId = r => r?.data?.link?.msg || r?.data?.msg || null;
 LiveBackend.write = async function(ups, dels){
   const me = PERSON; const refused = new Set();
@@ -20194,14 +20234,14 @@ LiveBackend.write = async function(ups, dels){
     || (r.collection==='messages' && /^asst:/.test(r.data?.by||'') && !amIn(r.data?.chat)));
   const merge = ups.filter(r=>!insertOnly.includes(r));
   const run = async (rows, opts) => { for(let i=0;i<rows.length;i+=200){ const {error} = await this.sb.from('cc_records').upsert(rows.slice(i,i+200), opts); if(error) throw error; } };
-  try{ await run(merge.filter(r=>r.collection==='chats'), {onConflict:'collection,id'}); await run(merge.filter(r=>r.collection!=='chats'), {onConflict:'collection,id'}); }
+  try{ await run(merge.filter(r=>r.collection==='chats'), {onConflict:'collection,id'}); await run(merge.filter(r=>r.collection!=='chats'), {onConflict:'collection,id'}); merge.forEach(r=>DELIVERY.refusedKeys.delete(r.collection+'|'+r.id)); }
   catch(e){
     if(!/row-level security|42501/i.test(e.message||'')) throw e;
-    for(const r of merge){ const {error} = await this.sb.from('cc_records').upsert([r], {onConflict:'collection,id'}); if(error){ console.warn('Not permitted:', r.collection, r.id, error.message); if(r.collection==='messages') refused.add(r.id); } }
+    for(const r of merge){ const {error} = await this.sb.from('cc_records').upsert([r], {onConflict:'collection,id'}); if(error){ console.warn('Not permitted:', r.collection, r.id, error.message); DELIVERY.refusedKeys.add(r.collection+'|'+r.id); if(r.collection==='messages') refused.add(r.id); } else DELIVERY.refusedKeys.delete(r.collection+'|'+r.id); }
   }
   /* messages first, then the notifications that point at them — skipping any whose message was refused */
   const ins = async rows => { for(const r of rows){ const {error} = await this.sb.from('cc_records').insert([r]);
-      if(error && !/duplicate|23505/i.test(error.message+error.code)){ if(/row-level security|42501/i.test(error.message||'')){ console.warn('Not permitted:', r.collection, r.id); if(r.collection==='messages') refused.add(r.id); continue; } throw error; } } };
+      if(error && !/duplicate|23505/i.test(error.message+error.code)){ if(/row-level security|42501/i.test(error.message||'')){ console.warn('Not permitted:', r.collection, r.id); DELIVERY.refusedKeys.add(r.collection+'|'+r.id); if(r.collection==='messages') refused.add(r.id); continue; } throw error; } } };
   const insMsgs = insertOnly.filter(r=>r.collection==='messages'), insRest = insertOnly.filter(r=>r.collection!=='messages');
   await ins(insMsgs);
   const okNotifs = insRest.filter(r=>!(r.collection==='notifs' && refused.has(notifMsgId(r))));
@@ -20524,7 +20564,7 @@ async function cooPostFromModal(){ const ch = CHATS.find(c=>c.id===el('paPostC')
    The footer shows which build is running ("Build 2026-10-07 · 1"), and every open portal checks every few minutes
    (and whenever it comes back to the foreground) whether a newer build has been published. If so it shows
    "New version available — Update now" instead of quietly running old code. */
-const BUILD_ID = '2026-10-08 · 1';
+const BUILD_ID = '2026-10-08 · 2';
 function verStamp(){ const f = el('footNote'); if(f && !f.dataset.v){ f.dataset.v = 1; f.textContent = `Cross Core Ops Suite v8 · Build ${BUILD_ID}`; } }
 async function verCheck(){
   if(!/^https?:/.test(location.protocol)) return;
@@ -20592,8 +20632,8 @@ function avTimes(s, day){ const hm = (h, mi=0) => new Date(`${day}T${String(h).p
   else L = [[21,0],[21,30],[22,0],[22,30]].map(([h,mi])=>hm(h,mi));
   const mins = +(s.match(/\bfor\s+(\d+)\s*(?:min|minutes)\b/)?.[1] || (s.match(/\bfor\s+(\d+)\s*(?:hr|hrs|hour|hours)\b/)?.[1]||1)*60);
   return {mins, opts:L.filter(d=>d.getTime() > Date.now() + 15*60e3).map(d=>({id:'o'+d.toISOString().replace(/\D/g,'').slice(0,12), start:d.toISOString(), end:new Date(d.getTime()+mins*60e3).toISOString(), busy:busyFor(cooKey(), d.toISOString(), new Date(d.getTime()+mins*60e3).toISOString())}))}; }
-function avTitle(t, ch){ return (t.match(/\*{0,2}\s*meeting title:?\s*\*{0,2}:?\s*([^*\n]+?)(?:\s*\*\*|\n|$)/i)?.[1] || t.match(/\b(?:called|titled|named)\s+["“]?(.+?)["”]?(?:\s+(?:at|on|for|tomorrow|today)\b|[.,]|$)/i)?.[1]
-  || (ch ? `${chatTitle(ch).replace(/\s+(team|gc|group chat)$/i,'')} Meeting` : 'Team Meeting')).trim(); }
+function avTitle(t, ch){ return avClean(t.match(/\*{0,2}\s*meeting title:?\s*\*{0,2}:?\s*([^*\n]+?)(?:\s*\*\*|\n|$)/i)?.[1] || t.match(/\b(?:called|titled|named)\s+["“]?(.+?)["”]?(?:\s+(?:at|on|for|tomorrow|today)\b|[.,]|$)/i)?.[1]
+  || (ch ? `${chatTitle(ch).replace(/\s+(team|gc|group chat)$/i,'')} Meeting` : 'Team Meeting')); }
 function avPurpose(t){ return (t.match(/\b(?:agenda|purpose):?\s*\*{0,2}\s*(.+?)(?:\n|$)/i)?.[1] || t.match(/\b(?:to discuss|about|regarding)\s+(.+?)(?:[.!]|$)/i)?.[1] || '').replace(/\b(tomorrow|today|tonight)\b.*$/i,'').trim(); }
 
 /* ---------- start the workflow ---------- */
@@ -20627,23 +20667,48 @@ async function avStart(text){
 }
 
 /* ---------- live tracking, booking and follow-ups ---------- */
+/* the meeting must be saved to everyone's calendar BEFORE anything says it's booked */
+const AV_WAIT = {};
+async function avSaved(keys, timeout=15000){ const t0 = Date.now();
+  for(;;){ try{ await SYNC.flush?.(); }catch(e){}
+    if(keys.some(k=>DELIVERY?.refusedKeys?.has(k))) return {ok:false, refused:true, why:'the server refused it'};
+    if(!keys.some(k=>SYNC.pending?.has?.(k)) && !SYNC.busy) return {ok:true};
+    if(BACKEND.mode==='live' && !navigator.onLine) return {ok:false, why:'offline'};
+    if(Date.now() - t0 > timeout) return {ok:false, why:'no confirmation from the server'};
+    await new Promise(r=>setTimeout(r, 150)); } }
+const avClean = t => String(t||'').replace(/^[\s"'“”‘’*]+|[\s"'“”‘’*]+$/g,'').replace(/\s{2,}/g,' ') || 'Team Meeting';
+/* only a portal that may write the meeting into every participant's calendar books it (organizer first; a participant's
+   portal after 90 s if the organizer's isn't open). A portal outside the meeting — e.g. another head's — used to "book"
+   it: the server refused the calendar entry, but the confirmation still went out. */
+function avMayBook(poll, aud){ const coo = poll.by || cooKey(); if(!aud.includes(PERSON)) return false; if(PERSON===coo) return true;
+  AV_WAIT[poll.id] = AV_WAIT[poll.id] || Date.now(); return Date.now() - AV_WAIT[poll.id] >= 90e3; }
 async function avBook(poll, o, why){
-  if(poll.status!=='collecting' || poll.booking) return; poll.booking = true;
+  if(poll.status!=='collecting' || poll.booking) return;
   const t = opsTally(poll); const coo = poll.by || cooKey(); const id = 'mt'+poll.id.replace(/[^A-Za-z0-9]/g,'').toLowerCase();
-  let m = MEETINGS.find(x=>x.id===id);
-  if(!m){ const link = await calLink(poll.title, o.start, poll.mins||60);
-    m = {id, title:poll.title, kind:'Meeting', start:o.start, end:o.end, organizer:coo, participants:poll.attendees.filter(k=>k!==coo), link:link.url, linkNote:link.url?'':link.why,
-      notes:[poll.purpose&&`Agenda: ${poll.purpose}`, 'Booked by the COO Assistant from the availability poll.'].filter(Boolean).join('\n'), chat:poll.chat, poll:poll.id, status:'scheduled', createdAt:nowISO(), createdBy:'asst:'+COO_ASST, history:[{at:nowISO(), by:'asst:'+COO_ASST, act:`Booked — ${why}`}]};
-    MEETINGS.push(m);
-    const yes = new Set(t.opt.find(x=>x.id===o.id)?.yes||[]);
-    m.participants.filter(k=>yes.has(k)).forEach(k=>{ if(!MTRSVP.some(r=>r.id===id+'|'+k)) MTRSVP.push({id:id+'|'+k, meeting:id, person:k, st:'accepted', at:nowISO(), note:'Chose this time in the poll'}); });
-    notifyAs('asst:'+COO_ASST, m.participants, 'meeting', `📅 <b>${esc(m.title)}</b> is booked for ${esc(mtDate(m.start))} · ${esc(mtTime(m.start))} — it’s in your calendar`, {view:'schedule', meeting:id}, 'N-'+id); }
-  poll.status = 'confirmed'; poll.slot = o; poll.meeting = id; poll.link = m.link; poll.confirmedAt = nowISO(); poll.booking = false;
-  const ch = CHATS.find(c=>c.id===poll.chat); const cant = poll.attendees.filter(k=>!(t.opt.find(x=>x.id===o.id)?.yes||[]).includes(k));
-  if(ch) cooSendTagged({kind:'chat', chat:ch, who:poll.attendees}, `✅ Confirmed: ${m.title}\nThe ${m.title} is confirmed for ${mtDate(m.start,{long:true})} at ${mtTime(m.start)} (PH time).\nThe calendar invite has been sent to all required participants.${m.link?`\nMeeting link: ${m.link}`:''}${poll.purpose?`\nAgenda: ${poll.purpose}`:''}\nSee you there!`, 'avok-'+poll.id);
-  if(cant.length) cooSendTagged({kind:'dm', who:cant}, `Hi! ${m.title} was booked for ${mtDate(m.start,{long:true})} at ${mtTime(m.start)} — the time most of the team could make. If you can’t join, please let JA know and decline the invite in your Calendar so we can catch you up.`, 'avcant-'+poll.id);
-  if(poll.by && poll.by!==PERSON) notifyAs('asst:'+COO_ASST, [poll.by], 'meeting', `✅ I booked <b>${esc(m.title)}</b> for ${esc(mtDate(m.start))} · ${esc(mtTime(m.start))} (${esc(why)})`, {view:'schedule', meeting:id}, 'N-book-'+id);
-  recordChange(); if(CURRENT==='chat') RENDER.chat();
+  const aud = uniq([coo, ...(poll.attendees||[])]); if(!avMayBook(poll, aud)) return;
+  poll.booking = true;
+  try{
+    poll.title = avClean(poll.title);
+    let m = MEETINGS.find(x=>x.id===id); const keys = [mk('meetings', id)];
+    if(!m){ const link = await calLink(poll.title, o.start, poll.mins||60);
+      m = {id, title:poll.title, kind:'Meeting', start:o.start, end:o.end, tz:MT_TZ, organizer:coo, participants:poll.attendees.filter(k=>k!==coo), link:link.url, linkNote:link.url?'':link.why, files:[...(poll.files||[])],
+        notes:[poll.purpose&&`Agenda: ${poll.purpose}`, 'Booked by the COO Assistant from the availability poll.'].filter(Boolean).join('\n'), chat:poll.chat, poll:poll.id, status:'scheduled', createdAt:nowISO(), createdBy:'asst:'+COO_ASST, bookedOn:PERSON, history:[{at:nowISO(), by:'asst:'+COO_ASST, act:`Booked — ${why}`}]};
+      MEETINGS.push(m);
+      const yes = new Set(t.opt.find(x=>x.id===o.id)?.yes||[]);
+      m.participants.filter(k=>yes.has(k)).forEach(k=>{ if(!MTRSVP.some(r=>r.id===id+'|'+k)) MTRSVP.push({id:id+'|'+k, meeting:id, person:k, st:'accepted', at:nowISO(), note:'Chose this time in the poll'}); keys.push(mk('mtrsvp', id+'|'+k)); }); }
+    recordChange();
+    const v = await avSaved(keys);
+    if(!v.ok){ if(v.refused){ MEETINGS = MEETINGS.filter(x=>x.id!==id); MTRSVP = MTRSVP.filter(r=>r.meeting!==id); }
+      console.warn('Meeting not saved yet — will try again', poll.id, v.why); return; }
+    /* saved to every participant's calendar → now notify, confirm and report */
+    notifyAs('asst:'+COO_ASST, m.participants, 'meeting', `📅 <b>${esc(m.title)}</b> is booked for ${esc(mtDate(m.start))} · ${esc(mtTime(m.start))} (PH time) — it’s in your calendar`, {view:'schedule', meeting:id}, 'N-'+id);
+    poll.status = 'confirmed'; poll.slot = o; poll.meeting = id; poll.link = m.link; poll.confirmedAt = nowISO();
+    const ch = CHATS.find(c=>c.id===poll.chat); const cant = poll.attendees.filter(k=>!(t.opt.find(x=>x.id===o.id)?.yes||[]).includes(k));
+    if(ch) cooSendTagged({kind:'chat', chat:ch, who:poll.attendees}, `✅ Confirmed: ${m.title}\nThe ${m.title} is confirmed for ${mtDate(m.start,{long:true})} at ${mtTime(m.start)} (PH time).\nIt’s in everyone’s Calendar in the portal and the invite was sent to all required participants.${m.link?`\nMeeting link: ${m.link}`:''}${poll.purpose?`\nAgenda: ${poll.purpose}`:''}\nSee you there!`, 'avok-'+poll.id);
+    if(cant.length) cooSendTagged({kind:'dm', who:cant}, `Hi! ${m.title} was booked for ${mtDate(m.start,{long:true})} at ${mtTime(m.start)} — the time most of the team could make. If you can’t join, please let JA know and decline the invite in your Calendar so we can catch you up.`, 'avcant-'+poll.id);
+    if(poll.by && poll.by!==PERSON) notifyAs('asst:'+COO_ASST, [poll.by], 'meeting', `✅ I booked <b>${esc(m.title)}</b> for ${esc(mtDate(m.start))} · ${esc(mtTime(m.start))} (${esc(why)})`, {view:'schedule', meeting:id}, 'N-book-'+id);
+    recordChange(); if(CURRENT==='chat') RENDER.chat(); if(CURRENT==='schedule') RENDER.schedule?.();
+  } finally { poll.booking = false; }
 }
 function avTick(){
   if(typeof canRunOps!=='function' || !canRunOps()) return; const now = Date.now(); let ch = false;
@@ -21595,7 +21660,7 @@ if(typeof cooExec==='function'){ const _ce = cooExec; cooExec = async function(t
 if(typeof cooVerify==='function'){ cooVerify = async function(keys, timeout=12000){ const t0 = Date.now(); paStage('Sending…');
     for(;;){
       await SYNC.flush?.();
-      const refused = keys.filter(k=>DELIVERY?.refused?.has(k.split('|')[1])); if(refused.length) return {ok:false, why:'the server refused it (permissions)'};
+      const refused = keys.filter(k=>DELIVERY?.refused?.has(k.split('|')[1]) || DELIVERY?.refusedKeys?.has(k)); if(refused.length) return {ok:false, why:'the server refused it (permissions)', refused};
       const pend = keys.filter(k=>SYNC.pending?.has?.(k)); if(!pend.length && !SYNC.busy){ paStage('Sent ✓'); return {ok:true}; }
       if(BACKEND.mode==='live' && !navigator.onLine) return {ok:false, why:'you’re offline — it will go out automatically when you reconnect'};
       if(Date.now() - t0 > timeout) return {ok:false, why:'the server didn’t confirm in time — it may still arrive; say “retry” to try again'};
@@ -21619,6 +21684,63 @@ setInterval(()=>{ try{ if(typeof PA==='undefined' || !PEOPLE[PERSON]) return; co
     if(PA.busy){ AIX.busySince = AIX.busySince || Date.now(); if(Date.now() - Math.max(AIX.busySince, AIX.t0||0) > 100000){ PA.busy = false; AIX.busySince = 0; ch = true; } } else AIX.busySince = 0;
     if(ch){ aiSaveConv(conv); if(CURRENT==='pa') RENDER.pa(); }
     else if(CURRENT==='pa' && AIX.stageAt && Date.now() - AIX.stageAt > 45000) RENDER.pa(); }catch(e){} }, 5000);
+/* ===== 81_meetsync.js ===== */
+/* ================= MEETINGS BOOKED BY JOSE → EVERYONE'S CALENDAR (Oct 2026) =================
+   Root cause of "Jose said it's booked, but it isn't in the calendars": the booking could run on ANY head / HR portal
+   that was open. When that portal wasn't part of the meeting, the server refused the calendar entry (only the organizer
+   and participants may write it) — but the confirmation, notifications and GC message still went out.
+   Now (70_avail): only the organizer's portal (or a participant's, if the organizer's isn't open) books, the meeting is
+   saved first, and only then are participants notified and the booking confirmed in the GC.
+   This file:
+   • repairs bookings that were confirmed but never saved (adds them to every participant's calendar, once);
+   • applies the same rule to the monthly Operations meeting;
+   • tidies titles that kept stray quotes (Operations Meeting"). */
+
+/* ---------- repair: confirmed polls whose meeting never reached the calendars ---------- */
+const MTFIX = {busy:false, done:new Set()};
+async function mtRepair(){
+  if(MTFIX.busy || !SYNC.ready || !PEOPLE[PERSON] || BACKEND?.mode==='live' && !navigator.onLine) return; MTFIX.busy = true;
+  try{
+    for(const p of OPSPOLL.filter(x=>x.status==='confirmed' && x.meeting && x.slot && !x.wiped)){
+      const cur = MEETINGS.find(m=>m.id===p.meeting);
+      /* stray quotes in titles */
+      const clean = avClean(p.title||'');
+      if(cur && cur.title !== avClean(cur.title) && (cur.organizer===PERSON || (cur.participants||[]).includes(PERSON))){ cur.title = avClean(cur.title); cur.updatedAt = nowISO(); recordChange(); }
+      if(cur || MTFIX.done.has(p.id) || p.mtRepaired) continue;
+      if(new Date(p.slot.end || p.slot.start).getTime() < Date.now() - 6*3600e3) continue;            /* long past — nothing to add */
+      const coo = p.by || cooKey();
+      const who = (p.kind!=='adhoc' && typeof opsNeeded==='function') ? opsNeeded(p) : (p.attendees||[]);
+      const nc = (()=>{ try{ return opsTally(p).notComing||[]; }catch(e){ return []; } })();
+      const aud = uniq([coo, ...who]);
+      if(typeof avMayBook==='function' ? !avMayBook(p, aud) : !aud.includes(PERSON)) continue;
+      MTFIX.done.add(p.id);
+      const t = (()=>{ try{ return opsTally(p); }catch(e){ return {opt:[]}; } })(); const yes = new Set(t.opt.find(o=>o.id===p.slot.id)?.yes||[]);
+      const title = p.kind==='adhoc' ? clean : (p.title || `Operations meeting — ${typeof opsMonthName==='function' ? opsMonthName(p.month) : ''}`);
+      const m = {id:p.meeting, title, kind:'Meeting', start:p.slot.start, end:p.slot.end || new Date(new Date(p.slot.start).getTime() + (p.mins||60)*60e3).toISOString(), tz:MT_TZ,
+        organizer:coo, participants:who.filter(k=>k!==coo && PEOPLE[k] && !nc.includes(k)), link:p.link||'', files:[...(p.files||[])], chat:p.chat||null, poll:p.id, status:'scheduled',
+        notes:[p.purpose&&`Agenda: ${p.purpose}`, 'Booked by the COO Assistant from the availability poll.'].filter(Boolean).join('\n'),
+        createdAt:nowISO(), createdBy:'asst:'+COO_ASST, bookedOn:PERSON, history:[{at:nowISO(), by:'asst:'+COO_ASST, act:'Added to everyone’s calendar (the confirmed booking had not been saved)'}]};
+      MEETINGS.push(m); const keys = [mk('meetings', m.id)];
+      m.participants.filter(k=>yes.has(k)).forEach(k=>{ if(!MTRSVP.some(r=>r.id===m.id+'|'+k)){ MTRSVP.push({id:m.id+'|'+k, meeting:m.id, person:k, st:'accepted', at:nowISO(), note:'Chose this time in the poll'}); keys.push(mk('mtrsvp', m.id+'|'+k)); } });
+      recordChange();
+      const v = await avSaved(keys);
+      if(!v.ok){ if(v.refused){ MEETINGS = MEETINGS.filter(x=>x.id!==m.id); MTRSVP = MTRSVP.filter(r=>r.meeting!==m.id); } MTFIX.done.delete(p.id); continue; }
+      p.title = title; p.mtRepaired = nowISO();
+      notifyAs('asst:'+COO_ASST, m.participants, 'meeting', `📅 <b>${esc(m.title)}</b> — ${esc(mtDate(m.start))} · ${esc(mtTime(m.start))} (PH time) is now in your calendar`, {view:'schedule', meeting:m.id}, 'N-fix-'+m.id);
+      if(typeof avReport==='function') avReport(p, `📅 “${m.title}” (${mtDate(m.start,{long:true})} at ${mtTime(m.start)}) is now in your calendar and in ${m.participants.map(first).join(', ')||'the participants'}’s calendars — the earlier booking hadn’t been saved to the calendars.`);
+      recordChange(); if(CURRENT==='schedule') RENDER.schedule?.(); if(CURRENT==='dashboard') RENDER.dashboard?.();
+    }
+  } finally { MTFIX.busy = false; }
+}
+setInterval(mtRepair, 30e3);
+{ const _sp = setPerson; setPerson = function(p){ _sp.apply(this, arguments); setTimeout(mtRepair, 9000); }; }
+{ const _ore = onRemoteEvent; onRemoteEvent = function(ev){ _ore(ev); if(['opspoll','meetings'].includes(ev?.coll)){ clearTimeout(MTFIX.t); MTFIX.t = setTimeout(mtRepair, 2500); } }; }
+
+/* ---------- the monthly Operations meeting: same rule (only a portal that is part of the meeting books it) ---------- */
+if(typeof opsConfirm==='function'){ const _oc = opsConfirm; opsConfirm = async function(poll, o){
+    const coo = cooKey(); const who = typeof opsNeeded==='function' ? opsNeeded(poll) : (poll.attendees||[]);
+    if(!(typeof avMayBook==='function' ? avMayBook(poll, uniq([coo, ...who])) : uniq([coo, ...who]).includes(PERSON))) return;
+    return _oc.apply(this, arguments); }; }
 </script>
 </body>
 </html>

@@ -20577,7 +20577,7 @@ async function cooPostFromModal(){ const ch = CHATS.find(c=>c.id===el('paPostC')
    The footer shows which build is running ("Build 2026-10-07 · 1"), and every open portal checks every few minutes
    (and whenever it comes back to the foreground) whether a newer build has been published. If so it shows
    "New version available — Update now" instead of quietly running old code. */
-const BUILD_ID = '2026-10-08 · 4';
+const BUILD_ID = '2026-10-08 · 5';
 function verStamp(){ const f = el('footNote'); if(f && !f.dataset.v){ f.dataset.v = 1; f.textContent = `Cross Core Ops Suite v8 · Build ${BUILD_ID}`; } }
 async function verCheck(){
   if(!/^https?:/.test(location.protocol)) return;
@@ -22066,6 +22066,18 @@ if(typeof cooItems==='function'){ const _ci = cooItems; cooItems = function(){ c
     return I; }; }
 
 async function liSourceModal(){ openModal('LinkedIn data source', liSourceCardHTML(await liSource(true))); }
+
+/* ---------- Administration: the same LinkedIn audit settings (people look for them here) ---------- */
+{ const _rs = RENDER.settings; RENDER.settings = function(){ const r = _rs.apply(this, arguments);
+    try{ const v = el('v-settings'); if(!v || v.querySelector('.li-admin') || !(isHead(PERSON)||isFullAccess())) return r;
+      const anchor = v.querySelector('#setSrcUrl')?.closest('.grid'); if(!anchor) return r;
+      anchor.insertAdjacentHTML('afterend', `<div class="card li-admin" style="margin-bottom:16px"><div class="card-h"><h3>🔎 LinkedIn engagement audit — Apify</h3></div><div class="card-b">
+        <div class="hint" style="margin-bottom:10px">Paste the <b>Apify</b> token here (not in “Automatic lead search” or “Custom lead data source” — those are for finding leads). Then add the lead generation clients’ LinkedIn profile links once; Jose checks their new posts, comments and replies every morning.</div>
+        <div class="li-admin-src"><div class="hint">Loading…</div></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px"><button class="btn" onclick="liProfilesModal()">LinkedIn profiles (${liClients().length} clients)</button><button class="btn" onclick="go('pa')">Open the audit</button></div></div></div>`);
+      liSource(true).then(src=>{ const b = v.querySelector('.li-admin-src'); if(b) b.innerHTML = liSourceCardHTML(src); }).catch(()=>{ const b = v.querySelector('.li-admin-src'); if(b) b.innerHTML = liSourceCardHTML({configured:false}); });
+    }catch(e){ console.warn('li admin card', e); }
+    return r; }; }
 </script>
 </body>
 </html>

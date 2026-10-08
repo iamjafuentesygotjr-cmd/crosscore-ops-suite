@@ -2833,6 +2833,140 @@ body.applicant-mode .cora-web,body.applicant-mode #capFab,body.applicant-mode [o
 .bd-prio div span{flex:1}
 @media (prefers-reduced-motion:reduce){.bd-bal,.bd-cf,.bd-card,.bd-play.pulse,.bd-badge{animation:none!important}.bd-bal{bottom:auto;top:calc(var(--y,10) * 1%)}.bd-cf{display:none}}
 @media (max-width:640px){.bd-card{padding:22px 16px 16px}.bd-card h2{font-size:25px}.bd-bal{width:40px;height:50px}}
+
+/* ---------- voice messages ---------- */
+.vm-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 12px;margin:0 0 6px;border:1px solid var(--line);border-radius:12px;background:var(--panel-2)}
+.vm-bar .btn{padding:6px 12px;font-size:12.5px}
+.vm-prev{height:36px;max-width:min(320px,100%)}
+.att-voice{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:4px 0}
+.att-voice audio{height:36px;max-width:min(300px,100%)}
+.vm-ico{font-size:16px}
+
+/* ---------- Content Planner — Jira-style board + card view (Oct 2026) ---------- */
+.jp-head{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+.jp-crumb{font-size:12px;color:var(--ink-3);margin-bottom:2px}
+.jp-head h2{font-size:22px;letter-spacing:-.01em}
+.jp-tools{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:14px}
+.jp-search{display:flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--panel);border-radius:9px;padding:0 10px;height:34px;min-width:200px}
+.jp-search input{border:0;background:transparent;outline:none;height:32px;padding:0;width:100%}
+.jp-avs{display:flex;align-items:center}
+.jp-avs button{border:2px solid var(--panel);border-radius:50%;padding:0;background:none;margin-left:-6px;cursor:pointer;line-height:0}
+.jp-avs button:first-child{margin-left:0}
+.jp-avs button.on{border-color:var(--info);box-shadow:0 0 0 2px var(--info-bg)}
+.jp-avs .avatar{width:30px;height:30px;font-size:11px}
+.jp-chip{border:1px solid var(--line);background:var(--panel);color:var(--ink-2);border-radius:8px;padding:6px 11px;font-size:12.5px;font-weight:600;cursor:pointer;white-space:nowrap}
+.jp-chip.on{background:var(--info-bg);color:var(--info);border-color:transparent}
+.jp-seg{display:inline-flex;border:1px solid var(--line);border-radius:9px;overflow:hidden}
+.jp-seg button{border:0;background:var(--panel);padding:6px 12px;font-size:12.5px;font-weight:600;color:var(--ink-2);cursor:pointer}
+.jp-seg button.on{background:var(--ink);color:var(--panel)}
+.jp-board{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(272px,1fr);gap:12px;overflow-x:auto;padding-bottom:12px;align-items:start}
+.jp-col{background:var(--panel-2);border:1px solid var(--line);border-radius:12px;display:flex;flex-direction:column;max-height:calc(100vh - 250px);min-height:180px}
+.jp-col.over{outline:2px dashed var(--info);outline-offset:-3px}
+.jp-col-h{display:flex;align-items:center;gap:8px;padding:10px 12px 8px;font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-2)}
+.jp-col-h .n{background:var(--line);color:var(--ink-2);border-radius:99px;padding:1px 8px;font-size:11px;letter-spacing:0}
+.jp-cards{display:flex;flex-direction:column;gap:8px;padding:2px 8px 8px;overflow-y:auto;min-height:40px}
+.jp-card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 11px 9px;cursor:pointer;box-shadow:0 1px 1px rgba(0,0,0,.04);transition:box-shadow .12s,border-color .12s;position:relative}
+.jp-card:hover,.jp-card:focus-visible{border-color:var(--info);box-shadow:0 2px 8px rgba(0,0,0,.08);outline:none}
+.jp-card.drag{opacity:.45}
+.jp-drop-line{height:3px;background:var(--info);border-radius:2px;margin:-5px 2px}
+.jp-labels{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px}
+.jp-lb{display:inline-block;border-radius:4px;padding:1px 7px;font-size:11px;font-weight:700;color:#fff;line-height:16px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.jp-title{font-size:13.5px;line-height:1.35;font-weight:500;word-wrap:break-word;margin-bottom:8px}
+.jp-meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:11.5px;color:var(--ink-3)}
+.jp-meta .key{font-weight:700;color:var(--ink-2);letter-spacing:.01em}
+.jp-meta .due{display:inline-flex;align-items:center;gap:3px;border-radius:5px;padding:1px 6px;background:var(--line-2)}
+.jp-meta .due.late{background:var(--bad-bg);color:var(--bad);font-weight:700}
+.jp-meta .due.soon{background:var(--warn-bg);color:var(--warn);font-weight:700}
+.jp-meta .due.done{background:var(--ok-bg);color:var(--ok)}
+.jp-meta .who{margin-left:auto;line-height:0}
+.jp-meta .who .avatar{width:24px;height:24px;font-size:10px}
+.jp-prio{font-weight:800}
+.jp-add{margin:0 8px 8px;border:0;background:transparent;color:var(--ink-2);text-align:left;padding:7px 8px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer}
+.jp-add:hover{background:var(--line-2)}
+.jp-quick{margin:0 8px 8px}
+.jp-quick textarea{width:100%;min-height:56px;resize:none;border-radius:8px}
+.jp-lane{margin-bottom:14px}
+.jp-lane-h{display:flex;align-items:center;gap:8px;font-weight:700;font-size:13px;margin:4px 0 8px}
+.jp-list{width:100%}
+.jp-list th{cursor:pointer;user-select:none;white-space:nowrap}
+.jp-list td{vertical-align:middle}
+/* card view (two panes, like the reference) */
+.jp-ov{position:fixed;inset:0;z-index:69;background:rgba(10,8,4,.45);display:flex;align-items:flex-start;justify-content:center;padding:28px 16px;overflow-y:auto;animation:fade .15s ease}
+.jp-dlg{width:min(1100px,100%);background:var(--panel);border-radius:14px;box-shadow:var(--shadow-lg);display:flex;flex-direction:column;overflow:hidden;border:1px solid var(--line)}
+.jp-top{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--line)}
+.jp-status{appearance:none;-webkit-appearance:none;border:0;background:var(--line-2);color:var(--ink);font-weight:700;font-size:13.5px;border-radius:8px;padding:6px 30px 6px 12px;cursor:pointer;background-image:linear-gradient(45deg,transparent 50%,currentColor 50%),linear-gradient(135deg,currentColor 50%,transparent 50%);background-position:calc(100% - 15px) 52%,calc(100% - 10px) 52%;background-size:5px 5px;background-repeat:no-repeat}
+.jp-top .key{font-size:12.5px;color:var(--ink-3);font-weight:700}
+.jp-top .sp{flex:1}
+.jp-ibtn{border:0;background:transparent;color:var(--ink-2);width:34px;height:34px;border-radius:8px;cursor:pointer;font-size:17px;display:grid;place-items:center}
+.jp-ibtn:hover{background:var(--line-2)}
+.jp-body{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(0,1fr);min-height:420px}
+.jp-main{padding:20px 24px 26px;overflow-y:auto;max-height:calc(100vh - 140px)}
+.jp-side{background:var(--panel-2);border-left:1px solid var(--line);padding:18px 18px 22px;overflow-y:auto;max-height:calc(100vh - 140px)}
+.jp-tline{display:flex;gap:12px;align-items:flex-start;margin-bottom:16px}
+.jp-done{flex:none;width:22px;height:22px;border-radius:50%;border:2px solid var(--ink-3);background:transparent;cursor:pointer;margin-top:8px;display:grid;place-items:center;color:#fff;font-size:12px}
+.jp-done.on{background:var(--ok);border-color:var(--ok)}
+.jp-h1{font-size:26px;line-height:1.2;font-weight:800;letter-spacing:-.015em;width:100%;border:1px solid transparent;border-radius:8px;padding:2px 6px;margin-left:-6px;background:transparent;color:var(--ink);resize:none;overflow:hidden;font-family:inherit}
+.jp-h1:hover{background:var(--line-2)}.jp-h1:focus{border-color:var(--info);background:var(--panel);outline:none}
+.jp-acts{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 18px 34px}
+.jp-act{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line);background:var(--panel);border-radius:8px;padding:7px 13px;font-size:13.5px;font-weight:600;color:var(--ink);cursor:pointer}
+.jp-act:hover{background:var(--line-2)}
+.jp-props{display:flex;flex-wrap:wrap;gap:18px;margin:0 0 20px 34px}
+.jp-prop .hint{display:block;font-size:11.5px;font-weight:700;margin-bottom:5px}
+.jp-prop .row{display:flex;gap:4px;align-items:center;flex-wrap:wrap}
+.jp-prop .avatar{width:30px;height:30px;font-size:11px}
+.jp-sec{margin:0 0 22px}
+.jp-sec-h{display:flex;align-items:center;gap:12px;margin-bottom:10px}
+.jp-sec-h .ic{width:22px;text-align:center;color:var(--ink-2);font-size:16px}
+.jp-sec-h b{font-size:15px;flex:1}
+.jp-sec-h .btn{padding:5px 13px;font-size:13px}
+.jp-sec-b{margin-left:34px}
+.jp-rich{font-size:14px;line-height:1.7;white-space:normal;word-wrap:break-word}
+.jp-rich ul{margin:2px 0 8px 20px}
+.jp-rich p{margin:0 0 8px}
+.jp-rich.empty{color:var(--ink-3);background:var(--line-2);border-radius:8px;padding:10px 12px;cursor:pointer}
+.jp-edit textarea{width:100%;min-height:150px;font-size:13.5px;line-height:1.6}
+.jp-edit .row{display:flex;gap:8px;margin-top:8px}
+.jp-ck{display:flex;align-items:flex-start;gap:9px;padding:5px 6px;border-radius:7px}
+.jp-ck:hover{background:var(--line-2)}
+.jp-ck input{width:auto;margin-top:3px}
+.jp-ck span{flex:1;font-size:13.5px;word-wrap:break-word}
+.jp-ck.done span{text-decoration:line-through;color:var(--ink-3)}
+.jp-ck button{border:0;background:none;color:var(--ink-3);cursor:pointer;visibility:hidden}
+.jp-ck:hover button{visibility:visible}
+.jp-bar{height:6px;background:var(--line);border-radius:99px;overflow:hidden;margin:4px 0 8px}
+.jp-bar i{display:block;height:100%;background:var(--info);border-radius:99px}
+.jp-bar.full i{background:var(--ok)}
+.jp-files{display:flex;flex-direction:column;gap:6px}
+.jp-file{display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:9px;padding:7px 10px;background:var(--panel)}
+.jp-file .th{width:44px;height:34px;border-radius:6px;background:var(--line-2);display:grid;place-items:center;overflow:hidden;flex:none}
+.jp-file .th img{width:100%;height:100%;object-fit:cover}
+.jp-file .nm{flex:1;min-width:0;font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer}
+.jp-file button{border:0;background:none;color:var(--ink-3);cursor:pointer}
+.jp-side-h{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.jp-side-h b{flex:1;font-size:15px}
+.jp-side-h .btn{padding:6px 12px;font-size:13px}
+.jp-cbox{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:2px;box-shadow:0 1px 2px rgba(0,0,0,.05);margin-bottom:16px}
+.jp-cbox textarea{border:0;width:100%;min-height:42px;resize:vertical;background:transparent;font-size:13.5px;padding:10px 12px;outline:none}
+.jp-cbox .row{display:none;gap:8px;align-items:center;padding:4px 8px 8px}
+.jp-cbox.open .row{display:flex}
+.jp-cbox .row .btn{padding:5px 12px;font-size:12.5px}
+.jp-feed{display:flex;flex-direction:column;gap:14px}
+.jp-ev{display:flex;gap:10px;font-size:13.5px;line-height:1.45}
+.jp-ev .avatar{width:32px;height:32px;font-size:11px;flex:none}
+.jp-ev .when{display:block;font-size:12px;color:var(--info);margin-top:2px}
+.jp-ev .bub{background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:8px 11px;margin-top:4px;white-space:pre-wrap;word-wrap:break-word}
+.jp-ev .ops{display:flex;gap:10px;margin-top:3px}
+.jp-ev .ops button{border:0;background:none;padding:0;font-size:12px;color:var(--ink-3);cursor:pointer;text-decoration:underline}
+.jp-pop{position:fixed;z-index:80;width:300px;max-width:calc(100vw - 24px);background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow-lg);padding:12px}
+.jp-pop h4{font-size:13px;text-align:center;margin:0 0 10px;color:var(--ink-2)}
+.jp-pop .opt{display:flex;align-items:center;gap:9px;padding:6px 8px;border-radius:8px;cursor:pointer;font-size:13px}
+.jp-pop .opt:hover{background:var(--line-2)}
+.jp-pop .opt input{width:auto}
+.jp-pop .sw{flex:1;height:28px;border-radius:5px;color:#fff;font-weight:700;font-size:12px;display:flex;align-items:center;padding:0 10px}
+.jp-pop label.f{display:block;font-size:11.5px;font-weight:700;color:var(--ink-2);margin:8px 0 4px}
+.jp-pop .btns{display:flex;gap:8px;margin-top:10px}
+.jp-stale{background:var(--info-bg);color:var(--info);border-radius:9px;padding:8px 12px;font-size:12.5px;margin:0 16px 0;display:flex;gap:10px;align-items:center}
+@media (max-width:900px){.jp-body{grid-template-columns:1fr}.jp-side{border-left:0;border-top:1px solid var(--line);max-height:none}.jp-main{max-height:none}.jp-acts,.jp-props{margin-left:0}.jp-sec-b{margin-left:0}.jp-ov{padding:0}.jp-dlg{border-radius:0;min-height:100%}.jp-h1{font-size:21px}}
 </style>
 </head>
 <body>
@@ -3619,8 +3753,11 @@ let RERENDER_T = null;
 function scheduleRender(){ clearTimeout(RERENDER_T); RERENDER_T = setTimeout(()=>{
   if(!PEOPLE[PERSON]) return;
   if(el('modal').classList.contains('open') && MODAL_CTX?.refresh){ try{ MODAL_CTX.refresh(); }catch(e){} }
-  const typing = document.activeElement && ['INPUT','TEXTAREA','SELECT'].includes(document.activeElement.tagName) && el('v-'+CURRENT)?.contains(document.activeElement);
+  /* only real typing holds the page back (a filter dropdown or checkbox that still has focus must not freeze live updates);
+     a skipped render runs as soon as the person leaves the field */
+  const ae = document.activeElement; const typing = ae && el('v-'+CURRENT)?.contains(ae) && (ae.tagName==='TEXTAREA' || ae.isContentEditable || (ae.tagName==='INPUT' && /^(text|search|email|url|tel|number|password|)$/.test(ae.type||'')));
   if(!typing || CURRENT==='chat'){ try{ RENDER[CURRENT]?.(); }catch(e){ console.error(e); } }
+  else if(!ae._ccRerender){ ae._ccRerender = true; ae.addEventListener('blur', ()=>{ ae._ccRerender = false; scheduleRender(); }, {once:true}); }
   buildNav(); renderNotifs(); checkUrgentAnns(); checkIncomingCalls();
 }, 140); }
 function renderAll(){ RENDER[CURRENT]?.(); renderNotifs(); }
@@ -20688,7 +20825,7 @@ async function cooPostFromModal(){ const ch = CHATS.find(c=>c.id===el('paPostC')
    The footer shows which build is running ("Build 2026-10-07 · 1"), and every open portal checks every few minutes
    (and whenever it comes back to the foreground) whether a newer build has been published. If so it shows
    "New version available — Update now" instead of quietly running old code. */
-const BUILD_ID = '2026-10-09 · 3';
+const BUILD_ID = '2026-10-10 · 1';
 function verStamp(){ const f = el('footNote'); if(f && !f.dataset.v){ f.dataset.v = 1; f.textContent = `Cross Core Ops Suite v8 · Build ${BUILD_ID}`; } }
 async function verCheck(){
   if(!/^https?:/.test(location.protocol)) return;
@@ -24729,6 +24866,621 @@ function bdMusicUpload(){ if(!bdCan()) return; if(!el('bdLic')?.checked) return 
   i.click(); }
 function bdMusicReset(){ if(!bdCan()) return; const s = bdSetEnsure(); delete s.music; s.at = nowISO(); recordChange(); toast('Using the built-in chime'); RENDER.birthdays(); }
 function bdMusicTest(){ bdMusicPlay(); }
+/* ===== 91_cbsync.js ===== */
+/* ================= CONTENT BOARD SYNC — field-level saves + an honest "Live · synced" (Oct 2026) =================
+   TK-196502884-zrb (Yamille): PM and VA saw different items, statuses and dates on the Content Board while the pill said
+   "Live · synced". Root causes found:
+   1. A save sent the WHOLE item. When the PM and the VA saved the same item close together, the later save replaced the
+      earlier one: e.g. the PM's "Revisions Needed" vanished when the VA saved a caption a second later, and the PM's own
+      screen then quietly showed the VA's version. → Items are now saved field by field on the server (cc_patch,
+      supabase/update-content-sync.sql): only what that person changed is written, new history / comment / file entries
+      are added rather than replacing the list, and both screens receive the merged result.
+   2. Live updates were held back whenever a filter dropdown or checkbox on the page still had focus (after choosing a
+      client in the Content Board filter the board stopped refreshing until you clicked elsewhere). → Only real typing
+      holds a refresh back, and the skipped refresh runs as soon as you leave the field (05_core).
+   3. The pill showed "Live · synced" even when the live connection was reconnecting or the server had refused a change.
+      → It now says "Reconnecting…" or "⚠ n not saved" until that is resolved, and the Connection window lists what. */
+
+const PATCH_COLLS = new Set(['tasks','posts','planner','plcomments','assets','engage','icps','leads']);
+SYNC.base = new Map();          /* collection|id → the server version this device's unsaved edit started from */
+let PATCH_OFF = false;          /* the SQL update hasn't been run yet → whole-record saves as before */
+const PATCH_MERGED = new Map(); /* merged rows returned by the server, applied once the save finishes */
+
+/* remember the starting point of each edit */
+/* only an edit that starts now takes a starting point: a record already waiting to be saved (e.g. a new comment that
+   was never on the server) must not get one — its "starting point" would be itself and nothing would be sent */
+{ const _d = SYNC.diff; SYNC.diff = function(){ const prev = {}; PATCH_COLLS.forEach(c=>{ if(COLL[c]) prev[c] = this.last[c]; }); const was = new Set(this.pending.keys());
+    const n = _d.apply(this, arguments);
+    if(n) this.pending.forEach((p, k)=>{ if(p.op==='up' && prev[p.c] && !was.has(k) && !this.base.has(k) && prev[p.c].has(String(p.id))) this.base.set(k, prev[p.c].get(String(p.id))); });
+    return n; }; }
+function patchOf(baseJ, data){
+  let b; try{ b = JSON.parse(baseJ) || {}; }catch(e){ return null; }
+  const set = {}, del = [], app = {};
+  Object.keys(data).forEach(k=>{ const bj = JSON.stringify(b[k]), oj = JSON.stringify(data[k]); if(bj===oj) return;
+    if(Array.isArray(data[k]) && Array.isArray(b[k]) && b[k].length && b[k].length < data[k].length && JSON.stringify(data[k].slice(0, b[k].length))===bj){ app[k] = data[k].slice(b[k].length); return; }
+    set[k] = data[k]; });
+  Object.keys(b).forEach(k=>{ if(!(k in data)) del.push(k); });
+  return {set, del, app};
+}
+{ const _w = LiveBackend.write; LiveBackend.write = async function(ups, dels){
+    if(PATCH_OFF) return _w.apply(this, arguments);
+    const P = [], R = [];
+    (ups||[]).forEach(r=>{ const k = SYNC.key(r.collection, r.id); const b = SYNC.base.get(k); if(PATCH_COLLS.has(r.collection) && b) P.push([r, k, b]); else R.push(r); });
+    if(!P.length) return _w.apply(this, arguments);
+    let refused = null;
+    for(const [r, k, b] of P){
+      const pt = patchOf(b, r.data); if(!pt){ R.push(r); continue; }
+      if(typeof SG!=='undefined') SG.localAt.set(sgKey(r.collection, r.id), Date.now());
+      if(!Object.keys(pt.set).length && !pt.del.length && !Object.keys(pt.app).length){ SYNC.base.set(k, JSON.stringify(r.data)); continue; }
+      const {data, error} = await this.sb.rpc('cc_patch', {p_coll:r.collection, p_id:String(r.id), p_set:pt.set, p_del:pt.del, p_append:pt.app, p_aud:r.audience, p_scope:r.scope, p_full:r.data});
+      if(error){
+        if(/cc_patch|PGRST202|42883|schema cache|Could not find the function/i.test((error.message||'')+' '+(error.code||''))){ PATCH_OFF = true; R.push(r); continue; }
+        if(/row-level security|42501|permission|P0001|locked/i.test((error.message||'')+' '+(error.code||''))){ DELIVERY.refusedKeys.add(k); refused = error; continue; }
+        throw error;
+      }
+      DELIVERY.refusedKeys.delete(k);
+      SYNC.base.set(k, JSON.stringify(r.data));
+      if(data?.data && canonJSON(data.data)!==canonJSON(r.data)) PATCH_MERGED.set(k, {collection:r.collection, id:String(r.id), data:data.data, updated_at:data.updated_at});
+    }
+    if(R.length || (dels||[]).length) await _w.call(this, R, dels||[]);
+    if(refused) throw refused;
+  }; }
+/* after a save: forget finished edits and show the merged result (someone else's fields + ours) */
+{ const _f = SYNC.flush; SYNC.flush = async function(){ const r = await _f.apply(this, arguments);
+    [...this.base.keys()].forEach(k=>{ if(!this.pending.has(k)) this.base.delete(k); });
+    const M = [...PATCH_MERGED.entries()].filter(([k])=>!this.pending.has(k)); M.forEach(([k])=>PATCH_MERGED.delete(k));
+    if(M.length) this.applyRemote(M.map(([, row])=>row), []);
+    return r; }; }
+
+/* ---------- an honest status pill ---------- */
+const REFUSED_AT = new Map();
+{ const S = DELIVERY.refusedKeys; const _a = S.add.bind(S), _d = S.delete.bind(S);
+  S.add = k => { REFUSED_AT.set(k, Date.now()); return _a(k); }; S.delete = k => { REFUSED_AT.delete(k); return _d(k); }; }
+const syncRefusedNow = () => [...REFUSED_AT.entries()].filter(([k, t])=>Date.now() - t < 30*60e3 && !/^(notifs|lastseen|chatreads|annreads|docreads|prefs|pushsubs)\|/.test(k));
+{ const _su = syncUI; syncUI = function(){ const r = _su.apply(this, arguments);
+    const pill = el('syncPill'), txt = el('syncTxt'); if(!pill || !txt || BACKEND?.mode!=='live') return r;
+    const online = BACKEND.online && navigator.onLine; const pend = SYNC.pending.size; if(!online || pend) return r;
+    const bad = syncRefusedNow(); const alive = typeof rtAlive!=='function' || rtAlive();
+    if(bad.length){ txt.textContent = `⚠ ${bad.length} change${bad.length>1?'s':''} not saved`; pill.classList.add('off'); pill.title = 'The server refused some changes — open to see which'; }
+    else if(!alive){ txt.textContent = 'Live · reconnecting…'; pill.classList.add('syncing'); pill.title = 'Live updates are reconnecting — your changes are saved'; }
+    else pill.title = 'Everything you changed is saved, and live updates are connected';
+    return r; }; }
+setInterval(()=>{ try{ syncUI(); }catch(e){} }, 5000);
+const syncKeyLabel = k => { const [c, id] = k.split('|'); const o = (COLL[c]?.get()||[]).find(x=>String(x.id)===id);
+  const what = {tasks:'Content Board item', planner:'Content Planner card', plcomments:'Planner comment', posts:'Post', leads:'Lead', messages:'Message', meetings:'Meeting'}[c] || c;
+  return `${what}${o?.title||o?.name?` “${esc(o.title||o.name)}”`:''}`; };
+{ const _sm = serverModal; serverModal = function(){ const r = _sm.apply(this, arguments); const bad = syncRefusedNow(); const b = el('modalBody'); if(!b || !bad.length) return r;
+    b.insertAdjacentHTML('afterbegin', `<div class="app-banner" style="margin-bottom:12px"><b>⚠ Not saved</b> — the server refused ${bad.length===1?'this change':'these changes'} (your account may not have permission, or the record is locked):
+      <ul style="margin:6px 0 6px 18px">${bad.slice(0,8).map(([k])=>`<li>${syncKeyLabel(k)}</li>`).join('')}</ul>
+      <button class="btn" style="padding:5px 11px;font-size:12px" onclick="syncRefusedNow().forEach(([k])=>REFUSED_AT.delete(k));SYNC.resync();syncUI();closeModal();toast('Reloaded the latest saved version')">Reload the saved version & dismiss</button></div>`);
+    return r; }; }
+/* the Content Board refreshes itself on return to the page and every 30 s (catch-up) — also when you switch to it */
+{ const _go = go; go = function(id){ const r = _go.apply(this, arguments); if(['tasks','planner'].includes(id) && BACKEND?.mode==='live' && typeof syncCatchUp==='function') syncCatchUp('open-board'); return r; }; }
+/* a refusal raised by a server rule (e.g. a locked or HR-only record) is remembered too, so the pill can say so */
+{ const _w = LiveBackend.write; LiveBackend.write = async function(ups, dels){
+    try{ return await _w.apply(this, arguments); }
+    catch(e){ if(/row-level security|42501|permission|P0001|locked|only/i.test((e.message||'')+' '+(e.code||'')) && (ups||[]).length + (dels||[]).length===1){ const r = (ups||[])[0] || (dels||[])[0]; DELIVERY.refusedKeys.add(r.collection+'|'+r.id); }
+      throw e; } }; }
+/* ===== 92_autoupdate.js ===== */
+/* ================= UPDATES REACH EVERY ACCOUNT (Oct 2026) =================
+   TK-1539307521-8oi (Tricia): "automation update not pushing through to Erica's account". A portal that stays open (an
+   installed app, a pinned tab) kept running the version it was opened with until the person tapped "Update now", so new
+   automations (Cora, Jose, reminders) never reached them.
+   • A new version now installs itself when it is safe: straight away while the portal is in the background, otherwise
+     after a 30-second notice ("Updating in 30 s — Later"); never while someone is typing, on a call, or while changes are
+     still being saved. "Later" waits 30 minutes.
+   • Every portal reports the version it runs. HR and company heads see everyone's version (Connection window →
+     "Team versions", or Administration) and can push an update to one person or to everyone on an old version; their
+     portal updates within a minute (with the same safety rules). */
+
+let CLIENTVER = [];
+COLL.clientver = {get:()=>CLIENTVER, set:v=>CLIENTVER=v, aud:r=>uniq([r.id, ...HEADS, ...HR_KEYS()])};
+const VER = {loadedAt:Date.now(), newer:null, later:0, timer:null, left:0};
+const verCanSee = () => isHead(PERSON) || ROLE==='hr' || isFullAccess();
+const verDevice = () => (matchMedia?.('(display-mode: standalone)').matches || navigator.standalone ? 'Installed app' : 'Browser') + ' · ' + (/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent) ? 'phone' : 'computer');
+function verReport(force){
+  if(!PEOPLE[PERSON] || ROLE==='client' || !SYNC?.ready) return;
+  let r = CLIENTVER.find(x=>x.id===PERSON); const dev = verDevice();
+  if(r && r.build===BUILD_ID && r.device===dev && !force && Date.now() - Date.parse(r.at||0) < 3600e3) return;
+  if(!r){ r = {id:PERSON}; CLIENTVER.push(r); }
+  Object.assign(r, {build:BUILD_ID, at:nowISO(), device:dev}); recordChange();
+}
+/* is it safe to reload now? */
+function verSafe(){
+  if(SYNC.pending.size || SYNC.busy) return false;
+  if(typeof CALL!=='undefined' && CALL) return false;
+  if(document.querySelector('.bd-pop')) return false;
+  const ae = document.activeElement;
+  if(ae && (ae.tagName==='TEXTAREA' || ae.isContentEditable || (ae.tagName==='INPUT' && /^(text|search|email|url|tel|number|password|)$/.test(ae.type||''))) && String(ae.value||ae.textContent||'').trim()) return false;
+  if([...document.querySelectorAll('textarea')].some(t=>t.offsetParent && t.value.trim() && t.id!=='verNote')) return false;   /* an unsent draft somewhere on screen */
+  return true;
+}
+function verBar(){ let b = el('verBar'); if(!b){ document.body.insertAdjacentHTML('beforeend', `<div id="verBar" class="ver-bar" role="status"></div>`); b = el('verBar'); } return b; }
+function verSchedule(why){
+  if(!VER.newer || Date.now() < VER.later) return;
+  if(document.visibilityState==='hidden' && verSafe()){ verUpdate(); return; }
+  if(VER.timer) return;
+  VER.left = 30;
+  const tick = () => { const b = verBar();
+    if(!verSafe()){ b.innerHTML = `✨ A new version of the portal is ready <span class="hint" style="color:inherit;opacity:.8">(${esc(VER.newer)})</span> — it will install as soon as you finish what you’re doing <button class="btn primary" onclick="verUpdate()">Update now</button>`; VER.left = 30; return; }
+    if(VER.left <= 0){ clearInterval(VER.timer); VER.timer = null; verUpdate(); return; }
+    b.innerHTML = `✨ ${why==='pushed'?'An update was sent to you':'A new version of the portal is ready'} — updating in <b>${VER.left}s</b> <button class="btn primary" onclick="verUpdate()">Update now</button><button class="btn" onclick="verLater()">Later</button>`;
+    VER.left--; };
+  tick(); VER.timer = setInterval(tick, 1000);
+}
+function verLater(){ clearInterval(VER.timer); VER.timer = null; VER.later = Date.now() + 30*60e3; el('verBar')?.remove(); toast('OK — the update will install in 30 minutes'); }
+/* the version check now hands over to the automatic installer */
+verCheck = async function(){
+  if(!/^https?:/.test(location.protocol)) return;
+  try{ const r = await fetch(location.pathname + '?v=' + Date.now(), {cache:'no-store'}); if(!r.ok) return; const t = await r.text();
+    const m = t.match(/const BUILD_ID = '([^']+)'/); if(!m || m[1]===BUILD_ID || m[1]==='__BUILD_ID__') return;
+    VER.newer = m[1]; verSchedule();
+  }catch(e){}
+};
+document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='hidden' && VER.newer && verSafe() && Date.now() >= VER.later) verUpdate(); });
+setInterval(()=>{ if(VER.newer && !VER.timer) verSchedule(); }, 60e3);
+
+/* an update pushed by HR / a company head */
+function verPushed(){ const r = CLIENTVER.find(x=>x.id===PERSON); const q = r?.updateReq; if(!q || !q.at || Date.parse(q.at) < VER.loadedAt - 5000 || q.build===BUILD_ID) return;
+  if(q.done===BUILD_ID) return; VER.newer = VER.newer || q.build || 'latest'; VER.later = 0; verSchedule('pushed'); }
+{ const _ore = onRemoteEvent; onRemoteEvent = function(ev){ _ore(ev); if(ev?.coll==='clientver' && ev.obj?.id===PERSON) verPushed(); if(ev?.coll==='clientver' && el('verTeam')) verTeamDraw(); }; }
+{ const _sp = setPerson; setPerson = function(){ const r = _sp.apply(this, arguments); setTimeout(()=>{ verReport(); verPushed(); }, 7000); return r; }; }
+setInterval(()=>verReport(), 15*60e3);
+/* after updating, remember that the request was handled */
+setTimeout(()=>{ try{ const r = CLIENTVER.find(x=>x.id===PERSON); if(r?.updateReq && r.updateReq.done!==BUILD_ID && (r.updateReq.build===BUILD_ID || Date.parse(r.updateReq.at) < VER.loadedAt)){ r.updateReq.done = BUILD_ID; recordChange(); } }catch(e){} }, 20000);
+
+/* ---------- Team versions (HR & company heads) ---------- */
+function verTeamRows(){
+  return activePeople().filter(k=>PEOPLE[k] && PEOPLE[k].role!=='applicant').map(k=>({k, r:CLIENTVER.find(x=>x.id===k)}))
+    .sort((a,b)=>(a.r?.build===BUILD_ID) - (b.r?.build===BUILD_ID) || pname(a.k).localeCompare(pname(b.k)));
+}
+function verTeamDraw(){ const box = el('verTeam'); if(!box) return; const R = verTeamRows(); const old = R.filter(x=>x.r && x.r.build!==BUILD_ID);
+  box.innerHTML = `<div class="hint" style="margin-bottom:8px">This portal: <b>${esc(BUILD_ID)}</b> · ${R.filter(x=>x.r?.build===BUILD_ID).length} up to date · ${old.length} on an older version · ${R.filter(x=>!x.r).length} not reported yet (they haven’t opened the portal since this update)</div>
+    ${old.length?`<button class="btn primary" style="margin-bottom:10px" onclick="verPush(${JSON.stringify(old.map(x=>x.k)).replace(/"/g,'&quot;')})">Update everyone on an older version (${old.length})</button>`:''}
+    <div style="max-height:48vh;overflow:auto"><table class="tbl"><thead><tr><th>Person</th><th>Version</th><th>Device</th><th>Reported</th><th></th></tr></thead><tbody>
+    ${R.map(({k, r})=>{ const cur = r?.build===BUILD_ID; const pend = r?.updateReq && r.updateReq.done!==BUILD_ID && r.build!==BUILD_ID;
+      return `<tr><td>${esc(pname(k))}</td><td>${r?`<span class="badge ${cur?'b-approved':'b-pending'}">${esc(r.build)}</span>`:'<span class="hint">—</span>'}</td><td class="hint">${esc(r?.device||'')}</td><td class="hint">${r?.at?esc(shortWhen(r.at)):''}</td>
+        <td>${!cur && k!==PERSON ? (pend ? '<span class="hint">update sent…</span>' : `<button class="btn" style="padding:4px 10px;font-size:12px" onclick="verPush(['${k}'])">Push update</button>`) : ''}</td></tr>`; }).join('')}</tbody></table></div>`; }
+function verTeamModal(){ if(!verCanSee()) return; openModal('Team versions', `<div id="verTeam"></div>`, true); verTeamDraw(); }
+function verPush(keys){ if(!verCanSee()) return; keys.forEach(k=>{ let r = CLIENTVER.find(x=>x.id===k); if(!r){ r = {id:k}; CLIENTVER.push(r); }
+    r.updateReq = {by:PERSON, at:nowISO(), build:BUILD_ID}; }); recordChange(); verTeamDraw(); toast(`Update sent to ${keys.length===1?first(keys[0]):keys.length+' people'} — their portal updates within a minute (when they aren’t typing or on a call)`); }
+{ const _sm = serverModal; serverModal = function(){ const r = _sm.apply(this, arguments); const b = el('modalBody'); if(!b) return r;
+    b.insertAdjacentHTML('beforeend', `<div class="hint" style="margin-top:12px;text-align:center">Portal version ${esc(BUILD_ID)}${verCanSee()?` · <a href="#" onclick="event.preventDefault();verTeamModal()">Team versions</a>`:''}</div>`); return r; }; }
+{ const _rs = RENDER.settings; if(_rs) RENDER.settings = function(){ const r = _rs.apply(this, arguments); const v = el('v-settings'); if(v && verCanSee() && !v.querySelector('.ver-card')){
+    v.insertAdjacentHTML('beforeend', `<div class="card ver-card" style="margin-top:16px"><div class="card-h"><h3>🔄 Portal versions</h3><button class="btn" onclick="verTeamModal()">Team versions</button></div><div class="card-b hint">New versions install themselves on every portal; you can see who is on which version and push an update to anyone still on an older one.</div></div>`); } return r; }; }
+setInterval(()=>verCheck(), 5*60e3);
+/* ===== 93_voicemsg.js ===== */
+/* ================= VOICE MESSAGES IN CHATS (Oct 2026) =================
+   TK-19650289-dds (Kiara): record a voice message in any chat (group chats, client groups, personal messages).
+   🎤 Voice in the chat toolbar → record (up to 5 minutes, with a live timer) → Stop → listen back → Send, Re-record or
+   Delete. Voice messages play inline for everyone in the chat (computer and phone), show their length, and arrive like
+   any message (real-time, notifications, read receipts). Works in Chrome, Edge, Firefox and Safari (iPhone too); the
+   browser asks for microphone permission the first time. */
+
+const VM_MAX_MS = 5*60*1000;
+let VM = {mr:null};
+const isVoice = f => !!f && (f.voice || /^audio\//.test(f.type||''));
+const vmDur = s => { s = Math.max(0, Math.round(s||0)); return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`; };
+
+/* inline player for voice messages (and any audio file) */
+{ const _ah = attachHTML; attachHTML = function(files){
+    const F = files||[]; const A = F.filter(isVoice); if(!A.length) return _ah.apply(this, arguments);
+    const data = f => esc(JSON.stringify({name:f.name, type:f.type, size:f.size, path:f.path, data:f.data, url:f.url}));
+    const rest = _ah.call(this, F.filter(f=>!isVoice(f)));
+    return `${A.map(f=>`<div class="att-voice"><span class="vm-ico" aria-hidden="true">🎤</span><audio class="chat-audio" controls preload="metadata" data-f='${data(f)}' aria-label="Voice message${f.dur?', '+vmDur(f.dur):''}"></audio><span class="hint">${f.voice?'Voice message':esc(f.name)}${f.dur?' · '+vmDur(f.dur):''}</span></div>`).join('')}${rest}`; }; }
+{ const _hm = hydrateChatMedia; hydrateChatMedia = async function(root){ const r = await _hm.apply(this, arguments);
+    for(const a of (root||document).querySelectorAll('audio.chat-audio:not([src])')){
+      try{ const f = JSON.parse(a.dataset.f); const k = f.path||f.url||(f.data||'').slice(0,80);
+        let u = MEDIA_URL[k]; if(!u || u.exp<Date.now()){ u = {url: await BACKEND.fileUrl(f), exp: Date.now()+50*60e3}; MEDIA_URL[k] = u; } a.src = u.url; }
+      catch(e){ a.replaceWith(Object.assign(document.createElement('span'), {className:'hint', textContent:'Could not load this voice message'})); } }
+    return r; }; }
+{ const _mp = msgPreview; msgPreview = function(m){ if(m && !m.text && (m.files||[]).length && m.files.every(isVoice)) return '🎤 Voice message'; return _mp.apply(this, arguments); }; }
+/* the 🎤 button in the chat toolbar */
+{ const _fb = fmtBarHTML; fmtBarHTML = function(id){ const h = _fb.apply(this, arguments); if(id!=='chatMsg' || !navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) return h;
+    return h.replace('<span class="fmt-hint">', `<button type="button" class="vm-btn" title="Record a voice message" aria-label="Record a voice message" onclick="vmStart()">🎤 Voice</button><span class="fmt-hint">`); }; }
+
+async function vmStart(){
+  if(VM.mr) return; const c = CHATS.find(x=>x.id===CHAT_OPEN); if(!c) return toast('Open a chat first');
+  if(typeof chatReadOnly==='function' && chatReadOnly(c)) return toast('This chat is read-only');
+  let stream; try{ stream = await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true, noiseSuppression:true}}); }
+  catch(e){ return toast(/denied|NotAllowed/i.test(e.name+e.message) ? 'Microphone access was blocked — allow the microphone for this site in your browser settings, then try again' : 'No microphone found'); }
+  const type = ['audio/webm;codecs=opus','audio/webm','audio/mp4','audio/ogg;codecs=opus'].find(t=>MediaRecorder.isTypeSupported?.(t)) || '';
+  let mr; try{ mr = new MediaRecorder(stream, type ? {mimeType:type, audioBitsPerSecond:48000} : {}); }catch(e){ stream.getTracks().forEach(t=>t.stop()); return toast('Recording could not start: '+e.message); }
+  VM = {mr, stream, chunks:[], t0:Date.now(), chat:c.id, type:mr.mimeType || type || 'audio/webm', cancel:false};
+  mr.ondataavailable = e=>{ if(e.data?.size) VM.chunks.push(e.data); };
+  mr.onstop = vmStopped;
+  mr.start(500); vmBar(); VM.timer = setInterval(vmTick, 250);
+  VM.cap = setTimeout(()=>{ toast('Stopped at the 5-minute limit'); vmStop(); }, VM_MAX_MS);
+}
+function vmHost(){ return document.querySelector('#v-chat .chat-input:not(.ended-ro)'); }
+function vmBar(html){ let b = el('vmBar'); const host = vmHost(); if(!host) return null;
+  if(!b){ b = document.createElement('div'); b.id = 'vmBar'; b.className = 'vm-bar'; b.setAttribute('role','group'); b.setAttribute('aria-label','Voice message'); host.parentElement.insertBefore(b, host); }
+  b.innerHTML = html || `<span class="rec-dot" aria-hidden="true"></span><b>Recording</b><span id="vmTime" class="rec-time" aria-live="off">0:00</span><span class="hint">/ 5:00</span>
+    <span style="flex:1"></span><button type="button" class="btn ghost" onclick="vmCancel()">Cancel</button><button type="button" class="btn danger" id="vmStopB" onclick="vmStop()">■ Stop</button>`;
+  return b; }
+function vmTick(){ const t = el('vmTime'); if(t && VM.mr) t.textContent = vmDur((Date.now()-VM.t0)/1000); }
+function vmStop(){ if(VM.mr && VM.mr.state!=='inactive'){ try{ VM.mr.requestData?.(); }catch(e){} VM.mr.stop(); } }
+function vmCancel(){ VM.cancel = true; vmStop(); }
+function vmStopped(){
+  const R = VM; clearInterval(R.timer); clearTimeout(R.cap); R.stream?.getTracks().forEach(t=>t.stop());
+  VM = {mr:null};
+  if(R.cancel){ el('vmBar')?.remove(); return toast('Voice message discarded'); }
+  const type = (R.type||'audio/webm').split(';')[0]; const ext = type.includes('mp4') ? 'm4a' : type.includes('ogg') ? 'ogg' : 'webm';
+  const blob = new Blob(R.chunks, {type}); const secs = Math.round((Date.now()-R.t0)/1000);
+  if(!blob.size || secs < 1){ el('vmBar')?.remove(); return toast('That was too short — hold on a little longer'); }
+  const stamp = typeof recStamp==='function' ? recStamp() : nowISO();
+  VM_DRAFT = {file:new File([blob], `Voice message ${stamp}.${ext}`, {type}), secs, chat:R.chat, url:URL.createObjectURL(blob)};
+  VM_DRAFT.html = `<span class="vm-ico" aria-hidden="true">🎤</span><audio controls src="${VM_DRAFT.url}" class="vm-prev" aria-label="Listen to your voice message"></audio><span class="hint">${vmDur(secs)}</span>
+    <span style="flex:1"></span><button type="button" class="btn ghost" style="color:var(--bad)" onclick="vmDiscard()">Delete</button><button type="button" class="btn" onclick="vmDiscard(true);vmStart()">Re-record</button><button type="button" class="btn primary" id="vmSendB" onclick="vmSend()">Send ➤</button>`;
+  vmBar(VM_DRAFT.html);
+  setTimeout(()=>el('vmSendB')?.focus(), 30);
+}
+let VM_DRAFT = null;
+function vmDiscard(quiet){ if(VM_DRAFT?.url) URL.revokeObjectURL(VM_DRAFT.url); VM_DRAFT = null; el('vmBar')?.remove(); if(!quiet) toast('Voice message deleted'); }
+async function vmSend(){
+  const D = VM_DRAFT; if(!D) return; const b = el('vmSendB'); if(b){ b.disabled = true; b.textContent = 'Sending…'; }
+  if(CHAT_OPEN!==D.chat){ CHAT_OPEN = D.chat; if(CURRENT==='chat') RENDER.chat(true); }
+  const ref = await storeFile(D.file); if(!ref){ if(b){ b.disabled = false; b.textContent = 'Send ➤'; } return; }
+  const keep = el('chatMsg')?.value || ''; const keepFiles = CHAT_FILES;
+  if(el('chatMsg')) el('chatMsg').value = ''; CHAT_FILES = [{...ref, voice:true, dur:D.secs}];
+  try{ await sendChat(); } finally { if(el('chatMsg') && keep && !el('chatMsg').value) el('chatMsg').value = keep; if(keepFiles.length) { CHAT_FILES = keepFiles; drawPending(); } }
+  vmDiscard(true);
+}
+/* leaving the chat stops a running recording */
+{ const _go = go; go = function(id){ if(id!=='chat'){ if(VM.mr) vmCancel(); if(VM_DRAFT) vmDiscard(true); } return _go.apply(this, arguments); }; }
+/* a full chat redraw keeps the recorder / preview in place */
+{ const _rc = RENDER.chat; RENDER.chat = function(){ const r = _rc.apply(this, arguments); if(!el('vmBar') && CURRENT==='chat'){ if(VM.mr){ vmBar(); vmTick(); } else if(VM_DRAFT && VM_DRAFT.chat===CHAT_OPEN) vmBar(VM_DRAFT.html); } return r; }; }
+/* ===== 94_planner.js ===== */
+/* ================= CONTENT PLANNER — Jira-style board with a Trello-style card view (Oct 2026) =================
+   Kiara: the Cross Core (Internal) Content Planner should work like Jira.
+   • Board: columns (default Doing · For Review · Ready to post · Posted — rename, add, reorder or remove them), cards
+     with an issue key (CP-12), labels, type, priority, due date (red when late, amber when due within 2 days),
+     checklist progress, comment / file counts and the assignee. Drag cards between columns or up and down inside one;
+     "+ Create" at the bottom of a column. Search, quick filters (assignee avatars, labels, Only my cards, Due this week,
+     Recently updated), Board / List views and swimlanes by assignee.
+   • Card view (two panes, like the reference): status dropdown, mark-complete circle, editable title, Add · Labels ·
+     Dates · Checklist · Members, Description (Edit), Caption (Edit, Copy), checklists with progress, attachments (files
+     and links), and "Comments and activity" with Show / Hide details. Comments can carry a link or files; edit / delete
+     your own; @first-name tags notify people.
+   • Everything is real-time for the whole team; comments are their own records and card fields save field by field, so
+     two people working on the same card never overwrite each other. Existing cards, files and comments are kept. */
+
+let PLCOMMENTS = [], PLSET = [];
+COLL.plcomments = {get:()=>PLCOMMENTS, set:v=>PLCOMMENTS=v, aud:m=>{ const c = PLANNER.find(x=>x.id===m.card); return uniq([...plPeople(), m.by, c?.assignee, ...(c?.members||[])].filter(Boolean)); }};
+COLL.plset = {get:()=>PLSET, set:v=>PLSET=v, aud:()=>uniq([...plPeople()])};
+{ const _a = COLL.planner.aud; COLL.planner.aud = c => uniq([..._a(c), ...(c?.members||[])]); }
+
+const JP_COLORS = {green:'#1F845A', yellow:'#B38600', orange:'#C25100', red:'#C9372C', purple:'#6E5DC6', blue:'#0C66E4', sky:'#227D9B', lime:'#5B7F24', pink:'#AE4787', black:'#626F86'};
+const JP_DEF_LABELS = [{id:'fb', name:'Facebook', color:'blue'}, {id:'ig', name:'Instagram', color:'pink'}, {id:'li', name:'LinkedIn', color:'sky'}, {id:'carousel', name:'Carousel', color:'purple'},
+  {id:'reel', name:'Reel / video', color:'orange'}, {id:'static', name:'Static post', color:'green'}, {id:'urgent', name:'Urgent', color:'red'}];
+const JP_TYPES = ['Carousel','Static post','Reel / video','Story','Blog / article','Newsletter','Other'];
+const JP_PRIO = {highest:['⏫','Highest','var(--bad)'], high:['🔺','High','var(--bad)'], medium:['＝','Medium','var(--warn)'], low:['🔻','Low','var(--info)']};
+const jpSet = () => PLSET.find(x=>x.id==='main') || {};
+const jpCols = () => { const c = jpSet().columns; return Array.isArray(c) && c.length ? c : PL_BUCKETS; };
+const jpLabels = () => { const L = jpSet().labels; return Array.isArray(L) ? L : JP_DEF_LABELS; };
+const jpLabel = id => jpLabels().find(l=>l.id===id);
+const jpKey = c => c?.key ? `CP-${c.key}` : 'CP-?';
+const jpCards = () => PLANNER.filter(c=>!c.archived);
+const jpComments = id => PLCOMMENTS.filter(m=>m.card===id && !m.deleted).sort((a,b)=>String(a.at).localeCompare(String(b.at)));
+const jpToday = () => manilaDate();
+const jpDueCls = c => { if(!c.due) return ''; if(c.bucket===jpCols()[jpCols().length-1] || c.complete) return 'done'; const t = jpToday(); if(c.due < t) return 'late'; const s = new Date(t+'T00:00:00Z'); s.setUTCDate(s.getUTCDate()+2); return c.due <= s.toISOString().slice(0,10) ? 'soon' : ''; };
+const jpFmt = d => d ? new Date(d+'T12:00:00Z').toLocaleDateString('en-US', {month:'short', day:'numeric', timeZone:'UTC'}) : '';
+const jpCk = c => { const L = c.checklist||[]; return {n:L.length, d:L.filter(x=>x.done).length}; };
+const jpPeopleOf = c => uniq([c.assignee, ...(c.members||[])].filter(k=>k && PEOPLE[k]));
+
+/* keys for older cards: the same numbering on every portal (by creation time), new cards get the next number */
+function jpMigrate(){
+  if(!plCan() || !SYNC?.ready) return; let ch = false;
+  const L = PLANNER.slice().sort((a,b)=>String(a.createdAt).localeCompare(String(b.createdAt)) || String(a.id).localeCompare(String(b.id)));
+  let max = Math.max(0, ...PLANNER.map(c=>+c.key||0));
+  L.forEach(c=>{ if(!c.key){ c.key = ++max; ch = true; } });
+  if(ch) recordChange();
+}
+const jpNextKey = () => Math.max(0, ...PLANNER.map(c=>+c.key||0)) + 1;
+function jpLog(c, text){ c.log = [...(c.log||[]), {at:nowISO(), by:PERSON, text}]; c.updatedAt = nowISO(); c.updatedBy = PERSON; }
+
+/* ---------- board ---------- */
+const JPV = {q:'', who:[], labels:[], mine:false, week:false, recent:false, view:'board', group:'none', sort:'key', dir:1, quick:null, drag:null, details:true, open:null, edit:null};
+function jpFiltered(){
+  const q = JPV.q.trim().toLowerCase(); const t = jpToday(); const wk = new Date(t+'T00:00:00Z'); wk.setUTCDate(wk.getUTCDate()+7); const w = wk.toISOString().slice(0,10);
+  return jpCards().filter(c=>{
+    if(q && !`${jpKey(c)} ${c.title||''} ${c.desc||''} ${c.caption||''}`.toLowerCase().includes(q)) return false;
+    if(JPV.who.length && !JPV.who.some(k=>jpPeopleOf(c).includes(k) || (k==='-' && !c.assignee))) return false;
+    if(JPV.labels.length && !JPV.labels.some(l=>(c.labels||[]).includes(l))) return false;
+    if(JPV.mine && !jpPeopleOf(c).includes(PERSON)) return false;
+    if(JPV.week && !(c.due && c.due <= w)) return false;
+    if(JPV.recent && !(c.updatedAt && Date.now() - Date.parse(c.updatedAt) < 3*864e5)) return false;
+    return true; });
+}
+const jpOrder = (a, b) => (a.order||0) - (b.order||0) || String(a.createdAt).localeCompare(String(b.createdAt));
+function jpCardHTML(c){
+  const ck = jpCk(c); const dc = jpDueCls(c); const nC = jpComments(c.id).length + (c.comments||[]).length; const nF = (c.files||[]).length; const pr = JP_PRIO[c.priority];
+  return `<div class="jp-card" draggable="true" tabindex="0" role="button" data-id="${c.id}" aria-label="${esc(jpKey(c))} ${esc(c.title||'Untitled')}"
+      ondragstart="jpDragStart(event,'${c.id}')" ondragend="jpDragEnd()" onclick="jpOpen('${c.id}')" onkeydown="if(event.key==='Enter'){event.preventDefault();jpOpen('${c.id}')}">
+    ${(c.labels||[]).length?`<div class="jp-labels">${c.labels.map(jpLabel).filter(Boolean).map(l=>`<span class="jp-lb" style="background:${JP_COLORS[l.color]||JP_COLORS.black}">${esc(l.name)}</span>`).join('')}</div>`:''}
+    <div class="jp-title">${esc(c.title||'Untitled')}</div>
+    <div class="jp-meta"><span class="key">${esc(jpKey(c))}</span>${pr?`<span class="jp-prio" style="color:${pr[2]}" title="${pr[1]} priority">${pr[0]}</span>`:''}${c.type?`<span title="Type">${esc(c.type)}</span>`:''}
+      ${c.due?`<span class="due ${dc}" title="Due date">🕒 ${esc(jpFmt(c.due))}</span>`:''}${ck.n?`<span title="Checklist">☑ ${ck.d}/${ck.n}</span>`:''}${nC?`<span title="Comments">💬 ${nC}</span>`:''}${nF?`<span title="Attachments">📎 ${nF}</span>`:''}${c.desc?'<span title="Has a description">≡</span>':''}
+      <span class="who">${c.assignee&&PEOPLE[c.assignee]?av(P(c.assignee)):'<span class="avatar" style="background:var(--line);color:var(--ink-3)" title="Unassigned">?</span>'}</span></div></div>`;
+}
+function jpColumnHTML(col, cards, lane){
+  const L = cards.filter(c=>c.bucket===col).sort(jpOrder); const qk = JPV.quick && JPV.quick.col===col && (JPV.quick.lane||'')===(lane||'');
+  return `<div class="jp-col" data-col="${esc(col)}" data-lane="${esc(lane||'')}" ondragover="jpDragOver(event,this)" ondragleave="jpDragLeave(event,this)" ondrop="jpDrop(event,this)">
+    <div class="jp-col-h"><span>${esc(col)}</span><span class="n">${L.length}</span></div>
+    <div class="jp-cards">${L.map(jpCardHTML).join('')}</div>
+    ${qk?`<div class="jp-quick"><textarea id="jpQuickT" placeholder="What needs to be done?" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();jpQuickAdd()}if(event.key==='Escape'){JPV.quick=null;RENDER.planner()}"></textarea>
+      <div style="display:flex;gap:6px;margin-top:6px"><button class="btn primary" style="padding:5px 12px;font-size:12.5px" onclick="jpQuickAdd()">Create</button><button class="btn ghost" style="padding:5px 10px;font-size:12.5px" onclick="JPV.quick=null;RENDER.planner()">Cancel</button></div></div>`
+      : `<button class="jp-add" onclick="jpQuickOpen(this)">+ Create</button>`}
+  </div>`;
+}
+RENDER.planner = function(){
+  const v = el('v-planner'); if(!v) return;
+  if(!plCan()){ v.innerHTML = '<div class="empty">The Content Planner is for the Cross Core (Internal) team.</div>'; return; }
+  jpMigrate();
+  const cards = jpFiltered(); const cols = jpCols(); const ppl = uniq([...plPeople(), ...jpCards().map(c=>c.assignee)]).filter(k=>PEOPLE[k]);
+  const keepFocus = document.activeElement?.id==='jpQ';
+  const lanes = JPV.group==='assignee' ? [...uniq(cards.map(c=>c.assignee||'-'))].sort((a,b)=>(a==='-')-(b==='-') || pname(a).localeCompare(pname(b))) : [null];
+  let body;
+  if(JPV.view==='list'){
+    const S = {key:c=>+c.key||0, title:c=>(c.title||'').toLowerCase(), status:c=>cols.indexOf(c.bucket), who:c=>pname(c.assignee||'').toLowerCase(), due:c=>c.due||'9999', upd:c=>c.updatedAt||c.createdAt||''};
+    const R = cards.slice().sort((a,b)=>{ const f = S[JPV.sort]||S.key; const x = f(a), y = f(b); return (x>y?1:x<y?-1:0)*JPV.dir; });
+    const th = (k, l) => `<th onclick="JPV.dir=JPV.sort==='${k}'?-JPV.dir:1;JPV.sort='${k}';RENDER.planner()" aria-sort="${JPV.sort===k?(JPV.dir>0?'ascending':'descending'):'none'}">${l}${JPV.sort===k?(JPV.dir>0?' ▲':' ▼'):''}</th>`;
+    body = `<div class="card"><div style="overflow-x:auto"><table class="tbl jp-list"><thead><tr>${th('key','Key')}${th('title','Summary')}${th('status','Status')}${th('who','Assignee')}<th>Labels</th>${th('due','Due')}${th('upd','Updated')}</tr></thead><tbody>
+      ${R.map(c=>`<tr style="cursor:pointer" onclick="jpOpen('${c.id}')"><td class="hint" style="font-weight:700">${esc(jpKey(c))}</td><td><b style="font-weight:600">${esc(c.title||'Untitled')}</b></td><td><span class="badge">${esc(c.bucket)}</span></td>
+        <td>${c.assignee?`<span style="display:inline-flex;gap:6px;align-items:center">${av(P(c.assignee))}${esc(first(c.assignee))}</span>`:'<span class="hint">Unassigned</span>'}</td>
+        <td>${(c.labels||[]).map(jpLabel).filter(Boolean).map(l=>`<span class="jp-lb" style="background:${JP_COLORS[l.color]}">${esc(l.name)}</span>`).join(' ')}</td>
+        <td>${c.due?`<span class="jp-meta"><span class="due ${jpDueCls(c)}">${esc(jpFmt(c.due))}</span></span>`:''}</td><td class="hint">${esc(shortWhen(c.updatedAt||c.createdAt))}</td></tr>`).join('') || '<tr><td colspan="7" class="empty">No cards match.</td></tr>'}</tbody></table></div></div>`;
+  } else {
+    body = lanes.map(lane=>{ const LC = lane===null ? cards : cards.filter(c=>(c.assignee||'-')===lane);
+      return `${lane!==null?`<div class="jp-lane"><div class="jp-lane-h">${lane==='-'?'<span class="hint">Unassigned</span>':`${av(P(lane))} ${esc(pname(lane))}`}<span class="hint">${LC.length} card${LC.length===1?'':'s'}</span></div>`:''}
+        <div class="jp-board">${cols.map(col=>jpColumnHTML(col, LC, lane===null?'':lane)).join('')}</div>${lane!==null?'</div>':''}`; }).join('');
+  }
+  const chip = (on, l, fn) => `<button class="jp-chip ${on?'on':''}" aria-pressed="${on}" onclick="${fn};RENDER.planner()">${l}</button>`;
+  v.innerHTML = `<div class="jp-head"><div><div class="jp-crumb">Projects / Cross Core (Internal)</div><h2>Content Planner</h2></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" onclick="jpSettings()">⚙ Board settings</button><button class="btn primary" onclick="jpCreate()">+ Create</button></div></div>
+    <div class="jp-tools">
+      <label class="jp-search"><span aria-hidden="true">🔍</span><input id="jpQ" placeholder="Search this board" value="${esc(JPV.q)}" oninput="JPV.q=this.value;clearTimeout(JPV.qt);JPV.qt=setTimeout(RENDER.planner,200)" aria-label="Search this board"></label>
+      <div class="jp-avs" role="group" aria-label="Filter by person">${ppl.slice(0,10).map(k=>`<button class="${JPV.who.includes(k)?'on':''}" title="${esc(pname(k))}" aria-pressed="${JPV.who.includes(k)}" onclick="jpToggle('who','${k}')">${av(P(k))}</button>`).join('')}</div>
+      ${chip(JPV.mine, 'Only my cards', 'JPV.mine=!JPV.mine')}${chip(JPV.week, 'Due this week', 'JPV.week=!JPV.week')}${chip(JPV.recent, 'Recently updated', 'JPV.recent=!JPV.recent')}
+      <select aria-label="Filter by label" onchange="if(this.value){jpToggle('labels',this.value)}" style="padding:6px 9px;font-size:12.5px"><option value="">Labels${JPV.labels.length?` (${JPV.labels.length})`:''}</option>${jpLabels().map(l=>`<option value="${l.id}">${JPV.labels.includes(l.id)?'✓ ':''}${esc(l.name)}</option>`).join('')}</select>
+      ${JPV.q||JPV.who.length||JPV.labels.length||JPV.mine||JPV.week||JPV.recent?`<button class="jp-chip" onclick="Object.assign(JPV,{q:'',who:[],labels:[],mine:false,week:false,recent:false});RENDER.planner()">Clear filters</button>`:''}
+      <span style="flex:1"></span>
+      ${JPV.view==='board'?`<select aria-label="Group by" onchange="JPV.group=this.value;RENDER.planner()" style="padding:6px 9px;font-size:12.5px"><option value="none">Group by: none</option><option value="assignee" ${JPV.group==='assignee'?'selected':''}>Group by: assignee</option></select>`:''}
+      <div class="jp-seg" role="group" aria-label="View"><button class="${JPV.view==='board'?'on':''}" onclick="JPV.view='board';RENDER.planner()">Board</button><button class="${JPV.view==='list'?'on':''}" onclick="JPV.view='list';RENDER.planner()">List</button></div>
+    </div>${body}`;
+  if(keepFocus){ const i = el('jpQ'); i.focus(); i.setSelectionRange(i.value.length, i.value.length); }
+};
+function jpToggle(k, v){ const L = JPV[k]; const i = L.indexOf(v); if(i>=0) L.splice(i, 1); else L.push(v); RENDER.planner(); }
+
+/* drag & drop between columns and inside a column */
+function jpDragStart(e, id){ JPV.drag = id; e.dataTransfer.effectAllowed = 'move'; try{ e.dataTransfer.setData('text/plain', id); }catch(x){} setTimeout(()=>document.querySelector(`.jp-card[data-id="${id}"]`)?.classList.add('drag'), 0); }
+function jpDragEnd(){ JPV.drag = null; document.querySelectorAll('.jp-card.drag').forEach(x=>x.classList.remove('drag')); document.querySelectorAll('.jp-drop-line').forEach(x=>x.remove()); document.querySelectorAll('.jp-col.over').forEach(x=>x.classList.remove('over')); }
+function jpDropIndex(colEl, y){ const cs = [...colEl.querySelectorAll('.jp-card:not(.drag)')]; for(let i=0;i<cs.length;i++){ const r = cs[i].getBoundingClientRect(); if(y < r.top + r.height/2) return i; } return cs.length; }
+function jpDragOver(e, colEl){ if(!JPV.drag) return; e.preventDefault(); colEl.classList.add('over'); const i = jpDropIndex(colEl, e.clientY);
+  document.querySelectorAll('.jp-drop-line').forEach(x=>x.remove()); const cs = [...colEl.querySelectorAll('.jp-card:not(.drag)')]; const line = document.createElement('div'); line.className = 'jp-drop-line';
+  const box = colEl.querySelector('.jp-cards'); if(i < cs.length) box.insertBefore(line, cs[i]); else box.appendChild(line); }
+function jpDragLeave(e, colEl){ if(!colEl.contains(e.relatedTarget)){ colEl.classList.remove('over'); colEl.querySelectorAll('.jp-drop-line').forEach(x=>x.remove()); } }
+function jpDrop(e, colEl){ e.preventDefault(); const id = JPV.drag; const col = colEl.dataset.col; const lane = colEl.dataset.lane; const i = jpDropIndex(colEl, e.clientY); jpDragEnd(); if(!id) return;
+  const c = PLANNER.find(x=>x.id===id); if(!c) return;
+  const sib = jpFiltered().filter(x=>x.bucket===col && x.id!==id && (!lane || (x.assignee||'-')===lane)).sort(jpOrder);
+  const before = sib[i-1], after = sib[i]; const o = before && after ? ((before.order||0) + (after.order||0))/2 : before ? (before.order||0) + 1000 : after ? (after.order||0) - 1000 : Date.now();
+  if(lane && JPV.group==='assignee' && (c.assignee||'-')!==lane){ jpSetAssignee(c, lane==='-'?'':lane, true); }
+  if(c.bucket!==col){ c.order = o; jpMove(c, col); } else { c.order = o; c.updatedAt = nowISO(); recordChange(); RENDER.planner(); }
+}
+function jpMove(c, col){ if(!c || c.bucket===col) return; const was = c.bucket; c.bucket = col; c.complete = col===jpCols()[jpCols().length-1] ? true : c.complete && false;
+  jpLog(c, `moved this card from ${was} to ${col}`);
+  const who = uniq([c.assignee, c.createdBy, ...(c.members||[]), ...(/review/i.test(col) ? pmsOf(PL_CLIENT) : [])]).filter(k=>k && k!==PERSON);
+  if(who.length) notify(who, 'assignment', `🗂️ <b>${esc(jpKey(c))} ${esc(c.title)}</b> moved to <b>${esc(col)}</b> by ${esc(first(PERSON))}`, {view:'planner', card:c.id});
+  recordChange(); if(CURRENT==='planner') RENDER.planner(); jpRefresh(c.id); }
+plMove = function(id, b){ jpMove(PLANNER.find(x=>x.id===id), b); };
+
+/* create */
+function jpNewCard(col, title, lane){ const cols = jpCols(); const c = {id:uid('PL'), key:jpNextKey(), client:PL_CLIENT, bucket:col||cols[0], title:title||'', assignee:lane && lane!=='-' ? lane : '', members:[], labels:[], due:'', start:'', desc:'', caption:'', files:[], checklist:[],
+    priority:'', type:'', comments:[], createdBy:PERSON, createdAt:nowISO(), updatedAt:nowISO(), order:Date.now(), log:[{at:nowISO(), by:PERSON, text:`added this card to ${col||cols[0]}`}]};
+  PLANNER.push(c); if(c.assignee && c.assignee!==PERSON) notify([c.assignee], 'assignment', `🗂️ New card for you: <b>${esc(jpKey(c))} ${esc(c.title)}</b>`, {view:'planner', card:c.id});
+  recordChange(); return c; }
+function jpQuickOpen(b){ const col = b.closest('.jp-col'); JPV.quick = {col:col.dataset.col, lane:col.dataset.lane||''}; RENDER.planner(); setTimeout(()=>el('jpQuickT')?.focus(), 30); }
+function jpQuickAdd(){ const t = el('jpQuickT')?.value.trim(); if(!t) return toast('Type a title first'); const q = JPV.quick; jpNewCard(q.col, t, q.lane); JPV.quick = {...q}; RENDER.planner(); setTimeout(()=>el('jpQuickT')?.focus(), 30); }
+function jpCreate(){ const c = jpNewCard(jpCols()[0], ''); RENDER.planner(); jpOpen(c.id, {focusTitle:true}); }
+plNew = function(b){ const c = jpNewCard(b, ''); RENDER.planner(); jpOpen(c.id, {focusTitle:true}); };
+
+/* ---------- card view ---------- */
+const jpMd = s => { const lines = String(s||'').split('\n'); let h = '', inList = false;
+  const inline = t => linkify(t).replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>').replace(/(^|\s)\*([^*\n]+)\*(?=\s|$)/g, '$1<b>$2</b>').replace(/(^|\s)_([^_\n]+)_(?=\s|$)/g, '$1<i>$2</i>').replace(/^((?:Slide \d+|Hook|CTA)[^:<]{0,30}:)/i, '<b>$1</b>');
+  lines.forEach(l=>{ const m = l.match(/^\s*(?:[-•*]|\d+\.)\s+(.*)$/); if(m){ if(!inList){ h += '<ul>'; inList = true; } h += `<li>${inline(m[1])}</li>`; return; }
+    if(inList){ h += '</ul>'; inList = false; } h += l.trim() ? `<p>${inline(l)}</p>` : ''; });
+  if(inList) h += '</ul>'; return h; };
+function jpOpen(id, opts={}){
+  const c = PLANNER.find(x=>x.id===id); if(!c) return toast('That card is no longer available');
+  if(CURRENT!=='planner'){ go('planner'); }
+  JPV.open = id; JPV.edit = null; jpPopClose();
+  let ov = el('jpOv'); if(!ov){ ov = document.createElement('div'); ov.id = 'jpOv'; ov.className = 'jp-ov'; ov.setAttribute('role','dialog'); ov.setAttribute('aria-modal','true');
+    ov.addEventListener('mousedown', e=>{ if(e.target===ov) jpClose(); }); ov.addEventListener('keydown', e=>{ if(e.key==='Escape' && !el('jpPop')){ e.preventDefault(); if(JPV.edit){ JPV.edit = null; jpRender(); } else jpClose(); } });
+    document.body.appendChild(ov); }
+  jpRender(); if(opts.focusTitle) setTimeout(()=>{ const t = el('jpTitle'); t?.focus(); t?.select(); }, 40);
+}
+function jpClose(){ const c = PLANNER.find(x=>x.id===JPV.open); if(c && !c.title?.trim() && !c.desc && !(c.files||[]).length && !jpComments(c.id).length){ c.archived = true; c.updatedAt = nowISO(); recordChange(); }
+  el('jpOv')?.remove(); jpPopClose(); JPV.open = null; JPV.edit = null; if(CURRENT==='planner') RENDER.planner(); }
+function jpRender(){
+  const ov = el('jpOv'); const c = PLANNER.find(x=>x.id===JPV.open); if(!ov || !c) return;
+  const st = ov.querySelector('.jp-main')?.scrollTop||0, ss = ov.querySelector('.jp-side')?.scrollTop||0;
+  const cols = jpCols(); const ck = jpCk(c); const ppl = jpPeopleOf(c);
+  const sec = (ic, title, btn, body) => `<div class="jp-sec"><div class="jp-sec-h"><span class="ic" aria-hidden="true">${ic}</span><b>${title}</b>${btn||''}</div><div class="jp-sec-b">${body}</div></div>`;
+  const textSec = (k, ic, title, ph) => { const val = c[k]||''; const editing = JPV.edit===k;
+    return sec(ic, title, editing ? '' : `${k==='caption'&&val?`<button class="btn" onclick="jpCopy('${k}')">Copy</button>`:''}<button class="btn" onclick="JPV.edit='${k}';jpRender();setTimeout(()=>el('jpEd')?.focus(),30)">Edit</button>`,
+      editing ? `<div class="jp-edit"><textarea id="jpEd" placeholder="${esc(ph)}">${esc(val)}</textarea><div class="row"><button class="btn primary" onclick="jpSaveText('${k}')">Save</button><button class="btn ghost" onclick="JPV.edit=null;jpRender()">Cancel</button><span class="hint" style="align-self:center">**bold** · lines starting with - become bullets</span></div></div>`
+      : val ? `<div class="jp-rich">${jpMd(val)}</div>` : `<div class="jp-rich empty" onclick="JPV.edit='${k}';jpRender();setTimeout(()=>el('jpEd')?.focus(),30)">${esc(ph)}</div>`); };
+  const feed = [...jpComments(c.id).map(m=>({t:'c', at:m.at, m})), ...(c.comments||[]).map(m=>({t:'old', at:m.at, m})), ...(JPV.details ? (c.log||[]).map(l=>({t:'log', at:l.at, l})) : [])].sort((a,b)=>String(b.at).localeCompare(String(a.at)));
+  ov.innerHTML = `<div class="jp-dlg" aria-labelledby="jpTitle">
+    <div class="jp-top"><select class="jp-status" aria-label="Status" onchange="jpMove(PLANNER.find(x=>x.id==='${c.id}'),this.value)">${cols.map(b=>`<option ${b===c.bucket?'selected':''}>${esc(b)}</option>`).join('')}</select>
+      <span class="key">${esc(jpKey(c))}</span><span class="sp"></span>
+      <button class="jp-ibtn" title="Copy link to this card" aria-label="Copy link" onclick="jpCopyLink()">🔗</button>
+      <button class="jp-ibtn" title="More" aria-label="More actions" onclick="jpMore(this)">⋯</button>
+      <button class="jp-ibtn" title="Close" aria-label="Close" onclick="jpClose()">✕</button></div>
+    <div id="jpStale"></div>
+    <div class="jp-body"><div class="jp-main">
+      <div class="jp-tline"><button class="jp-done ${c.complete?'on':''}" title="${c.complete?'Mark incomplete':'Mark complete'}" aria-pressed="${!!c.complete}" onclick="jpComplete()">${c.complete?'✓':''}</button>
+        <textarea id="jpTitle" class="jp-h1" rows="1" aria-label="Card title" placeholder="Card title" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur()}" oninput="this.style.height='auto';this.style.height=this.scrollHeight+'px'" onblur="jpSaveTitle(this.value)">${esc(c.title||'')}</textarea></div>
+      <div class="jp-acts">
+        <button class="jp-act" onclick="jpAddMenu(this)">＋ Add</button>
+        <button class="jp-act" onclick="jpLabelsPop(this)">🏷 Labels</button>
+        <button class="jp-act" onclick="jpDatesPop(this)">🕒 Dates</button>
+        <button class="jp-act" onclick="jpAddChecklist()">☑ Checklist</button>
+        <button class="jp-act" onclick="jpMembersPop(this)">👤 Members</button></div>
+      <div class="jp-props">
+        <div class="jp-prop"><span class="hint">Assignee</span><div class="row"><select aria-label="Assignee" onchange="jpSetAssignee(PLANNER.find(x=>x.id==='${c.id}'),this.value)" style="padding:5px 8px;font-size:13px"><option value="">Unassigned</option>${plPeople().map(k=>`<option value="${k}" ${c.assignee===k?'selected':''}>${esc(pname(k))}</option>`).join('')}</select></div></div>
+        ${(c.members||[]).length?`<div class="jp-prop"><span class="hint">Members</span><div class="row">${c.members.filter(k=>PEOPLE[k]).map(k=>`<span title="${esc(pname(k))}">${av(P(k))}</span>`).join('')}<button class="jp-ibtn" style="width:30px;height:30px" aria-label="Edit members" onclick="jpMembersPop(this)">＋</button></div></div>`:''}
+        ${(c.labels||[]).length?`<div class="jp-prop"><span class="hint">Labels</span><div class="row">${c.labels.map(jpLabel).filter(Boolean).map(l=>`<span class="jp-lb" style="background:${JP_COLORS[l.color]};font-size:12.5px;padding:4px 10px;line-height:18px;cursor:pointer" onclick="jpLabelsPop(this)">${esc(l.name)}</span>`).join('')}</div></div>`:''}
+        ${c.due||c.start?`<div class="jp-prop"><span class="hint">Dates</span><div class="row"><button class="jp-act" style="padding:5px 10px" onclick="jpDatesPop(this)">${c.start?esc(jpFmt(c.start))+' – ':''}${c.due?esc(jpFmt(c.due)):'no due date'} ${c.due && jpDueCls(c)?`<span class="jp-meta"><span class="due ${jpDueCls(c)}">${jpDueCls(c)==='late'?'Overdue':jpDueCls(c)==='soon'?'Due soon':'Complete'}</span></span>`:''}</button></div></div>`:''}
+        <div class="jp-prop"><span class="hint">Type</span><div class="row"><select aria-label="Type" onchange="jpSetField('type',this.value)" style="padding:5px 8px;font-size:13px"><option value="">—</option>${JP_TYPES.map(t=>`<option ${c.type===t?'selected':''}>${t}</option>`).join('')}</select></div></div>
+        <div class="jp-prop"><span class="hint">Priority</span><div class="row"><select aria-label="Priority" onchange="jpSetField('priority',this.value)" style="padding:5px 8px;font-size:13px"><option value="">—</option>${Object.entries(JP_PRIO).map(([k,p])=>`<option value="${k}" ${c.priority===k?'selected':''}>${p[0]} ${p[1]}</option>`).join('')}</select></div></div>
+      </div>
+      ${textSec('desc', '≡', 'Description', 'Add a more detailed description — the hook, slides, instructions…')}
+      ${textSec('caption', '✍', 'Caption', 'Add the post caption')}
+      ${(c.checklist||[]).length || JPV.edit==='ck' ? sec('☑', 'Checklist', `<button class="btn" onclick="jpCkClear()">Delete</button>`, `<div class="hint">${ck.n?Math.round(ck.d/ck.n*100):0}%</div><div class="jp-bar ${ck.n&&ck.d===ck.n?'full':''}"><i style="width:${ck.n?Math.round(ck.d/ck.n*100):0}%"></i></div>
+        ${(c.checklist||[]).map(it=>`<div class="jp-ck ${it.done?'done':''}"><input type="checkbox" ${it.done?'checked':''} aria-label="${esc(it.text)}" onchange="jpCkToggle('${it.id}')"><span>${linkify(it.text)}</span><button aria-label="Delete item" onclick="jpCkDel('${it.id}')">✕</button></div>`).join('')}
+        <div style="display:flex;gap:6px;margin-top:6px"><input id="jpCkNew" placeholder="Add an item" style="flex:1" onkeydown="if(event.key==='Enter'){event.preventDefault();jpCkAdd()}"><button class="btn" onclick="jpCkAdd()">Add</button></div>`) : ''}
+      ${sec('📎', 'Attachments', `<button class="btn" onclick="jpAttach()">Add</button>`, (c.files||[]).length ? `<div class="jp-files">${c.files.map((f,i)=>`<div class="jp-file"><div class="th">${f.url&&!f.path&&!f.data?'🔗':isImg(f)?'🖼':isVid(f)?'🎬':/pdf/i.test(f.type||f.name)?'📕':'📄'}</div>
+          <span class="nm" title="${esc(f.name)}" onclick="openFileRef(this)" data-f='${esc(JSON.stringify(f))}'>${esc(f.name)}</span><span class="hint">${esc(f.by?first(f.by):'')}${f.at?' · '+esc(shortWhen(f.at)):''}</span><button aria-label="Remove ${esc(f.name)}" onclick="jpRmFile(${i})">✕</button></div>`).join('')}</div>` : '<div class="hint">No files or links yet — add the design files, references or the Canva / Drive link.</div>')}
+    </div>
+    <div class="jp-side">
+      <div class="jp-side-h"><span aria-hidden="true">💬</span><b>Comments and activity</b><button class="btn" onclick="JPV.details=!JPV.details;jpRender()">${JPV.details?'Hide details':'Show details'}</button></div>
+      <div class="jp-cbox" id="jpCbox"><textarea id="jpCt" placeholder="Write a comment…" aria-label="Write a comment" onfocus="el('jpCbox').classList.add('open')" onkeydown="if(event.key==='Enter'&&(event.ctrlKey||event.metaKey)){event.preventDefault();jpComment()}"></textarea>
+        <div class="row"><button class="btn primary" onclick="jpComment()">Save</button><button class="btn" onclick="el('jpCf').click()">📎 Attach</button><input type="file" id="jpCf" multiple hidden onchange="el('jpCfN').textContent=this.files.length?this.files.length+' file(s)':''"><span class="hint" id="jpCfN"></span></div></div>
+      <div class="jp-feed">${feed.map(x=>x.t==='log' ? `<div class="jp-ev">${av(P(x.l.by))}<div><b>${esc(pname(x.l.by))}</b> ${esc(x.l.text)}<span class="when">${esc(dtstr(x.l.at))}</span></div></div>`
+        : x.t==='old' ? `<div class="jp-ev">${av(P(x.m.by))}<div style="flex:1;min-width:0"><b>${esc(pname(x.m.by))}</b><span class="when">${esc(dtstr(x.m.at))}</span><div class="bub">${linkify(x.m.text||'')}</div>${(x.m.files||[]).length?fileChips(x.m.files):''}</div></div>`
+        : `<div class="jp-ev" data-cm="${x.m.id}">${av(P(x.m.by))}<div style="flex:1;min-width:0"><b>${esc(pname(x.m.by))}</b><span class="when">${esc(dtstr(x.m.at))}${x.m.editedAt?' (edited)':''}</span>
+            ${JPV.edit==='cm:'+x.m.id ? `<div class="jp-edit"><textarea id="jpEd" style="min-height:70px">${esc(x.m.text||'')}</textarea><div class="row"><button class="btn primary" onclick="jpCmSave('${x.m.id}')">Save</button><button class="btn ghost" onclick="JPV.edit=null;jpRender()">Cancel</button></div></div>`
+              : `${x.m.text?`<div class="bub">${linkify(x.m.text)}</div>`:''}${(x.m.files||[]).length?`<div style="margin-top:4px">${fileChips(x.m.files)}</div>`:''}`}
+            ${x.m.by===PERSON && JPV.edit!=='cm:'+x.m.id ? `<div class="ops"><button onclick="JPV.edit='cm:${x.m.id}';jpRender();setTimeout(()=>el('jpEd')?.focus(),30)">Edit</button><button onclick="jpCmDel('${x.m.id}')">Delete</button></div>` : (isExec()||isFullAccess()) && JPV.edit!=='cm:'+x.m.id ? `<div class="ops"><button onclick="jpCmDel('${x.m.id}')">Delete</button></div>` : ''}</div></div>`).join('') || '<div class="hint">No comments yet.</div>'}</div>
+    </div></div></div>`;
+  const t = el('jpTitle'); if(t){ t.style.height = 'auto'; t.style.height = t.scrollHeight+'px'; }
+  const m = ov.querySelector('.jp-main'), s = ov.querySelector('.jp-side'); if(m) m.scrollTop = st; if(s) s.scrollTop = ss;
+}
+const jpCur = () => PLANNER.find(x=>x.id===JPV.open);
+function jpSaveTitle(v){ const c = jpCur(); if(!c) return; v = String(v||'').trim(); if(!v){ if(c.title) el('jpTitle').value = c.title; return; } if(v===c.title) return; const was = c.title; c.title = v; jpLog(c, was ? `renamed this card (was “${coraTrim(was, 60)}”)` : 'named this card'); recordChange(); RENDER.planner(); }
+function jpSaveText(k){ const c = jpCur(); if(!c) return; const v = el('jpEd').value; if(v===(c[k]||'')){ JPV.edit = null; return jpRender(); } c[k] = v; jpLog(c, `updated the ${k==='desc'?'description':'caption'}`); JPV.edit = null; recordChange(); jpRender(); RENDER.planner(); toast('Saved'); }
+function jpSetField(k, v){ const c = jpCur(); if(!c) return; c[k] = v; jpLog(c, `set ${k} to ${k==='priority'?(JP_PRIO[v]?.[1]||'none'):(v||'none')}`); recordChange(); jpRender(); RENDER.planner(); }
+function jpSetAssignee(c, k, quiet){ if(!c || c.assignee===k) return; c.assignee = k; jpLog(c, k ? `assigned this card to ${pname(k)}` : 'removed the assignee');
+  if(k && k!==PERSON) notify([k], 'assignment', `🗂️ ${esc(first(PERSON))} assigned you <b>${esc(jpKey(c))} ${esc(c.title)}</b> in the Content Planner${c.due?` — due ${esc(jpFmt(c.due))}`:''}`, {view:'planner', card:c.id});
+  recordChange(); if(!quiet){ jpRender(); RENDER.planner(); } }
+function jpComplete(){ const c = jpCur(); if(!c) return; const cols = jpCols(); if(!c.complete){ c.complete = true; jpLog(c, 'marked this card as complete'); if(c.bucket!==cols[cols.length-1]){ jpMove(c, cols[cols.length-1]); return; } }
+  else { c.complete = false; jpLog(c, 'marked this card as incomplete'); } recordChange(); jpRender(); RENDER.planner(); }
+async function jpCopy(k){ const c = jpCur(); try{ await navigator.clipboard.writeText(c[k]||''); toast('Copied'); }catch(e){ toast('Select the text and copy it'); } }
+async function jpCopyLink(){ const u = `${location.origin}${location.pathname}#planner-${JPV.open}`; try{ await navigator.clipboard.writeText(u); toast('Link copied'); }catch(e){ toast(u); } }
+function jpRefresh(id){ if(JPV.open!==id || !el('jpOv')) return; const ae = document.activeElement; const busy = ae && el('jpOv').contains(ae) && (ae.tagName==='TEXTAREA' || ae.tagName==='INPUT') && String(ae.value||'').trim() && ae.id!=='jpTitle';
+  if(busy || (JPV.edit && el('jpEd'))){ const s = el('jpStale'); if(s && !s.innerHTML) s.innerHTML = `<div class="jp-stale">Someone just updated this card — your typing is kept. <button class="btn ghost" style="padding:3px 9px;font-size:12px" onclick="el('jpStale').innerHTML='';jpRender()">Show the latest</button></div>`; return; }
+  jpRender(); }
+
+/* popovers (labels, dates, members, add, more) */
+function jpPopClose(){ el('jpPop')?.remove(); document.removeEventListener('mousedown', jpPopOut, true); }
+function jpPopOut(e){ const p = el('jpPop'); if(p && !p.contains(e.target)) jpPopClose(); }
+function jpPop(anchor, title, html){ jpPopClose(); const p = document.createElement('div'); p.id = 'jpPop'; p.className = 'jp-pop'; p.setAttribute('role','dialog'); p.setAttribute('aria-label', title);
+  p.innerHTML = `<h4>${esc(title)}</h4>${html}`; document.body.appendChild(p);
+  const r = anchor.getBoundingClientRect(); const w = p.offsetWidth, h = p.offsetHeight;
+  p.style.left = Math.max(12, Math.min(innerWidth - w - 12, r.left))+'px'; p.style.top = (r.bottom + 6 + h < innerHeight ? r.bottom + 6 : Math.max(12, r.top - h - 6))+'px';
+  p.addEventListener('keydown', e=>{ if(e.key==='Escape'){ e.stopPropagation(); jpPopClose(); anchor.focus?.(); } });
+  setTimeout(()=>{ document.addEventListener('mousedown', jpPopOut, true); p.querySelector('input,select,button')?.focus(); }, 0); return p; }
+function jpLabelsPop(a){ const c = jpCur(); jpPop(a, 'Labels', `${jpLabels().map(l=>`<label class="opt"><input type="checkbox" ${(c.labels||[]).includes(l.id)?'checked':''} onchange="jpLabelToggle('${l.id}')"><span class="sw" style="background:${JP_COLORS[l.color]}">${esc(l.name)}</span></label>`).join('')}
+  <div class="btns"><button class="btn" style="flex:1" onclick="jpPopClose();jpSettings('labels')">Create or edit labels</button></div>`); }
+function jpLabelToggle(id){ const c = jpCur(); const L = c.labels = [...(c.labels||[])]; const i = L.indexOf(id); const l = jpLabel(id);
+  if(i>=0){ L.splice(i,1); jpLog(c, `removed the ${l?.name||id} label`); } else { L.push(id); jpLog(c, `added the ${l?.name||id} label`); } recordChange(); jpRender(); RENDER.planner(); }
+function jpDatesPop(a){ const c = jpCur(); jpPop(a, 'Dates', `<label class="f">Start date</label><input type="date" id="jpDs" value="${esc(c.start||'')}" style="width:100%"><label class="f">Due date</label><input type="date" id="jpDd" value="${esc(c.due||'')}" style="width:100%">
+  <div class="btns"><button class="btn primary" style="flex:1" onclick="jpDatesSave()">Save</button><button class="btn" onclick="el('jpDs').value='';el('jpDd').value='';jpDatesSave()">Remove</button></div>`); }
+function jpDatesSave(){ const c = jpCur(); const s = el('jpDs').value, d = el('jpDd').value; if(s && d && s > d) return toast('The start date is after the due date');
+  const changed = s!==(c.start||'') || d!==(c.due||''); c.start = s; c.due = d; if(changed){ jpLog(c, d ? `set the due date to ${jpFmt(d)}` : 'removed the dates');
+    if(d && c.assignee && c.assignee!==PERSON) notify([c.assignee], 'assignment', `🕒 <b>${esc(jpKey(c))} ${esc(c.title)}</b> is now due ${esc(jpFmt(d))}`, {view:'planner', card:c.id}); recordChange(); }
+  jpPopClose(); jpRender(); RENDER.planner(); }
+function jpMembersPop(a){ const c = jpCur(); jpPop(a, 'Members', `<input placeholder="Search members" oninput="document.querySelectorAll('#jpPop .opt').forEach(o=>o.style.display=o.textContent.toLowerCase().includes(this.value.toLowerCase())?'':'none')" style="width:100%;margin-bottom:6px">
+  <div style="max-height:260px;overflow:auto">${plPeople().map(k=>`<label class="opt"><input type="checkbox" ${(c.members||[]).includes(k)?'checked':''} onchange="jpMemberToggle('${k}')">${av(P(k))}<span style="flex:1">${esc(pname(k))}</span></label>`).join('')}</div>`); }
+function jpMemberToggle(k){ const c = jpCur(); const L = c.members = [...(c.members||[])]; const i = L.indexOf(k);
+  if(i>=0){ L.splice(i,1); jpLog(c, `removed ${pname(k)} from this card`); } else { L.push(k); jpLog(c, `added ${pname(k)} to this card`); if(k!==PERSON) notify([k], 'assignment', `🗂️ ${esc(first(PERSON))} added you to <b>${esc(jpKey(c))} ${esc(c.title)}</b>`, {view:'planner', card:c.id}); }
+  recordChange(); jpRender(); RENDER.planner(); }
+function jpAddMenu(a){ jpPop(a, 'Add to card', `<div class="opt" role="button" tabindex="0" onclick="jpLabelsPop(document.querySelector('.jp-act'))">🏷 Labels</div><div class="opt" role="button" tabindex="0" onclick="jpDatesPop(document.querySelector('.jp-act'))">🕒 Dates</div>
+  <div class="opt" role="button" tabindex="0" onclick="jpPopClose();jpAddChecklist()">☑ Checklist</div><div class="opt" role="button" tabindex="0" onclick="jpMembersPop(document.querySelector('.jp-act'))">👤 Members</div><div class="opt" role="button" tabindex="0" onclick="jpPopClose();jpAttach()">📎 Attachment</div>`); }
+function jpMore(a){ jpPop(a, 'Card actions', `<div class="opt" role="button" tabindex="0" onclick="jpPopClose();jpCopyLink()">🔗 Copy link</div><div class="opt" role="button" tabindex="0" onclick="jpPopClose();jpArchive()">🗄 Archive card</div>`); }
+function jpArchive(){ const c = jpCur(); if(!c) return; c.archived = true; jpLog(c, 'archived this card'); recordChange(); el('jpOv')?.remove(); JPV.open = null; RENDER.planner(); toast(`${jpKey(c)} archived`); }
+/* checklist */
+function jpAddChecklist(){ JPV.edit = 'ck'; jpRender(); setTimeout(()=>el('jpCkNew')?.focus(), 30); }
+function jpCkAdd(){ const c = jpCur(); const t = el('jpCkNew')?.value.trim(); if(!t) return; c.checklist = [...(c.checklist||[]), {id:uid('CK'), text:t, done:false}]; c.updatedAt = nowISO(); recordChange(); JPV.edit = 'ck'; jpRender(); RENDER.planner(); setTimeout(()=>el('jpCkNew')?.focus(), 30); }
+function jpCkToggle(id){ const c = jpCur(); c.checklist = (c.checklist||[]).map(x=>x.id===id ? {...x, done:!x.done} : x); const it = c.checklist.find(x=>x.id===id); if(it?.done) jpLog(c, `completed “${coraTrim(it.text, 60)}” on the checklist`); recordChange(); jpRender(); RENDER.planner(); }
+function jpCkDel(id){ const c = jpCur(); c.checklist = (c.checklist||[]).filter(x=>x.id!==id); c.updatedAt = nowISO(); recordChange(); jpRender(); RENDER.planner(); }
+function jpCkClear(){ const c = jpCur(); if(!(c.checklist||[]).length){ JPV.edit = null; return jpRender(); } confirmModal('Delete the checklist?', 'All its items are removed.', 'Delete', ()=>{ closeModal(); c.checklist = []; JPV.edit = null; jpLog(c, 'deleted the checklist'); recordChange(); jpRender(); RENDER.planner(); }); }
+/* attachments: files or a link */
+function jpAttach(){ const a = document.querySelector('.jp-sec-h .btn[onclick="jpAttach()"]') || document.querySelector('.jp-acts .jp-act');
+  jpPop(a, 'Attach', `<label class="f">Attach a file from your computer</label><button class="btn" style="width:100%" onclick="el('jpAf').click()">Choose files</button><input type="file" id="jpAf" multiple hidden onchange="jpAttachFiles(this.files)">
+    <label class="f">Or paste a link (Canva, Google Drive, website…)</label><input id="jpAl" placeholder="https://…" style="width:100%" onkeydown="if(event.key==='Enter'){event.preventDefault();jpAttachLink()}">
+    <label class="f">Link name (optional)</label><input id="jpAn" style="width:100%"><div class="btns"><button class="btn primary" style="flex:1" onclick="jpAttachLink()">Insert link</button></div>`); }
+async function jpAttachFiles(fl){ const c = jpCur(); jpPopClose(); const add = []; for(const f of [...fl]){ toast('Uploading '+f.name+'…'); const r = await storeFile(f); if(r) add.push({...r, by:PERSON, at:nowISO()}); }
+  if(!add.length) return; const cc = PLANNER.find(x=>x.id===c.id); cc.files = [...(cc.files||[]), ...add]; jpLog(cc, `attached ${add.map(f=>f.name).join(', ')}`); recordChange(); jpRender(); RENDER.planner(); toast('Attached'); }
+function jpAttachLink(){ const c = jpCur(); let u = el('jpAl').value.trim(); if(!u) return toast('Paste a link'); if(!/^https?:\/\//i.test(u)) u = 'https://'+u; try{ new URL(u); }catch(e){ return toast('That link doesn’t look right'); }
+  const name = el('jpAn').value.trim() || u.replace(/^https?:\/\//,'').slice(0,70); c.files = [...(c.files||[]), {name, url:u, by:PERSON, at:nowISO()}]; jpLog(c, `attached the link ${name}`); jpPopClose(); recordChange(); jpRender(); RENDER.planner(); }
+function jpRmFile(i){ const c = jpCur(); const f = (c.files||[])[i]; if(!f) return; confirmModal('Remove this attachment?', esc(f.name), 'Remove', ()=>{ closeModal(); c.files = c.files.filter((_, j)=>j!==i); jpLog(c, `removed the attachment ${f.name}`); recordChange(); jpRender(); RENDER.planner(); }); }
+/* comments */
+async function jpComment(){ const c = jpCur(); if(!c) return; const t = el('jpCt').value.trim(); const fl = el('jpCf').files; if(!t && !fl.length) return toast('Write a comment, paste a link or attach a file');
+  if(!c.title){ return toast('Give the card a title first'); }
+  const files = []; for(const f of [...fl]){ const r = await storeFile(f); if(r) files.push(r); }
+  const m = {id:uid('PC'), card:c.id, by:PERSON, at:nowISO(), text:t, files}; PLCOMMENTS.push(m); c.updatedAt = nowISO();
+  const tagged = plPeople().filter(k=>t.toLowerCase().includes('@'+first(k).toLowerCase()));
+  const who = uniq([c.assignee, c.createdBy, ...(c.members||[]), ...tagged]).filter(k=>k && k!==PERSON);
+  if(who.length) notify(who, 'message', `💬 ${esc(first(PERSON))} commented on <b>${esc(jpKey(c))} ${esc(c.title)}</b>: ${esc(coraTrim(t||'(file)', 90))}`, {view:'planner', card:c.id});
+  recordChange(); el('jpCt').value = ''; jpRender(); RENDER.planner(); }
+function jpCmSave(id){ const m = PLCOMMENTS.find(x=>x.id===id); if(!m || m.by!==PERSON) return; const t = el('jpEd').value.trim(); if(!t && !(m.files||[]).length) return toast('A comment can’t be empty'); m.text = t; m.editedAt = nowISO(); JPV.edit = null; recordChange(); jpRender(); }
+function jpCmDel(id){ const m = PLCOMMENTS.find(x=>x.id===id); if(!m) return; confirmModal('Delete this comment?', 'It is removed for everyone.', 'Delete', ()=>{ closeModal(); const i = PLCOMMENTS.indexOf(m); if(i>=0) PLCOMMENTS.splice(i, 1); recordChange(); jpRender(); RENDER.planner(); }); }
+
+/* ---------- board settings: columns and labels ---------- */
+function jpSetEnsure(){ let s = PLSET.find(x=>x.id==='main'); if(!s){ s = {id:'main', columns:[...jpCols()], labels:JSON.parse(JSON.stringify(jpLabels()))}; PLSET.push(s); } return s; }
+function jpSettings(tab){ const cols = jpCols(); const L = jpLabels();
+  openModal('Board settings', `<div class="nav-label" style="padding:0 0 8px">Columns</div>
+    <div id="jpColsEd">${cols.map((c,i)=>`<div style="display:flex;gap:6px;align-items:center;margin-bottom:6px"><input value="${esc(c)}" data-old="${esc(c)}" class="jpColIn" style="flex:1" aria-label="Column name">
+      <button class="btn ghost" ${i?'':'disabled'} onclick="jpColMove(${i},-1)" aria-label="Move left">↑</button><button class="btn ghost" ${i<cols.length-1?'':'disabled'} onclick="jpColMove(${i},1)" aria-label="Move right">↓</button>
+      <button class="btn ghost" style="color:var(--bad)" onclick="jpColDel(${i})" aria-label="Remove column">✕</button></div>`).join('')}</div>
+    <div style="display:flex;gap:6px;margin-bottom:6px"><input id="jpColNew" placeholder="New column, e.g. Doing - FB / IG / LinkedIn" style="flex:1"><button class="btn" onclick="jpColAdd()">Add column</button></div>
+    <button class="btn primary" onclick="jpColsSave()">Save column names</button>
+    <div class="hint" style="margin:6px 0 16px">The last column counts as done (cards there show as complete).</div>
+    <div class="nav-label" style="padding:0 0 8px">Labels</div>
+    <div>${L.map((l,i)=>`<div style="display:flex;gap:6px;align-items:center;margin-bottom:6px"><span class="jp-lb" style="background:${JP_COLORS[l.color]};width:22px;height:22px;padding:0"></span><input value="${esc(l.name)}" class="jpLbIn" data-i="${i}" style="flex:1" aria-label="Label name">
+      <select class="jpLbCol" data-i="${i}" aria-label="Label colour">${Object.keys(JP_COLORS).map(k=>`<option ${l.color===k?'selected':''}>${k}</option>`).join('')}</select><button class="btn ghost" style="color:var(--bad)" onclick="jpLbDel(${i})" aria-label="Delete label">✕</button></div>`).join('')}</div>
+    <div style="display:flex;gap:6px;margin:6px 0"><input id="jpLbNew" placeholder="New label" style="flex:1"><select id="jpLbNewC">${Object.keys(JP_COLORS).map(k=>`<option>${k}</option>`).join('')}</select><button class="btn" onclick="jpLbAdd()">Add label</button></div>
+    <button class="btn primary" onclick="jpLbSave()">Save labels</button>`, true);
+  if(tab==='labels') setTimeout(()=>el('jpLbNew')?.focus(), 50); }
+function jpColsSave(){ const s = jpSetEnsure(); const ins = [...document.querySelectorAll('.jpColIn')]; const names = ins.map(i=>i.value.trim()); if(names.some(n=>!n)) return toast('Column names can’t be empty'); if(new Set(names).size!==names.length) return toast('Two columns have the same name');
+  ins.forEach(i=>{ const o = i.dataset.old, n = i.value.trim(); if(o!==n) PLANNER.filter(c=>c.bucket===o).forEach(c=>{ c.bucket = n; c.updatedAt = nowISO(); }); });
+  s.columns = names; recordChange(); toast('Columns saved'); jpSettings(); RENDER.planner(); }
+function jpColMove(i, d){ const s = jpSetEnsure(); const L = [...jpCols()]; const j = i+d; [L[i], L[j]] = [L[j], L[i]]; s.columns = L; recordChange(); jpSettings(); RENDER.planner(); }
+function jpColAdd(){ const n = el('jpColNew').value.trim(); if(!n) return; const s = jpSetEnsure(); if(jpCols().includes(n)) return toast('That column already exists'); const L = [...jpCols()]; L.splice(Math.max(0, L.length-1), 0, n); s.columns = L; recordChange(); jpSettings(); RENDER.planner(); }
+function jpColDel(i){ const L = [...jpCols()]; if(L.length<=1) return toast('Keep at least one column'); const n = L[i]; const cnt = jpCards().filter(c=>c.bucket===n).length;
+  confirmModal(`Remove “${n}”?`, cnt ? `Its ${cnt} card${cnt>1?'s move':' moves'} to “${L[i===0?1:0]}”.` : 'The column is empty.', 'Remove column', ()=>{ closeModal(); const s = jpSetEnsure(); const to = L[i===0?1:0];
+    jpCards().filter(c=>c.bucket===n).forEach(c=>{ c.bucket = to; jpLog(c, `moved from ${n} to ${to} (column removed)`); }); L.splice(i,1); s.columns = L; recordChange(); jpSettings(); RENDER.planner(); }); }
+function jpLbSave(){ const s = jpSetEnsure(); const L = JSON.parse(JSON.stringify(jpLabels())); document.querySelectorAll('.jpLbIn').forEach(i=>{ L[+i.dataset.i].name = i.value.trim() || L[+i.dataset.i].name; });
+  document.querySelectorAll('.jpLbCol').forEach(i=>{ L[+i.dataset.i].color = i.value; }); s.labels = L; recordChange(); toast('Labels saved'); jpSettings('labels'); RENDER.planner(); }
+function jpLbAdd(){ const n = el('jpLbNew').value.trim(); if(!n) return; const s = jpSetEnsure(); s.labels = [...JSON.parse(JSON.stringify(jpLabels())), {id:uid('LB'), name:n, color:el('jpLbNewC').value}]; recordChange(); jpSettings('labels'); }
+function jpLbDel(i){ const s = jpSetEnsure(); const L = JSON.parse(JSON.stringify(jpLabels())); const l = L[i]; L.splice(i,1); s.labels = L; PLANNER.forEach(c=>{ if((c.labels||[]).includes(l.id)){ c.labels = c.labels.filter(x=>x!==l.id); c.updatedAt = nowISO(); } }); recordChange(); jpSettings('labels'); RENDER.planner(); }
+
+/* ---------- old entry points → new card view; live updates; links ---------- */
+plOpen = function(id){ jpOpen(id); };
+{ const _fl = followLink; followLink = function(link){ if(link?.view==='planner'){ go('planner'); if(link.card) setTimeout(()=>jpOpen(link.card), 150); return; } return _fl.apply(this, arguments); }; }
+{ const _ore = onRemoteEvent; onRemoteEvent = function(ev){ _ore(ev);
+    if(['planner','plcomments','plset'].includes(ev?.coll)){ const id = ev.coll==='plcomments' ? ev.obj?.card : ev.coll==='planner' ? (ev.obj?.id || ev.deleted) : JPV.open;
+      if(JPV.open && (id===JPV.open || ev.coll==='plset')) setTimeout(()=>jpRefresh(JPV.open), 0);
+      if(CURRENT==='planner' && !JPV.drag && !JPV.quick && document.activeElement?.id!=='jpQ') setTimeout(()=>RENDER.planner(), 0); } }; }
+/* the base page refresh would otherwise skip the board while the card view is open */
+window.addEventListener('hashchange', ()=>{ const m = location.hash.match(/^#planner-(.+)$/); if(m && PLANNER.some(c=>c.id===m[1])) jpOpen(m[1]); });
+{ const _sp = setPerson; setPerson = function(){ const r = _sp.apply(this, arguments); setTimeout(()=>{ const m = location.hash.match(/^#planner-(.+)$/); if(m && PLANNER.some(c=>c.id===m[1])) jpOpen(m[1]); }, 4000); return r; }; }
+{ const _go = go; go = function(id){ if(id!=='planner' && el('jpOv')) jpClose(); return _go.apply(this, arguments); }; }
+/* ===== 95_fbfix2.js ===== */
+/* ================= Tickets fixed in Build 2026-10-10 · 1 → For Testing with a note for the reporter (once, by JA's portal) ================= */
+const FB_FIXED2 = {
+  'TK-196502884-zrb':'Fixed: when a PM and a VA saved the same Content Board item close together, the later save replaced the whole item, so one person’s change (e.g. a status or date) silently disappeared and the two screens disagreed. Saves now write only the fields you changed and keep both people’s history, so both changes are kept and both screens show the same thing. The board also no longer stops refreshing while the client filter has focus, and the pill now says “Reconnecting…” or “⚠ not saved” instead of “Live · synced” when something isn’t saved. (Needs supabase/update-content-sync.sql.) Please test with your VA: both edit the same item at once.',
+  'TK-1539307521-8oi':'Fixed: portals that stay open (installed app / pinned tab) kept running the old version until someone tapped “Update now”, so new automations never reached them. New versions now install themselves when it’s safe (never while typing or on a call), and HR / heads can see everyone’s version and push an update (Connection window → Team versions). Please check Erica shows the latest version there. If something specific didn’t reach Erica, reply here with what it was.',
+  'TK-19650289-dds':'Done: 🎤 Voice in the chat toolbar — record up to 5 minutes, listen back, then Send, Re-record or Delete. Voice messages play inline for everyone in the chat, on computer and phone.'};
+const FB_UPD2 = {'TK-19650288-oph':'Updated: the Content Planner now works like Jira — issue keys (CP-1…), labels, dates, checklist, members, priority and type, search and quick filters, Board / List views, swimlanes by assignee, editable columns and labels — and a Trello-style card view (status dropdown, Description and Caption with Edit, checklist, attachments, Comments and activity with Show details). Please test and confirm.'};
+function fbTicketUpdates2(){ if(!SYNC.ready || PERSON!==cooKey() || S().fbFix2) return; let n = 0;
+  Object.entries(FB_FIXED2).forEach(([id, note])=>{ const t = TICKETS.find(x=>x.id===id); if(!t || !['Submitted','In Progress','Reopened','Open'].includes(t.status)) return;
+    t.comments = [...(t.comments||[]), {id:uid('C'), by:PERSON, at:nowISO(), text:note}]; try{ tkSetStatus(t, 'For Testing', 'please test and confirm'); }catch(e){ t.status = 'For Testing'; t.updated = nowISO(); } n++; });
+  Object.entries(FB_UPD2).forEach(([id, note])=>{ const t = TICKETS.find(x=>x.id===id); if(!t || ['Closed','Resolved'].includes(t.status)) return; t.comments = [...(t.comments||[]), {id:uid('C'), by:PERSON, at:nowISO(), text:note}]; t.updated = nowISO(); n++; });
+  const s = SETTINGS.find(x=>x.id==='global'); if(s){ s.fbFix2 = nowISO(); } recordChange(); if(n) toast(`${n} tickets updated — reporters were notified`); }
+{ const _sp = setPerson; setPerson = function(){ const r = _sp.apply(this, arguments); setTimeout(()=>{ try{ fbTicketUpdates2(); }catch(e){ console.warn(e); } }, 9000); return r; }; }
 </script>
 </body>
 </html>

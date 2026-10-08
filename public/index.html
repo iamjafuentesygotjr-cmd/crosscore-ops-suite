@@ -2776,6 +2776,63 @@ body.glass-lite .sidebar,body.glass-lite .topbar{background:linear-gradient(180d
 .app-letter{white-space:pre-wrap}
 body.applicant-mode .cora-web,body.applicant-mode #capFab,body.applicant-mode [onclick^="newDMModal"],body.applicant-mode [onclick^="startCall"],body.applicant-mode #roleSel,body.applicant-mode .new-chat-btn,body.applicant-mode [onclick^="newChatModal"],body.applicant-mode [onclick^="newGroupModal"],body.applicant-mode [onclick^="dmNew"]{display:none!important}
 @media (max-width:640px){.rec-head{flex-direction:column}.rec-acc{text-align:left}.rec-board{grid-auto-columns:minmax(180px,85vw)}.app-task .btn{margin-left:0}}
+
+/* ---------- birthdays (Oct 2026) ---------- */
+.bd-pop{position:fixed;inset:0;z-index:93;display:grid;place-items:center;padding:16px;background:rgba(14,10,4,.55);backdrop-filter:blur(3px);animation:fade .2s ease;overflow:hidden}
+.bd-fx{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.bd-bal{position:absolute;bottom:-140px;width:54px;height:66px;border-radius:50% 50% 47% 47%;opacity:.92;animation:bdUp 9s ease-in infinite;box-shadow:inset -8px -10px 0 rgba(0,0,0,.08)}
+.bd-bal::after{content:"";position:absolute;left:50%;top:100%;width:1px;height:60px;background:rgba(255,255,255,.55)}
+.bd-cf{position:absolute;top:-20px;width:8px;height:13px;border-radius:2px;animation:bdFall 5s linear infinite}
+@keyframes bdUp{0%{transform:translateY(0) rotate(-4deg)}50%{transform:translateY(-60vh) rotate(5deg)}100%{transform:translateY(-125vh) rotate(-3deg)}}
+@keyframes bdFall{0%{transform:translateY(0) rotate(0)}100%{transform:translateY(110vh) rotate(540deg)}}
+.bd-card{position:relative;width:min(520px,100%);max-height:calc(100vh - 32px);overflow:auto;background:var(--panel);color:var(--ink);border-radius:22px;padding:26px 24px 20px;text-align:center;box-shadow:0 30px 80px -20px rgba(0,0,0,.45);border:1px solid var(--line);animation:bdIn .35s cubic-bezier(.2,1.3,.4,1)}
+.bd-card::before{content:"";position:absolute;inset:0 0 auto 0;height:7px;border-radius:22px 22px 0 0;background:repeating-linear-gradient(90deg,#F2B440 0 18px,#E0569B 18px 36px,#3FA7E0 36px 54px,#5CC27A 54px 72px)}
+@keyframes bdIn{from{transform:scale(.85);opacity:0}to{transform:none;opacity:1}}
+.bd-x{position:absolute;top:12px;right:12px;width:34px;height:34px;border-radius:50%;border:1px solid var(--line);background:var(--panel-2);color:var(--ink-2);font-size:15px;cursor:pointer}
+.bd-cake{font-size:46px;line-height:1;margin:6px 0 4px}
+.bd-card h2{font-size:30px;letter-spacing:-.02em;background:linear-gradient(90deg,#E39312,#E0569B,#6C3BC9);-webkit-background-clip:text;background-clip:text;color:transparent;text-wrap:balance}
+.bd-name{font-size:19px;font-weight:700;margin:4px 0 14px}
+.bd-msg{text-align:left;white-space:pre-wrap;font-size:13.8px;line-height:1.65;background:var(--panel-2);border:1px solid var(--line-2);border-radius:14px;padding:14px 16px;margin-bottom:14px}
+.bd-ctl{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-bottom:12px}
+.bd-ctl .btn{padding:7px 13px;font-size:12.5px}
+.bd-play{background:linear-gradient(90deg,#F2B440,#E0569B)!important;color:#fff!important;border:0!important;font-weight:700}
+.bd-play.pulse{animation:bdPulse 1.4s ease-in-out infinite}
+@keyframes bdPulse{50%{transform:scale(1.06)}}
+.bd-foot{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.bd-note{font-size:11.5px;color:var(--ink-3);margin-top:10px}
+.bd-badge{display:inline-grid;place-items:center;margin-left:6px;font-size:15px;animation:bdPulse 2.4s ease-in-out infinite}
+.bd-ribbon{display:flex;align-items:center;gap:8px;margin:8px 0 2px;padding:8px 10px;border-radius:10px;font-size:12.5px;font-weight:600;background:linear-gradient(90deg,rgba(242,180,64,.18),rgba(224,86,155,.16));color:var(--ink)}
+.pf-pop.pf-bday{border-top:4px solid #E0569B}
+.bd-dash{border:1px solid var(--line);background:linear-gradient(120deg,rgba(242,180,64,.13),rgba(224,86,155,.10) 60%,rgba(108,59,201,.08))}
+.bd-dash .bd-who{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px dashed var(--line);flex-wrap:wrap}
+.bd-dash .bd-who:last-child{border-bottom:0}
+.bd-dash .bd-who .btn{margin-left:auto;padding:5px 12px;font-size:12px}
+.bd-annhead{display:flex;gap:10px;align-items:center;padding:10px 12px;border-radius:12px;margin-bottom:12px;background:linear-gradient(90deg,rgba(242,180,64,.2),rgba(224,86,155,.16),rgba(63,167,224,.14));font-weight:600;font-size:13px}
+.bd-rx{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 14px}
+.bd-rx button{display:inline-flex;align-items:center;gap:5px;padding:5px 11px;border-radius:99px;border:1px solid var(--line);background:var(--panel);color:var(--ink);font-size:14px;cursor:pointer}
+.bd-rx button b{font-size:12px;font-variant-numeric:tabular-nums}
+.bd-rx button[aria-pressed="true"]{border-color:#E0569B;background:rgba(224,86,155,.12)}
+.bd-rx button:disabled{cursor:default;opacity:.75}
+.bd-cm{display:flex;gap:10px;padding:10px 0;border-top:1px solid var(--line-2)}
+.bd-cm .avatar{flex:none}
+.bd-cm-b{flex:1;min-width:0}
+.bd-cm-h{display:flex;gap:6px;align-items:baseline;flex-wrap:wrap;font-size:12.5px}
+.bd-cm-t{font-size:13.2px;line-height:1.55;white-space:pre-wrap;word-wrap:break-word;margin-top:2px}
+.bd-cm-t.rm{color:var(--ink-3);font-style:italic}
+.bd-cm-a{display:flex;gap:10px;margin-top:4px}
+.bd-cm-a button{background:none;border:0;padding:0;color:var(--ink-3);font-size:11.5px;font-weight:600;cursor:pointer}
+.bd-cm-a button:hover{color:var(--ink)}
+.bd-replies{margin-left:22px;border-left:2px solid var(--line-2);padding-left:10px}
+.bd-compose{display:flex;gap:8px;align-items:flex-start;margin-top:8px}
+.bd-compose textarea{flex:1;min-height:44px;resize:vertical}
+.bd-tbl td,.bd-tbl th{padding:7px 8px;vertical-align:middle}
+.bd-tbl select,.bd-tbl input{padding:5px 7px;font-size:12.5px}
+.bd-tbl tr.missing td:first-child{box-shadow:inset 3px 0 0 var(--warn)}
+.bd-prio{display:flex;flex-direction:column;gap:6px;max-width:420px}
+.bd-prio div{display:flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:10px;padding:6px 10px;font-size:13px}
+.bd-prio div span{flex:1}
+@media (prefers-reduced-motion:reduce){.bd-bal,.bd-cf,.bd-card,.bd-play.pulse,.bd-badge{animation:none!important}.bd-bal{bottom:auto;top:calc(var(--y,10) * 1%)}.bd-cf{display:none}}
+@media (max-width:640px){.bd-card{padding:22px 16px 16px}.bd-card h2{font-size:25px}.bd-bal{width:40px;height:50px}}
 </style>
 </head>
 <body>
@@ -20631,7 +20688,7 @@ async function cooPostFromModal(){ const ch = CHATS.find(c=>c.id===el('paPostC')
    The footer shows which build is running ("Build 2026-10-07 · 1"), and every open portal checks every few minutes
    (and whenever it comes back to the foreground) whether a newer build has been published. If so it shows
    "New version available — Update now" instead of quietly running old code. */
-const BUILD_ID = '2026-10-09 · 2';
+const BUILD_ID = '2026-10-09 · 3';
 function verStamp(){ const f = el('footNote'); if(f && !f.dataset.v){ f.dataset.v = 1; f.textContent = `Cross Core Ops Suite v8 · Build ${BUILD_ID}`; } }
 async function verCheck(){
   if(!/^https?:/.test(location.protocol)) return;
@@ -24200,6 +24257,478 @@ function recChangeNotify(){ const now = Date.now();
       if(!tp.mats.length) return 'HR will add your training materials here shortly.';
       return tp.all ? 'You completed your training — your assessment is next.' : `Complete your training at your own pace on the Training page (${tp.done.length} of ${tp.mats.length} done).`; }
     return _an.apply(this, arguments); }; }
+/* ===== 90_birthday.js ===== */
+/* ================= AUTOMATED BIRTHDAY CELEBRATION & RECOGNITION (Oct 2026) =================
+   • Birthdays come only from the birthday records HR / company heads keep on the Birthdays page (month + day, year
+     optional). Nobody without a record is celebrated. Full dates are visible only to HR, company heads and the person.
+   • The database publishes each celebration once (sql/update-birthdays.sql): the celebration record and the automatic
+     Announcement Board post, in the company time zone, even when the person is offline. Every signed-in portal asks the
+     database to run the same check (on sign-in and every 30 minutes) and pg_cron runs it on a schedule.
+   • On the birthday (and the whole next day) the person sees the birthday pop-up when they sign in — at most twice per
+     birthday across all devices, counted by the database (a refresh in the same sign-in never counts).
+   • Profile decorations (profile card, name box, dashboard) last for the birthday and the whole next day.
+   • Reactions and greetings on the post are real-time; the birthday person is notified (greetings one by one with a
+     preview, reactions summarised at most once an hour).
+   • Leap-day rule: a 29 February birthday is celebrated on 28 February in non-leap years. */
+
+let BDAYS = [], BDSET = [], BDCELE = [], BDPOP = [], ANNREACT = [], ANNCOMMENT = [];
+const bdStaff = () => uniq([...HR_KEYS(), ...HEADS]);
+COLL.bdays      = {get:()=>BDAYS, set:v=>BDAYS=v, aud:r=>uniq([...bdStaff(), r.id])};
+COLL.bdset      = {get:()=>BDSET, set:v=>BDSET=v};
+COLL.bdcele     = {get:()=>BDCELE, set:v=>BDCELE=v};
+COLL.bdpop      = {get:()=>BDPOP, set:v=>BDPOP=v, aud:r=>[r.person]};
+COLL.annreact   = {get:()=>ANNREACT, set:v=>ANNREACT=v};
+COLL.anncomment = {get:()=>ANNCOMMENT, set:v=>ANNCOMMENT=v};
+
+const BD_MGMT = 'mgmt', BD_MGMT_NAME = 'Cross Core OPC Management';
+const BD_REACTS = ['❤️','🎉','🎂','🥳','👍'];
+const BD_ROLES = [['ceo','Chief Executive Officer'],['coo','Chief Operating Officer'],['cofounder','Co-Founder'],['head','Company head / department head'],
+  ['pm','Project Manager'],['hr','Human Resources'],['consultant','Consultant'],['core','Core Team'],['standard','Standard (all employees & VAs)']];
+const BD_ROLE = Object.fromEntries(BD_ROLES);
+const BD_PRIORITY = ['ceo','coo','cofounder','head','pm','hr','consultant','core','standard'];
+const BD_SIGN = '\n\nWith warm wishes,\nCross Core OPC Management';
+const BD_ANN_TITLE = '🎉🎂 TODAY, WE CELEBRATE [NAME]! 🎂🎉';
+/* default wording — HR and company heads can replace any of it on Birthdays → Message templates */
+const BD_TPL = {
+  standard:{msg:`Happy Birthday, [NAME]! 🎉\n\nOn behalf of everyone at Cross Core OPC, we wish you a wonderful day filled with joy, laughter and the people you love.\n\nThank you for your hard work, your dedication and the positive energy you bring to the team. We are grateful to have you as part of the Cross Core family.\n\nMay this new year of your life bring you good health, happiness and success in everything you do. Enjoy your special day!`+BD_SIGN,
+    annTitle:BD_ANN_TITLE,
+    annBody:`Please join us in wishing [NAME] a very Happy Birthday! 🥳\n\n[NAME], thank you for being part of the Cross Core family and for everything you bring to our team. We wish you a joyful day and a year full of blessings, growth and success.\n\nLeave your greetings and reactions below to make [NAME]'s day extra special! 🎈\n\n— Cross Core OPC Management`},
+  head:{msg:`Happy Birthday, [NAME]! 🎉\n\nToday we celebrate one of the leaders who guides Cross Core OPC forward. Thank you for your leadership, your vision and the care you show for our team and our clients every day.\n\nWe wish you a joyful birthday, good health and a year full of success and fulfilment.`+BD_SIGN,
+    annTitle:'🎉🎂 HAPPY BIRTHDAY TO OUR LEADER, [NAME]! 🎂🎉',
+    annBody:`Today we celebrate the birthday of [NAME], one of the leaders of Cross Core OPC! 🥳\n\nThank you, [NAME], for your leadership, guidance and support for our team. Please join us in wishing [NAME] a wonderful birthday and a year full of joy and success.\n\nLeave your greetings and reactions below! 🎈\n\n— Cross Core OPC Management`},
+  ceo:{msg:`Happy Birthday, [NAME]! 🎉\n\nAs our Chief Executive Officer, your vision and leadership shape the direction of Cross Core OPC. Thank you for building a company where people can grow, work together and do meaningful work.\n\nWe wish you a birthday filled with joy and a year of good health, happiness and continued success.`+BD_SIGN},
+  coo:{msg:`Happy Birthday, [NAME]! 🎉\n\nAs our Chief Operating Officer, you keep our operations running and our teams aligned. Thank you for your dedication, for the structure you bring to our work and for always supporting the team.\n\nWe wish you a wonderful birthday and a year full of good health, happiness and success.`+BD_SIGN},
+  cofounder:{msg:`Happy Birthday, [NAME]! 🎉\n\nAs a Co-Founder of Cross Core OPC, you helped build the foundation our whole team stands on. Thank you for your creativity, your vision and your commitment to the people who work here.\n\nWe wish you a joyful birthday and a year full of inspiration, good health and success.`+BD_SIGN},
+  pm:{msg:`Happy Birthday, [NAME]! 🎉\n\nThank you for leading your projects and your team with care. Your coordination, guidance and support keep our work on track and our clients well served.\n\nWe wish you a wonderful birthday and a year full of happiness, good health and success.`+BD_SIGN},
+  hr:{msg:`Happy Birthday, [NAME]! 🎉\n\nThank you for taking care of our people. Your support, patience and dedication help make Cross Core OPC a place where everyone feels welcome and valued.\n\nWe wish you a joyful birthday and a year full of good health, happiness and success.`+BD_SIGN},
+  consultant:{msg:`Happy Birthday, [NAME]! 🎉\n\nThank you for sharing your knowledge, insight and expertise with Cross Core OPC. Your guidance helps our team make better decisions and serve our clients well.\n\nWe wish you a wonderful birthday and a year full of good health, happiness and success.`+BD_SIGN},
+  core:{msg:`Happy Birthday, [NAME]! 🎉\n\nAs a member of our Core Team, you are an important part of how Cross Core OPC works every day. Thank you for your dedication, your teamwork and everything you contribute to the company.\n\nWe wish you a joyful birthday and a year full of good health, happiness and success.`+BD_SIGN},
+};
+
+/* ---------- settings, time zone, dates ---------- */
+const bdSet = () => BDSET.find(x=>x.id==='main') || {};
+const bdTz = () => bdSet().tz || 'Asia/Manila';
+const bdCan = () => ['hr'].includes(ROLE) || isHead(PERSON) || isFullAccess();
+const bdOff = () => !PEOPLE[PERSON] || ROLE==='client' || (typeof isApplicant==='function' && isApplicant());
+function bdToday(){ try{ return new Intl.DateTimeFormat('en-CA', {timeZone:bdTz(), year:'numeric', month:'2-digit', day:'2-digit'}).format(new Date()); }catch(e){ return manilaDate(); } }
+const bdAddDays = (ymd, n) => { const d = new Date(ymd+'T12:00:00Z'); d.setUTCDate(d.getUTCDate()+n); return d.toISOString().slice(0,10); };
+const bdLeap = y => y%4===0 && (y%100!==0 || y%400===0);
+const bdFmt = ymd => ymd ? new Date(ymd+'T12:00:00Z').toLocaleDateString('en-US', {month:'short', day:'numeric', timeZone:'UTC'}) : '—';
+const bdFmtY = ymd => ymd ? new Date(ymd+'T12:00:00Z').toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric', timeZone:'UTC'}) : '—';
+const BD_MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+/* the date this month-day is celebrated in a given year (29 Feb → 28 Feb in non-leap years) */
+function bdOn(md, y){ if(md==='02-29' && !bdLeap(y)) return `${y}-02-28`; return `${y}-${md}`; }
+function bdNext(md, from=bdToday()){ const y = +from.slice(0,4); let d = bdOn(md, y); if(d < from) d = bdOn(md, y+1); return d; }
+const bdRec = k => BDAYS.find(r=>r.id===k);
+
+/* ---------- which message: role detection + priority (HR can override per person) ---------- */
+function bdRoles(k){
+  const p = PEOPLE[k] || {}; const e = EMPLOYEES.find(x=>x.id===k) || {};
+  const t = `${p.sub||''} ${e.role||''} ${e.dept||''}`; const r = [];
+  if(p.role==='ceo' || /chief executive/i.test(t)) r.push('ceo');
+  if(p.role==='coo' || /chief operating/i.test(t)) r.push('coo');
+  if(p.role==='creative' || /co-?\s?founder/i.test(t)) r.push('cofounder');
+  if(isHead(k) || /\bhead\b/i.test(t)) r.push('head');
+  if(p.role==='manager' || /project manager/i.test(t)) r.push('pm');
+  if(p.role==='hr' || /^HR\b|human resources/i.test(e.role||p.sub||'')) r.push('hr');
+  if(/consult/i.test(t)) r.push('consultant');
+  if(isCore(k) || e.group==='Core Team') r.push('core');
+  r.push('standard'); return r;
+}
+const bdPriority = () => { const p = bdSet().priority; return Array.isArray(p) && p.length ? [...p.filter(x=>BD_ROLE[x]), ...BD_PRIORITY.filter(x=>!p.includes(x))] : BD_PRIORITY; };
+function bdAutoRole(k){ const rs = bdRoles(k); return bdPriority().find(x=>rs.includes(x)) || 'standard'; }
+function bdRole(k){ const o = bdRec(k)?.tplOverride; return o && BD_ROLE[o] ? o : bdAutoRole(k); }
+function bdTpl(role){ const own = (bdSet().templates||{})[role] || {}; const def = BD_TPL[role] || BD_TPL.standard;
+  return {msg:own.msg || def.msg || BD_TPL.standard.msg, annTitle:own.annTitle || def.annTitle || '', annBody:own.annBody || def.annBody || ''}; }
+const bdFill = (t, name) => String(t||'').replace(/\[(EMPLOYEE NAME|EMPLOYEE'S NAME|NAME|FIRST NAME)\]/gi, name||'');
+const bdSigned = t => /Cross Core OPC Management/i.test(t) ? t : t + BD_SIGN;
+function bdMessage(c){ const role = c.tpl && BD_ROLE[c.tpl] ? c.tpl : bdRole(c.person); return bdSigned(bdFill(bdTpl(role).msg, c.name || pname(c.person))); }
+/* the post: Standard and Heads have their own announcement wording; every other role uses the standard title + its role message */
+function bdAnnText(c){
+  const role = c.tpl && BD_ROLE[c.tpl] ? c.tpl : bdRole(c.person); const t = bdTpl(role); const std = bdTpl('standard'); const nm = c.name || pname(c.person);
+  const isHeadT = ['head','ceo','coo','cofounder'].includes(role);
+  const title = bdFill(t.annTitle || (isHeadT ? bdTpl('head').annTitle : std.annTitle) || BD_ANN_TITLE, nm);
+  const body = role==='standard' ? bdFill(std.annBody || std.msg, nm) : role==='head' ? bdFill(t.annBody || t.msg, nm) : bdFill(t.annBody || t.msg, nm);
+  return {title, body:bdSigned(body)};
+}
+
+/* ---------- celebrations ---------- */
+const bdActive = c => { const t = bdToday(); return !!c && c.date <= t && t <= c.until; };
+const bdActiveList = () => BDCELE.filter(bdActive).sort((a,b)=>(b.date||'').localeCompare(a.date||'') || (a.name||'').localeCompare(b.name||''));
+const bdActiveFor = k => bdActiveList().find(c=>c.person===k);
+const bdCeleOf = annId => BDCELE.find(c=>c.ann===annId) || (()=>{ const a = ANNOUNCEMENTS.find(x=>x.id===annId); return a?.birthday ? {id:a.birthday.cele, ann:a.id, ...a.birthday} : null; })();
+
+/* the birthday job: the database runs it (one celebration per person per year, never twice); the demo copy runs it here */
+let BD_LAST_RUN = 0;
+async function bdRun(force){
+  if(bdOff()) return; if(!force && Date.now() - BD_LAST_RUN < 60e3) return; BD_LAST_RUN = Date.now();
+  if(BACKEND?.mode==='live'){ try{ const {error} = await BACKEND.sb.rpc('cc_birthday_run'); if(error) console.warn('birthday check:', error.message); }catch(e){ console.warn('birthday check:', e.message); } return; }
+  bdRunLocal();
+}
+function bdRunLocal(){
+  const today = bdToday(); let changed = false;
+  [bdAddDays(today, -1), today].forEach(d=>{ const y = +d.slice(0,4);
+    BDAYS.filter(r=>/^\d\d-\d\d$/.test(r.md||'') && bdOn(r.md, y)===d).forEach(r=>{
+      const p = PEOPLE[r.id]; if(!p || p.role==='client' || p.teamOnly || (p.empId && !['Active','On Probation'].includes(p.status))) return;
+      const key = `BD-${r.id}-${y}`; if(BDCELE.some(c=>c.id===key)) return;
+      const tpl = r.tplOverride || r.tpl || 'standard'; const nm = r.name || pname(r.id);
+      BDCELE.push({id:key, person:r.id, name:nm, year:y, date:d, until:bdAddDays(d, 1), tpl, ann:'ANN-'+key, at:nowISO()});
+      if(!ANNOUNCEMENTS.some(a=>a.id==='ANN-'+key)) ANNOUNCEMENTS.unshift({id:'ANN-'+key, title:BD_ANN_TITLE.replace('[NAME]', nm.toUpperCase()), body:`Let's all wish ${nm} a very Happy Birthday!`,
+        by:BD_MGMT, at:nowISO(), date:bdFmtY(d), priority:'Normal', link:'', files:[], target:{type:'all'}, archived:false,
+        birthday:{person:r.id, name:nm, year:y, date:d, until:bdAddDays(d, 1), tpl, cele:key}});
+      changed = true; });
+  });
+  ANNOUNCEMENTS.forEach(a=>{ if(a.birthday && !a.archived && a.birthday.until < today){ a.archived = true; a.archivedBy = 'birthday-expiry'; a.archivedAt = nowISO(); changed = true; } });
+  if(changed){ recordChange(); scheduleRender(); }
+}
+
+/* HR / heads portals keep the stored name, role message and post wording current */
+function bdReconcile(){
+  if(bdOff() || !bdCan() || !SYNC?.ready) return; let changed = false;
+  BDAYS.forEach(r=>{ const nm = pname(r.id); const tpl = bdAutoRole(r.id);
+    if(PEOPLE[r.id] && (r.name!==nm || r.tpl!==tpl)){ r.name = nm; r.tpl = tpl; changed = true; } });
+  ANNOUNCEMENTS.forEach(a=>{ if(!a.birthday || a.archived || a.tplApplied) return; const c = bdCeleOf(a.id); if(!c) return;
+    const t = bdAnnText(c); a.title = t.title; a.body = t.body; a.tplApplied = true; changed = true; });
+  if(changed) recordChange();
+}
+
+/* ---------- the birthday pop-up (max twice per birthday, counted by the database) ---------- */
+const BD_ASKED = new Set();
+function bdSid(){ try{ let s = sessionStorage.getItem('cc-bd-sid'); if(!s){ s = uid('S'); sessionStorage.setItem('cc-bd-sid', s); } return s; }catch(e){ return 'nosession'; } }
+async function bdCheckPopup(){
+  if(bdOff()) return; const c = bdActiveFor(PERSON); if(!c || BD_ASKED.has(c.id) || document.querySelector('.bd-pop')) return;
+  BD_ASKED.add(c.id);
+  if(BACKEND?.mode==='live'){
+    try{ const {data, error} = await BACKEND.sb.rpc('cc_bday_popup', {p_cele:c.id}); if(error) throw error; if(data?.show) bdPopup(c, {count:data.count}); }
+    catch(e){ BD_ASKED.delete(c.id); console.warn('birthday pop-up:', e.message); }
+    return;
+  }
+  /* demo: same rule, counted in this browser's copy */
+  const pid = 'P-'+c.id; let r = BDPOP.find(x=>x.id===pid); const sid = PERSON+':'+bdSid();
+  if(r && ((r.sessions||[]).includes(sid) || r.count >= 2)) return;
+  if(!r){ r = {id:pid, person:PERSON, cele:c.id, count:0, sessions:[], shown:[]}; BDPOP.push(r); }
+  r.count++; r.sessions.push(sid); r.shown.push(nowISO()); recordChange(); bdPopup(c, {count:r.count});
+}
+function bdFx(){
+  const cols = ['#F2B440','#E0569B','#3FA7E0','#5CC27A','#A47FEA','#F06A6A'];
+  let h = ''; for(let i=0;i<9;i++) h += `<span class="bd-bal" style="left:${4+i*11}%;background:${cols[i%cols.length]};animation-delay:-${(i*1.7)%8}s;--y:${8+(i%3)*30}"></span>`;
+  for(let i=0;i<34;i++) h += `<span class="bd-cf" style="left:${(i*29)%100}%;background:${cols[i%cols.length]};animation-delay:${(i*0.37)%5}s;animation-duration:${4+(i%4)}s"></span>`;
+  return h;
+}
+let BD_PREV_FOCUS = null;
+function bdPopup(c, opts={}){
+  bdPopClose(true);
+  const nm = c.name || pname(c.person); const preview = !!opts.preview;
+  const d = document.createElement('div'); d.className = 'bd-pop'; d.setAttribute('role','dialog'); d.setAttribute('aria-modal','true'); d.setAttribute('aria-labelledby','bdPopH');
+  d.innerHTML = `<div class="bd-fx" aria-hidden="true">${bdFx()}</div>
+    <div class="bd-card">
+      <button type="button" class="bd-x" aria-label="Close" onclick="bdPopClose()">✕</button>
+      <div class="bd-cake" aria-hidden="true">🎂</div>
+      <h2 id="bdPopH">Happy Birthday!</h2>
+      <div class="bd-name">${esc(nm)}</div>
+      <div class="bd-msg">${esc(opts.msg || bdMessage(c))}</div>
+      <div class="bd-ctl">
+        <button type="button" class="btn bd-play" id="bdPlay" onclick="bdMusicPlay()">🎵 Celebrate My Birthday</button>
+        <button type="button" class="btn" id="bdMute" onclick="bdMusicMute()" aria-pressed="false">🔇 Mute</button>
+        <button type="button" class="btn" id="bdStop" onclick="bdMusicStop()">⏹ Stop music</button>
+      </div>
+      <div class="bd-foot">${c.ann && !preview ? `<button type="button" class="btn" onclick="bdPopClose();openAnn('${esc(c.ann)}')">🎉 See greetings from the team</button>` : ''}
+        <button type="button" class="btn primary" onclick="bdPopClose()">Close</button></div>
+      <div class="bd-note">${preview ? 'Preview — this does not count toward the person’s pop-ups.' : 'From all of us at Cross Core OPC 💛'}</div>
+    </div>`;
+  d.addEventListener('mousedown', e=>{ if(e.target===d) bdPopClose(); });
+  d.addEventListener('keydown', e=>{ if(e.key==='Escape'){ e.preventDefault(); bdPopClose(); }
+    if(e.key==='Tab'){ const f = [...d.querySelectorAll('button')].filter(b=>!b.disabled && b.offsetParent); if(!f.length) return; const i = f.indexOf(document.activeElement);
+      if(e.shiftKey && i<=0){ e.preventDefault(); f[f.length-1].focus(); } else if(!e.shiftKey && i===f.length-1){ e.preventDefault(); f[0].focus(); } } });
+  BD_PREV_FOCUS = document.activeElement; document.body.appendChild(d);
+  setTimeout(()=>d.querySelector('#bdPlay')?.focus({preventScroll:true}), 30);
+  bdMusicPlay(true);
+}
+function bdPopClose(quiet){ const d = document.querySelector('.bd-pop'); if(!d) return; bdMusicStop(); d.remove(); if(!quiet) try{ BD_PREV_FOCUS?.focus?.({preventScroll:true}); }catch(e){} }
+
+/* ---------- music: one track at a time — HR's approved upload, or the built-in original chime ---------- */
+const BDM = {ctx:null, gain:null, nodes:[], audio:null, muted:false, timer:null, playing:false};
+/* an original, royalty-free melody written for the portal (not a copyrighted song) */
+const BD_TUNE = [[72,.5],[77,.5],[81,.5],[84,.5],[81,1],[77,1], [79,.5],[81,.5],[82,.5],[79,.5],[76,1],[72,1], [74,.5],[77,.5],[82,.5],[86,.5],[84,1],[81,1], [82,.5],[81,.5],[79,.5],[76,.5],[77,2],
+  [72,.5],[77,.5],[81,.5],[84,.5],[86,1],[84,1], [82,.5],[81,.5],[79,.5],[81,.5],[77,1],[74,1], [79,.5],[82,.5],[88,.5],[86,.5],[84,1],[76,1], [77,3],[0,1]];
+const BD_BASS = [[53,2],[57,2],[48,2],[52,2],[46,2],[50,2],[48,2],[53,2],[53,2],[57,2],[46,2],[50,2],[48,2],[52,2],[53,4]];
+function bdMusicUI(state){ const p = el('bdPlay'); if(!p) return;
+  p.classList.toggle('pulse', state==='blocked'); p.textContent = state==='playing' ? '🎵 Playing…' : '🎵 Celebrate My Birthday';
+  const m = el('bdMute'); if(m){ m.textContent = BDM.muted ? '🔊 Unmute' : '🔇 Mute'; m.setAttribute('aria-pressed', BDM.muted ? 'true' : 'false'); } }
+async function bdMusicPlay(auto){
+  bdMusicStop(true);
+  const f = bdSet().music;
+  if(f && (f.path || f.data || f.url)){
+    try{ const url = await BACKEND.fileUrl(f); const a = new Audio(url); a.muted = BDM.muted; a.volume = .8; BDM.audio = a;
+      a.onended = ()=>{ BDM.playing = false; bdMusicUI('ended'); };
+      await a.play(); BDM.playing = true; bdMusicUI('playing'); return; }
+    catch(e){ BDM.audio = null; if(e?.name==='NotAllowedError'){ bdMusicUI('blocked'); return; } /* the file failed — fall back to the built-in chime */ }
+  }
+  try{
+    const AC = window.AudioContext || window.webkitAudioContext; if(!AC) return bdMusicUI('blocked');
+    if(!BDM.ctx){ BDM.ctx = new AC(); BDM.gain = BDM.ctx.createGain(); BDM.gain.connect(BDM.ctx.destination); }
+    const ctx = BDM.ctx; if(ctx.state!=='running'){ try{ await Promise.race([ctx.resume(), new Promise(r=>setTimeout(r, 350))]); }catch(e){} }
+    if(ctx.state!=='running'){ bdMusicUI('blocked'); return; }   /* autoplay blocked: the person taps “Celebrate My Birthday” */
+    BDM.gain.gain.value = BDM.muted ? 0 : .22;
+    const beat = 60/132, t0 = ctx.currentTime + .08; const hz = m => 440*Math.pow(2, (m-69)/12);
+    const note = (m, at, len, type, vol) => { if(!m) return; const o = ctx.createOscillator(); const g = ctx.createGain(); o.type = type; o.frequency.value = hz(m);
+      g.gain.setValueAtTime(0, at); g.gain.linearRampToValueAtTime(vol, at+.02); g.gain.exponentialRampToValueAtTime(.001, at+Math.max(.18, len*.95));
+      o.connect(g); g.connect(BDM.gain); o.start(at); o.stop(at+len+.05); BDM.nodes.push(o); };
+    let t = t0; BD_TUNE.forEach(([m, b])=>{ note(m, t, b*beat, 'triangle', .9); if(m) note(m+12, t, b*beat*.6, 'sine', .12); t += b*beat; });
+    let tb = t0; BD_BASS.forEach(([m, b])=>{ note(m, tb, b*beat, 'sine', .55); tb += b*beat; });
+    BDM.playing = true; bdMusicUI('playing');
+    BDM.timer = setTimeout(()=>{ BDM.playing = false; BDM.nodes = []; bdMusicUI('ended'); }, (t - t0 + .3)*1000);
+  }catch(e){ bdMusicUI('blocked'); }
+}
+function bdMusicStop(quiet){
+  clearTimeout(BDM.timer); BDM.nodes.forEach(o=>{ try{ o.stop(); }catch(e){} }); BDM.nodes = [];
+  if(BDM.audio){ try{ BDM.audio.pause(); BDM.audio.src = ''; }catch(e){} BDM.audio = null; }
+  BDM.playing = false; if(!quiet) bdMusicUI('stopped');
+}
+function bdMusicMute(){ BDM.muted = !BDM.muted; if(BDM.gain) BDM.gain.gain.value = BDM.muted ? 0 : .22; if(BDM.audio) BDM.audio.muted = BDM.muted; bdMusicUI(BDM.playing ? 'playing' : 'stopped'); }
+
+/* ---------- decorations (birthday + the whole next day; the photo and profile are never changed) ---------- */
+function bdRibbon(c){ const t = bdToday(); return `<div class="bd-ribbon">🎂 ${c.date===t ? 'Celebrating their birthday today!' : 'Birthday celebration continues today'} 🎉</div>`; }
+function bdDecorMe(){ const mb = el('meBox'); if(!mb) return; mb.querySelector('.bd-badge')?.remove();
+  if(bdOff() || !bdActiveFor(PERSON)) return; const b = mb.querySelector('b'); if(b) b.insertAdjacentHTML('afterend', '<span class="bd-badge" title="Happy birthday from Cross Core OPC!" aria-label="Birthday celebration">🎂</span>'); }
+{ const _pf = pfOpen; pfOpen = function(k){ const r = _pf.apply(this, arguments); const c = !bdOff() && bdActiveFor(k);
+    if(c && PF){ PF.classList.add('pf-bday'); PF.querySelector('.pf-top')?.insertAdjacentHTML('afterend', `${bdRibbon(c).replace('their', k===PERSON?'your':'their')}${c.ann?`<div style="margin:6px 0 2px"><button type="button" class="btn" style="width:100%;padding:6px 10px;font-size:12px" onclick="pfClose();openAnn('${esc(c.ann)}')">🎉 ${k===PERSON?'See your greetings':'Send a birthday greeting'}</button></div>`:''}`); }
+    return r; }; }
+{ const _sp = setPerson; setPerson = function(){ const r = _sp.apply(this, arguments); setTimeout(bdDecorMe, 0); setTimeout(bdBoot, 2500); return r; }; }
+{ const _ac = avatarsChanged; avatarsChanged = function(){ const r = _ac.apply(this, arguments); bdDecorMe(); return r; }; }
+function bdDashCard(){
+  if(bdOff()) return ''; const L = bdActiveList(); const t = bdToday();
+  const up = bdCan() ? BDAYS.filter(r=>/^\d\d-\d\d$/.test(r.md||'') && PEOPLE[r.id] && activePeople().includes(r.id)).map(r=>({r, d:bdNext(r.md, bdAddDays(t, 1))})).filter(x=>x.d <= bdAddDays(t, 7) && !L.some(c=>c.person===x.r.id)).sort((a,b)=>a.d.localeCompare(b.d)) : [];
+  if(!L.length && !up.length) return '';
+  const who = c => { const me = c.person===PERSON;
+    return `<div class="bd-who">${av(P(c.person))}<div><b>${me ? `Happy birthday, ${esc(first(c.person))}! 🎂` : esc(c.name||pname(c.person))}</b><div class="hint">${c.date===t ? '🎂 Birthday today' : '🎉 Celebration continues today'}${me ? ' · the whole team is celebrating you' : ''}</div></div>
+      ${c.ann ? `<button class="btn ${me?'':'primary'}" onclick="openAnn('${esc(c.ann)}')">${me ? 'See your greetings' : '🎉 Send greetings'}</button>` : ''}</div>`; };
+  return `<div class="card bd-dash" style="margin-bottom:16px"><div class="card-h"><h3>🎉 ${L.length ? 'Today we celebrate' : 'Upcoming birthdays'}</h3>${bdCan()?`<button class="btn ghost" style="padding:5px 11px;font-size:12px" onclick="go('birthdays')">Birthdays →</button>`:''}</div>
+    <div class="card-b" style="padding-top:4px">${L.map(who).join('')}
+      ${up.length ? `<div class="hint" style="margin-top:8px">🔒 Next 7 days (HR & heads): ${up.map(x=>`${esc(first(x.r.id))} · ${bdFmt(x.d)}`).join(' · ')}</div>` : ''}</div></div>`;
+}
+{ const _rd = RENDER.dashboard; RENDER.dashboard = function(){ const r = _rd.apply(this, arguments); const v = el('v-dashboard'); if(!v || v.querySelector('.bd-dash')) return r;
+    const h = bdDashCard(); if(!h) return r; const head = v.querySelector('.page-head'); if(head) head.insertAdjacentHTML('afterend', h); else v.insertAdjacentHTML('afterbegin', h); return r; }; }
+
+/* ---------- Announcement Board: management identity, full wording, reactions and greetings ---------- */
+const bdMgmtAva = (size=36) => `<span class="avatar" style="width:${size}px;height:${size}px;background:linear-gradient(135deg,#F2B440,#E0569B);font-size:${Math.round(size*.36)}px" title="${BD_MGMT_NAME}" aria-label="${BD_MGMT_NAME}">CC</span>`;
+{ const _fn = annFromName; annFromName = function(a){ return a?.by===BD_MGMT ? BD_MGMT_NAME : _fn.apply(this, arguments); }; }
+{ const _fa = annFromAva; annFromAva = function(a, size){ return a?.by===BD_MGMT ? bdMgmtAva(size||36) : _fa.apply(this, arguments); }; }
+const bdReacts = annId => ANNREACT.filter(r=>r.ann===annId);
+const bdComments = annId => ANNCOMMENT.filter(c=>c.ann===annId).sort((a,b)=>(a.at||'').localeCompare(b.at||''));
+const bdLocked = a => !!a?.archived;
+const BDED = {edit:null, reply:null};
+function bdSocialHTML(a){
+  const R = bdReacts(a.id); const lock = bdLocked(a);
+  const rx = BD_REACTS.map(e=>{ const L = R.filter(r=>r.type===e); const mine = L.some(r=>r.person===PERSON);
+    const names = L.map(r=>first(r.person)).slice(0,12).join(', ') + (L.length>12 ? ` +${L.length-12}` : '');
+    return `<button type="button" aria-pressed="${mine}" ${lock?'disabled':''} title="${esc(names || 'React with '+e)}" aria-label="${e} ${L.length} reaction${L.length===1?'':'s'}${mine?' — including yours':''}" onclick="bdReact('${esc(a.id)}','${e}')">${e} <b>${L.length||''}</b></button>`; }).join('');
+  const C = bdComments(a.id); const top = C.filter(c=>!c.parent || !C.some(x=>x.id===c.parent));
+  const one = c => { const mine = c.by===PERSON; const rm = !!c.removed; const kids = C.filter(x=>x.parent===c.id);
+    const body = BDED.edit===c.id ? `<div class="bd-compose"><textarea id="bdEditT" maxlength="2000" aria-label="Edit your greeting">${esc(c.text)}</textarea>
+        <div style="display:flex;flex-direction:column;gap:6px"><button class="btn primary" style="padding:5px 11px;font-size:12px" onclick="bdEditSave('${c.id}')">Save</button><button class="btn" style="padding:5px 11px;font-size:12px" onclick="BDED.edit=null;bdAnnRefresh('${esc(a.id)}')">Cancel</button></div></div>`
+      : `<div class="bd-cm-t ${rm?'rm':''}">${rm ? (c.removed.by===c.by ? 'This greeting was deleted.' : 'This greeting was removed by a moderator.') : linkify(c.text)}</div>`;
+    const acts = rm || lock ? '' : `<div class="bd-cm-a">${!c.parent?`<button type="button" onclick="BDED.reply='${c.id}';bdAnnRefresh('${esc(a.id)}');setTimeout(()=>el('bdReplyT')?.focus(),30)">Reply</button>`:''}
+      ${mine?`<button type="button" onclick="BDED.edit='${c.id}';bdAnnRefresh('${esc(a.id)}');setTimeout(()=>el('bdEditT')?.focus(),30)">Edit</button><button type="button" onclick="bdCommentDel('${c.id}')">Delete</button>`:''}
+      ${!mine && bdCan()?`<button type="button" onclick="bdCommentRemove('${c.id}')">Remove (moderate)</button>`:''}</div>`;
+    return `<div class="bd-cm" data-cm="${c.id}">${av(P(c.by))}<div class="bd-cm-b"><div class="bd-cm-h"><b>${esc(pname(c.by))}</b><span class="hint">${esc(dtstr(c.at))}${c.editedAt&&!rm?' · edited':''}</span></div>${body}${acts}
+      ${kids.length || BDED.reply===c.id ? `<div class="bd-replies">${kids.map(one).join('')}${BDED.reply===c.id ? `<div class="bd-compose"><textarea id="bdReplyT" maxlength="2000" placeholder="Write a reply…" aria-label="Reply"></textarea>
+        <div style="display:flex;flex-direction:column;gap:6px"><button class="btn primary" style="padding:5px 11px;font-size:12px" onclick="bdCommentPost('${esc(a.id)}','${c.id}')">Reply</button><button class="btn" style="padding:5px 11px;font-size:12px" onclick="BDED.reply=null;bdAnnRefresh('${esc(a.id)}')">Cancel</button></div></div>` : ''}</div>` : ''}</div></div>`; };
+  return `<div class="bd-rx" role="group" aria-label="Reactions">${rx}</div>
+    <div class="hint" style="margin-bottom:4px"><b>💬 Greetings</b> · ${C.filter(c=>!c.removed).length}</div>
+    <div class="bd-cms">${top.map(one).join('') || `<div class="hint" style="padding:8px 0">${lock ? 'No greetings were posted.' : 'Be the first to send a birthday greeting!'}</div>`}</div>`;
+}
+function bdComposerHTML(a){
+  if(bdLocked(a)) return `<div class="hint" style="margin-top:10px;text-align:center">This celebration has ended — the greetings and reactions are kept here.</div>`;
+  const c = bdCeleOf(a.id); const me = c?.person===PERSON;
+  return `<div class="bd-compose" style="margin-top:10px">${av(P(PERSON))}<textarea id="bdNewT" maxlength="2000" placeholder="${me ? 'Say thank you to the team…' : `Write a birthday greeting for ${esc(first(c?.person||''))}…`}" aria-label="Write a greeting"></textarea>
+    <button class="btn primary" onclick="bdCommentPost('${esc(a.id)}')">Post</button></div>`;
+}
+function bdAnnRefresh(id){
+  const box = el('bdAnnX'); if(!box || box.dataset.ann!==id) return; const a = ANNOUNCEMENTS.find(x=>x.id===id); if(!a) return;
+  const keep = {edit:el('bdEditT')?.value, reply:el('bdReplyT')?.value}; const focus = document.activeElement?.id;
+  box.innerHTML = bdSocialHTML(a);
+  if(keep.edit!=null && el('bdEditT')) el('bdEditT').value = keep.edit; if(keep.reply!=null && el('bdReplyT')) el('bdReplyT').value = keep.reply;
+  if(focus && el(focus) && ['bdEditT','bdReplyT'].includes(focus)) el(focus).focus({preventScroll:true});
+}
+{ const _oa = openAnn; openAnn = function(id){ const r = _oa.apply(this, arguments); const a = ANNOUNCEMENTS.find(x=>x.id===id); const b = el('modalBody');
+    if(!a || !b || !a.birthday) return r; const c = bdCeleOf(a.id) || {person:a.birthday.person, name:a.birthday.name, tpl:a.birthday.tpl, date:a.birthday.date, until:a.birthday.until};
+    BDED.edit = null; BDED.reply = null;
+    const t = bdAnnText(c); el('modalTitle').textContent = t.title;
+    const p = [...b.querySelectorAll('p')].find(x=>/pre-wrap/.test(x.getAttribute('style')||'')); if(p) p.innerHTML = linkify(t.body);
+    const from = b.querySelector('.ann-from'); const head = `<div class="bd-annhead">${av(P(c.person))}<span>🎂 ${esc(c.name||pname(c.person))} · ${bdFmt(c.date)}${a.archived ? ' · celebration ended (archived)' : bdActive(c) ? ' · celebrating now' : ''}</span></div>`;
+    if(from) from.insertAdjacentHTML('afterend', head); else b.insertAdjacentHTML('afterbegin', head);
+    const last = [...b.children].reverse().find(x=>x.tagName==='BUTTON' || x.classList.contains('hint'));
+    const social = `<div id="bdAnnX" data-ann="${esc(a.id)}">${bdSocialHTML(a)}</div>${bdComposerHTML(a)}<div style="height:12px"></div>`;
+    if(last && last.parentElement===b) last.insertAdjacentHTML('beforebegin', social); else b.insertAdjacentHTML('beforeend', social);
+    return r; }; }
+/* board rows show reaction and greeting counts */
+{ const _ra = RENDER.announce; RENDER.announce = function(){ const r = _ra.apply(this, arguments); const v = el('v-announce'); if(!v) return r;
+    v.querySelectorAll('.list-row').forEach(row=>{ const m = (row.querySelector('[onclick^="openAnn("]')?.getAttribute('onclick')||'').match(/openAnn\('([^']+)'\)/); if(!m) return;
+      const a = ANNOUNCEMENTS.find(x=>x.id===m[1]); if(!a?.birthday) return; const hint = row.querySelector('.hint'); if(!hint || hint.querySelector('.bd-cnt')) return;
+      hint.insertAdjacentHTML('beforeend', `<span class="bd-cnt"> · 🎂 ${bdReacts(a.id).length} reactions · 💬 ${bdComments(a.id).filter(c=>!c.removed).length} greetings</span>`); });
+    return r; }; }
+
+/* reactions: one of each kind per person; tap again to remove */
+function bdReact(annId, type){
+  const a = ANNOUNCEMENTS.find(x=>x.id===annId); if(!a || bdLocked(a) || !BD_REACTS.includes(type)) return;
+  const id = `${annId}|${PERSON}|${type}`; const i = ANNREACT.findIndex(r=>r.id===id);
+  if(i>=0) ANNREACT.splice(i, 1);
+  else { ANNREACT.push({id, ann:annId, person:PERSON, type, at:nowISO()});
+    const c = bdCeleOf(annId); if(c && c.person!==PERSON){ const hour = Math.floor(Date.now()/3600e3);
+      bdNotify(c.person, `🎉 <b>${esc(first(PERSON))}</b> reacted ${type} to your birthday post — open it to see everyone’s reactions`, {view:'announce', ann:annId}, `bdr-${annId}-${hour}`); } }
+  recordChange(); bdAnnRefresh(annId);
+}
+function bdNotify(to, text, link, idBase){ if(!to || !PEOPLE[to] || to===PERSON) return; const id = `N-${idBase}-${to}`; if(NOTIFS2.some(n=>n.id===id)) return;
+  NOTIFS2.unshift({id, to, type:'announcement', text, link:link||null, by:PERSON, at:nowISO(), read:false}); }
+/* greetings (comments) and replies */
+function bdCommentPost(annId, parent){
+  const a = ANNOUNCEMENTS.find(x=>x.id===annId); if(!a || bdLocked(a)) return;
+  const box = el(parent ? 'bdReplyT' : 'bdNewT'); const text = (box?.value||'').trim();
+  if(!text) return toast('Write a greeting first'); if(text.length > 2000) return toast('Please keep greetings under 2,000 characters');
+  const cm = {id:uid('AC'), ann:annId, by:PERSON, text, at:nowISO(), parent:parent||null};
+  ANNCOMMENT.push(cm); if(box) box.value = ''; BDED.reply = null;
+  const c = bdCeleOf(annId); const prev = esc(text.length > 90 ? text.slice(0, 90)+'…' : text);
+  if(c && c.person!==PERSON) bdNotify(c.person, `💬 <b>${esc(pname(PERSON))}</b> ${parent ? 'replied on your birthday post' : 'sent you a birthday greeting'}: “${prev}”`, {view:'announce', ann:annId}, `bdc-${cm.id}`);
+  const pc = parent && ANNCOMMENT.find(x=>x.id===parent); if(pc && pc.by!==PERSON && pc.by!==c?.person) bdNotify(pc.by, `💬 <b>${esc(pname(PERSON))}</b> replied to your greeting: “${prev}”`, {view:'announce', ann:annId}, `bdcr-${cm.id}`);
+  recordChange(); bdAnnRefresh(annId);
+}
+function bdEditSave(id){ const c = ANNCOMMENT.find(x=>x.id===id); if(!c || c.by!==PERSON) return; const t = (el('bdEditT')?.value||'').trim();
+  if(!t) return toast('A greeting can’t be empty — use Delete to remove it'); if(t.length > 2000) return toast('Please keep greetings under 2,000 characters');
+  c.text = t; c.editedAt = nowISO(); BDED.edit = null; recordChange(); bdAnnRefresh(c.ann); toast('Greeting updated'); }
+function bdCommentDel(id){ const c = ANNCOMMENT.find(x=>x.id===id); if(!c || c.by!==PERSON) return;
+  bdConfirm('Delete your greeting?', 'It will be removed for everyone.', 'Delete', ()=>{
+    if(ANNCOMMENT.some(x=>x.parent===id)){ c.removed = {by:PERSON, at:nowISO()}; c.text = ''; } else ANNCOMMENT.splice(ANNCOMMENT.indexOf(c), 1);
+    recordChange(); bdAnnRefresh(c.ann); toast('Greeting deleted'); }); }
+function bdCommentRemove(id){ const c = ANNCOMMENT.find(x=>x.id===id); if(!c || !bdCan()) return;
+  bdConfirm('Remove this greeting?', `Posted by ${pname(c.by)}. It will be hidden for everyone (moderation).`, 'Remove', ()=>{
+    c.removed = {by:PERSON, at:nowISO(), reason:'moderation'}; c.text = ''; recordChange(); bdAnnRefresh(c.ann); toast('Greeting removed'); }); }
+/* an inline confirmation inside the open announcement (keeps the post open underneath) */
+function bdConfirm(title, text, ok, fn){ const box = el('bdAnnX'); if(!box){ fn(); return; } box.querySelector('.bd-conf')?.remove();
+  const d = document.createElement('div'); d.className = 'bd-conf app-banner'; d.setAttribute('role','alertdialog');
+  d.innerHTML = `<b>${esc(title)}</b> <span>${esc(text)}</span><div style="display:flex;gap:6px;margin-top:8px"><button class="btn" style="padding:5px 11px;font-size:12px;color:var(--bad)" data-ok>${esc(ok)}</button><button class="btn" style="padding:5px 11px;font-size:12px" data-no>Cancel</button></div>`;
+  d.querySelector('[data-ok]').onclick = ()=>{ d.remove(); fn(); }; d.querySelector('[data-no]').onclick = ()=>d.remove(); box.prepend(d); d.querySelector('[data-no]').focus(); }
+
+/* real-time: refresh the open post; new celebrations re-check the pop-up and the decorations */
+{ const _ore = onRemoteEvent; onRemoteEvent = function(ev){ _ore(ev);
+    if(['annreact','anncomment'].includes(ev?.coll)){ const id = ev.obj?.ann || el('bdAnnX')?.dataset.ann; if(id) setTimeout(()=>bdAnnRefresh(id), 0); }
+    if(ev?.coll==='bdcele' && !ev.deleted){ bdDecorMe(); if(ev.obj?.person===PERSON) setTimeout(bdCheckPopup, 400); }
+    if(['bdays','employees','announcements'].includes(ev?.coll) && bdCan()){ clearTimeout(bdReconcile.t); bdReconcile.t = setTimeout(bdReconcile, 2500); }
+  }; }
+
+/* sign-in, every 30 minutes, and when the day changes in the company time zone */
+let BD_DAY = null;
+async function bdBoot(){ if(bdOff()) return; if(!SYNC?.ready){ clearTimeout(bdBoot.t); bdBoot.t = setTimeout(bdBoot, 1500); return; }
+  BD_DAY = bdToday(); await bdRun(true); setTimeout(()=>{ bdCheckPopup(); bdDecorMe(); bdReconcile(); }, 1200); }
+setInterval(()=>bdRun(), 30*60e3);
+setInterval(()=>{ if(bdOff() || !SYNC?.ready) return; const t = bdToday(); if(t!==BD_DAY){ BD_DAY = t; bdRun(true).then(()=>setTimeout(bdCheckPopup, 1500)); scheduleRender(); } bdDecorMe(); }, 60e3);
+setInterval(bdReconcile, 120e3);
+
+/* ================= Birthdays page (HR & company heads) ================= */
+const BDV = {tab:'people', q:'', role:'standard'};
+{ const at = NAV.findIndex(n=>n.id==='vatrack'||n.id==='hr201'||n.id==='employees'); if(!NAV.some(n=>n.id==='birthdays')) NAV.splice(at>=0?at+1:NAV.length-1, 0, {id:'birthdays', name:'Birthdays', roles:['hr','ceo','coo','creative'], ico:'M12 3v3M8 21h8a3 3 0 0 0 3-3v-5H5v5a3 3 0 0 0 3 3ZM5 13a3 3 0 0 1 3-3h8a3 3 0 0 1 3 3M12 6a1.2 1.2 0 1 0 0-.1'}); }
+if(!el('v-birthdays')){ const v = document.createElement('div'); v.id = 'v-birthdays'; v.className = 'view'; (el('v-dashboard')||document.querySelector('.content .view'))?.after(v); }
+{ const _na = navAllowed; navAllowed = function(n){ if(n?.id==='birthdays') return !bdOff() && bdCan(); return _na.apply(this, arguments); }; }
+const bdEligible = () => activePeople().filter(k=>PEOPLE[k] && PEOPLE[k].role!=='applicant').sort((a,b)=>pname(a).localeCompare(pname(b)));
+
+RENDER.birthdays = () => {
+  const v = el('v-birthdays'); if(!v) return; if(!bdCan()){ v.innerHTML = '<div class="empty">Birthdays are managed by HR and the company heads.</div>'; return; }
+  const t = bdToday(); const ppl = bdEligible(); const L = bdActiveList();
+  const withB = ppl.filter(k=>/^\d\d-\d\d$/.test(bdRec(k)?.md||'')); const missing = ppl.filter(k=>!withB.includes(k));
+  const up = withB.map(k=>({k, d:bdNext(bdRec(k).md, t)})).filter(x=>x.d <= bdAddDays(t, 30)).sort((a,b)=>a.d.localeCompare(b.d));
+  const tab = (k, l) => `<button class="btn ${BDV.tab===k?'primary':'ghost'}" style="padding:6px 13px;font-size:12.5px" onclick="BDV.tab='${k}';RENDER.birthdays()">${l}</button>`;
+  let body = '';
+  if(BDV.tab==='people'){
+    const q = BDV.q.toLowerCase(); const rows = ppl.filter(k=>!q || `${pname(k)} ${P(k).sub||''}`.toLowerCase().includes(q));
+    const opt = (val, cur, lbl) => `<option value="${val}" ${val===cur?'selected':''}>${esc(lbl)}</option>`;
+    body = `<div class="card"><div class="card-h"><h3>Birthday records</h3><span style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span class="sub">${withB.length} of ${ppl.length} active team members · ${missing.length} missing</span>
+      <input placeholder="Search name or role" value="${esc(BDV.q)}" oninput="BDV.q=this.value;clearTimeout(BDV.t);BDV.t=setTimeout(()=>{RENDER.birthdays();const i=document.querySelector('#v-birthdays .bd-q');if(i){i.focus();i.setSelectionRange(i.value.length,i.value.length);}},250)" class="bd-q" style="width:200px;padding:6px 10px"></span></div>
+      <div class="card-b" style="padding-top:4px"><div class="hint" style="margin-bottom:8px">🔒 Full birthdays are visible only to HR, the company heads and the person. Everyone else only sees the celebration on the day. The year is optional and never shown in celebrations. 29 February birthdays are celebrated on 28 February in non-leap years.</div>
+      <div style="overflow-x:auto"><table class="tbl bd-tbl"><thead><tr><th>Team member</th><th>Month</th><th>Day</th><th>Year (optional)</th><th>Message</th><th></th></tr></thead><tbody>
+      ${rows.map(k=>{ const r = bdRec(k) || {}; const [mm, dd] = (r.md||'').split('-'); const auto = bdAutoRole(k);
+        return `<tr class="${r.md?'':'missing'}"><td><div style="display:flex;gap:8px;align-items:center">${av(P(k))}<div><b>${esc(pname(k))}</b><div class="hint">${esc(P(k).sub||'')}${r.md?'':' · <span style="color:var(--warn)">no birthday on file</span>'}</div></div></div></td>
+          <td><select id="bdM-${k}" aria-label="Birth month for ${esc(pname(k))}"><option value="">—</option>${BD_MONTHS.map((m,i)=>opt(String(i+1).padStart(2,'0'), mm, m)).join('')}</select></td>
+          <td><input id="bdD-${k}" type="number" min="1" max="31" value="${dd?+dd:''}" style="width:64px" aria-label="Birth day"></td>
+          <td><input id="bdY-${k}" type="number" min="1900" max="${t.slice(0,4)}" value="${r.year||''}" style="width:84px" aria-label="Birth year (optional)"></td>
+          <td><select id="bdT-${k}" aria-label="Message template">${opt('', r.tplOverride||'', `Automatic — ${BD_ROLE[auto]}`)}${BD_ROLES.map(([x,l])=>opt(x, r.tplOverride||'', l)).join('')}</select></td>
+          <td style="white-space:nowrap"><button class="btn primary" style="padding:5px 11px;font-size:12px" onclick="bdSaveRow('${k}')">Save</button>${r.md?` <button class="btn" style="padding:5px 9px;font-size:12px" title="Remove this birthday" onclick="bdClearRow('${k}')">✕</button>`:''}</td></tr>`; }).join('')}
+      </tbody></table></div></div></div>`;
+  } else if(BDV.tab==='templates'){
+    const role = BDV.role; const tp = bdTpl(role); const own = (bdSet().templates||{})[role] || {}; const ex = {person:PERSON, name:'[NAME]', tpl:role};
+    body = `<div class="card"><div class="card-h"><h3>Message templates</h3><span class="sub">Used in the pop-up and the Announcement Board post · [NAME] is replaced with the person’s name</span></div><div class="card-b">
+      <div class="field"><label>Template</label><select onchange="BDV.role=this.value;RENDER.birthdays()">${BD_ROLES.map(([x,l])=>`<option value="${x}" ${x===role?'selected':''}>${esc(l)}${(bdSet().templates||{})[x]?' · customised':''}</option>`).join('')}</select></div>
+      <div class="field"><label>Pop-up & greeting message</label><textarea id="bdTplMsg" rows="11">${esc(own.msg || tp.msg)}</textarea></div>
+      ${['standard','head'].includes(role) ? `<div class="field"><label>Announcement title</label><input id="bdTplAT" value="${esc(own.annTitle || tp.annTitle)}"></div>
+        <div class="field"><label>Announcement message</label><textarea id="bdTplAB" rows="8">${esc(own.annBody || tp.annBody)}</textarea></div>`
+      : `<div class="hint" style="margin-bottom:12px">The announcement for this role uses the ${['ceo','coo','cofounder'].includes(role)?'Heads':'Standard'} announcement title with the message above.</div>`}
+      <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" onclick="bdTplSave()">Save template</button><button class="btn" onclick="bdTplPreview()">Preview pop-up</button>${own.msg||own.annTitle||own.annBody?'<button class="btn" onclick="bdTplReset()">Restore default wording</button>':''}</div>
+      <div class="hint" style="margin-top:10px">Which template a person gets: their per-person choice on Birthday records, otherwise the first match in this order — ${bdPriority().map(x=>BD_ROLE[x]).join(' → ')} (change it under Settings). Example: ${esc(bdAnnText(ex).title)}</div></div></div>`;
+  } else if(BDV.tab==='settings'){
+    const s = bdSet(); const tzs = ['Asia/Manila','Asia/Singapore','Asia/Tokyo','Australia/Sydney','Europe/London','America/New_York','America/Chicago','America/Los_Angeles','UTC'];
+    const pr = bdPriority();
+    body = `<div class="grid cols-2"><div class="card"><div class="card-h"><h3>Time zone & schedule</h3></div><div class="card-b">
+        <div class="field"><label>Company time zone</label><select id="bdTz">${[...new Set([bdTz(), ...tzs])].map(z=>`<option ${z===bdTz()?'selected':''}>${z}</option>`).join('')}</select></div>
+        <button class="btn primary" onclick="bdTzSave()">Save time zone</button>
+        <div class="hint" style="margin-top:10px">Today in the company time zone: <b>${bdFmtY(t)}</b>. Celebrations start at 12:00 AM on the birthday and end after the following day; the post then moves to the archive with its greetings and reactions.</div>
+        <div style="margin-top:12px"><button class="btn" onclick="bdRun(true).then(()=>toast('Birthday check finished'))">Run birthday check now</button></div></div></div>
+      <div class="card"><div class="card-h"><h3>Template priority</h3><span class="sub">for people with more than one role</span></div><div class="card-b"><div class="bd-prio">
+        ${pr.map((x,i)=>`<div><b>${i+1}</b><span>${esc(BD_ROLE[x])}</span><button class="btn ghost" style="padding:3px 8px" ${i?'':'disabled'} aria-label="Move up" onclick="bdPrioMove('${x}',-1)">↑</button><button class="btn ghost" style="padding:3px 8px" ${i<pr.length-1?'':'disabled'} aria-label="Move down" onclick="bdPrioMove('${x}',1)">↓</button></div>`).join('')}</div></div></div>
+      <div class="card"><div class="card-h"><h3>Birthday music</h3><span class="sub">one track, played in the pop-up</span></div><div class="card-b">
+        <div class="hint" style="margin-bottom:10px">Now playing: <b>${s.music ? esc(s.music.name)+' (approved upload)' : 'Cross Core celebration chime — an original melody made for the portal (royalty-free)'}</b></div>
+        <label style="display:flex;gap:8px;align-items:flex-start;font-size:12.5px;margin-bottom:10px"><input type="checkbox" id="bdLic" style="width:auto;margin-top:3px"> I confirm this track is licensed or approved for company use</label>
+        <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" onclick="bdMusicUpload()">Upload approved track (MP3 / M4A / OGG)</button><button class="btn" onclick="bdMusicTest()">▶ Preview</button><button class="btn" onclick="bdMusicStop()">⏹ Stop</button>${s.music?'<button class="btn" onclick="bdMusicReset()">Use the built-in chime</button>':''}</div></div></div>
+      <div class="card"><div class="card-h"><h3>How it works</h3></div><div class="card-b hint" style="line-height:1.6">
+        • The database publishes one celebration and one announcement per person per birthday — never twice, even when many portals are open.<br>
+        • The pop-up appears at most twice per birthday for that person, across all devices; refreshing the page doesn’t count.<br>
+        • Decorations show on the birthday and the whole next day, then disappear automatically.<br>
+        • People without a birthday on file are never celebrated.<br>
+        • For a fully server-side schedule, enable pg_cron in Supabase (Database → Extensions) and run update-birthdays.sql again; otherwise the check runs whenever anyone signs in and every 30 minutes.</div></div></div>`;
+  } else {
+    const H = BDCELE.slice().sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+    body = `<div class="card"><div class="card-h"><h3>Celebrations</h3><span class="sub">${H.length} recorded</span></div><div class="card-b" style="padding-top:4px">
+      ${H.map(c=>`<div class="list-row" style="padding:9px 6px">${av(P(c.person))}<div style="flex:1"><b>${esc(c.name||pname(c.person))}</b><div class="hint">${bdFmtY(c.date)} · ${esc(BD_ROLE[c.tpl]||c.tpl||'Standard')} message${bdActive(c)?' · <b style="color:var(--ok)">celebrating now</b>':''} · ${bdReacts(c.ann).length} reactions · ${bdComments(c.ann).filter(x=>!x.removed).length} greetings</div></div>
+        ${ANNOUNCEMENTS.some(a=>a.id===c.ann)?`<button class="btn" style="padding:5px 11px;font-size:12px" onclick="openAnn('${esc(c.ann)}')">Open post</button>`:''}</div>`).join('') || '<div class="empty">No celebrations yet — they appear here automatically.</div>'}</div></div>`;
+  }
+  v.innerHTML = `<div class="page-head"><div><h2>Birthdays</h2><p>Automatic birthday pop-ups, profile decorations and Announcement Board celebrations for every active team member.</p></div></div>
+    <div class="grid cols-3" style="margin-bottom:16px">
+      <div class="card kpi"><div class="k-label">Celebrating now</div><div class="k-val">${L.length}</div><div class="hint">${L.map(c=>esc(first(c.person))).join(', ') || 'no celebrations today'}</div></div>
+      <div class="card kpi"><div class="k-label">Next 30 days</div><div class="k-val">${up.length}</div><div class="hint">${up.slice(0,4).map(x=>`${esc(first(x.k))} · ${bdFmt(x.d)}`).join(' · ') || '—'}</div></div>
+      <div class="card kpi"><div class="k-label">Missing birthdays</div><div class="k-val" style="color:${missing.length?'var(--warn)':'var(--ink)'}">${missing.length}</div><div class="hint">${missing.length ? 'add them on Birthday records' : 'everyone is on file'}</div></div></div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">${tab('people','Birthday records')}${tab('templates','Message templates')}${tab('settings','Settings & music')}${tab('history','Celebrations')}</div>${body}`;
+};
+function bdSaveRow(k){
+  if(!bdCan()) return; const m = el('bdM-'+k)?.value; const d = +el('bdD-'+k)?.value; const yv = el('bdY-'+k)?.value; const y = yv ? +yv : null; const ov = el('bdT-'+k)?.value || '';
+  if(!m || !d) return toast('Choose the month and day');
+  const max = [31,29,31,30,31,30,31,31,30,31,30,31][+m-1]; if(d < 1 || d > max) return toast(`${BD_MONTHS[+m-1]} has ${max} days`);
+  const thisY = +bdToday().slice(0,4); if(y!=null && (y < 1900 || y > thisY)) return toast('Enter a valid year, or leave it empty');
+  if(y!=null && +m===2 && d===29 && !bdLeap(y)) return toast(`${y} was not a leap year`);
+  const md = `${m}-${String(d).padStart(2,'0')}`; let r = bdRec(k);
+  if(!r){ r = {id:k}; BDAYS.push(r); }
+  Object.assign(r, {md, year:y, name:pname(k), tpl:bdAutoRole(k), tplOverride:ov, updatedBy:PERSON, at:nowISO()});
+  recordChange(); if(typeof avSaved==='function') avSaved([mk('bdays', k)]);
+  toast(`Saved — ${first(k)}’s birthday is ${BD_MONTHS[+m-1]} ${d}`); RENDER.birthdays();
+  if(bdOn(md, thisY)===bdToday() || bdOn(md, thisY)===bdAddDays(bdToday(), -1)) setTimeout(()=>bdRun(true), 1500);
+}
+function bdClearRow(k){ if(!bdCan()) return; const i = BDAYS.findIndex(r=>r.id===k); if(i<0) return; BDAYS.splice(i, 1); recordChange(); toast(`Removed ${first(k)}’s birthday`); RENDER.birthdays(); }
+function bdSetEnsure(){ let s = BDSET.find(x=>x.id==='main'); if(!s){ s = {id:'main', tz:'Asia/Manila', templates:{}, priority:[...BD_PRIORITY]}; BDSET.push(s); } s.templates = s.templates || {}; return s; }
+function bdTplSave(){ if(!bdCan()) return; const s = bdSetEnsure(); const role = BDV.role; const msg = el('bdTplMsg')?.value.trim(); if(!msg) return toast('The message can’t be empty');
+  const o = {msg}; if(el('bdTplAT')) o.annTitle = el('bdTplAT').value.trim(); if(el('bdTplAB')) o.annBody = el('bdTplAB').value.trim();
+  s.templates[role] = o; s.by = PERSON; s.at = nowISO(); recordChange(); toast(`${BD_ROLE[role]} template saved`); RENDER.birthdays(); }
+function bdTplReset(){ if(!bdCan()) return; const s = bdSetEnsure(); delete s.templates[BDV.role]; s.at = nowISO(); recordChange(); toast('Default wording restored'); RENDER.birthdays(); }
+function bdTplPreview(){ const role = BDV.role; const msg = el('bdTplMsg')?.value || bdTpl(role).msg; const nm = pname(PERSON);
+  bdPopup({person:PERSON, name:nm, tpl:role}, {preview:true, msg:bdSigned(bdFill(msg, nm))}); }
+function bdTzSave(){ if(!bdCan()) return; const s = bdSetEnsure(); s.tz = el('bdTz').value; s.at = nowISO(); recordChange(); toast('Time zone saved'); RENDER.birthdays(); }
+function bdPrioMove(x, dir){ if(!bdCan()) return; const s = bdSetEnsure(); const p = bdPriority().slice(); const i = p.indexOf(x); const j = i+dir; if(j<0 || j>=p.length) return;
+  [p[i], p[j]] = [p[j], p[i]]; s.priority = p; s.at = nowISO(); recordChange(); RENDER.birthdays(); }
+function bdMusicUpload(){ if(!bdCan()) return; if(!el('bdLic')?.checked) return toast('Please confirm the track is licensed or approved for company use');
+  const i = document.createElement('input'); i.type = 'file'; i.accept = 'audio/mpeg,audio/mp4,audio/ogg,audio/x-m4a,.mp3,.m4a,.ogg';
+  i.onchange = async ()=>{ const f = i.files[0]; if(!f) return; if(!/\.(mp3|m4a|ogg)$/i.test(f.name)) return toast('Use an MP3, M4A or OGG file');
+    if(f.size > 10*1024*1024) return toast('Please use a track under 10 MB');
+    try{ toast('Uploading…'); const r = await BACKEND.upload(f); const s = bdSetEnsure(); s.music = {...r, approvedBy:PERSON, approvedAt:nowISO()}; s.at = nowISO(); recordChange(); toast('Birthday track saved'); RENDER.birthdays(); }
+    catch(e){ toast('Could not upload: '+e.message); } };
+  i.click(); }
+function bdMusicReset(){ if(!bdCan()) return; const s = bdSetEnsure(); delete s.music; s.at = nowISO(); recordChange(); toast('Using the built-in chime'); RENDER.birthdays(); }
+function bdMusicTest(){ bdMusicPlay(); }
 </script>
 </body>
 </html>

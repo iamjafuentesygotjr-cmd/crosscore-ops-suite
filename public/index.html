@@ -2745,6 +2745,20 @@ body.glass-lite .sidebar,body.glass-lite .topbar{background:linear-gradient(180d
 .rec-pick{max-height:190px;overflow-y:auto;border:1px solid var(--line);border-radius:9px;padding:6px 9px;display:grid;gap:3px}.rec-pick label{display:flex;gap:6px;align-items:center;font-size:12.5px}.rec-pick input{width:auto}
 .rec-crit{display:flex;gap:8px;align-items:center;justify-content:space-between;margin-bottom:6px}.rec-crit span{font-size:12.5px}.rec-crit input[type=number]{width:90px}.rec-crit .rsRL{flex:1}
 .rec-grade,.rec-note{padding:7px 0;border-bottom:1px dashed var(--line);font-size:12.5px}
+.rec-cv-drop{border:1.5px dashed var(--line);border-radius:10px;padding:12px 14px;display:grid;gap:2px;cursor:pointer;background:var(--panel-2)}.rec-cv-drop:hover,.rec-cv-drop.over{border-color:var(--info);background:var(--info-bg)}
+.rec-cv-row{display:flex;gap:8px;align-items:center;font-size:12.5px;padding:6px 0;border-bottom:1px dashed var(--line)}
+.rec-cv-have{display:flex;flex-direction:column;gap:6px;margin-bottom:8px}.rec-cv-chip{display:flex;gap:8px;align-items:center;font-size:12.5px;flex-wrap:wrap}.rec-cv-chip .btn{padding:3px 9px;font-size:12px}.rec-cv-n{max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rec-cvtop{display:flex;gap:8px;align-items:flex-start;margin-top:8px;flex-wrap:wrap}.rec-cvtop>b{font-size:12.5px;padding-top:4px}.rec-cvtop .rec-cv-have{margin-bottom:0}
+#recPopStack{position:fixed;top:86px;right:18px;z-index:65;display:grid;gap:10px;width:min(380px,calc(100vw - 32px))}
+.rec-pop{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--info);border-radius:12px;box-shadow:0 12px 32px rgba(0,0,0,.18);padding:11px 13px;animation:recPopIn .25s ease}
+@keyframes recPopIn{from{transform:translateY(-8px);opacity:0}to{transform:none;opacity:1}}
+.rec-pop-h{display:flex;justify-content:space-between;gap:8px;font-size:12.5px}.rec-pop-x{border:0;background:none;color:var(--ink-3);cursor:pointer;font-size:13px}
+.rec-pop-t{font-size:13px;margin:5px 0 8px}.rec-pop-f{display:flex;justify-content:space-between;align-items:center;gap:8px}.rec-pop-f .btn{padding:4px 11px;font-size:12px;margin-left:4px}
+.tm-bar{height:8px;border-radius:9px;background:var(--line-2);overflow:hidden;margin-top:8px}.tm-bar i{display:block;height:100%;background:var(--ok)}
+.tm-video{width:100%;max-height:60vh;border-radius:10px;background:#000;display:block}.tm-vp{margin:6px 0 4px}
+.tm-row{display:flex;gap:8px;align-items:center;padding:8px 0;border-bottom:1px dashed var(--line);font-size:13px}.tm-row .btn{padding:4px 11px;font-size:12px}
+.tm-items{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:8px;font-size:12px}.tm-items>span{display:flex;gap:6px;align-items:center}
+.tk-opt{border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:12px}.tk-opt.danger{border-color:var(--bad-bg);background:var(--bad-bg)}
 .rec-fi{background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:8px}
 .cred-box{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:12px 14px;word-break:break-all}.cred-box .k{color:var(--ink-3);font-size:12px}
 /* ---- applicant portal ---- */
@@ -20617,7 +20631,7 @@ async function cooPostFromModal(){ const ch = CHATS.find(c=>c.id===el('paPostC')
    The footer shows which build is running ("Build 2026-10-07 · 1"), and every open portal checks every few minutes
    (and whenever it comes back to the foreground) whether a newer build has been published. If so it shows
    "New version available — Update now" instead of quietly running old code. */
-const BUILD_ID = '2026-10-09 · 1';
+const BUILD_ID = '2026-10-09 · 2';
 function verStamp(){ const f = el('footNote'); if(f && !f.dataset.v){ f.dataset.v = 1; f.textContent = `Cross Core Ops Suite v8 · Build ${BUILD_ID}`; } }
 async function verCheck(){
   if(!/^https?:/.test(location.protocol)) return;
@@ -22410,9 +22424,11 @@ const recApp = k => APPLICANTS.find(a=>a.id===k);
 const recApps = () => APPLICANTS.slice().sort((a,b)=>(b.updatedAt||b.at||'').localeCompare(a.updatedAt||a.at||''));
 const recCan = () => ROLE==='hr' || isHead(PERSON) || isFullAccess();
 const recIsHead = (k=PERSON) => HEADS.includes(k);
-const recOpen = a => a && !['rejected','withdrawn'].includes(a.status) && a.stage!=='employee';
+/* archived / removed tickets leave every active list (records are kept) */
+const recVisible = a => !!a && !a.archived && !a.removed;
+const recOpen = a => a && recVisible(a) && !['rejected','withdrawn'].includes(a.status) && a.stage!=='employee';
 const recStageIx = s => REC_STAGES.findIndex(x=>x[0]===s);
-const recStBadge = a => `<span class="badge ${REC_ST_CLS[a.status]||'b-draft'}">${esc(REC_STATUS[a.status]||a.status)}</span>`;
+const recStBadge = a => `<span class="badge ${REC_ST_CLS[a.status]||'b-draft'}">${esc(REC_STATUS[a.status]||a.status)}</span>${a.removed?' <span class="badge b-missed">Ticket removed</span>':a.archived?' <span class="badge b-draft">Archived</span>':''}`;
 const recInfo = () => RECINFO.find(x=>x.id==='main');
 
 /* ---------- settings (rubric, weights, letters, templates, new-hire chats) ---------- */
@@ -22496,18 +22512,58 @@ function recModal(id){
       <div class="field"><label>Location (optional)</label><input id="raLoc" value="${esc(a?.location||'')}"></div>
     </div>
     <div class="field"><label>Responsible owner</label><select id="raOwner"><option value="">Default for the stage</option>${recStaff().filter(k=>PEOPLE[k]).map(k=>`<option value="${k}" ${a?.owner===k?'selected':''}>${esc(pname(k))}</option>`).join('')}<option value="heads" ${a?.owner==='heads'?'selected':''}>Company heads</option></select></div>
+    <div class="field"><label>CV / Résumé</label>
+      ${a ? recCvList(a, true) : ''}
+      <div class="rec-cv-drop" id="recCvDrop" onclick="recCvPick()" ondragover="event.preventDefault();this.classList.add('over')" ondragleave="this.classList.remove('over')" ondrop="event.preventDefault();this.classList.remove('over');recCvAdd(event.dataTransfer.files)">
+        <b>📄 ${a?'Add a CV file':'Upload the CV'}</b><span class="hint">PDF or image (JPG, PNG) · up to ${REC_FILE_MB} MB · click or drop the file here</span></div>
+      <div id="recCvStaged"></div>
+      <input id="raCvLink" type="url" placeholder="…or paste a link to the CV (Google Drive, Dropbox, OneDrive, website)" style="margin-top:8px">
+    </div>
     <div class="hint" style="margin-bottom:12px">No email is needed. You can open the applicant’s temporary portal after saving.</div>
-    <button class="btn primary" style="width:100%" onclick="recSave(${a?`'${a.id}'`:'null'})">${a?'Save changes':'Create applicant record'}</button>`);
+    <button class="btn primary" id="raSaveBtn" style="width:100%" onclick="recSave(${a?`'${a.id}'`:'null'})">${a?'Save changes':'Create applicant record'}</button>`);
+  RECCV.files = [];
 }
-function recSave(id){
+/* ---------- CV in the registration form: a PDF / image upload or a link ---------- */
+const REC_CV_TYPES = ['pdf','jpg','jpeg','png'];
+const RECCV = {files:[]};
+const recIsCv = f => /cv|résumé|resume/i.test(f.kind||'');
+function recCvPick(){ const i = document.createElement('input'); i.type = 'file'; i.multiple = true; i.accept = '.pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png'; i.onchange = () => recCvAdd(i.files); i.click(); }
+function recCvAdd(list){
+  for(const f of list||[]){ const ext = (f.name.split('.').pop()||'').toLowerCase();
+    if(!REC_CV_TYPES.includes(ext)){ toast(`${f.name}: the CV must be a PDF or an image (JPG, PNG)`); continue; }
+    if(f.size > REC_FILE_MB*1024*1024){ toast(`${f.name} is larger than ${REC_FILE_MB} MB`); continue; }
+    if(!RECCV.files.some(x=>x.name===f.name && x.size===f.size)) RECCV.files.push(f); }
+  recCvDraw(); }
+function recCvDraw(){ const b = el('recCvStaged'); if(!b) return;
+  b.innerHTML = RECCV.files.map((f,i)=>`<div class="rec-cv-row"><span class="rec-fmt">${esc((f.name.split('.').pop()||'').toUpperCase().replace('JPEG','JPG'))}</span><span style="flex:1">${esc(f.name)} <span class="hint">· ${esc(recSize(f.size))} · uploads when you save</span></span><button class="btn ghost" style="padding:2px 8px" onclick="RECCV.files.splice(${i},1);recCvDraw()">✕</button></div>`).join(''); }
+const recLinkName = u => { try{ const x = new URL(u); return 'CV link — ' + x.hostname.replace(/^www\./,''); }catch(e){ return 'CV link'; } };
+/* the CV entries already on a record, with view / download */
+function recCvList(a, compact){ const L = (a.files||[]).filter(recIsCv); if(!L.length) return compact ? '' : '<span class="hint">No CV yet</span>';
+  return `<div class="rec-cv-have">${L.map(f=>`<span class="rec-cv-chip"><span class="rec-fmt">${esc(recFileFmt(f))}</span><span class="rec-cv-n">${esc(f.name)}</span>
+    ${compact?'<span class="hint">saved</span>':`<button class="btn ghost" onclick="event.stopPropagation();recPreview('${a.id}','${f.id}')">${f.link?'Open ↗':'View'}</button>${f.link?'':`<button class="btn ghost" onclick="event.stopPropagation();recDownload('${a.id}','${f.id}')">⬇ Download</button>`}`}</span>`).join('')}</div>`; }
+async function recSave(id){
   const name = el('raName').value.trim(), position = el('raPos').value.trim(); if(!name || !position) return toast('Name and position are required');
+  const link = (el('raCvLink')?.value||'').trim();
+  if(link && !/^https?:\/\/[^\s.]+\.[^\s]+/i.test(link)) return toast('The CV link must be a full web address starting with https://');
   const data = {name, position, track:el('raTrack').value, source:el('raSrc').value.trim(), phone:el('raPhone').value.trim(), location:el('raLoc').value.trim()};
   const owner = el('raOwner').value;
-  let a = id ? recApp(id) : null;
+  let a = id ? recApp(id) : null; const key = a ? a.id : recNewKey();
+  /* upload the CV first (stored under recruit/<applicant>/ — HR, company heads and later the applicant only) */
+  const btn = el('raSaveBtn'); const added = [];
+  if(RECCV.files.length){ if(btn){ btn.disabled = true; btn.textContent = 'Uploading the CV…'; }
+    for(const f of RECCV.files){ const ext = (f.name.split('.').pop()||'').toLowerCase();
+      try{ const ref = BACKEND.mode==='live' ? await BACKEND.upload(f, 'recruit/'+key) : await BACKEND.upload(f);
+        added.push({...ref, id:uid('RF'), kind:'CV / Résumé', ext, at:nowISO(), by:PERSON}); }
+      catch(e){ toast(`${f.name} could not be uploaded (${e.message}) — the rest is saved; try uploading it again from the record`); } }
+    if(btn){ btn.disabled = false; btn.textContent = a ? 'Save changes' : 'Create applicant record'; } }
+  if(link) added.push({id:uid('RF'), kind:'CV / Résumé', link, url:link, name:recLinkName(link), ext:'link', at:nowISO(), by:PERSON});
   if(a){ Object.assign(a, data); if(owner) a.owner = owner; recTouch(a, 'Details updated'); }
-  else { a = {id:recNewKey(), ...data, stage:'application', status:'active', at:nowISO(), by:PERSON, files:[], history:[], team:recStaff(), names:recNamesFor(null)};
+  else { a = {id:key, ...data, stage:'application', status:'active', at:nowISO(), by:PERSON, files:[], history:[], team:recStaff(), names:recNamesFor(null)};
     a.hrKeys = HR_KEYS(); APPLICANTS.push(a); recTouch(a, 'Application recorded', owner ? {owner} : {owner:recDefaultOwner('application')}); }
-  recordChange(); closeModal(); RENDER[CURRENT]?.(); recView(a.id); toast(id ? 'Saved' : 'Applicant created');
+  if(added.length){ a.files = [...(a.files||[]), ...added]; const nf = added.filter(f=>!f.link).length;
+    recTouch(a, [nf ? `CV uploaded (${added.filter(f=>!f.link).map(f=>f.name).join(', ')})` : '', link ? 'CV link added' : ''].filter(Boolean).join(' · ')); }
+  RECCV.files = [];
+  recordChange(); closeModal(); RENDER[CURRENT]?.(); recView(a.id); toast(id ? 'Saved' : added.length ? 'Applicant created with the CV' : 'Applicant created');
 }
 function recNamesFor(a, extra=[]){ const o = {}; uniq([...recStaff(), ...extra]).forEach(k=>{ if(PEOPLE[k] && !PEOPLE[k].teamOnly) o[k] = pname(k); }); if(a) o[a.id] = a.name; return o; }
 
@@ -22583,8 +22639,8 @@ async function recUpload(id){
     if(n){ recTouch(a, `${n} document${n>1?'s':''} uploaded`); recordChange(); recView(id); toast('Uploaded'); } };
   inp.click();
 }
-const recFileFmt = f => { const e = (f.ext || (f.name||'').split('.').pop() || '').toUpperCase(); return e==='JPEG'?'JPG':e; };
-const recPreviewable = f => /^(pdf|jpe?g|png|txt)$/i.test(f.ext || (f.name||'').split('.').pop());
+const recFileFmt = f => { if(f.link) return 'LINK'; const e = (f.ext || (f.name||'').split('.').pop() || '').toUpperCase(); return e==='JPEG'?'JPG':e; };
+const recPreviewable = f => !!f.link || /^(pdf|jpe?g|png|txt)$/i.test(f.ext || (f.name||'').split('.').pop());
 const recSize = b => b>=1048576 ? (b/1048576).toFixed(1)+' MB' : Math.max(1, Math.round((b||0)/1024))+' KB';
 async function recFileUrl(f, download){
   if(f.data) return f.data;
@@ -22593,6 +22649,7 @@ async function recFileUrl(f, download){
 }
 async function recPreview(id, fid){
   const a = recApp(id); const f = a?.files?.find(x=>x.id===fid); if(!f) return;
+  if(f.link){ const l = document.createElement('a'); l.href = f.link; l.target = '_blank'; l.rel = 'noopener'; document.body.append(l); l.click(); l.remove(); return; }
   if(!recPreviewable(f)) return recDownload(id, fid);
   let url; try{ url = await recFileUrl(f); }catch(e){ return toast('Could not open: '+e.message); }
   const img = /^(jpe?g|png)$/i.test(f.ext||'');
@@ -22600,7 +22657,7 @@ async function recPreview(id, fid){
     <div style="display:flex;gap:8px;margin-top:10px"><button class="btn" onclick="recDownload('${id}','${fid}')">⬇ Download</button><button class="btn ghost" onclick="recView('${id}')">← Back to ${esc(a.name)}</button></div>`, true);
 }
 async function recDownload(id, fid){
-  const a = recApp(id); const f = a?.files?.find(x=>x.id===fid); if(!f) return;
+  const a = recApp(id); const f = a?.files?.find(x=>x.id===fid); if(!f) return; if(f.link) return recPreview(id, fid);
   try{ const url = await recFileUrl(f, true); const l = document.createElement('a'); l.href = url; l.download = f.name; l.rel = 'noopener'; document.body.append(l); l.click(); l.remove(); }
   catch(e){ toast('Could not download: '+e.message); }
 }
@@ -22964,7 +23021,7 @@ async function recCompleteSession(mid){
     if(kind==='orientation') recTouch(a, 'Orientation completed', {stage:'training', status:'pending'});
     if(kind==='training'){ recTouch(a, 'Training completed', {stage:'assessment', status:'active'}); recAssign(k, {silent:false}); } });
   recordChange();
-  if(kind==='orientation'){ notify(HR_KEYS().filter(k=>k!==PERSON), 'hr', `📚 Orientation completed for ${ids.length} applicant${ids.length===1?'':'s'} — schedule training`, {view:'recruit'}); closeModal(); toast('Orientation complete — now schedule training'); setTimeout(()=>recScheduleModal('training', ids), 250); }
+  if(kind==='orientation'){ notify(HR_KEYS().filter(k=>k!==PERSON), 'hr', `📚 Orientation completed for ${ids.length} applicant${ids.length===1?'':'s'} — assign their training`, {view:'recruit'}); closeModal(); toast('Orientation complete — now assign the self-paced training'); setTimeout(()=>recTrainAssignModal(ids), 250); }
   else { closeModal(); RENDER[CURRENT]?.(); toast('Training complete — role assessments assigned'); }
 }
 
@@ -23398,7 +23455,7 @@ function joReconcile(){
   ASSIGNS.filter(a=>a.status==='Active' && !a.baseline && (a.createdAt||'') >= since).forEach(a=>{
     const c = client(a.client); if(!c || ASG_INACTIVE(c)) return;
     if(!(c.chatId && CHATS.some(x=>x.id===c.chatId))) return;                      /* the client GC exists → HR finished onboarding */
-    const ex = JOBORDERS.find(j=>j.va===a.va && j.client===a.client && j.status!=='cancelled' && (!j.asg || j.asg===a.id || !ASSIGNS.some(y=>y.id===j.asg && y.status==='Active' && y.id!==a.id)));
+    const ex = JOBORDERS.find(j=>j.va===a.va && j.client===a.client && j.status!=='cancelled' && (j.asg===a.id || !j.asg));   /* a later re-assignment is a new engagement → its own Job Order */
     if(ex){ if(!ex.asg){ ex.asg = a.id; ch = true; } return; }
     const jo = {id:'JO-'+a.id, va:a.va, vaName:a.vaName, client:a.client, clientName:a.clientName, asg:a.id, role:a.role, responsibilities:'', start:a.start, pm:(a.pms||[]).map(pname).join(', '),
       payout:null, terms:RECS().defaultTerms||'', source:'assignment', status:'open', createdAt:nowISO(), by:PERSON, history:[{at:nowISO(), by:PERSON, act:'Created automatically for the new assignment'}]};
@@ -23523,6 +23580,7 @@ function obRegister(app){
     EMPLOYEES.push(e); }
   const t = nowISO();
   (a.files||[]).forEach(f=>{ const id = `HF-RC-${app}-${f.id}`; if(HRFILES.some(x=>x.id===id)) return;
+    if(f.link){ HRFILES.push({id, emp:app, person:app, folder:'resume', kind:'link', name:`${f.kind||'Document'} — ${f.name}`, url:f.link, source:'link', by:PERSON, at:t}); return; }
     HRFILES.push({id, emp:app, person:app, folder:'resume', kind:'file', name:`${f.kind||'Document'} — ${f.name}`, file:{name:f.name, type:f.type, size:f.size, path:f.path, data:f.data}, type:f.type||'', size:f.size||0, source:'upload', by:PERSON, at:t}); });
   const x = recAssessCur(app); const st = x ? recAssessState(a) : null;
   const summary = [`Recruitment record — ${a.name}`, `Position: ${a.position} (${REC_TRACKS[a.track]})`, `Applied: ${dstr(a.at)}${a.source?' · source: '+a.source:''}`, '',
@@ -23605,14 +23663,14 @@ RENDER.recruit = () => {
 function recOverviewHTML(){
   const open = APPLICANTS.filter(recOpen); const by = s => open.filter(a=>a.stage===s).length;
   const month = manilaDate().slice(0,7);
-  const hired = APPLICANTS.filter(a=>a.stage==='employee' && (recOb(a.id)?.activatedAt||'').slice(0,7)===month).length;
-  const rej = APPLICANTS.filter(a=>a.status==='rejected').length;
+  const hired = APPLICANTS.filter(recVisible).filter(a=>a.stage==='employee' && (recOb(a.id)?.activatedAt||'').slice(0,7)===month).length;
+  const rej = APPLICANTS.filter(recVisible).filter(a=>a.status==='rejected').length;
   const P = recPending();
   const finals = RECFINAL.filter(f=>f.status!=='cancelled' && f.status!=='released' && recOpen(recApp(f.app)));
   const sessions = MEETINGS.filter(m=>['orientation','training'].includes(m.rec?.kind) && m.status!=='cancelled').sort((a,b)=>b.start.localeCompare(a.start)).slice(0,8);
-  const assess = APPLICANTS.filter(a=>recAssessCur(a.id)).map(a=>({a, s:recAssessState(a)})).filter(x=>recOpen(x.a) || x.a.stage==='awaiting');
-  const access = APPLICANTS.filter(a=>a.account);
-  const obs = APPLICANTS.filter(a=>['onboarding'].includes(a.stage) || (a.stage==='employee' && recOb(a.id) && !recOb(a.id).activatedAt));
+  const assess = APPLICANTS.filter(recVisible).filter(a=>recAssessCur(a.id)).map(a=>({a, s:recAssessState(a)})).filter(x=>recOpen(x.a) || x.a.stage==='awaiting');
+  const access = APPLICANTS.filter(recVisible).filter(a=>a.account);
+  const obs = APPLICANTS.filter(recVisible).filter(a=>['onboarding'].includes(a.stage) || (a.stage==='employee' && recOb(a.id) && !recOb(a.id).activatedAt));
   const jos = JOBORDERS.filter(j=>j.status!=='cancelled' && !['filed'].includes(joState(j)));
   return `${typeof asgDashCard==='function' ? asgDashCard() : ''}
     <div class="grid cols-4" style="margin-bottom:14px">
@@ -23639,15 +23697,15 @@ function recOverviewHTML(){
 /* ---------- applicants pipeline ---------- */
 function recPipelineHTML(){
   const q = RCV.q.trim().toLowerCase();
-  let L = recApps(); if(RCV.f==='open') L = L.filter(recOpen); else if(RCV.f!=='all') L = L.filter(a=>a.status===RCV.f || (RCV.f==='hired' && a.stage==='employee'));
+  let L = recApps(); if(RCV.f==='archived') L = L.filter(a=>a.archived || a.removed); else { L = L.filter(recVisible); if(RCV.f==='open') L = L.filter(recOpen); else if(RCV.f!=='all') L = L.filter(a=>a.status===RCV.f || (RCV.f==='hired' && a.stage==='employee')); }
   if(q) L = L.filter(a=>(a.name+' '+a.position+' '+(a.account?.username||'')).toLowerCase().includes(q));
   const cols = RCV.f==='open' ? REC_STAGES : [['all','All']];
   return `<div class="rec-filter"><input placeholder="Search name, position or username" value="${esc(RCV.q)}" oninput="RCV.q=this.value;clearTimeout(RCV.t);RCV.t=setTimeout(()=>{RENDER.recruit();const i=document.querySelector('.rec-filter input');i&&(i.focus(),i.setSelectionRange(i.value.length,i.value.length))},250)">
-    ${[['open','In progress'],['pending','Pending'],['reassessment','Reassessment'],['rejected','Rejected'],['withdrawn','Withdrawn'],['hired','Hired'],['all','All']].map(([k,l])=>`<button class="btn ${RCV.f===k?'primary':'ghost'}" onclick="RCV.f='${k}';RENDER.recruit()">${l}</button>`).join('')}</div>
+    ${[['open','In progress'],['pending','Pending'],['reassessment','Reassessment'],['rejected','Rejected'],['withdrawn','Withdrawn'],['hired','Hired'],['all','All'],['archived','Archived & removed']].map(([k,l])=>`<button class="btn ${RCV.f===k?'primary':'ghost'}" onclick="RCV.f='${k}';RENDER.recruit()">${l}</button>`).join('')}</div>
     ${RCV.f==='open' ? `<div class="rec-board">${cols.map(([k,l])=>{ const C = L.filter(a=>a.stage===k); return `<div class="rec-col"><div class="rec-col-h">${l} <span>${C.length}</span></div>${C.map(recCard).join('') || '<div class="hint" style="padding:8px">—</div>'}</div>`; }).join('')}</div>`
       : `<div class="card"><div class="card-b" style="overflow-x:auto"><table class="tbl"><thead><tr><th>Applicant</th><th>Stage</th><th>Status</th><th>Owner</th><th>Portal</th><th>Updated</th></tr></thead><tbody>${L.map(a=>`<tr style="cursor:pointer" onclick="recView('${a.id}')"><td><b>${esc(a.name)}</b><div class="hint">${esc(a.position)}</div></td><td>${esc(REC_STAGE[a.stage])}</td><td>${recStBadge(a)}</td><td>${esc(recOwnerName(a.owner))}</td><td><span class="badge ${recAccessCls(a)}">${esc(recAccessText(a))}</span></td><td class="hint">${esc(ago(a.updatedAt||a.at))}</td></tr>`).join('') || '<tr><td colspan="6" class="hint">No applicants.</td></tr>'}</tbody></table></div></div>`}`;
 }
-function recCard(a){ return `<div class="rec-card" onclick="recView('${a.id}')"><b>${esc(a.name)}</b><div class="hint">${esc(a.position)}</div><div>${recStBadge(a)}${a.account?'':' <span class="badge b-draft">No portal</span>'}</div><div class="hint rec-card-n">→ ${esc(recNext(a))}</div><div class="hint">Owner: ${esc(recOwnerName(a.stage==='final'?'heads':a.owner))}</div></div>`; }
+function recCard(a){ return `<div class="rec-card" onclick="recView('${a.id}')"><b>${esc(a.name)}</b><div class="hint">${esc(a.position)}</div><div>${recStBadge(a)}${a.account?'':' <span class="badge b-draft">No portal</span>'}${(a.files||[]).some(recIsCv)?` <span class="badge b-scheduled" title="Open the CV" onclick="event.stopPropagation();recPreview('${a.id}','${(a.files||[]).find(recIsCv).id}')" style="cursor:pointer">📄 CV</span>`:' <span class="badge b-draft">No CV</span>'}</div><div class="hint rec-card-n">→ ${esc(recNext(a))}</div><div class="hint">Owner: ${esc(recOwnerName(a.stage==='final'?'heads':a.owner))}</div></div>`; }
 
 /* ---------- schedules & approvals ---------- */
 function recSchedHTML(){
@@ -23744,7 +23802,9 @@ function recView(id){
   if(open && a.stage==='final'){ acts.push(`<button class="btn ${f && recFinalConfirms(f).length>=2 && hr && f.status!=='released' ? 'primary':''}" onclick="recFinalModal('${id}')">Final interview schedule${f?` (${recFinalConfirms(f).length}/2 confirmed)`:''}</button>`);
     if(head) acts.push(`<button class="btn primary" onclick="recDecisionModal('${id}','final')">Final-interview decision</button>`); }
   if(open && a.stage==='orientation'){ const m = recMeetingFor(a, 'orientation'); acts.push(m ? `<button class="btn" onclick="recSessionView('${m.id}')">Orientation attendance</button>` : `<button class="btn primary" onclick="recScheduleModal('orientation',['${id}'])">Schedule orientation</button>`); }
-  if(open && a.stage==='training'){ const m = recMeetingFor(a, 'training'); acts.push(`<button class="btn ${m?'':'primary'}" onclick="recScheduleModal('training',['${id}'])">Schedule training</button>`); if(m) acts.push(`<button class="btn primary" onclick="recSessionView('${m.id}')">Training attendance & completion</button>`); }
+  if(open && a.stage==='training'){ const tp = recTrainState(a); acts.push(`<button class="btn ${tp.mats.length?'':'primary'}" onclick="recTrainAssignModal(['${id}'])">${tp.mats.length?'Change training materials':'Assign training materials'}</button>`);
+    if(tp.mats.length) acts.push(`<button class="btn primary" onclick="recTrainComplete('${id}')">Mark training complete → assessment</button>`);
+    const m = recMeetingFor(a, 'training'); acts.push(m ? `<button class="btn ghost" onclick="recSessionView('${m.id}')">Live session (optional)</button>` : `<button class="btn ghost" onclick="recScheduleModal('training',['${id}'])">+ Live session (optional)</button>`); }
   if(open && a.stage==='assessment'){ if(!s) acts.push(`<button class="btn primary" onclick="recAssignModal('${id}')">Assign assessment</button>`);
     else { if(s.sub && !s.x.finalized) acts.push(`<button class="btn primary" onclick="recGradeModal('${s.x.id}')">Grade</button>`); if(s.complete && !s.x.finalized) acts.push(`<button class="btn" onclick="recFinalize(['${s.x.id}'])">Finalize result</button>`); if(s.x.finalized && !s.passed) acts.push(`<button class="btn" onclick="recAssignModal('${id}', true)">Schedule reassessment</button>`); } }
   if(open && a.stage==='awaiting') acts.push(`<button class="btn primary" onclick="obAssignModal('${id}')">Assign first client</button>`);
@@ -23759,7 +23819,8 @@ function recView(id){
         ${!o.activatedAt && obSteps(a)[5][1]?`<input id="obEmail" placeholder="Work email (optional)" style="width:220px"><button class="btn primary" onclick="obActivate('${id}')">Activate regular VA portal</button>`:''}</div></div>` : '';
   openModal(`${a.name}`, `<div id="recView">
     <div class="rec-head"><div><div class="hint">${esc(a.position)} · ${esc(REC_TRACKS[a.track])}${a.source?' · '+esc(a.source):''}${a.phone?' · '+esc(a.phone):''}</div>
-      <div style="margin-top:6px">${recStBadge(a)} <b>${esc(REC_STAGE[a.stage])}</b> · owner <b>${esc(recOwnerName(a.stage==='final'?'heads':a.owner))}</b></div><div class="hint" style="margin-top:4px">Next: ${esc(recNext(a))}</div></div>
+      <div style="margin-top:6px">${recStBadge(a)} <b>${esc(REC_STAGE[a.stage])}</b> · owner <b>${esc(recOwnerName(a.stage==='final'?'heads':a.owner))}</b></div><div class="hint" style="margin-top:4px">Next: ${esc(recNext(a))}</div>
+      <div class="rec-cvtop"><b>CV</b> ${recCvList(a)} <button class="btn ghost" style="padding:3px 9px;font-size:12px" onclick="recModal('${id}')">+ Add CV</button></div></div>
       <div class="rec-acc"><span class="badge ${recAccessCls(a)}">Portal: ${esc(recAccessText(a))}</span>${a.account?`<div class="hint">Username <b>${esc(a.account.username)}</b>${a.account.resetAt?' · reset '+esc(ago(a.account.resetAt)):''}</div>`:''}</div></div>
     <div class="app-steps sm">${REC_STAGES.map(([k,l],i)=>`<div class="app-step ${i<ix?'done':i===ix?(a.status==='rejected'?'stop':'on'):''}"><i>${i<ix?'✓':i+1}</i><span>${l}</span></div>`).join('')}</div>
     <div class="rec-acts">${acts.join('')}</div>
@@ -23769,8 +23830,8 @@ function recView(id){
     ${obHTML}
     <div class="rec-sec"><h4>Documents <span class="hint">· ${esc(REC_FILE_LABEL)}</span></h4>
       <div style="display:flex;gap:6px;margin-bottom:8px"><select id="recFileKind" style="width:auto"><option>CV / Résumé</option><option>Supporting document</option><option>ID / certificate</option><option>Portfolio / sample</option><option>Spreadsheet</option><option>Other</option></select><button class="btn" onclick="recUpload('${id}')">⬆ Upload</button></div>
-      ${(a.files||[]).map(fl=>`<div class="list-row"><span class="rec-fmt">${esc(recFileFmt(fl))}</span><div style="flex:1"><b style="font-size:12.5px">${esc(fl.name)}</b><div class="hint">${esc(fl.kind||'')} · ${esc(recSize(fl.size))} · ${esc(dtstr(fl.at))} · ${esc(first(fl.by))}</div></div>
-        ${recPreviewable(fl)?`<button class="btn ghost" style="padding:4px 10px;font-size:12px" onclick="recPreview('${id}','${fl.id}')">Preview</button>`:'<span class="hint" style="font-size:11px">preview not supported</span>'}<button class="btn ghost" style="padding:4px 10px;font-size:12px" onclick="recDownload('${id}','${fl.id}')">⬇</button><button class="btn ghost" style="padding:4px 8px;font-size:12px" onclick="recFileRemove('${id}','${fl.id}')">✕</button></div>`).join('') || '<div class="hint">No documents yet.</div>'}</div>
+      ${(a.files||[]).map(fl=>`<div class="list-row"><span class="rec-fmt">${esc(recFileFmt(fl))}</span><div style="flex:1"><b style="font-size:12.5px">${esc(fl.name)}</b><div class="hint">${esc(fl.kind||'')} · ${fl.link?`<a href="${esc(fl.link)}" target="_blank" rel="noopener">${esc(fl.link.length>60?fl.link.slice(0,60)+'…':fl.link)}</a>`:esc(recSize(fl.size))} · ${esc(dtstr(fl.at))} · ${esc(first(fl.by))}</div></div>
+        ${fl.link?`<button class="btn ghost" style="padding:4px 10px;font-size:12px" onclick="recPreview('${id}','${fl.id}')">Open ↗</button>`:`${recPreviewable(fl)?`<button class="btn ghost" style="padding:4px 10px;font-size:12px" onclick="recPreview('${id}','${fl.id}')">Preview</button>`:'<span class="hint" style="font-size:11px">preview not supported</span>'}<button class="btn ghost" style="padding:4px 10px;font-size:12px" onclick="recDownload('${id}','${fl.id}')">⬇</button>`}<button class="btn ghost" style="padding:4px 8px;font-size:12px" onclick="recFileRemove('${id}','${fl.id}')">✕</button></div>`).join('') || '<div class="hint">No documents yet.</div>'}</div>
     <div class="rec-sec"><h4>Schedule</h4>${meets.map(m=>`<div class="list-row"><div style="flex:1"><b style="font-size:12.5px">${esc(m.title)}</b>${m.status==='cancelled'?' <span class="badge b-missed">Cancelled</span>':''}<div class="hint">${esc(recWhen(m))} · attendance ${esc(MT_ST[mtSt(m, id)]||'pending')}${a.att?.[m.id]?.attended?' · attended':''}</div></div><button class="btn ghost" style="padding:4px 10px;font-size:12px" onclick="recSessionView('${m.id}')">Open</button></div>`).join('') || '<div class="hint">Nothing scheduled.</div>'}</div>
     ${s?`<div class="rec-sec"><h4>Assessment — ${esc(s.x.title)} <span class="badge ${s.st==='passed'?'b-approved':s.st==='below'?'b-missed':'b-pending'}">${REC_AS_LABEL[s.st]}</span></h4>
       <div class="hint">Combined ${s.combined!=null?Math.round(s.combined*10)/10+'%':'—'} (pass ≥ 85%) · ${(s.parts||[]).map(p=>`${p.k==='hr'?'HR':'Heads'} ${p.n}/${p.need}${p.mean!=null?' avg '+Math.round(p.mean)+'%':''} (weight ${p.w}%)`).join(' · ')}</div>
@@ -23789,6 +23850,356 @@ function recView(id){
     if(L?.view==='recruit' && recCan()){ if(!n.read){ n.read = true; recordChange(); } go('recruit'); if(L.tab){ RCV.tab = L.tab==='jo'?'onboard':L.tab; RENDER.recruit(); } if(L.app) setTimeout(()=>recView(L.app), 80); el('drawer')?.classList.remove('open'); el('scrim')?.classList.remove('on'); return; }
     if(isApplicant() && L?.view){ if(!n.read){ n.read = true; recordChange(); } go(APPLICANT_NAV.some(x=>x.id===L.view) ? L.view : 'apphome'); if(L.letter) setTimeout(()=>appLetter(L.letter), 80); el('drawer')?.classList.remove('open'); el('scrim')?.classList.remove('on'); return; }
     return _on.apply(this, arguments); }; }
+/* ===== 89_rectrain.js ===== */
+/* ================= SELF-PACED TRAINING · APPLICANT TICKET MANAGEMENT · RECRUITMENT POP-UPS (Oct 2026) =================
+   1. Training no longer needs a live meeting. HR builds training materials — an MP4 video uploaded to the portal, links to
+      online videos / courses, and files (PDF, Word, Excel, PowerPoint …) — and assigns them. Applicants complete them at
+      their own pace on the Training page of their portal. The portal records what each applicant opened, how much of the
+      video they actually watched (skipped parts don't count), and when each material was completed. When every assigned
+      material is complete the applicant moves to the assessment automatically (HR can switch that off). Live sessions
+      remain available as an optional extra.
+   2. HR and company heads can archive an applicant ticket (reversible), remove it from the recruitment lists while keeping
+      the profile and history, or — only when explicitly confirmed — permanently delete the applicant and their records.
+   3. Applicant events (new applicant, stage / status changes, confirmations, submissions, training completed, items needing
+      a decision) pop up for HR and company heads in real time. Pop-ups stay until dismissed, open the applicant on click,
+      can be marked read, and never repeat for the same event. Earlier ones stay in the notification bell. */
+
+/* ---------- 1. training materials & progress ---------- */
+let RECPROG = [];
+COLL.recprog = {get:()=>RECPROG, set:v=>RECPROG=v, aud:r=>uniq([...recStaff(), ...(recApp(r.person)?.team||[]), r.person])};
+const TM_FILE_TYPES = '.pdf,.doc,.docx,.xls,.xlsx,.csv,.ppt,.pptx,.txt,.jpg,.jpeg,.png,.zip';
+const TM_WATCH = 95;                                                   /* % of the video that must actually be watched */
+const tmProg = (mid, k=PERSON) => RECPROG.find(r=>r.id===`${mid}|${k}`);
+const tmHasWork = x => !!(x.video || (x.links||[]).length || (x.files||[]).length);
+function tmState(x, k=PERSON){
+  const p = tmProg(x.id, k) || {}; const files = x.files||[], links = x.links||[];
+  const fOpen = files.filter((f,i)=>p.files?.[f.path||f.name||i]).length, lOpen = links.filter(u=>p.links?.[u]).length;
+  const pct = Math.min(100, Math.round(p.video?.pct||0));
+  const met = tmHasWork(x) && (!x.video || pct>=TM_WATCH) && fOpen===files.length && lOpen===links.length;
+  const st = p.done ? 'done' : (p.opened || pct || fOpen || lOpen) ? 'progress' : 'new';
+  return {p, pct, fOpen, lOpen, met, done:!!p.done, st};
+}
+function recTrainMats(a){ if(!a) return [];
+  const ids = a.training?.mats; if(ids?.length) return ids.map(id=>RECMAT.find(x=>x.id===id)).filter(x=>x && !x.deleted);
+  return RECMAT.filter(x=>!x.deleted && x.required!==false && (x.tracks||[]).includes(a.track)); }
+function recTrainState(a){ const mats = recTrainMats(a); const done = mats.filter(x=>tmProg(x.id, a.id)?.done);
+  return {mats, done, all:mats.length>0 && done.length===mats.length, pct:mats.length ? Math.round(done.length/mats.length*100) : 0}; }
+/* who sees a material: applicants it is assigned to, plus applicants of its role tracks from orientation onward */
+recMatAud = function(x){
+  const apps = x.deleted ? [] : APPLICANTS.filter(a=>recOpen(a) && ((a.training?.mats||[]).includes(x.id) || ((x.tracks||[]).includes(a.track) && REC_MAT_FROM.includes(a.stage)))).map(a=>a.id).sort();
+  if(JSON.stringify(x.apps||[])===JSON.stringify(apps)) return false;
+  const added = apps.filter(k=>!(x.apps||[]).includes(k)); x.apps = apps;
+  if(added.length) notify(added, 'hr', `📚 New training material: <b>${esc(x.title)}</b> — open Training in your portal`, {view:'apptrain'});
+  return true; };
+
+/* assign the self-paced training (after orientation, or any time) */
+function recTrainAssignModal(ids){
+  ids = [].concat(ids).filter(Boolean); const apps = ids.map(recApp).filter(Boolean); if(!apps.length) return;
+  const mats = RECMAT.filter(x=>!x.deleted);
+  const tracks = uniq(apps.map(a=>a.track)); const cur = apps.length===1 ? (apps[0].training?.mats||null) : null;
+  const def = x => cur ? cur.includes(x.id) : (x.required!==false && (x.tracks||[]).some(t=>tracks.includes(t)));
+  openModal(`Assign training — ${apps.length===1 ? apps[0].name : apps.length+' applicants'}`, `
+    <div class="hint" style="margin-bottom:10px">Self-paced: the applicant${apps.length===1?'':'s'} complete${apps.length===1?'s':''} these on the Training page of the portal — no live meeting needed. Progress (opened, video watched, completed) is recorded.</div>
+    ${mats.length ? `<div class="rec-pick" style="max-height:280px">${mats.map(x=>`<label><input type="checkbox" class="tmPick" value="${x.id}" ${def(x)?'checked':''}> <b>${esc(x.title)}</b> <span class="hint">· ${[x.video?'video':'', (x.links||[]).length?(x.links.length+' link'+(x.links.length>1?'s':'')):'', (x.files||[]).length?(x.files.length+' file'+(x.files.length>1?'s':'')):''].filter(Boolean).join(' · ')||'text only'} · ${esc((x.tracks||[]).map(t=>REC_TRACKS[t]).join(', ')||'any role')}</span></label>`).join('')}</div>`
+      : `<div class="empty" style="padding:14px">No training materials yet.</div>`}
+    <div style="display:flex;gap:8px;margin-top:12px">${mats.length?`<button class="btn primary" style="flex:1" onclick="recTrainAssign(${JSON.stringify(ids).replace(/"/g,'&quot;')})">Assign & notify</button>`:''}<button class="btn" onclick="closeModal();RCV.tab='mat';go('recruit');setTimeout(()=>recMatModal(),80)">+ New training material</button></div>
+    <div class="hint" style="margin-top:10px">Prefer a live session as well? <a href="#" onclick="recScheduleModal('training', ${JSON.stringify(ids).replace(/"/g,'&quot;')});return false">Schedule an optional live session</a>.</div>`, true);
+}
+function recTrainAssign(ids){
+  const mats = [...document.querySelectorAll('.tmPick:checked')].map(x=>x.value); if(!mats.length) return toast('Choose at least one material');
+  ids.map(recApp).filter(Boolean).forEach(a=>{ a.training = {mats, assignedAt:nowISO(), by:PERSON};
+    recTouch(a, `Self-paced training assigned (${mats.length} material${mats.length>1?'s':''})`, ['application','initial','final','orientation'].includes(a.stage) ? {stage:'training', status:'active'} : {});
+    notify(a.id, 'assignment', `📚 Your training is ready — ${mats.length} material${mats.length>1?'s':''} to complete at your own pace. Open <b>Training</b> in your portal.`, {view:'apptrain'}); });
+  RECMAT.forEach(recMatAud); recordChange(); closeModal(); RENDER[CURRENT]?.(); toast('Training assigned — the applicant can start right away');
+}
+function recTrainComplete(id, auto){
+  const a = recApp(id); if(!a || a.att?.training?.done) return;
+  const tp = recTrainState(a);
+  if(!auto && !tp.all && !confirm(`${a.name} has completed ${tp.done.length} of ${tp.mats.length} training material${tp.mats.length===1?'':'s'}. Mark the training complete anyway?`)) return;
+  (a.att = a.att||{}).training = {done:true, at:nowISO(), by:PERSON, via:auto?'self-paced (all materials completed)':'marked by '+first(PERSON), mats:tp.mats.map(x=>x.id)};
+  recTouch(a, auto ? 'Self-paced training completed (all materials)' : `Training marked complete by ${first(PERSON)}`, {stage:'assessment', status:'active'});
+  if(!recAssessOf(a.id).length) recAssign(a.id);
+  recSysNotify(recStaff(), 'approval', `✅ <b>${esc(a.name)}</b> completed the ${auto?'self-paced ':''}training — role assessment assigned`, {view:'recruit', app:a.id}, `trdone-${a.id}`);
+  recordChange(); if(!auto){ closeModal(); RENDER[CURRENT]?.(); toast('Training complete — assessment assigned'); }
+}
+/* any HR / head portal finishes it once every assigned material is complete (fixed ids → never twice) */
+function recTrainCheck(){
+  if(!recCan() || !SYNC?.ready || SYNC.applying) return;
+  APPLICANTS.filter(a=>recOpen(a) && a.stage==='training' && !a.att?.training?.done).forEach(a=>{ const tp = recTrainState(a); if(!tp.all) return;
+    if(RECS().trainAuto!==false) recTrainComplete(a.id, true);
+    else { recSysNotify(recStaff(), 'approval', `✅ <b>${esc(a.name)}</b> finished every training material — review and mark training complete`, {view:'recruit', app:a.id}, `trready-${a.id}`); recordChange(); } });
+}
+setInterval(recTrainCheck, 30e3);
+{ const _ore = onRemoteEvent; onRemoteEvent = function(ev){ _ore(ev); if(ev?.coll==='recprog' && recCan()){ clearTimeout(recTrainCheck.t); recTrainCheck.t = setTimeout(recTrainCheck, 1500); if(CURRENT==='recruit' && RCV.tab==='mat') scheduleRender(); } }; }
+
+/* ---------- HR: build and manage materials (video, links, files) ---------- */
+let TMD = null;
+recMatModal = function(id){
+  const x = id ? RECMAT.find(y=>y.id===id) : null; if(!recCan()) return;
+  TMD = {id:x?.id || uid('RM'), isNew:!x, video:x?.video || null, files:[...(x?.files||[])], links:[...(x?.links||[])]};
+  openModal(x ? `Edit training — ${x.title}` : 'New training material', `
+    <div class="field"><label>Title *</label><input id="tmT" value="${esc(x?.title||'')}" placeholder="e.g. Module 1 — How Cross Core works"></div>
+    <div class="field"><label>Description / instructions</label><textarea id="tmD" rows="3" placeholder="What the applicant should learn and do">${esc(x?.desc||'')}</textarea></div>
+    <div class="field"><label>Training video (MP4)</label><div id="tmV"></div></div>
+    <div class="field"><label>Links (training videos, courses, articles) — one per line</label><textarea id="tmL" rows="3" placeholder="https://…">${esc(TMD.links.join('\n'))}</textarea></div>
+    <div class="field"><label>Files (PDF, Word, Excel, PowerPoint, images …)</label><div id="tmF"></div></div>
+    <label class="switch-row"><input id="tmR" type="checkbox" style="width:auto" ${x?.required===false?'':'checked'}> Required — must be completed before the assessment</label>
+    <div class="field"><label>Share automatically with</label><div class="rec-pick">${Object.entries(REC_TRACKS).map(([k,l])=>`<label><input type="checkbox" class="tmTr" value="${k}" ${(x?.tracks||[]).includes(k)?'checked':''}> All ${esc(l)} applicants (from orientation onward)</label>`).join('')}</div><div class="hint">You can also assign it to specific applicants from their record.</div></div>
+    <button class="btn primary" id="tmSave" style="width:100%" onclick="recMatSave()">${x?'Save changes':'Create training material'}</button>`, true);
+  tmDrawV(); tmDrawF();
+};
+function tmDrawV(){ const b = el('tmV'); if(!b) return; const v = TMD.video;
+  b.innerHTML = v ? `<div class="rec-cv-row"><span class="rec-fmt">MP4</span><span style="flex:1">${esc(v.name)} <span class="hint">· ${esc(recSize(v.size))}</span></span><button class="btn ghost" onclick="tmPickVideo()">Replace</button><button class="btn ghost" onclick="TMD.video=null;tmDrawV()">Remove</button></div>`
+    : `<div class="rec-cv-drop" onclick="tmPickVideo()"><b>🎬 Upload an MP4 video</b><span class="hint">up to ${typeof bigVideoMaxMB==='function'?bigVideoMaxMB():500} MB · uploads with progress, can resume after a dropped connection</span></div>`; }
+function tmDrawF(){ const b = el('tmF'); if(!b) return;
+  b.innerHTML = TMD.files.map((f,i)=>`<div class="rec-cv-row"><span class="rec-fmt">${esc((f.name.split('.').pop()||'').toUpperCase())}</span><span style="flex:1">${esc(f.name)} <span class="hint">· ${esc(recSize(f.size))}</span></span><button class="btn ghost" onclick="TMD.files.splice(${i},1);tmDrawF()">Remove</button></div>`).join('')
+    + `<button class="btn ghost" style="margin-top:6px" onclick="tmPickFiles()">📎 Add files</button>`; }
+function tmBusy(on, txt){ const b = el('tmSave'); if(b){ b.disabled = on; b.textContent = on ? txt : (TMD.isNew?'Create training material':'Save changes'); } }
+function tmPickVideo(){ const i = document.createElement('input'); i.type = 'file'; i.accept = '.mp4,.m4v,video/mp4';
+  i.onchange = async () => { const f = i.files[0]; if(!f) return; if(!/\.(mp4|m4v)$/i.test(f.name) && !/mp4/i.test(f.type)) return toast('Please choose an MP4 video');
+    const why = typeof bigCheck==='function' ? bigCheck(f) : ''; if(why) return toast(why);
+    tmBusy(true, 'Uploading the video…');
+    try{ const ref = typeof bigUpload==='function' ? await bigUpload(f, 'trainmat/'+TMD.id) : await BACKEND.upload(f, 'trainmat/'+TMD.id); TMD.video = {...ref, type:ref.type||'video/mp4'}; tmDrawV(); toast('Video uploaded'); }
+    catch(e){ if(!e.cancelled) toast('Upload failed: '+e.message); } tmBusy(false); };
+  i.click(); }
+function tmPickFiles(){ const i = document.createElement('input'); i.type = 'file'; i.multiple = true; i.accept = TM_FILE_TYPES;
+  i.onchange = async () => { tmBusy(true, 'Uploading files…');
+    for(const f of i.files){ if(f.size > REC_FILE_MB*1048576 && !(typeof bigCheck==='function')){ toast(`${f.name} is larger than ${REC_FILE_MB} MB`); continue; }
+      try{ const ref = f.size > (typeof BIG_CHUNK!=='undefined'?BIG_CHUNK:6e6) && typeof bigUpload==='function' ? await bigUpload(f, 'trainmat/'+TMD.id) : (BACKEND.mode==='live' ? await BACKEND.upload(f, 'trainmat/'+TMD.id) : await BACKEND.upload(f)); TMD.files.push(ref); }
+      catch(e){ if(!e.cancelled) toast(`${f.name}: upload failed (${e.message})`); } }
+    tmBusy(false); tmDrawF(); };
+  i.click(); }
+recMatSave = function(){
+  const title = el('tmT').value.trim(); if(!title) return toast('Add a title');
+  const links = el('tmL').value.split(/\s+/).map(s=>s.trim()).filter(Boolean); const bad = links.filter(u=>!/^https?:\/\/\S+\.\S+/i.test(u)); if(bad.length) return toast('Links must start with https:// — check: '+bad[0]);
+  if(!TMD.video && !links.length && !TMD.files.length && !el('tmD').value.trim()) return toast('Add a video, a link, a file or instructions');
+  let x = RECMAT.find(y=>y.id===TMD.id); const was = x ? JSON.stringify([x.video?.path, x.links, (x.files||[]).map(f=>f.path||f.name)]) : '';
+  if(!x){ x = {id:TMD.id, at:nowISO(), by:PERSON, history:[]}; RECMAT.push(x); }
+  Object.assign(x, {title, desc:el('tmD').value.trim(), video:TMD.video, links, files:TMD.files, required:el('tmR').checked, tracks:[...document.querySelectorAll('.tmTr:checked')].map(i=>i.value), updatedAt:nowISO(), updatedBy:PERSON});
+  (x.history = x.history||[]).push({at:nowISO(), by:PERSON, act:TMD.isNew?'Created':'Updated'});
+  const changed = was && was !== JSON.stringify([x.video?.path, x.links, (x.files||[]).map(f=>f.path||f.name)]);
+  recMatAud(x);
+  if(changed && (x.apps||[]).length) notify(x.apps, 'hr', `📚 Training updated: <b>${esc(x.title)}</b>`, {view:'apptrain'});
+  recordChange(); closeModal(); RENDER[CURRENT]?.(); toast(TMD.isNew ? 'Training material created' : 'Saved — applicants see the update now');
+};
+function recMatDelete(id){ const x = RECMAT.find(y=>y.id===id); if(!x || !confirm(`Remove “${x.title}”? Applicants will no longer see it. Progress already recorded is kept.`)) return;
+  x.deleted = {at:nowISO(), by:PERSON}; x.apps = []; APPLICANTS.forEach(a=>{ if(a.training?.mats?.includes(id)) a.training.mats = a.training.mats.filter(m=>m!==id); });
+  recordChange(); RENDER[CURRENT]?.(); toast('Removed'); }
+function recMatProgress(id){ const x = RECMAT.find(y=>y.id===id); if(!x) return;
+  const apps = uniq([...(x.apps||[]), ...RECPROG.filter(r=>r.mat===id).map(r=>r.person)]).map(recApp).filter(Boolean);
+  openModal(`Progress — ${x.title}`, `<div style="overflow-x:auto"><table class="tbl"><thead><tr><th>Applicant</th><th>Stage</th><th>Opened</th>${x.video?'<th>Video watched</th>':''}${(x.files||[]).length?'<th>Files opened</th>':''}${(x.links||[]).length?'<th>Links opened</th>':''}<th>Completed</th></tr></thead><tbody>
+    ${apps.map(a=>{ const s = tmState(x, a.id); return `<tr style="cursor:pointer" onclick="recView('${a.id}')"><td><b>${esc(a.name)}</b></td><td>${esc(REC_STAGE[a.stage])}</td><td>${s.p.opened?esc(dtstr(s.p.opened)):'—'}</td>${x.video?`<td>${asgBar(s.pct, 100).replace(/\d+\/100/, s.pct+'%')}</td>`:''}${(x.files||[]).length?`<td>${s.fOpen}/${x.files.length}</td>`:''}${(x.links||[]).length?`<td>${s.lOpen}/${x.links.length}</td>`:''}<td>${s.done?`<span class="badge b-approved">✓ ${esc(dtstr(s.p.doneAt))}</span>`:s.st==='progress'?'<span class="badge b-pending">In progress</span>':'<span class="badge b-draft">Not started</span>'}</td></tr>`; }).join('') || '<tr><td colspan="6" class="hint">Not shared with anyone yet.</td></tr>'}</tbody></table></div>`, true); }
+recMatHTML = function(){
+  const L = RECMAT.filter(x=>!x.deleted).sort((a,b)=>(b.updatedAt||b.at||'').localeCompare(a.updatedAt||a.at||''));
+  return `<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px"><button class="btn primary" onclick="recMatModal()">+ New training material</button>
+      <label class="switch-row" style="margin:0"><input type="checkbox" style="width:auto" ${RECS().trainAuto!==false?'checked':''} onchange="const s=recsetEnsure(); s.trainAuto=this.checked; recordChange(); toast('Saved')"> Move applicants to the assessment automatically when all their training is completed</label></div>
+    <div class="hint" style="margin-bottom:12px">Training is self-paced: applicants watch the video, open the links and files on the Training page of their portal. Video progress counts only the parts actually watched (${TM_WATCH}% needed).</div>
+    ${L.map(x=>{ const A = (x.apps||[]); const S = A.map(k=>tmState(x, k)); const done = S.filter(s=>s.done).length, prog = S.filter(s=>s.st==='progress').length;
+      return `<div class="card tm-card" style="margin-bottom:12px"><div class="card-b"><div style="display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap"><div style="flex:1;min-width:220px"><b>${esc(x.title)}</b> ${x.required===false?'<span class="badge b-draft">Optional</span>':'<span class="badge b-scheduled">Required</span>'}
+        <div class="hint">${esc((x.tracks||[]).map(t=>REC_TRACKS[t]).join(', ')||'assigned per applicant')} · ${A.length} applicant${A.length===1?'':'s'} · ${done} completed · ${prog} in progress</div>${x.desc?`<div class="hint" style="margin-top:4px">${esc(coraTrim(x.desc, 180))}</div>`:''}
+        <div class="tm-items">${x.video?`<span><span class="rec-fmt">MP4</span> ${esc(x.video.name)}</span>`:''}${(x.links||[]).map(u=>`<span><span class="rec-fmt">LINK</span> <a href="${esc(u)}" target="_blank" rel="noopener">${esc(u.length>50?u.slice(0,50)+'…':u)}</a></span>`).join('')}${(x.files||[]).map(f=>`<span><span class="rec-fmt">${esc((f.name.split('.').pop()||'').toUpperCase())}</span> ${esc(f.name)}</span>`).join('')}</div></div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn ghost" onclick="recMatProgress('${x.id}')">Progress</button><button class="btn ghost" onclick="recMatModal('${x.id}')">Edit / replace</button><button class="btn ghost" style="color:var(--bad)" onclick="recMatDelete('${x.id}')">Remove</button></div></div></div></div>`; }).join('') || '<div class="card"><div class="card-b"><div class="hint">No training materials yet. Add an MP4 video, links or files — applicants complete them at their own pace.</div></div></div>'}`;
+};
+
+/* ---------- applicant: Training page ---------- */
+if(!APPLICANT_NAV.some(n=>n.id==='apptrain')){ const at = APPLICANT_NAV.findIndex(n=>n.id==='appassess'); APPLICANT_NAV.splice(at, 0, {id:'apptrain', name:'Training', ico:'M4 19.5V5a2 2 0 0 1 2-2h13v16H6.5A2.5 2.5 0 0 0 4 21.5ZM8 7h7M8 11h5M10 15l4-2-4-2v4Z'}); }
+if(!el('v-apptrain')){ const v = document.createElement('div'); v.id = 'v-apptrain'; v.className = 'view'; (el('v-apphome')||document.querySelector('.content .view'))?.after(v); }
+{ const _ap = appPills; appPills = function(id){ if(id==='apptrain'){ const a = myApp(); return a ? recTrainMats(a).filter(x=>!tmProg(x.id)?.done).length : 0; } return _ap.apply(this, arguments); }; }
+const TV = {};
+function tmMine(){ const a = myApp(); if(!a) return []; const req = recTrainMats(a); const ids = new Set(req.map(x=>x.id));
+  return [...req, ...RECMAT.filter(x=>!x.deleted && (x.apps||[]).includes(PERSON) && !ids.has(x.id))]; }
+RENDER.apptrain = () => {
+  const v = el('v-apptrain'); if(!v) return;
+  if([...v.querySelectorAll('video')].some(x=>!x.paused)) return;       /* never interrupt a video that is playing */
+  const a = myApp(); const L = tmMine(); const req = a ? recTrainMats(a) : []; const done = req.filter(x=>tmProg(x.id)?.done).length;
+  v.innerHTML = `<div class="page-head"><div><h2>Training</h2><p>Complete your training at your own pace — watch the videos and open the materials. Your progress is saved automatically.</p></div></div>
+    ${req.length?`<div class="card" style="margin-bottom:14px"><div class="card-b"><b>${done} of ${req.length} required material${req.length===1?'':'s'} completed</b><div class="tm-bar"><i style="width:${Math.round(done/req.length*100)}%"></i></div>${done===req.length?`<div class="hint" style="margin-top:6px">🎉 All done${a?.att?.training?.done?' — your assessment is ready under Assessment.':' — HR has been notified.'}</div>`:''}</div></div>`:''}
+    ${L.map(x=>{ const s = tmState(x); const required = req.some(r=>r.id===x.id);
+      return `<div class="card tm-item" id="tm-${x.id}" style="margin-bottom:14px"><div class="card-h"><h3>${esc(x.title)}</h3><span>${required?'<span class="badge b-scheduled">Required</span> ':''}${s.done?'<span class="badge b-approved">✓ Completed</span>':s.st==='progress'?'<span class="badge b-pending">In progress</span>':'<span class="badge b-draft">Not started</span>'}</span></div><div class="card-b">
+        ${x.desc?`<div class="doc-paper" style="margin-bottom:10px">${linkify(x.desc)}</div>`:''}
+        ${x.video?`<video class="tm-video" data-mid="${x.id}" controls preload="metadata" playsinline controlsList="nodownload"></video><div class="hint tm-vp" data-mid="${x.id}">Watched ${s.pct}% · ${TM_WATCH}% needed${s.pct>=TM_WATCH?' ✓':''}</div>`:''}
+        ${(x.links||[]).map(u=>`<div class="tm-row"><span class="rec-fmt">LINK</span><span style="flex:1;overflow:hidden;text-overflow:ellipsis">${esc(u)}</span>${s.p.links?.[u]?'<span class="hint">opened ✓</span>':''}<button class="btn" onclick="tmOpenLink('${x.id}', ${esc(JSON.stringify(u))})">Open ↗</button></div>`).join('')}
+        ${(x.files||[]).map((f,i)=>`<div class="tm-row"><span class="rec-fmt">${esc((f.name.split('.').pop()||'').toUpperCase())}</span><span style="flex:1">${esc(f.name)} <span class="hint">· ${esc(recSize(f.size))}</span></span>${s.p.files?.[f.path||f.name||i]?'<span class="hint">opened ✓</span>':''}<button class="btn" onclick="tmOpenFile('${x.id}', ${i})">Open</button><button class="btn ghost" onclick="tmOpenFile('${x.id}', ${i}, true)">⬇</button></div>`).join('')}
+        ${!s.done && !tmHasWork(x)?`<button class="btn primary" style="margin-top:8px" onclick="tmMark('${x.id}', true)">✓ Mark as completed</button>`:''}
+        ${!s.done && tmHasWork(x)?`<div class="hint" style="margin-top:8px">Completes automatically once you ${[x.video?`watch at least ${TM_WATCH}% of the video`:'', (x.links||[]).length?'open every link':'', (x.files||[]).length?'open every file':''].filter(Boolean).join(' and ')}.</div>`:''}
+      </div></div>`; }).join('') || '<div class="card"><div class="card-b"><div class="hint">No training assigned yet. HR will add your training here after orientation.</div></div></div>'}`;
+  v.querySelectorAll('video.tm-video').forEach(tvBind);
+};
+async function tvBind(vid){ const mid = vid.dataset.mid; const x = RECMAT.find(y=>y.id===mid); if(!x?.video) return;
+  try{ vid.src = await BACKEND.fileUrl(x.video); }catch(e){ vid.insertAdjacentHTML('afterend', '<div class="hint">The video could not be loaded — try again in a moment.</div>'); return; }
+  const st = TV[mid] = TV[mid] || {ranges:(tmProg(mid)?.video?.ranges||[]).map(r=>[...r]), last:null, dirty:false};
+  vid.addEventListener('loadedmetadata', ()=>{ st.dur = vid.duration; tmTouch(mid, {opened:true}); });
+  vid.addEventListener('timeupdate', ()=>{ const t = vid.currentTime; if(st.last!=null && t>=st.last && t-st.last<2.5 && !vid.seeking){ tvAdd(st, st.last, t); st.dirty = true; } st.last = t; tvShow(mid); if(Date.now()-(st.saved||0) > 8000) tvSave(mid); });
+  vid.addEventListener('seeking', ()=>{ st.last = vid.currentTime; });
+  ['pause','ended'].forEach(e=>vid.addEventListener(e, ()=>tvSave(mid)));
+}
+function tvAdd(st, a, b){ const R = [...st.ranges, [a, b]].sort((x,y)=>x[0]-y[0]); const out = [];
+  for(const r of R){ const l = out[out.length-1]; if(l && r[0] <= l[1]+0.6) l[1] = Math.max(l[1], r[1]); else out.push([r[0], r[1]]); } st.ranges = out; }
+const tvPct = st => st.dur ? Math.min(100, st.ranges.reduce((s,r)=>s+(r[1]-r[0]),0)/st.dur*100 + (st.ranges.some(r=>r[1]>=st.dur-0.8)?0.5:0)) : 0;
+function tvShow(mid){ const st = TV[mid]; const p = Math.round(tvPct(st)); const b = document.querySelector(`.tm-vp[data-mid="${mid}"]`); if(b) b.textContent = `Watched ${p}% · ${TM_WATCH}% needed${p>=TM_WATCH?' ✓':''}`; }
+function tvSave(mid){ const st = TV[mid]; if(!st?.dirty) return; st.dirty = false; st.saved = Date.now();
+  tmTouch(mid, {video:{ranges:st.ranges.map(r=>[Math.round(r[0]*2)/2, Math.round(r[1]*2)/2]), pct:Math.round(tvPct(st)*10)/10, dur:Math.round(st.dur||0), at:nowISO()}}); }
+function tmTouch(mid, patch){
+  if(!isApplicant()) return; const id = `${mid}|${PERSON}`; let r = RECPROG.find(x=>x.id===id);
+  if(!r){ r = {id, mat:mid, person:PERSON, at:nowISO()}; RECPROG.push(r); }
+  if(patch.opened){ if(!r.opened) r.opened = nowISO(); }
+  if(patch.video) r.video = {...(r.video||{}), ...patch.video, pct:Math.max(patch.video.pct||0, r.video?.pct||0)};
+  if(patch.file) r.files = {...(r.files||{}), [patch.file]:nowISO()};
+  if(patch.link) r.links = {...(r.links||{}), [patch.link]:nowISO()};
+  r.updatedAt = nowISO();
+  const x = RECMAT.find(y=>y.id===mid);
+  if(x && !r.done && (patch.done || tmState(x).met)){ r.done = true; r.doneAt = nowISO();
+    notify(uniq([...(myApp()?.hrKeys||[])]), 'hr', `📚 <b>${esc(pname(PERSON))}</b> completed the training “${esc(x.title)}”`, {view:'recruit', app:PERSON});
+    toast(`✓ “${x.title}” completed`); setTimeout(()=>{ if(CURRENT==='apptrain') RENDER.apptrain(); buildNav(); }, 300); }
+  recordChange();
+}
+function tmMark(mid){ tmTouch(mid, {opened:true, done:true}); }
+function tmOpenLink(mid, u){ tmTouch(mid, {opened:true, link:u}); const a = document.createElement('a'); a.href = u; a.target = '_blank'; a.rel = 'noopener'; document.body.append(a); a.click(); a.remove(); if(CURRENT==='apptrain') setTimeout(RENDER.apptrain, 200); }
+async function tmOpenFile(mid, i, download){ const x = RECMAT.find(y=>y.id===mid); const f = x?.files?.[i]; if(!f) return;
+  try{ let url; if(BACKEND.mode==='live' && f.path){ const {data, error} = await BACKEND.sb.storage.from('cc-files').createSignedUrl(f.path, 3600, download ? {download:f.name} : undefined); if(error) throw error; url = data.signedUrl; } else url = await BACKEND.fileUrl(f);
+    const a = document.createElement('a'); a.href = url; a.target = '_blank'; a.rel = 'noopener'; if(download) a.download = f.name; document.body.append(a); a.click(); a.remove();
+    tmTouch(mid, {opened:true, file:f.path||f.name||String(i)}); if(CURRENT==='apptrain') setTimeout(RENDER.apptrain, 200); }
+  catch(e){ toast('Could not open: '+e.message); } }
+window.addEventListener('beforeunload', ()=>{ Object.keys(TV).forEach(tvSave); });
+
+/* HR / heads: training progress inside the applicant record */
+{ const _rv = recView; recView = function(id){ const r = _rv.apply(this, arguments);
+    try{ const a = recApp(id); const box = el('recView'); if(!a || !box) return r;
+      const tp = recTrainState(a);
+      if(tp.mats.length || a.training){ const sec = `<div class="rec-sec"><h4>Training (self-paced) <span class="hint">· ${tp.done.length}/${tp.mats.length} completed${a.att?.training?.done?' · training complete':''}</span></h4>
+        ${tp.mats.map(x=>{ const s = tmState(x, id); return `<div class="list-row"><div style="flex:1"><b style="font-size:12.5px">${esc(x.title)}</b><div class="hint">${s.p.opened?'opened '+esc(dtstr(s.p.opened)):'not opened yet'}${x.video?` · video watched ${s.pct}%`:''}${(x.files||[]).length?` · files ${s.fOpen}/${x.files.length}`:''}${(x.links||[]).length?` · links ${s.lOpen}/${x.links.length}`:''}</div></div>${s.done?`<span class="badge b-approved">✓ ${esc(dstr(s.p.doneAt))}</span>`:s.st==='progress'?'<span class="badge b-pending">In progress</span>':'<span class="badge b-draft">Not started</span>'}</div>`; }).join('') || '<div class="hint">No materials assigned.</div>'}
+        <button class="btn ghost" style="margin-top:6px;padding:4px 10px;font-size:12px" onclick="recTrainAssignModal(['${id}'])">Change training materials</button></div>`;
+        const after = [...box.querySelectorAll('.rec-sec')].find(s=>/^Schedule/.test(s.querySelector('h4')?.textContent||'')); (after||box.querySelector('.rec-sec'))?.insertAdjacentHTML('afterend', sec); }
+      /* ticket management */
+      const acts = box.querySelector('.rec-acts.sm');
+      if(acts && recCan()) acts.insertAdjacentHTML('beforeend', a.archived||a.removed
+        ? `<button class="btn ghost" onclick="recTicketRestore('${id}')">↩ Restore ticket</button><button class="btn ghost" style="color:var(--bad)" onclick="recTicketModal('${id}','delete')">Delete…</button>`
+        : `<button class="btn ghost" onclick="recTicketModal('${id}','archive')">🗄 Archive</button><button class="btn ghost" style="color:var(--bad)" onclick="recTicketModal('${id}','delete')">Delete…</button>`);
+      if(a.archived||a.removed) box.insertAdjacentHTML('afterbegin', `<div class="app-banner">${a.removed?'This ticket was removed from the recruitment lists':'This ticket is archived'} by ${esc(pname((a.removed||a.archived).by))} on ${esc(dtstr((a.removed||a.archived).at))}${(a.removed||a.archived).reason?' — '+esc((a.removed||a.archived).reason):''}. The profile and history are kept.</div>`);
+    }catch(e){ console.warn('rec view extras', e); }
+    return r; }; }
+
+/* ---------- 2. applicant ticket management (HR and company heads) ---------- */
+function recTicketModal(id, mode){
+  const a = recApp(id); if(!a || !recCan()) return toast('Only HR and company heads manage applicant tickets');
+  const up = MEETINGS.filter(m=>m.status!=='cancelled' && (m.participants||[]).includes(id) && new Date(m.end) > new Date());
+  const portal = a.account && a.access?.state!=='ended';
+  const opts = `${up.length?`<label class="switch-row"><input id="tkCancel" type="checkbox" style="width:auto" checked> Cancel ${up.length} upcoming event${up.length===1?'':'s'} for this applicant</label>`:''}
+    ${portal?`<label class="switch-row"><input id="tkEnd" type="checkbox" style="width:auto" ${mode==='archive'?'':'checked'}> End the applicant’s portal access</label>`:''}`;
+  if(mode==='archive') return openModal(`Archive — ${a.name}`, `<div class="hint" style="margin-bottom:10px">Archived tickets leave every active list (pipeline, overview, pending actions) but keep the profile, documents and full history. You can restore it any time from Applicants → Archived & removed.</div>
+    <div class="field"><label>Reason (optional)</label><input id="tkWhy" placeholder="e.g. Not responsive, duplicate, position filled"></div>${opts}
+    <button class="btn primary" style="width:100%;margin-top:8px" onclick="recTicketDo('${id}','archive')">Archive ticket</button>`);
+  const emp = a.stage==='employee' || EMPLOYEES.some(e=>e.id===id);
+  openModal(`Delete — ${a.name}`, `
+    <div class="tk-opt"><b>Remove the ticket from recruitment</b><div class="hint">It disappears from every recruitment list. The applicant’s profile, documents, letters and history are kept (visible under Applicants → Archived & removed) and can be restored.</div>
+      <div class="field" style="margin-top:8px"><input id="tkWhy" placeholder="Reason (optional)"></div>${opts}
+      <button class="btn" style="width:100%;margin-top:8px" onclick="recTicketDo('${id}','remove')">Remove ticket — keep records</button></div>
+    <div class="tk-opt danger"><b>Permanently delete the applicant and all recruitment records</b>
+      ${emp ? `<div class="hint">Not available — ${esc(a.name)} is already an employee. Archive or remove the ticket instead; their employee file stays intact.</div>`
+        : `<div class="hint">Deletes the application, documents and CV files, notes, letters, schedules’ links, assessments, grades, training progress and portal login. This cannot be undone.</div>
+      <div class="field" style="margin-top:8px"><label>Type the applicant’s full name to confirm: <b>${esc(a.name)}</b></label><input id="tkName" autocomplete="off"></div>
+      <button class="btn" style="width:100%;color:var(--bad)" onclick="recTicketPurge('${id}')">Permanently delete</button>`}</div>`);
+}
+async function recTicketSide(a, endAccess, cancelEvents){
+  if(cancelEvents){ for(const m of MEETINGS.filter(m=>m.status!=='cancelled' && (m.participants||[]).includes(a.id) && new Date(m.end) > new Date())){
+      const others = (m.rec?.apps||[]).filter(k=>k!==a.id);
+      if(others.length){ m.participants = m.participants.filter(k=>k!==a.id); m.rec.apps = others; m.updatedAt = nowISO(); (m.history = m.history||[]).push({at:nowISO(), by:PERSON, act:`${a.name} removed`}); }
+      else { m.status = 'cancelled'; m.seq = (m.seq||0)+1; m.updatedAt = nowISO(); (m.history = m.history||[]).push({at:nowISO(), by:PERSON, act:'Cancelled (applicant ticket closed)'});
+        notify((m.participants||[]).filter(k=>k!==a.id), 'meeting', `🚫 <b>${esc(m.title)}</b> (${esc(recWhen(m))}) was cancelled.`, {view:'schedule', meeting:m.id}); } } }
+  if(endAccess && a.account && a.access?.state!=='ended'){
+    try{ await adminCall('applicant_access', {person_key:a.id, active:false}); a.access = {...(a.access||{}), state:'ended', endedAt:nowISO(), endedBy:PERSON}; }catch(e){ toast('Portal access could not be ended: '+e.message); } }
+}
+async function recTicketDo(id, mode){
+  const a = recApp(id); if(!a) return; const why = (el('tkWhy')?.value||'').trim(); const endA = !!el('tkEnd')?.checked, cancel = !!el('tkCancel')?.checked;
+  closeModal(); await recTicketSide(a, endA, cancel);
+  const mark = {at:nowISO(), by:PERSON, reason:why, prevStage:a.stage, prevStatus:a.status};
+  if(mode==='archive') a.archived = mark; else a.removed = mark;
+  recTouch(a, mode==='archive' ? `Ticket archived${why?' — '+why:''}` : `Ticket removed from recruitment${why?' — '+why:''}`);
+  RECMAT.forEach(recMatAud);
+  recSysNotify(recStaff().filter(k=>k!==PERSON), 'hr', `🗄 ${esc(first(PERSON))} ${mode==='archive'?'archived':'removed'} the applicant ticket <b>${esc(a.name)}</b>${why?': '+esc(why):''}`, {view:'recruit', app:id}, `tk${mode}-${id}-${(a.history||[]).length}`);
+  recordChange(); RENDER[CURRENT]?.(); toast(mode==='archive' ? 'Archived — restore it any time from Archived & removed' : 'Ticket removed — the profile and history are kept');
+}
+function recTicketRestore(id){ const a = recApp(id); if(!a || !recCan()) return;
+  delete a.archived; delete a.removed; recTouch(a, 'Ticket restored to the recruitment lists'); RECMAT.forEach(recMatAud);
+  recordChange(); RENDER[CURRENT]?.(); recView(id); toast('Restored' + (a.access?.state==='ended' ? ' — use Restore access if the applicant needs their portal again' : '')); }
+async function recTicketPurge(id){
+  const a = recApp(id); if(!a || !recCan()) return;
+  if(a.stage==='employee' || EMPLOYEES.some(e=>e.id===id)) return toast('Already an employee — archive instead');
+  if((el('tkName')?.value||'').trim().toLowerCase() !== a.name.trim().toLowerCase()) return toast('Type the applicant’s full name exactly to confirm');
+  closeModal(); toast('Deleting…');
+  await recTicketSide(a, true, true);
+  if(BACKEND.mode==='live'){ try{ const {data} = await BACKEND.sb.storage.from('cc-files').list('recruit/'+id, {limit:200}); const paths = (data||[]).map(o=>`recruit/${id}/${o.name}`); if(paths.length) await BACKEND.sb.storage.from('cc-files').remove(paths); }catch(e){ console.warn('recruit files', e); } }
+  CHATS.filter(c=>(c.members||[]).includes(id)).forEach(c=>{ c.members = c.members.filter(k=>k!==id); if(c.names) delete c.names[id]; });
+  const fin = RECFINAL.filter(f=>f.app===id).map(f=>f.id);
+  RECNOTES = RECNOTES.filter(x=>x.app!==id); RECLETTERS = RECLETTERS.filter(x=>x.app!==id); RECSEEN = RECSEEN.filter(x=>x.person!==id);
+  RECFCONF = RECFCONF.filter(x=>!fin.includes(x.f)); RECFINAL = RECFINAL.filter(x=>x.app!==id); RECASSESS = RECASSESS.filter(x=>x.app!==id);
+  RECSUBS = RECSUBS.filter(x=>x.app!==id); RECGRADES = RECGRADES.filter(x=>x.app!==id); RECONBOARD = RECONBOARD.filter(x=>x.app!==id); RECPROG = RECPROG.filter(x=>x.person!==id);
+  JOBORDERS = JOBORDERS.filter(j=>!(j.va===id && !j.releasedAt));
+  APPLICANTS = APPLICANTS.filter(x=>x.id!==id); RECMAT.forEach(x=>{ if((x.apps||[]).includes(id)) x.apps = x.apps.filter(k=>k!==id); });
+  if(typeof audit==='function') audit(`Permanently deleted the applicant ${a.name} and their recruitment records`);
+  recSysNotify(recStaff().filter(k=>k!==PERSON), 'hr', `🗑 ${esc(first(PERSON))} permanently deleted the applicant <b>${esc(a.name)}</b> and their recruitment records`, {view:'recruit'}, `tkdel-${id}`);
+  rebuildPeople(); recordChange(); RENDER[CURRENT]?.(); toast(`${a.name} was permanently deleted`);
+}
+
+/* ---------- 3. pop-ups for applicant events (HR and company heads) ---------- */
+const RPOP = {shown:new Set(), stack:null};
+const recIsRecNotif = n => !!n && (n.link?.view==='recruit' || (n.link?.app && String(n.link.app).startsWith('ap-')));
+function rpopSeen(){ try{ return new Set(JSON.parse(localStorage.getItem('cc-recpop-'+PERSON)||'[]')); }catch(e){ return new Set(); } }
+function rpopRemember(id){ try{ const s = [...rpopSeen(), id].slice(-400); localStorage.setItem('cc-recpop-'+PERSON, JSON.stringify(s)); }catch(e){} }
+function recPopup(n){
+  if(!n || !recCan() || isApplicant() || n.to!==PERSON || n.read) return;
+  if(RPOP.shown.has(n.id) || rpopSeen().has(n.id)) return; RPOP.shown.add(n.id); rpopRemember(n.id);
+  let st = el('recPopStack'); if(!st){ st = document.createElement('div'); st.id = 'recPopStack'; document.body.append(st); }
+  const a = n.link?.app ? recApp(n.link.app) : null;
+  const d = document.createElement('div'); d.className = 'rec-pop'; d.dataset.id = n.id;
+  d.innerHTML = `<div class="rec-pop-h"><b>👥 Recruitment${a?` · ${esc(a.name)}`:''}</b><button class="rec-pop-x" title="Dismiss" onclick="recPopClose('${n.id}')">✕</button></div>
+    <div class="rec-pop-t">${n.text}</div><div class="rec-pop-f"><span class="hint">${esc(ago(n.at)||'just now')}${n.by&&PEOPLE[n.by]&&n.by!==PERSON?' · '+esc(first(n.by)):''}</span>
+    <span><button class="btn ghost" onclick="recPopRead('${n.id}')">Mark read</button><button class="btn primary" onclick="recPopOpen('${n.id}')">Open</button></span></div>`;
+  st.prepend(d); while(st.children.length > 4) st.lastChild.remove();
+  try{ playSound?.('notify'); }catch(e){}
+}
+function recPopClose(id){ document.querySelector(`.rec-pop[data-id="${id}"]`)?.remove(); }
+function recPopRead(id){ const n = NOTIFS2.find(x=>x.id===id); if(n && !n.read){ n.read = true; recordChange(); renderNotifs?.(); updateBadges?.(); } recPopClose(id); }
+function recPopOpen(id){ const n = NOTIFS2.find(x=>x.id===id); recPopClose(id); if(n) openNotif(id); }
+/* the regular corner toast would duplicate the pop-up — show the pop-up instead */
+let REC_NO_TOAST = false;
+{ const _lt = liveToast; liveToast = function(){ if(REC_NO_TOAST) return; return _lt.apply(this, arguments); }; }
+{ const _ore = onRemoteEvent; onRemoteEvent = function(ev){
+    const o = ev?.obj; const mine = ev?.coll==='notifs' && ev.isNew && !ev.deleted && o?.to===PERSON && !o.read && recIsRecNotif(o) && recCan() && !isApplicant();
+    if(mine) REC_NO_TOAST = true; try{ _ore(ev); } finally { REC_NO_TOAST = false; }
+    if(mine) recPopup(o); }; }
+/* notifications this portal creates for its own user (e.g. HR's portal noticed something first) pop up too */
+{ const _sn = recSysNotify; recSysNotify = function(to, type, text, link, idBase){ const r = _sn.apply(this, arguments);
+    if([].concat(to).includes(PERSON)){ const n = NOTIFS2.find(x=>x.id===`N-${idBase}-${PERSON}`); if(n) setTimeout(()=>recPopup(n), 50); } return r; }; }
+/* after signing in: what arrived while away (newest three, once) */
+{ const _sp = setPerson; setPerson = function(){ const r = _sp.apply(this, arguments);
+    setTimeout(()=>{ if(!recCan() || isApplicant()) return; const seen = rpopSeen(); const since = Date.now() - 3*864e5;
+      myNotifs().filter(n=>!n.read && recIsRecNotif(n) && !seen.has(n.id) && new Date(n.at).getTime() > since).slice(0,3).reverse().forEach(recPopup); }, 6500);
+    return r; }; }
+
+/* new applicants and stage / status changes notify HR and company heads (the person who did it isn't notified;
+   anyone already told about this applicant in the last 20 seconds isn't told twice) */
+{ const _rs = recSave; recSave = async function(id){ const before = new Set(APPLICANTS.map(a=>a.id)); const r = await _rs.apply(this, arguments);
+    APPLICANTS.filter(a=>!before.has(a.id)).forEach(a=>{ recSysNotify(recStaff().filter(k=>k!==PERSON), 'hr', `🆕 New applicant: <b>${esc(a.name)}</b> — ${esc(a.position)} (registered by ${esc(first(PERSON))})`, {view:'recruit', app:a.id}, `rnew-${a.id}`); recordChange(); });
+    return r; }; }
+const RCHG = new Map();
+{ const _rt = recTouch; recTouch = function(a, act, patch={}, note){ const s0 = a.stage, t0 = a.status; const r = _rt.apply(this, arguments);
+    if(a && (a.stage!==s0 || a.status!==t0) && recCan() && !isApplicant()){ RCHG.set(a.id, {a, act, n:(a.history||[]).length}); clearTimeout(RCHG.t); RCHG.t = setTimeout(recChangeNotify, 1500); }
+    return r; }; }
+function recChangeNotify(){ const now = Date.now();
+  RCHG.forEach(({a, act, n})=>{ const to = recStaff().filter(k=>k!==PERSON && PEOPLE[k] && !NOTIFS2.some(x=>x.to===k && x.link?.app===a.id && now - new Date(x.at).getTime() < 20e3));
+    if(to.length) recSysNotify(to, 'hr', `🔄 <b>${esc(a.name)}</b> → ${esc(REC_STAGE[a.stage]||a.stage)} · ${esc(REC_STATUS[a.status]||a.status)} — ${esc(act)}`, {view:'recruit', app:a.id}, `rchg-${a.id}-${n}`); });
+  RCHG.clear(); recordChange(); }
+
+/* next-action wording for self-paced training */
+{ const _na = recNextAction; recNextAction = function(a){ if(a && recOpen(a) && a.stage==='training'){ const tp = recTrainState(a);
+      if(!tp.mats.length) return 'Assign the self-paced training materials';
+      return tp.all ? 'Training complete — moving to the assessment' : `Applicant completes the training (${tp.done.length}/${tp.mats.length} done)`; }
+    return _na.apply(this, arguments); }; }
+{ const _an = appNextSteps; appNextSteps = function(a){ if(a?.stage==='training' && a.status!=='rejected'){ const tp = recTrainState(a);
+      if(!tp.mats.length) return 'HR will add your training materials here shortly.';
+      return tp.all ? 'You completed your training — your assessment is next.' : `Complete your training at your own pace on the Training page (${tp.done.length} of ${tp.mats.length} done).`; }
+    return _an.apply(this, arguments); }; }
 </script>
 </body>
 </html>

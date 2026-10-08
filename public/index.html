@@ -3753,13 +3753,33 @@ let RERENDER_T = null;
 function scheduleRender(){ clearTimeout(RERENDER_T); RERENDER_T = setTimeout(()=>{
   if(!PEOPLE[PERSON]) return;
   if(el('modal').classList.contains('open') && MODAL_CTX?.refresh){ try{ MODAL_CTX.refresh(); }catch(e){} }
-  /* only real typing holds the page back (a filter dropdown or checkbox that still has focus must not freeze live updates);
-     a skipped render runs as soon as the person leaves the field */
-  const ae = document.activeElement; const typing = ae && el('v-'+CURRENT)?.contains(ae) && (ae.tagName==='TEXTAREA' || ae.isContentEditable || (ae.tagName==='INPUT' && /^(text|search|email|url|tel|number|password|)$/.test(ae.type||'')));
-  if(!typing || CURRENT==='chat'){ try{ RENDER[CURRENT]?.(); }catch(e){ console.error(e); } }
+  /* live updates never wait for the person to stop typing: the page is redrawn with whatever they were in the middle of
+     (text, choices, cursor position) put back exactly where it was. Only an on-screen keyboard composition (e.g. Japanese
+     input) or a field without a stable id holds the redraw until they leave the field. */
+  const view = el('v-'+CURRENT); const ae = document.activeElement; const inView = ae && view?.contains(ae);
+  const texty = inView && (ae.tagName==='TEXTAREA' || ae.isContentEditable || (ae.tagName==='INPUT' && /^(text|search|email|url|tel|number|password|)$/.test(ae.type||'')));
+  if(CURRENT==='chat' || !texty || (ae.id && !CC_COMPOSING && !ae.isContentEditable)){
+    const keep = view ? ccKeepFields(view) : null; const sel = texty && ae.id ? {id:ae.id, s:ae.selectionStart, e:ae.selectionEnd, top:ae.scrollTop} : null;
+    try{ RENDER[CURRENT]?.(); }catch(e){ console.error(e); }
+    if(keep && CURRENT!=='chat') ccRestoreFields(keep, sel);
+  }
   else if(!ae._ccRerender){ ae._ccRerender = true; ae.addEventListener('blur', ()=>{ ae._ccRerender = false; scheduleRender(); }, {once:true}); }
   buildNav(); renderNotifs(); checkUrgentAnns(); checkIncomingCalls();
 }, 140); }
+let CC_COMPOSING = false;
+document.addEventListener('compositionstart', ()=>{ CC_COMPOSING = true; }, true); document.addEventListener('compositionend', ()=>{ CC_COMPOSING = false; }, true);
+/* fields the person has changed but not saved yet (by id) */
+function ccKeepFields(view){ const out = [];
+  view.querySelectorAll('input[id],textarea[id],select[id]').forEach(f=>{
+    if(f.type==='file' || f.type==='hidden') return;
+    if(f.type==='checkbox' || f.type==='radio'){ if(f.checked!==f.defaultChecked) out.push({id:f.id, checked:f.checked}); return; }
+    if(f.tagName==='SELECT'){ const d = [...f.options].find(o=>o.defaultSelected); if(f.value!==(d ? d.value : f.options[0]?.value)) out.push({id:f.id, value:f.value}); return; }
+    if(f.value!==f.defaultValue || f===document.activeElement) out.push({id:f.id, value:f.value}); });
+  return out; }
+function ccRestoreFields(keep, sel){
+  keep.forEach(k=>{ const f = document.getElementById(k.id); if(!f) return; if('checked' in k && k.checked!==undefined) f.checked = k.checked; else if(f.value!==k.value) f.value = k.value; });
+  if(sel){ const f = document.getElementById(sel.id); if(f && document.activeElement!==f){ f.focus({preventScroll:true}); try{ f.setSelectionRange(sel.s, sel.e); }catch(e){} f.scrollTop = sel.top||0; } }
+}
 function renderAll(){ RENDER[CURRENT]?.(); renderNotifs(); }
 
 /* ================= FILES (logos, documents, outputs) ================= */
@@ -20825,7 +20845,7 @@ async function cooPostFromModal(){ const ch = CHATS.find(c=>c.id===el('paPostC')
    The footer shows which build is running ("Build 2026-10-07 · 1"), and every open portal checks every few minutes
    (and whenever it comes back to the foreground) whether a newer build has been published. If so it shows
    "New version available — Update now" instead of quietly running old code. */
-const BUILD_ID = '2026-10-10 · 1';
+const BUILD_ID = '2026-10-10 · 2';
 function verStamp(){ const f = el('footNote'); if(f && !f.dataset.v){ f.dataset.v = 1; f.textContent = `Cross Core Ops Suite v8 · Build ${BUILD_ID}`; } }
 async function verCheck(){
   if(!/^https?:/.test(location.protocol)) return;
@@ -25204,7 +25224,7 @@ function jpCardHTML(c){
       <span class="who">${c.assignee&&PEOPLE[c.assignee]?av(P(c.assignee)):'<span class="avatar" style="background:var(--line);color:var(--ink-3)" title="Unassigned">?</span>'}</span></div></div>`;
 }
 function jpColumnHTML(col, cards, lane){
-  const L = cards.filter(c=>c.bucket===col).sort(jpOrder); const qk = JPV.quick && JPV.quick.col===col && (JPV.quick.lane||'')===(lane||'');
+  const cols = jpCols(); const L = cards.filter(c=>c.bucket===col || (col===cols[0] && !cols.includes(c.bucket))).sort(jpOrder);   /* a card whose column was renamed elsewhere shows in the first column */ const qk = JPV.quick && JPV.quick.col===col && (JPV.quick.lane||'')===(lane||'');
   return `<div class="jp-col" data-col="${esc(col)}" data-lane="${esc(lane||'')}" ondragover="jpDragOver(event,this)" ondragleave="jpDragLeave(event,this)" ondrop="jpDrop(event,this)">
     <div class="jp-col-h"><span>${esc(col)}</span><span class="n">${L.length}</span></div>
     <div class="jp-cards">${L.map(jpCardHTML).join('')}</div>
@@ -25275,7 +25295,7 @@ function jpMove(c, col){ if(!c || c.bucket===col) return; const was = c.bucket; 
 plMove = function(id, b){ jpMove(PLANNER.find(x=>x.id===id), b); };
 
 /* create */
-function jpNewCard(col, title, lane){ const cols = jpCols(); const c = {id:uid('PL'), key:jpNextKey(), client:PL_CLIENT, bucket:col||cols[0], title:title||'', assignee:lane && lane!=='-' ? lane : '', members:[], labels:[], due:'', start:'', desc:'', caption:'', files:[], checklist:[],
+function jpNewCard(col, title, lane){ const cols = jpCols(); if(col && !cols.includes(col)) col = cols[0]; const c = {id:uid('PL'), key:jpNextKey(), client:PL_CLIENT, bucket:col||cols[0], title:title||'', assignee:lane && lane!=='-' ? lane : '', members:[], labels:[], due:'', start:'', desc:'', caption:'', files:[], checklist:[],
     priority:'', type:'', comments:[], createdBy:PERSON, createdAt:nowISO(), updatedAt:nowISO(), order:Date.now(), log:[{at:nowISO(), by:PERSON, text:`added this card to ${col||cols[0]}`}]};
   PLANNER.push(c); if(c.assignee && c.assignee!==PERSON) notify([c.assignee], 'assignment', `🗂️ New card for you: <b>${esc(jpKey(c))} ${esc(c.title)}</b>`, {view:'planner', card:c.id});
   recordChange(); return c; }
@@ -25481,6 +25501,100 @@ function fbTicketUpdates2(){ if(!SYNC.ready || PERSON!==cooKey() || S().fbFix2) 
   Object.entries(FB_UPD2).forEach(([id, note])=>{ const t = TICKETS.find(x=>x.id===id); if(!t || ['Closed','Resolved'].includes(t.status)) return; t.comments = [...(t.comments||[]), {id:uid('C'), by:PERSON, at:nowISO(), text:note}]; t.updated = nowISO(); n++; });
   const s = SETTINGS.find(x=>x.id==='global'); if(s){ s.fbFix2 = nowISO(); } recordChange(); if(n) toast(`${n} tickets updated — reporters were notified`); }
 { const _sp = setPerson; setPerson = function(){ const r = _sp.apply(this, arguments); setTimeout(()=>{ try{ fbTicketUpdates2(); }catch(e){ console.warn(e); } }, 9000); return r; }; }
+/* ===== 96_rtguard.js ===== */
+/* ================= REAL-TIME DELIVERY GUARD — every portal, every device (Oct 2026) =================
+   Yam and Erica: messages and progress updates still arrived late or not at all on some devices. Reproduced by cutting
+   the live connection three ways — blocked (mobile networks / firewalls that refuse the live socket), silent (the live
+   channel joins but the server's deliveries never arrive) and lossy (some deliveries dropped). In each case updates
+   took 15–40 s or never came, while the pill still said "Live · synced".
+   • Every portal now double-checks the live channel with a quick "what changed since …" against the server: every 5 s
+     while the portal is open (every 30 s in the background), immediately on return / focus / reconnect / opening a page.
+     When that check finds something the live channel should already have delivered, or the channel isn't connected, the
+     portal switches to checking every few seconds, re-joins the live channel, and after repeated misses switches to the other
+     live method (direct delivery ↔ table listener). Nothing is ever applied twice (records are kept by id; older
+     versions are ignored).
+   • Deleted records are caught up too (supabase/update-realtime-catchup.sql).
+   • Catching up after a long absence fills the bell and the chats without a burst of old pop-ups.
+   • The pill tells the truth: "Live · synced" only while live delivery is verified; otherwise "Synced · checking every
+     3 s" or "⚠ Updates delayed — reconnecting".
+   • The catch-up position follows the server's clock, never the device's (a phone whose clock runs ahead could skip
+     updates). */
+
+const RG = {seen:new Map(), counted:new Set(), applying:false, lossyUntil:0, misses:0, armedAt:0, lastOk:0, lastTry:0, fail:0, tomb:true, timer:null, joinFails:0, joinT:null, mute:false, stats:{checks:0, found:0, missed:0, switches:0}};
+const rgKey = (c, id) => c+'|'+id;
+/* everything that arrives NOT through the catch-up came through the live channel (or our own save) */
+{ const _ar = SYNC.applyRemote; SYNC.applyRemote = function(ups, dels){ if(!RG.applying){ const now = Date.now(); (ups||[]).forEach(r=>RG.seen.set(rgKey(r.collection, r.id), Math.max(Date.parse(r.updated_at)||now, RG.seen.get(rgKey(r.collection, r.id))||0))); }
+    return _ar.apply(this, arguments); }; }
+/* the live channel joined → from now on it is expected to deliver */
+{ const _rs = rtStatus; rtStatus = function(topic, st, err){ const r = _rs.apply(this, arguments);
+    if(st==='SUBSCRIBED' && rtAlive()){ RG.armedAt = Date.now(); RG.joinFails = 0; clearTimeout(RG.joinT); }
+    if(['CHANNEL_ERROR','TIMED_OUT'].includes(st)){ RG.joinFails++; if(RG.joinFails >= 2 && RT.mode==='bc'){ RG.joinFails = 0; rgSwitch('direct delivery could not join'); } }
+    return r; }; }
+/* a join that never completes (blocked socket) counts as a failure too */
+{ const _rc = rtConnect; rtConnect = async function(){ const r = await _rc.apply(this, arguments); clearTimeout(RG.joinT);
+    RG.joinT = setTimeout(()=>{ if(BACKEND?.mode==='live' && navigator.onLine && !rtAlive()){ RG.joinFails++; RG.lossyUntil = Math.max(RG.lossyUntil, Date.now() + 60e3);
+      if(RG.joinFails >= 2){ RG.joinFails = 0; rgSwitch('live connection did not join'); } else rtConnect(); } }, 10000);
+    return r; }; }
+function rgSwitch(why){ RG.stats.switches++; RT.info = {broadcast: RT.mode!=='bc'}; RG.armedAt = 0; console.info('Live updates: switching to', RT.info.broadcast ? 'direct delivery' : 'table listener', '—', why); try{ rtConnect(); }catch(e){} }
+
+/* the catch-up (replaces the earlier one everywhere it is called) */
+syncCatchUp = async function(reason){
+  if(BACKEND?.mode!=='live' || !SYNC.ready || !navigator.onLine) return;
+  if(CU.busy){ CU.again = true; return; }
+  CU.busy = true; RG.lastTry = Date.now(); RG.stats.checks++; const t0 = Date.now();
+  try{
+    if(!CU.since || CU.since > Date.now() + 60e3) CU.since = Date.now() - 10*60e3;
+    const since = new Date(CU.since - 90e3).toISOString(); let from = since, missed = 0;
+    for(let page=0; page<10; page++){
+      const r = await BACKEND.sb.from('cc_records').select('collection,id,data,updated_at').gt('updated_at', from).order('updated_at', {ascending:true}).limit(1000);
+      if(r.error) throw r.error; const rows = (r.data||[]).filter(x=>COLL[x.collection]); const all = r.data||[]; if(!all.length) break;
+      rows.forEach(x=>{ const k = rgKey(x.collection, x.id); const at = Date.parse(x.updated_at)||0;
+        if(RG.armedAt && at > RG.armedAt + 2000 && at < t0 - 4000 && (RG.seen.get(k)||0) < at && !RG.counted.has(k+'@'+at) && !((SG.localAt.get(k)||0) > at - 3000) && !['lastseen','chatreads'].includes(x.collection)){ missed++; RG.counted.add(k+'@'+at); } });
+      RG.applying = true; try{ SYNC.applyRemote(rows.map(x=>({collection:x.collection, id:x.id, data:x.data, updated_at:x.updated_at})), []); } finally { RG.applying = false; }
+      RG.stats.found += rows.length; from = all[all.length-1].updated_at; CU.since = Math.max(CU.since, Date.parse(from)||0);
+      if(all.length < 1000) break;
+    }
+    if(RG.tomb){ const d = await BACKEND.sb.from('cc_deleted').select('collection,id,deleted_at').gt('deleted_at', since).order('deleted_at', {ascending:true}).limit(1000);
+      if(d.error){ if(/cc_deleted|does not exist|schema cache|42P01|PGRST205/i.test((d.error.message||'')+(d.error.code||''))) RG.tomb = false; }
+      else { const D = (d.data||[]).filter(x=>COLL[x.collection] && (COLL[x.collection].get()||[]).some(o=>String(o.id)===x.id) && !((SG.srvAt.get(rgKey(x.collection, x.id))||0) > Date.parse(x.deleted_at)) && !SYNC.pending.has(rgKey(x.collection, x.id)));
+        if(D.length){ RG.applying = true; try{ SYNC.applyRemote([], D.map(x=>({collection:x.collection, id:x.id}))); } finally { RG.applying = false; } } } }
+    RG.lastOk = Date.now(); RG.fail = 0;
+    if(missed){ RG.stats.missed += missed; RG.misses++; RG.lossyUntil = Date.now() + 3*60e3;
+      console.info(`Live updates: ${missed} change(s) were missed by the live channel — checking every few seconds and re-joining`);
+      if(RG.misses >= 2){ RG.misses = 0; rgSwitch('changes were missed twice'); } else { try{ rtConnect(); }catch(e){} } }
+    if(RG.counted.size > 5000) RG.counted.clear(); if(RG.seen.size > 20000) RG.seen.clear();
+  }catch(e){ RG.fail++; console.warn('catch-up failed', reason, e?.message||e); }
+  finally{ CU.busy = false; syncUI(); if(CU.again){ CU.again = false; setTimeout(()=>syncCatchUp('again'), 250); } }
+};
+/* how often to double-check */
+const rgDegraded = () => !rtAlive() || Date.now() < RG.lossyUntil || RG.fail > 0;
+function rgEvery(){ if(document.visibilityState==='hidden') return 30e3; return rgDegraded() ? 2500 : 5000; }
+function rgLoop(){ clearTimeout(RG.timer); RG.timer = setTimeout(async ()=>{ try{ if(BACKEND?.mode==='live' && SYNC.ready && PEOPLE[PERSON]) await syncCatchUp('check'); }catch(e){} rgLoop(); }, rgEvery()); }
+rgLoop();
+document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='visible'){ syncCatchUp('visible'); rgLoop(); } });
+window.addEventListener('pageshow', ()=>{ syncCatchUp('pageshow'); rgLoop(); });
+document.addEventListener('resume', ()=>{ syncCatchUp('resume'); rgLoop(); });   /* Chrome: the page was frozen in the background */
+window.addEventListener('online', ()=>{ RG.lossyUntil = Date.now() + 60e3; setTimeout(()=>syncCatchUp('online'), 200); rgLoop(); });
+/* the catch-up position starts from the server's clock (with a safety window), not the device's */
+{ const _sp = setPerson; setPerson = function(){ const r = _sp.apply(this, arguments); CU.since = Date.now() - 10*60e3; return r; }; }
+
+/* catching up after an absence: everything lands in the bell / chats, but old items don't pop up one by one */
+{ const _ore = onRemoteEvent; onRemoteEvent = function(ev){ const o = ev?.obj; const old = RG.applying && o && (o.at || o.createdAt) && Date.now() - Date.parse(o.at || o.createdAt) > 120e3;
+    if(old) RG.mute = true; try{ return _ore.apply(this, arguments); } finally { RG.mute = false; } }; }
+{ const _lt = liveToast; liveToast = function(){ if(RG.mute) return; return _lt.apply(this, arguments); }; }
+
+/* the pill: "Live · synced" only while live delivery is verified */
+{ const _su = syncUI; syncUI = function(){ const r = _su.apply(this, arguments);
+    const pill = el('syncPill'), txt = el('syncTxt'); if(!pill || !txt || BACKEND?.mode!=='live' || !SYNC.ready) return r;
+    const online = BACKEND.online && navigator.onLine; if(!online || SYNC.pending.size || /not saved/.test(txt.textContent)) return r;
+    if(RG.fail >= 2 && Date.now() - RG.lastOk > 20e3){ txt.textContent = '⚠ Updates delayed — reconnecting'; pill.classList.add('syncing'); pill.title = 'The server could not be reached for a moment — it keeps retrying and catches up automatically'; }
+    else if(rgDegraded()){ txt.textContent = 'Synced · checking every few seconds'; pill.classList.remove('syncing'); pill.title = 'The live connection is unreliable on this network right now, so this portal checks the server every 3 seconds — nothing is missed'; }
+    else { txt.textContent = 'Live · synced'; pill.title = 'Everything you changed is saved, and live updates are connected and verified'; }
+    return r; }; }
+
+/* Connection window: what the sync is doing on this device */
+{ const _sm = serverModal; serverModal = function(){ const r = _sm.apply(this, arguments); const b = el('modalBody'); if(!b || BACKEND?.mode!=='live') return r;
+    b.insertAdjacentHTML('beforeend', `<div class="info-item"><span class="hint">Live updates</span>${esc(RT.mode==='bc'?'Direct delivery':'Table listener')} · ${rtAlive()?'connected':'reconnecting'}${rgDegraded()?' · checking every few seconds':' · verified'} · last check ${RG.lastOk?esc(shortWhen(new Date(RG.lastOk).toISOString())):'—'} · ${RG.stats.missed} missed & recovered</div>`); return r; }; }
 </script>
 </body>
 </html>

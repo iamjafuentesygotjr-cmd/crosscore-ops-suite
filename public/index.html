@@ -2967,6 +2967,34 @@ body.applicant-mode .cora-web,body.applicant-mode #capFab,body.applicant-mode [o
 .jp-pop .btns{display:flex;gap:8px;margin-top:10px}
 .jp-stale{background:var(--info-bg);color:var(--info);border-radius:9px;padding:8px 12px;font-size:12.5px;margin:0 16px 0;display:flex;gap:10px;align-items:center}
 @media (max-width:900px){.jp-body{grid-template-columns:1fr}.jp-side{border-left:0;border-top:1px solid var(--line);max-height:none}.jp-main{max-height:none}.jp-acts,.jp-props{margin-left:0}.jp-sec-b{margin-left:0}.jp-ov{padding:0}.jp-dlg{border-radius:0;min-height:100%}.jp-h1{font-size:21px}}
+
+/* ---------- content creation (curated posts) ---------- */
+.cur-head{margin-bottom:14px}
+.cur-weeks{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.cur-wk{display:flex;gap:8px;align-items:center;border:1px solid var(--line);background:var(--panel);border-radius:10px;padding:6px 10px;font-size:12.5px;cursor:pointer;color:var(--ink)}
+.cur-wk.on{border-color:var(--info);box-shadow:0 0 0 2px var(--info-bg)}
+.cur-grid{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:14px;align-items:start}
+.cur-ed{display:flex;flex-direction:column;gap:12px;min-width:0}
+.cur-pv{position:sticky;top:calc(env(safe-area-inset-top,0px) + 12px);max-height:calc(100vh - 40px);display:flex;flex-direction:column;min-width:0}
+.cur-pv .card-b{overflow:auto}
+.cur-li{white-space:pre-wrap;word-wrap:break-word;font-family:inherit;font-size:13.5px;line-height:1.6;background:var(--panel-2);border:1px solid var(--line-2);border-radius:10px;padding:14px;margin:0}
+.cur-ss{font-size:14px;line-height:1.65;background:var(--panel-2);border:1px solid var(--line-2);border-radius:10px;padding:14px 16px}
+.cur-ss h3{font-size:17px;margin:14px 0 6px}.cur-ss p{margin:0 0 10px}.cur-ss a{color:var(--info)}
+.cur-sec .card-h{gap:8px}
+.cur-sname{font-weight:700;font-size:15px;border:1px solid transparent;background:transparent;padding:3px 6px;border-radius:7px;flex:1;min-width:0;color:var(--ink)}
+.cur-sname:hover,.cur-sname:focus{border-color:var(--line);background:var(--panel)}
+.cur-item{border:1px solid var(--line);border-radius:11px;padding:10px 12px;margin-bottom:10px;background:var(--panel)}
+.cur-item.feat{border-left:4px solid var(--brand-2)}
+.cur-item-h{display:flex;gap:8px;align-items:center}
+.cur-title{flex:1;min-width:0;font-weight:600}
+.cur-star{border:0;background:none;font-size:18px;color:var(--brand-2);cursor:pointer;padding:0 2px}
+.cur-ops{display:inline-flex;gap:2px}.cur-ops button{border:0;background:none;color:var(--ink-3);cursor:pointer;padding:3px 6px;border-radius:6px;font-size:13px}.cur-ops button:hover{background:var(--line-2);color:var(--ink)}
+.cur-row{display:flex;gap:8px;margin:6px 0}.cur-row input{flex:1;min-width:0;font-size:12.5px}
+.cur-url{font-size:12px;margin:2px 0 6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.cur-url a{color:var(--info)}
+.cur-item textarea{width:100%;font-size:13px;line-height:1.55}
+.cur-paste{min-height:220px;max-height:50vh;overflow:auto;border:1px dashed var(--line);border-radius:10px;padding:12px;background:var(--panel-2);font-size:13px}
+.cur-ex{display:flex;flex-direction:column;gap:6px;max-height:200px;overflow:auto}.cur-ex div{display:flex;gap:8px;align-items:flex-start;font-size:12.5px;border:1px solid var(--line-2);border-radius:8px;padding:6px 8px}.cur-ex span{flex:1}
+@media (max-width:1000px){.cur-grid{grid-template-columns:1fr}.cur-pv{position:static;max-height:none}}
 </style>
 </head>
 <body>
@@ -20845,7 +20873,7 @@ async function cooPostFromModal(){ const ch = CHATS.find(c=>c.id===el('paPostC')
    The footer shows which build is running ("Build 2026-10-07 · 1"), and every open portal checks every few minutes
    (and whenever it comes back to the foreground) whether a newer build has been published. If so it shows
    "New version available — Update now" instead of quietly running old code. */
-const BUILD_ID = '2026-10-10 · 2';
+const BUILD_ID = '2026-10-10 · 3';
 function verStamp(){ const f = el('footNote'); if(f && !f.dataset.v){ f.dataset.v = 1; f.textContent = `Cross Core Ops Suite v8 · Build ${BUILD_ID}`; } }
 async function verCheck(){
   if(!/^https?:/.test(location.protocol)) return;
@@ -25595,6 +25623,369 @@ window.addEventListener('online', ()=>{ RG.lossyUntil = Date.now() + 60e3; setTi
 /* Connection window: what the sync is doing on this device */
 { const _sm = serverModal; serverModal = function(){ const r = _sm.apply(this, arguments); const b = el('modalBody'); if(!b || BACKEND?.mode!=='live') return r;
     b.insertAdjacentHTML('beforeend', `<div class="info-item"><span class="hint">Live updates</span>${esc(RT.mode==='bc'?'Direct delivery':'Table listener')} · ${rtAlive()?'connected':'reconnecting'}${rgDegraded()?' · checking every few seconds':' · verified'} · last check ${RG.lastOk?esc(shortWhen(new Date(RG.lastOk).toISOString())):'—'} · ${RG.stats.missed} missed & recovered</div>`); return r; }; }
+/* ===== 97_curation.js ===== */
+/* ================= CONTENT CREATION — weekly curated posts for LinkedIn & Substack (Oct 2026) =================
+   Rob Imbeault's account (handled by JA): upload the week's document of links (Word, PDF, text / Markdown, or paste from
+   Google Docs) and the portal builds the curated post in the house format:
+     introductory summary → Books → YouTube Videos ("If I could watch only N" + "The rest:") → Articles/Papers → X
+   • Each link gets a short description in Rob's style (default: "Two concise sentences explaining why it matters, using
+     positive language.") plus an overall introduction. Titles / sources come from the document, then from the link
+     itself (YouTube / page previews), then optional web research; the AI is told never to invent facts.
+   • Everything is editable (intro, titles, sources, dates, descriptions, featured picks, order, sections) and saves as
+     you type, live for the team.
+   • "Rob's style & format" holds the tone, intro rule, sentence count, labels, section order and LinkedIn / Substack
+     options. Saved changes apply to every future upload; with "Learn from my edits" on, descriptions you rewrite become
+     style examples the next generation follows.
+   • Copy for LinkedIn (plain text, links on their own line, character count vs. LinkedIn's 3,000 limit) or Copy for
+     Substack (rich text: headings and linked titles paste straight into the Substack editor).
+   • Each weekly post is also a Content Board item for the person handling the account (In Progress → Completed when
+     marked posted). */
+
+let CURPOSTS = [], CURPREFS = [];
+const curOwner = cid => client(cid)?.curation?.owner || (cid==='rob' ? 'ja' : null);
+const curAud = cid => { const c = client(cid); return uniq([...HEADS, ...pmsOf(cid), ...(c?.team||[]), curOwner(cid)]).filter(Boolean); };
+COLL.curposts = {get:()=>CURPOSTS, set:v=>CURPOSTS=v, aud:p=>uniq([...curAud(p.client), p.by])};
+COLL.curprefs = {get:()=>CURPREFS, set:v=>CURPREFS=v, aud:r=>curAud(r.id)};
+const curNm = cid => String(client(cid)?.name||cid||'the client').split(' ')[0];
+const curOn = cid => !!client(cid)?.curation?.on || cid==='rob';
+const curCan = cid => !!PEOPLE[PERSON] && ROLE!=='client' && (isHead(PERSON) || isFullAccess() || curAud(cid).includes(PERSON));
+
+const CUR_DEF = {
+  tone:'Two concise sentences explaining why it matters, using positive language.',
+  introRule:'Start with a short introductory summary of 2–3 sentences: name the theme that connects this week’s picks, mention two standout picks by name (guest or author and topic), and say what the rest add.',
+  sentences:2, featuredLabel:'If I could watch only {n}', restLabel:'The rest:', showSource:true, showDate:true, liUrls:true, bullet:'', hashtags:'', closing:'',
+  sectionOrder:['Books','YouTube Videos','Podcasts','Articles/Papers','X'], bareX:true, liFeaturedOnly:false, learn:true, examples:[], introExamples:[], history:[]};
+const curPrefs = cid => ({...CUR_DEF, ...(CURPREFS.find(r=>r.id===cid)||{})});
+const CUR_SECTIONS = [[/^books?$/i,'Books'],[/^(youtube( videos)?|videos?)$/i,'YouTube Videos'],[/^podcasts?$/i,'Podcasts'],[/^(articles?( ?\/ ?papers?)?|papers?|articles? (&|and) papers?|reading)$/i,'Articles/Papers'],[/^(x|twitter|x \/ twitter|tweets?|posts on x)$/i,'X'],[/^newsletters?$/i,'Newsletters'],[/^tools?$/i,'Tools'],[/^(reports?|research)$/i,'Reports']];
+const curSecName = t => { const s = String(t||'').replace(/[:：]\s*$/,'').trim(); const m = CUR_SECTIONS.find(([re])=>re.test(s)); return m ? m[1] : null; };
+const curGuessSec = url => /youtu\.?be|youtube\.com/i.test(url) ? 'YouTube Videos' : /(^|\/\/)(www\.)?(x|twitter)\.com\//i.test(url) ? 'X' : /spotify\.com|podcasts\.apple|overcast|pod\./i.test(url) ? 'Podcasts' : /amazon\.[a-z.]+\/.*(dp|gp)\/|goodreads|bookshop\.org/i.test(url) ? 'Books' : 'Articles/Papers';
+const CUR_URL_RE = /https?:\/\/[^\s<>"'”)\]]+/gi;
+const curNum = t => { const m = String(t).toLowerCase().match(/\b(one|two|three|four|five|six|seven|eight|nine|ten|\d+)\b/); if(!m) return 0; const w = ['one','two','three','four','five','six','seven','eight','nine','ten']; return w.includes(m[1]) ? w.indexOf(m[1])+1 : +m[1]; };
+const curWeekLabel = (d=new Date()) => { const x = new Date(manilaDate(d)+'T12:00:00Z'); const dow = (x.getUTCDay()+6)%7; x.setUTCDate(x.getUTCDate()-dow); return 'Week of '+x.toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric', timeZone:'UTC'}); };
+
+/* ---------- reading the document ---------- */
+function curParseHTML(html){
+  const d = new DOMParser().parseFromString(html, 'text/html');
+  const blocks = [...d.body.querySelectorAll('h1,h2,h3,h4,h5,h6,p,li,div,td')].filter(b=>!b.querySelector('p,li,h1,h2,h3,h4,h5,h6,div,td'));
+  const secs = []; let sec = null, feat = 0, inRest = false; const seen = new Set();
+  const newSec = name => { sec = secs.find(s=>s.name===name); if(!sec){ sec = {id:uid('CS'), name, items:[], featuredN:0}; secs.push(sec); } feat = 0; inRest = false; };
+  for(const b of blocks){
+    const text = (b.textContent||'').replace(/ /g,' ').replace(/\s+/g,' ').trim(); if(!text) continue;
+    const links = [...b.querySelectorAll('a[href]')].filter(a=>/^https?:/i.test(a.getAttribute('href')));
+    /* markdown-style links typed or pasted as text: [Title](https://…) — Source */
+    const mdRe = /\[([^\]]+)\]\((https?:[^)\s]+)\)/g; const md = []; let mm; while((mm = mdRe.exec(text))) md.push({t:mm[1], u:mm[2], end:mm.index+mm[0].length, start:mm.index});
+    const bare = (text.match(CUR_URL_RE)||[]).filter(u=>!links.some(a=>a.getAttribute('href')===u || a.textContent.trim()===u) && !md.some(m=>m.u===u.replace(/[.,;]+$/,'')));
+    if(!links.length && !bare.length && !md.length){
+      if(/^(if i (can|could)( only)? (watch|read|listen to|pick)|top \w+ picks?|must[- ]watch)/i.test(text)){ if(!sec) newSec('YouTube Videos'); feat = curNum(text) || 3; sec.featuredN = feat; continue; }
+      if(/^the rest\b/i.test(text)){ if(sec && sec.items.length) inRest = true; continue; }
+      if(/^(here you go|links?|this week)[:!.]?$/i.test(text)) continue;
+      const nm = curSecName(text); if(nm && text.length < 40){ newSec(nm); continue; }
+      if(sec && sec.items.length){ const it = sec.items[sec.items.length-1]; it.note = ((it.note||'')+' '+text).trim().slice(0, 600); }
+      continue;
+    }
+    const add = (url, title, after) => {
+      url = url.replace(/[.,;]+$/,''); if(seen.has(url)) return; seen.add(url);
+      if(!sec || (sec.name==='X' && !/(x|twitter)\.com/i.test(url))) newSec(curGuessSec(url));
+      if(sec.name!=='X' && /(^|\/\/)(www\.)?(x|twitter)\.com\//i.test(url) && sec.name!=='Articles/Papers') newSec('X');
+      let source = '', date = '';
+      const parts = String(after||'').replace(/^[\s—–\-|:·]+/,'').split(/\s+[—–|·]\s+|\s+-\s+/).map(s=>s.trim()).filter(Boolean);
+      parts.forEach(p=>{ if(!date && /^(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.? \d{1,2}(, \d{4})?$/i.test(p)) date = p; else if(!source && !/^link$/i.test(p) && !CUR_URL_RE.test(p)) source = p; CUR_URL_RE.lastIndex = 0; });
+      const it = {id:uid('CI'), url, title:String(title||'').replace(/^\d+[.)]\s*/,'').trim(), source, date, desc:'', draft:'', featured:false};
+      if(/^https?:\/\//i.test(it.title)) it.title = '';
+      if(feat && !inRest && sec.items.filter(x=>x.featured).length < feat) it.featured = true;
+      sec.items.push(it);
+    };
+    md.forEach((m, i)=>{ const after = text.slice(m.end, md[i+1] ? md[i+1].start : undefined); add(m.u, m.t, after.replace(CUR_URL_RE,'')); });
+    links.filter(a=>!md.some(m=>m.u===a.getAttribute('href'))).forEach(a=>{ const t = a.textContent.replace(/\s+/g,' ').trim(); const full = text; const i = full.indexOf(t); const after = i>=0 ? full.slice(i+t.length) : ''; add(a.getAttribute('href'), t, links.length===1 ? after.replace(CUR_URL_RE,'') : ''); });
+    bare.forEach(u=>{ const at = text.indexOf(u); const before = text.slice(0, at).replace(/^\d+[.)]\s*/,'').replace(/[\s—–\-:]+$/,''); const after = text.slice(at+u.length).replace(CUR_URL_RE,'');
+      add(u, before && before.length < 200 && !/[\[\]()]/.test(before) ? before : '', bare.length===1 ? after : ''); });
+  }
+  return secs.filter(s=>s.items.length);
+}
+const curEsc = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+function curTextToHTML(t){ return String(t||'').split(/\r?\n/).map(l=>{ const h = l.match(/^#{1,6}\s+(.*)$/); const md = s => curEsc(s).replace(/\[([^\]]+)\]\((https?:[^)\s]+)\)/g, '<a href="$2">$1</a>'); return h ? `<h3>${md(h[1])}</h3>` : `<p>${md(l.replace(/^\s*[-*•]\s+/,''))}</p>`; }).join(''); }
+async function curPdfToHTML(buf){
+  await loadScript(PDFJS_SRC); pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_WORKER;
+  const pdf = await pdfjsLib.getDocument({data:buf}).promise; let html = '';
+  for(let n=1; n<=pdf.numPages; n++){ const pg = await pdf.getPage(n); const tc = await pg.getTextContent(); const an = (await pg.getAnnotations()).filter(a=>a.subtype==='Link' && a.url);
+    const lines = []; tc.items.forEach(it=>{ if(!it.str.trim()) return; const y = Math.round(it.transform[5]); let L = lines.find(l=>Math.abs(l.y-y)<=3); if(!L){ L = {y, parts:[]}; lines.push(L); } L.parts.push({x:it.transform[4], s:it.str, w:it.width||0}); });
+    lines.sort((a,b)=>b.y-a.y).forEach(L=>{ L.parts.sort((a,b)=>a.x-b.x); const txt = L.parts.map(p=>p.s).join(' ').replace(/\s+/g,' ').trim();
+      const a = an.find(a=>L.y >= a.rect[1]-3 && L.y <= a.rect[3]+3); html += a ? `<p><a href="${curEsc(a.url)}">${curEsc(txt)}</a></p>` : `<p>${curEsc(txt)}</p>`; }); }
+  return html;
+}
+async function curReadFile(f){
+  const name = (f.name||'').toLowerCase();
+  if(/\.docx$/.test(name)){ await loadScript(MAMMOTH_SRC); const r = await mammoth.convertToHtml({arrayBuffer: await f.arrayBuffer()}); return r.value; }
+  if(/\.pdf$/.test(name)) return await curPdfToHTML(await f.arrayBuffer());
+  if(/\.html?$/.test(name)) return await f.text();
+  return curTextToHTML(await f.text());
+}
+
+/* ---------- writing the descriptions ---------- */
+async function curMeta(urls){ if(BACKEND?.mode!=='live' || !urls.length) return {}; try{ const d = await aiInvoke({action:'link_meta', urls}); const m = {}; (d?.items||[]).forEach(x=>{ if(x && !x.error) m[x.url] = x; }); return m; }catch(e){ return {}; } }
+async function curResearch(q){ if(BACKEND?.mode!=='live') return []; try{ const d = await aiInvoke({action:'web_search', query:q}); return (d?.results||[]).slice(0,3).map(r=>`${r.title}: ${r.snippet}`); }catch(e){ return null; } }
+function curSystem(pr){
+  const ex = (pr.examples||[]).slice(-10).map(e=>`- ${e.title ? e.title+': ' : ''}${e.desc}`).join('\n');
+  const iex = (pr.introExamples||[]).slice(-2).map(e=>`- ${e}`).join('\n');
+  return `You write the weekly curated post of links that Rob Imbeault shares on LinkedIn and Substack.
+DESCRIPTION STYLE (follow exactly): ${pr.tone}
+Each description is exactly ${pr.sentences} sentence${pr.sentences==1?'':'s'}, plain text — no emojis, hashtags, links, quotation marks around it, or labels. Lead with who or what it is (for example the guest's name and role, or the author), then why it matters to the reader.
+INTRODUCTION: ${pr.introRule}
+Ground every statement in the title, source, preview text, notes and research provided for each link. Never invent facts, numbers, names, dates, quotes or claims that are not in that material; if the material is thin, stay general and accurate. If you are not sure who a guest is, describe the topic instead of guessing a name.
+${ex ? `Approved descriptions to match in voice and length:\n${ex}\n` : ''}${iex ? `Approved introductions to match:\n${iex}\n` : ''}
+Reply with JSON only: {"intro":"…","items":[{"id":"…","description":"…"}]}`;
+}
+function curParseJSON(t){ const s = String(t||''); const a = s.indexOf('{'), b = s.lastIndexOf('}'); if(a<0 || b<a) return null; try{ return JSON.parse(s.slice(a, b+1)); }catch(e){ return null; } }
+const curTwo = (t, n=2) => { const S = String(t||'').replace(/\s+/g,' ').trim().match(/[^.!?]+[.!?]+/g) || []; return S.slice(0, n).join(' ').trim(); };
+async function curGenerate(post, opts={}){
+  const pr = curPrefs(post.client); const items = post.sections.flatMap(s=>s.items.map(it=>({it, s}))).filter(({it, s})=>!opts.only || opts.only===it.id);
+  const describe = ({it, s}) => !(s.name==='X' && pr.bareX);
+  post.genStatus = 'Reading the links…'; curDraw();
+  const need = items.filter(({it})=>!it.title || !it.source || !it.preview).map(({it})=>it.url);
+  const meta = await curMeta(need);
+  items.forEach(({it})=>{ const m = meta[it.url]; if(!m) return; if(!it.title && m.title) it.title = m.title; if(!it.source && (m.source || m.site)) it.source = m.source || (m.site!=='YouTube' ? m.site : ''); if(m.description) it.preview = m.description.slice(0, 600); if(!it.date && m.published) it.date = new Date(m.published).toLocaleDateString('en-US', {month:'short', day:'numeric'}); });
+  if(opts.research){ post.genStatus = 'Researching the links…'; curDraw();
+    for(const x of items.filter(describe)){ if(x.it.research?.length || !(x.it.title||x.it.source)) continue; const r = await curResearch(`${x.it.title} ${x.it.source}`.trim()); if(r===null) break; x.it.research = r; } }
+  post.genStatus = 'Writing in Rob’s style…'; curDraw();
+  const payload = items.filter(describe).map(({it, s})=>({id:it.id, section:s.name, featured:!!it.featured, title:it.title, source:it.source, date:it.date, link:it.url, notes:it.note||'', preview:it.preview||'', research:it.research||[]}));
+  let res = null;
+  if(payload.length){ const r = await aiChat(curSystem(pr), `Week: ${post.week}\nWrite ${opts.only ? 'the description for this link' : 'the introduction and a description for every link'}.\nLINKS:\n${JSON.stringify(payload, null, 1)}`); res = r.text ? curParseJSON(r.text) : null; post.aiNote = r.text ? (res ? '' : 'The AI reply could not be read — drafts were filled from the link previews.') : r.note; }
+  const got = new Map((res?.items||[]).map(x=>[String(x.id), String(x.description||x.desc||'').trim()]));
+  items.forEach(({it, s})=>{ if(!describe({it, s})) return; let d = got.get(it.id) || ''; if(!d && it.preview) d = curTwo(it.preview, pr.sentences);
+    if(d){ it.desc = d; it.draft = d; } else if(!it.desc) it.desc = ''; });
+  if(!opts.only){ const intro = String(res?.intro||'').trim(); if(intro){ post.intro = intro; post.introDraft = intro; } else if(!post.intro){ const tops = items.filter(({it})=>it.featured).slice(0,2).map(({it})=>it.title).filter(Boolean);
+      post.intro = `This week’s curation brings together ${items.length} picks worth your time${tops.length ? `, including ${tops.join(' and ')}` : ''}.`; post.introDraft = post.intro; } }
+  post.genStatus = ''; post.updatedAt = nowISO(); post.updatedBy = PERSON; post.prefsAt = pr.at || null; recordChange(); curDraw();
+}
+
+/* ---------- output: LinkedIn (plain text) and Substack (rich text) ---------- */
+function curOrdered(post, pr){ const order = pr.sectionOrder||[]; return post.sections.filter(s=>s.items.length).slice().sort((a,b)=>{ const ia = order.indexOf(a.name), ib = order.indexOf(b.name); return (ia<0?99:ia) - (ib<0?99:ib); }); }
+const curHead = (it, pr) => [it.title || it.url, pr.showSource && it.source, pr.showDate && it.date].filter(Boolean).join(' — ');
+function curLinkedIn(post){
+  const pr = curPrefs(post.client); const L = []; const b = pr.bullet ? pr.bullet+' ' : '';
+  if(post.intro) L.push(post.intro.trim(), '');
+  curOrdered(post, pr).forEach(s=>{
+    L.push(s.name, '');
+    if(s.name==='X' && pr.bareX){ s.items.forEach(it=>{ L.push(it.url); if(it.desc) L.push(it.desc); L.push(''); }); return; }
+    const F = s.items.filter(i=>i.featured), R = pr.liFeaturedOnly && s.items.some(i=>i.featured) ? [] : s.items.filter(i=>!i.featured);
+    const one = it => { L.push(b + curHead(it, pr)); if(pr.liUrls) L.push(it.url); if(it.desc) L.push(it.desc); L.push(''); };
+    if(F.length){ L.push(pr.featuredLabel.replace('{n}', ['zero','one','two','three','four','five','six','seven','eight','nine','ten'][F.length] || F.length), ''); F.forEach(one); if(R.length) L.push(pr.restLabel, ''); }
+    R.forEach(one);
+  });
+  if(pr.liFeaturedOnly && post.sections.some(x=>x.items.some(i=>!i.featured) && x.items.some(i=>i.featured))) L.push('The full list is in this week’s Substack.', '');
+  if(pr.closing) L.push(pr.closing.trim(), ''); if(pr.hashtags) L.push(pr.hashtags.trim());
+  return L.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+}
+function curSubstack(post){
+  const pr = curPrefs(post.client); let h = '';
+  if(post.intro) h += `<p>${curEsc(post.intro.trim())}</p>`;
+  curOrdered(post, pr).forEach(s=>{
+    h += `<h3>${curEsc(s.name)}</h3>`;
+    if(s.name==='X' && pr.bareX){ s.items.forEach(it=>{ h += `<p><a href="${curEsc(it.url)}">${curEsc(it.url)}</a>${it.desc?`<br>${curEsc(it.desc)}`:''}</p>`; }); return; }
+    const F = s.items.filter(i=>i.featured), R = s.items.filter(i=>!i.featured);
+    const one = it => { const rest = [pr.showSource && it.source, pr.showDate && it.date].filter(Boolean).join(' — ');
+      h += `<p><strong><a href="${curEsc(it.url)}">${curEsc(it.title || it.url)}</a></strong>${rest?` — ${curEsc(rest)}`:''}${it.desc?`<br>${curEsc(it.desc)}`:''}</p>`; };
+    if(F.length){ h += `<p><em>${curEsc(pr.featuredLabel.replace('{n}', ['zero','one','two','three','four','five','six','seven','eight','nine','ten'][F.length] || F.length))}</em></p>`; F.forEach(one); if(R.length) h += `<p><em>${curEsc(pr.restLabel)}</em></p>`; }
+    R.forEach(one);
+  });
+  if(pr.closing) h += `<p>${curEsc(pr.closing)}</p>`;
+  return h;
+}
+async function curCopy(kind){ const p = curCur(); if(!p) return;
+  if(kind==='li'){ const t = curLinkedIn(p); const okk = await copyText(t); toast(okk ? `Copied for LinkedIn (${t.length.toLocaleString()} characters)` : 'Copy failed — select the preview text and copy it'); }
+  else { const html = curSubstack(p), txt = curLinkedIn(p); try{ await navigator.clipboard.write([new ClipboardItem({'text/html':new Blob([html], {type:'text/html'}), 'text/plain':new Blob([txt], {type:'text/plain'})})]); toast('Copied for Substack — paste into the Substack editor (headings and links are kept)'); }
+    catch(e){ const okk = await copyText(txt); toast(okk ? 'Copied as plain text (this browser can’t copy rich text)' : 'Copy failed'); } }
+  p.copiedAt = nowISO(); recordChange(); }
+
+/* ---------- the "Content creation" tab ---------- */
+const CUR = {open:null, view:'li', research:true, busy:false, saveT:null};
+const curCur = () => CURPOSTS.find(p=>p.id===CUR.open);
+const curPosts = cid => CURPOSTS.filter(p=>p.client===cid && !p.archived).sort((a,b)=>String(b.at).localeCompare(String(a.at)));
+function curTabHTML(c){
+  if(!curCan(c.id)) return '<div class="empty">Content creation for this account is handled by its team.</div>';
+  const P = curPosts(c.id); if(!CUR.open || !P.some(p=>p.id===CUR.open)) CUR.open = P[0]?.id || null; const p = curCur(); const pr = curPrefs(c.id);
+  const head = `<div class="card cur-head"><div class="card-b"><div style="display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap">
+      <div style="flex:1;min-width:240px"><h3 style="font-size:16px">Weekly curated posts — LinkedIn & Substack</h3><div class="hint">Handled by ${esc(pname(curOwner(c.id)||PERSON))} · upload the week’s document of links and the post is written in ${esc(curNm(c.id))}’s style. Style: “${esc(pr.tone)}”</div></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><label style="display:flex;gap:6px;align-items:center;font-size:12.5px"><input type="checkbox" style="width:auto" ${CUR.research?'checked':''} onchange="CUR.research=this.checked"> Research links on the web</label>
+        <button class="btn primary" onclick="curUpload('${c.id}')" ${CUR.busy?'disabled':''}>⬆ Upload document</button><button class="btn" onclick="curPasteModal('${c.id}')">📋 Paste links</button><button class="btn" onclick="curPrefsModal('${c.id}')">⚙ ${esc(curNm(c.id))}’s style & format</button></div></div>
+      ${P.length?`<div class="cur-weeks">${P.map(x=>`<button class="cur-wk ${x.id===CUR.open?'on':''}" onclick="CUR.open='${x.id}';RENDER.clientws()"><b>${esc(x.week)}</b><span class="badge ${x.status==='Posted'?'b-approved':x.status==='Ready'?'b-scheduled':'b-draft'}">${esc(x.status||'Draft')}</span></button>`).join('')}</div>`:''}</div></div>`;
+  if(!p) return head + `<div class="empty" style="margin-top:12px">No curated posts yet — upload a document with this week’s links (Word, PDF, text) or paste them.</div>`;
+  const secs = p.sections;
+  const itemHTML = (s, it, i) => `<div class="cur-item ${it.featured?'feat':''}" data-ci="${it.id}">
+      <div class="cur-item-h"><button class="cur-star" title="${it.featured?'Featured pick':'Make it a featured pick'}" aria-pressed="${!!it.featured}" onclick="curFeat('${it.id}')">${it.featured?'★':'☆'}</button>
+        <input id="ciT-${it.id}" class="cur-title" value="${esc(it.title)}" placeholder="Title" oninput="curSet('${it.id}','title',this.value)" aria-label="Title">
+        <span class="cur-ops"><button title="Move up" aria-label="Move up" onclick="curMoveItem('${it.id}',-1)">↑</button><button title="Move down" aria-label="Move down" onclick="curMoveItem('${it.id}',1)">↓</button><button title="Write this description again" onclick="curRegen('${it.id}')">↻</button><button title="Remove" aria-label="Remove" onclick="curDelItem('${it.id}')">✕</button></span></div>
+      <div class="cur-row"><input id="ciS-${it.id}" value="${esc(it.source)}" placeholder="Source / author (e.g. 20VC with Harry Stebbings)" oninput="curSet('${it.id}','source',this.value)" aria-label="Source"><input id="ciD-${it.id}" value="${esc(it.date)}" placeholder="Date (e.g. Oct 2)" oninput="curSet('${it.id}','date',this.value)" style="max-width:120px" aria-label="Date"></div>
+      <div class="cur-url"><a href="${esc(it.url)}" target="_blank" rel="noopener">${esc(it.url)}</a></div>
+      ${s.name==='X' && pr.bareX && !it.desc ? `<button class="btn ghost" style="padding:4px 10px;font-size:12px" onclick="curSet('${it.id}','desc',' ');RENDER.clientws()">+ Add a note</button>` :
+      `<textarea id="ciX-${it.id}" rows="3" placeholder="Two sentences: why it matters" oninput="curSet('${it.id}','desc',this.value)" aria-label="Description">${esc(it.desc)}</textarea>`}
+    </div>`;
+  const editor = `<div class="cur-ed">
+      <div class="card"><div class="card-h"><h3>${esc(p.week)}</h3><span style="display:flex;gap:6px;flex-wrap:wrap">
+        <select aria-label="Status" onchange="curStatus(this.value)" style="padding:5px 8px;font-size:12.5px">${['Draft','Ready','Posted'].map(x=>`<option ${p.status===x?'selected':''}>${x}</option>`).join('')}</select>
+        <button class="btn" onclick="curRegenAll()" ${p.genStatus?'disabled':''}>↻ Rewrite all with current style</button><button class="btn ghost" onclick="curArchive()">Archive</button></span></div>
+        <div class="card-b">${p.genStatus?`<div class="app-banner">⏳ ${esc(p.genStatus)}</div>`:''}${p.aiNote?`<div class="hint" style="margin-bottom:8px">ℹ ${esc(p.aiNote)}</div>`:''}
+          <div class="field"><label>Introductory summary</label><textarea id="cuIntro" rows="4" oninput="curSetIntro(this.value)">${esc(p.intro||'')}</textarea></div>
+          ${p.file?`<div class="hint" style="margin-bottom:8px">Source document: ${fileChips([p.file])}</div>`:''}
+          <div class="hint" id="cuSaved">${p.updatedAt?`Saved · ${esc(shortWhen(p.updatedAt))} by ${esc(first(p.updatedBy||p.by))}`:''}</div></div></div>
+      ${secs.map((s, si)=>`<div class="card cur-sec"><div class="card-h"><input id="csN-${s.id}" class="cur-sname" value="${esc(s.name)}" oninput="curSecSet('${s.id}',this.value)" aria-label="Section name"><span class="cur-ops"><button onclick="curMoveSec('${s.id}',-1)" aria-label="Move section up">↑</button><button onclick="curMoveSec('${s.id}',1)" aria-label="Move section down">↓</button><button onclick="curAddItem('${s.id}')">+ Link</button></span></div>
+        <div class="card-b">${s.items.map((it,i)=>itemHTML(s, it, i)).join('') || '<div class="hint">No links in this section.</div>'}</div></div>`).join('')}
+      <button class="btn ghost" onclick="curAddSec()">+ Add section</button></div>`;
+  const li = curLinkedIn(p);
+  const preview = `<div class="cur-pv card"><div class="card-h"><div class="jp-seg"><button class="${CUR.view==='li'?'on':''}" onclick="CUR.view='li';RENDER.clientws()">LinkedIn</button><button class="${CUR.view==='ss'?'on':''}" onclick="CUR.view='ss';RENDER.clientws()">Substack</button></div>
+      <button class="btn primary" onclick="curCopy('${CUR.view}')">Copy for ${CUR.view==='li'?'LinkedIn':'Substack'}</button></div>
+      <div class="card-b">${CUR.view==='li' ? `<div class="hint" style="margin-bottom:6px;${li.length>3000?'color:var(--bad);font-weight:700':''}">${li.length.toLocaleString()} / 3,000 characters${li.length>3000?' — over LinkedIn’s post limit: post it as a LinkedIn article, or turn on “featured picks only” in the style settings':''}</div><pre class="cur-li" id="cuLi">${esc(li)}</pre>` : `<div class="cur-ss" id="cuSs">${curSubstack(p)}</div>`}</div></div>`;
+  return head + `<div class="cur-grid">${editor}${preview}</div>`;
+}
+{ const _cw = RENDER.clientws; RENDER.clientws = function(){
+    const c = client(WS.client); const want = WS.tab==='curate';
+    if(want) WS.tab = 'overview';
+    const r = _cw.apply(this, arguments);
+    if(want) WS.tab = 'curate';
+    if(!c || !curOn(c.id) || !curCan(c.id)) { if(want){ WS.tab = 'overview'; } return r; }
+    const box = el('v-clientws'); const tabs = box?.querySelector('.tabs'); if(!tabs) return r;
+    if(!tabs.querySelector('[data-tab="curate"]')){ const bt = document.createElement('button'); bt.className = 'tab'+(want?' on':''); bt.dataset.tab = 'curate'; bt.textContent = '✍️ Content creation'; bt.onclick = ()=>{ WS.tab = 'curate'; RENDER.clientws(); };
+      const after = [...tabs.children].find(b=>/Content planning/.test(b.textContent)); if(after) after.after(bt); else tabs.prepend(bt); }
+    if(want){ tabs.querySelectorAll('.tab').forEach(b=>b.classList.toggle('on', b.dataset.tab==='curate')); while(tabs.nextSibling) tabs.nextSibling.remove();
+      const d = document.createElement('div'); d.className = 'cur-wrap'; d.innerHTML = curTabHTML(c); tabs.after(d); }
+    return r; }; }
+function curDraw(){ if(CURRENT==='clientws' && WS.tab==='curate') RENDER.clientws(); }
+function curOpenTab(cid, pid){ if(pid) CUR.open = pid; WS.client = cid; WS.tab = 'curate'; if(CURRENT!=='clientws') go('clientws'); else RENDER.clientws(); }
+
+/* editing (saved as you type) */
+const curItem = id => { const p = curCur(); for(const s of p?.sections||[]){ const it = s.items.find(x=>x.id===id); if(it) return {p, s, it}; } return {}; };
+function curTouch(p, quiet){ p.updatedAt = nowISO(); p.updatedBy = PERSON; clearTimeout(CUR.saveT); CUR.saveT = setTimeout(()=>{ recordChange(); const s = el('cuSaved'); if(s) s.textContent = `Saved · just now by ${first(PERSON)}`; curPreview(); }, quiet ? 0 : 500); }
+function curPreview(){ const p = curCur(); if(!p) return; const li = el('cuLi'); if(li) li.textContent = curLinkedIn(p); const ss = el('cuSs'); if(ss) ss.innerHTML = curSubstack(p); }
+function curSet(id, k, v){ const {p, it} = curItem(id); if(!it) return; it[k] = v; curTouch(p); }
+function curSetIntro(v){ const p = curCur(); if(!p) return; p.intro = v; curTouch(p); }
+function curSecSet(id, v){ const p = curCur(); const s = p?.sections.find(x=>x.id===id); if(!s) return; s.name = v; curTouch(p); }
+function curFeat(id){ const {p, it} = curItem(id); if(!it) return; it.featured = !it.featured; curTouch(p, true); RENDER.clientws(); }
+function curMoveItem(id, d){ const {p, s} = curItem(id); if(!s) return; const i = s.items.findIndex(x=>x.id===id), j = i+d; if(j<0 || j>=s.items.length) return; [s.items[i], s.items[j]] = [s.items[j], s.items[i]]; curTouch(p, true); RENDER.clientws(); }
+function curMoveSec(id, d){ const p = curCur(); const i = p.sections.findIndex(x=>x.id===id), j = i+d; if(j<0 || j>=p.sections.length) return; [p.sections[i], p.sections[j]] = [p.sections[j], p.sections[i]]; curTouch(p, true); RENDER.clientws(); }
+function curDelItem(id){ const {p, s, it} = curItem(id); if(!it) return; confirmModal('Remove this link?', esc(it.title||it.url), 'Remove', ()=>{ closeModal(); s.items = s.items.filter(x=>x.id!==id); curTouch(p, true); RENDER.clientws(); }); }
+function curAddItem(sid){ const p = curCur(); const s = p.sections.find(x=>x.id===sid); openModal('Add a link', `<div class="field"><label>Link *</label><input id="caU" placeholder="https://…"></div><div class="field"><label>Title (optional — read from the link if empty)</label><input id="caT"></div><div class="field"><label>Source / author</label><input id="caS"></div>
+  <button class="btn primary" style="width:100%" onclick="curAddItemSave('${sid}')">Add and write the description</button>`); }
+async function curAddItemSave(sid){ const p = curCur(); const s = p.sections.find(x=>x.id===sid); let u = el('caU').value.trim(); if(!/^https?:\/\//i.test(u)) return toast('Paste a full link starting with https://');
+  const it = {id:uid('CI'), url:u, title:el('caT').value.trim(), source:el('caS').value.trim(), date:'', desc:'', draft:'', featured:false}; s.items.push(it); closeModal(); curTouch(p, true); RENDER.clientws(); await curGenerate(p, {only:it.id, research:CUR.research}); }
+function curAddSec(){ const p = curCur(); p.sections.push({id:uid('CS'), name:'New section', items:[]}); curTouch(p, true); RENDER.clientws(); }
+async function curRegen(id){ const p = curCur(); if(!p) return; await curGenerate(p, {only:id, research:CUR.research}); toast('Rewritten in the current style'); }
+async function curRegenAll(){ const p = curCur(); if(!p) return; await curGenerate(p, {research:CUR.research}); toast('Rewritten with the current style & format'); }
+function curArchive(){ const p = curCur(); confirmModal('Archive this post?', 'It leaves the list (kept in the records).', 'Archive', ()=>{ closeModal(); p.archived = true; CUR.open = null; recordChange(); RENDER.clientws(); }); }
+function curStatus(v){ const p = curCur(); if(!p) return; const was = p.status; p.status = v; p.updatedAt = nowISO(); p.updatedBy = PERSON;
+  if(['Ready','Posted'].includes(v)) curLearn(p);
+  const t = TASKS.find(x=>x.curpost===p.id); if(t){ const st = v==='Posted' ? 'Completed' : v==='Ready' ? 'Approved' : 'In Progress'; if(t.status!==st){ setTaskStatus(t, st); t.caption = curLinkedIn(p); } }
+  recordChange(); RENDER.clientws(); toast(v==='Posted' ? 'Marked as posted — the Content Board item is completed' : v==='Ready' ? 'Ready to post' : 'Back to draft'); }
+
+/* "learn from my edits": rewritten descriptions and intros become style examples for future uploads */
+function curLearn(p){ const pr = curPrefs(p.client); if(!pr.learn) return; let rec = CURPREFS.find(r=>r.id===p.client); if(!rec){ rec = {id:p.client, ...JSON.parse(JSON.stringify(CUR_DEF))}; CURPREFS.push(rec); }
+  const ex = [...(rec.examples||[])]; let n = 0;
+  p.sections.forEach(s=>s.items.forEach(it=>{ const d = String(it.desc||'').trim(); if(d && it.draft && d!==it.draft.trim() && !ex.some(e=>e.desc===d)){ ex.push({title:it.title, desc:d, at:nowISO(), by:PERSON}); n++; } }));
+  const ie = [...(rec.introExamples||[])]; if(p.intro && p.introDraft && p.intro.trim()!==p.introDraft.trim() && !ie.includes(p.intro.trim())){ ie.push(p.intro.trim()); n++; }
+  if(n){ rec.examples = ex.slice(-12); rec.introExamples = ie.slice(-3); rec.at = nowISO(); rec.by = PERSON; toast(`${n} of your edits saved as ${curNm(p.client)}’s style examples — future posts follow them`); } }
+
+/* uploading / pasting */
+function curUpload(cid){ const i = document.createElement('input'); i.type = 'file'; i.accept = '.docx,.pdf,.txt,.md,.html,.htm'; i.onchange = ()=>{ if(i.files[0]) curFromFile(cid, i.files[0]); }; i.click(); }
+async function curFromFile(cid, f){
+  if(f.size > 20*1024*1024) return toast('Please use a document under 20 MB');
+  if(/\.doc$/i.test(f.name)) return toast('Please save it as .docx (Word 2007 or later) or PDF first');
+  CUR.busy = true; toast('Reading '+f.name+'…');
+  try{ const html = await curReadFile(f); let ref = null; try{ ref = await storeFile(f); }catch(e){} await curFromHTML(cid, html, ref, f.name); }
+  catch(e){ toast('Could not read this document: '+e.message); }
+  finally{ CUR.busy = false; curDraw(); }
+}
+function curPasteModal(cid){ openModal('Paste this week’s links', `<div class="hint" style="margin-bottom:8px">Paste straight from Google Docs or Word (headings and links are kept), or paste plain links one per line.</div>
+  <div id="cuPaste" class="cur-paste" contenteditable="true" role="textbox" aria-multiline="true" aria-label="Paste links here"></div>
+  <button class="btn primary" style="width:100%;margin-top:10px" onclick="curFromPaste('${cid}')">Create the curated post</button>`, true); setTimeout(()=>el('cuPaste')?.focus(), 50); }
+async function curFromPaste(cid){ const b = el('cuPaste'); if(!b) return; const html = b.innerHTML; if(!b.textContent.trim()) return toast('Paste the links first'); closeModal(); await curFromHTML(cid, html, null, 'Pasted links'); }
+async function curFromHTML(cid, html, file, from){
+  const sections = curParseHTML(html); const n = sections.reduce((m,s)=>m+s.items.length, 0);
+  if(!n) return toast('No links were found in '+from);
+  const p = {id:uid('CP'), client:cid, week:curWeekLabel(), status:'Draft', intro:'', introDraft:'', sections, file:file||null, from, by:PERSON, at:nowISO(), updatedAt:nowISO(), updatedBy:PERSON};
+  CURPOSTS.push(p); CUR.open = p.id; curTask(p); recordChange(); curOpenTab(cid, p.id);
+  toast(`Found ${n} link${n===1?'':'s'} in ${sections.length} section${sections.length===1?'':'s'} — writing the descriptions…`);
+  await curGenerate(p, {research:CUR.research});
+}
+/* the weekly item on the Content Board */
+function curTask(p){ const owner = curOwner(p.client) || PERSON; if(TASKS.some(t=>t.curpost===p.id)) return;
+  const due = new Date(Date.now() + 2*864e5);
+  TASKS.push({id:'T-'+p.id, client:p.client, title:`Weekly curated post (LinkedIn & Substack) — ${p.week}`, type:'Caption', status:'In Progress', plat:'li', assignee:owner, createdBy:PERSON, createdAt:nowISO(), due,
+    theme:'Curated links of the week', desc:'Weekly curated posts and articles for LinkedIn and Substack — edit and copy them in the client’s Content creation tab.', caption:'', notes:'', sources:p.file?[p.file]:[], refs:[], outputs:[], curpost:p.id,
+    history:[{by:pname(PERSON), who:PERSON, act:'Created from '+(p.from||'an upload'), note:'', when:dtstr(nowISO()), at:nowISO()}]}); }
+{ const _ot = openTask; openTask = function(id){ const r = _ot.apply(this, arguments); const t = TASKS.find(x=>x.id===id); const b = el('modalBody');
+    if(t?.curpost && b) b.insertAdjacentHTML('afterbegin', `<div class="app-banner" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">✍️ This is a curated weekly post. <button class="btn primary" style="padding:5px 12px;font-size:12px" onclick="closeModal();curOpenTab('${t.client}','${t.curpost}')">Open in Content creation</button></div>`);
+    return r; }; }
+{ const _fl = followLink; followLink = function(link){ if(link?.view==='curate'){ curOpenTab(link.client, link.post); return; } return _fl.apply(this, arguments); }; }
+
+/* ---------- Rob's style & format ---------- */
+function curPrefsModal(cid){ if(!curCan(cid)) return; const pr = curPrefs(cid); const nm = curNm(cid);
+  openModal(`${nm}’s style & format`, `<div class="hint" style="margin-bottom:10px">Saved for ${esc(client(cid)?.name||cid)} and applied automatically to every future upload (and to “Rewrite all”).</div>
+    <div class="field"><label>Tone & style for each description</label><textarea id="cpTone" rows="3">${esc(pr.tone)}</textarea></div>
+    <div class="field"><label>Introductory summary</label><textarea id="cpIntro" rows="3">${esc(pr.introRule)}</textarea></div>
+    <div class="grid cols-3"><div class="field"><label>Sentences per description</label><input id="cpSent" type="number" min="1" max="4" value="${pr.sentences}"></div>
+      <div class="field"><label>Featured label ({n} = number)</label><input id="cpFeat" value="${esc(pr.featuredLabel)}"></div>
+      <div class="field"><label>Label before the rest</label><input id="cpRest" value="${esc(pr.restLabel)}"></div></div>
+    <div class="field"><label>Section order (one per line)</label><textarea id="cpOrder" rows="5">${esc((pr.sectionOrder||[]).join('\n'))}</textarea></div>
+    <div class="grid cols-2">
+      <label class="switch-row"><input type="checkbox" id="cpSrc" style="width:auto" ${pr.showSource?'checked':''}> Show the source / show name</label>
+      <label class="switch-row"><input type="checkbox" id="cpDate" style="width:auto" ${pr.showDate?'checked':''}> Show dates</label>
+      <label class="switch-row"><input type="checkbox" id="cpUrls" style="width:auto" ${pr.liUrls?'checked':''}> LinkedIn: put each link on its own line</label>
+      <label class="switch-row"><input type="checkbox" id="cpBareX" style="width:auto" ${pr.bareX?'checked':''}> X posts as plain links (no description)</label>
+      <label class="switch-row"><input type="checkbox" id="cpLiFeat" style="width:auto" ${pr.liFeaturedOnly?'checked':''}> LinkedIn: featured picks only (keeps it under 3,000 characters)</label>
+      <label class="switch-row"><input type="checkbox" id="cpLearn" style="width:auto" ${pr.learn?'checked':''}> Learn from my edits (when a post is marked Ready or Posted)</label></div>
+    <div class="grid cols-3"><div class="field"><label>LinkedIn bullet (optional)</label><input id="cpBullet" value="${esc(pr.bullet)}" placeholder="e.g. ▸"></div>
+      <div class="field"><label>Closing line (optional)</label><input id="cpClose" value="${esc(pr.closing)}" placeholder="e.g. What did I miss? Share your favourite reads."></div>
+      <div class="field"><label>Hashtags (optional)</label><input id="cpTags" value="${esc(pr.hashtags)}" placeholder="#AI #VentureCapital"></div></div>
+    ${(pr.examples||[]).length?`<div class="field"><label>Style examples learned from your edits (${pr.examples.length})</label><div class="cur-ex">${pr.examples.slice().reverse().map((e,i)=>`<div><span>${esc(e.desc)}</span><button class="btn ghost" style="padding:2px 8px;font-size:11px" onclick="curExDel(${pr.examples.length-1-i},'${cid}')">Remove</button></div>`).join('')}</div></div>`:''}
+    <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" onclick="curPrefsSave('${cid}')">Save ${esc(nm)}’s style</button><button class="btn" onclick="curPrefsReset('${cid}')">Restore the original instructions</button></div>
+    ${(pr.history||[]).length?`<div class="hint" style="margin-top:10px">Last changed ${esc(shortWhen(pr.history[pr.history.length-1].at))} by ${esc(first(pr.history[pr.history.length-1].by))}</div>`:''}`, true); }
+function curPrefsRec(cid){ let r = CURPREFS.find(x=>x.id===cid); if(!r){ r = {id:cid, ...JSON.parse(JSON.stringify(CUR_DEF))}; CURPREFS.push(r); } return r; }
+function curPrefsSave(cid){ const r = curPrefsRec(cid); const tone = el('cpTone').value.trim(); if(!tone) return toast('Describe the tone & style first');
+  const before = JSON.stringify({tone:r.tone, introRule:r.introRule});
+  Object.assign(r, {tone, introRule:el('cpIntro').value.trim() || CUR_DEF.introRule, sentences:Math.max(1, Math.min(4, +el('cpSent').value || 2)), featuredLabel:el('cpFeat').value.trim() || CUR_DEF.featuredLabel, restLabel:el('cpRest').value.trim() || CUR_DEF.restLabel,
+    sectionOrder:el('cpOrder').value.split('\n').map(s=>s.trim()).filter(Boolean), showSource:el('cpSrc').checked, showDate:el('cpDate').checked, liUrls:el('cpUrls').checked, bareX:el('cpBareX').checked, liFeaturedOnly:el('cpLiFeat').checked, learn:el('cpLearn').checked,
+    bullet:el('cpBullet').value.trim(), closing:el('cpClose').value.trim(), hashtags:el('cpTags').value.trim(), at:nowISO(), by:PERSON});
+  r.history = [...(r.history||[]), {at:nowISO(), by:PERSON, tone:r.tone}].slice(-20);
+  recordChange(); closeModal(); curDraw();
+  toast(before!==JSON.stringify({tone:r.tone, introRule:r.introRule}) ? 'Saved — future uploads use the new style. Use “Rewrite all” to apply it to this week’s post.' : 'Saved — applied to the format right away'); }
+function curPrefsReset(cid){ const r = curPrefsRec(cid); Object.assign(r, {tone:CUR_DEF.tone, introRule:CUR_DEF.introRule, sentences:2, at:nowISO(), by:PERSON}); recordChange(); curPrefsModal(cid); toast('Original instructions restored'); }
+function curExDel(i, cid){ const r = curPrefsRec(cid); r.examples = (r.examples||[]).filter((_, j)=>j!==i); r.at = nowISO(); recordChange(); curPrefsModal(cid); }
+
+/* ---------- first setup: Rob's account (handled by JA) + this week's post from the document provided ---------- */
+const CUR_SEED_ROB = {week:'Week of Oct 5, 2026', from:'Untitled document.docx (initial setup)',
+  intro:'This week’s curation looks at how AI is reshaping the way companies build, invest and grow. From Stripe’s John Collison on AI agents rewiring the internet to Menlo Ventures’ Venky Ganesan on the AI metrics investors should really watch, these picks bring clear thinking on where lasting value is being created. Conversations on data centres, growth investing, the next era of ChatGPT and NFX’s look at AI-first teams round out a practical view of the opportunities ahead.',
+  sections:[
+    {name:'YouTube Videos', items:[
+      {f:1, t:'Why Today\'s AI Metrics Are Being Gamed & What Investors Need to Watch | Menlo\'s Venky Ganesan', s:'20VC with Harry Stebbings', u:'https://www.youtube.com/watch?v=EZWsOxpVWwU',
+       d:'Menlo Ventures partner Venky Ganesan explains how to look past headline AI numbers and spot the companies building real, lasting revenue. His perspective helps founders and investors focus on the signals that truly point to healthy growth.'},
+      {f:1, t:'Crusoe CEO: Why Everyone Gets GPU Depreciation & AI Energy Costs Wrong', s:'20VC', u:'https://www.youtube.com/watch?v=Ko7nU1Img40',
+       d:'Crusoe CEO Chase Lochmiller breaks down the real economics behind GPUs, data centres and the energy that powers AI. His clear-eyed view shows where lasting value is being built as AI infrastructure scales.'},
+      {f:1, t:'Stripe\'s John Collison: AI Agents Will Rewire the Internet', s:'Sourcery with Molly O\'Shea', u:'https://www.youtube.com/watch?v=kXGWlg1Bj8s',
+       d:'Stripe co-founder John Collison shares how AI agents are set to change the way people discover, buy and pay online. His insights offer an exciting look at the new opportunities agentic commerce is opening up for businesses of every size.'},
+      {t:'David George on Growth Investing, AI, and Why the Power Law Is Stronger Than Ever', s:'Uncapped with Jack Altman', u:'https://www.youtube.com/watch?v=4H1FbNRdtM0',
+       d:'a16z growth investor David George explains why a small number of breakout companies are capturing more value than ever in the age of AI. His thoughtful take on the power law offers useful lessons for founders and investors building for the long term.'},
+      {t:'AI, Infrastructure, and the Next Investment Cycle', s:'a16z', u:'https://www.youtube.com/watch?v=lr3hNhA0IfQ',
+       d:'This a16z conversation explores how today’s investment in AI infrastructure is laying the groundwork for the next wave of innovation. It is a helpful guide to where capital is flowing and the opportunities it is creating for builders.'},
+      {t:'OpenAI\'s Head of ChatGPT: We\'re entering a new era of AI (again)', s:'Lenny\'s Podcast', u:'https://www.youtube.com/watch?v=MM-C3JqCXBk',
+       d:'OpenAI’s Head of ChatGPT shares how the product is evolving as AI enters another new era. The conversation offers an inspiring look at what is next for the tools millions of people use every day.'},
+      {t:'Trump\'s Super Intelligence Summit, AI Safety Accord, GDP Beats, Midterm Predictions', s:'All-In Podcast', u:'https://www.youtube.com/watch?v=ZJKs08oU1zg',
+       d:'The All-In hosts unpack the White House superintelligence summit, a new AI safety accord and the latest economic numbers. It is an engaging roundup of how policy and markets are responding to AI’s rapid progress.'}]},
+    {name:'Articles/Papers', items:[
+      {t:'How The Fastest AI-First Companies Really Work', s:'NFX', u:'https://www.nfx.com/post/ai-first-company-structure-mission-pods',
+       d:'NFX shows how the fastest AI-first companies organise around small, focused mission pods instead of traditional departments. It is a practical blueprint for teams that want to move faster and give people more ownership.'}]},
+    {name:'X', items:[{t:'', s:'', u:'https://x.com/rapidresponse47/status/2107863218014306396?s=46', d:''}, {t:'', s:'', u:'https://x.com/greghunkins/status/2107997761916309624?s=46', d:''}]}]};
+function curSeed(){
+  if(!SYNC?.ready || !isHead(PERSON) || !client('rob')) return; const s = SETTINGS.find(x=>x.id==='global'); if(!s || s.curSeedRob) return;
+  const c = client('rob'); let ch = false;
+  if(!c.curation){ c.curation = {on:true, owner:'ja', since:nowISO()}; ch = true; }
+  if(!CURPREFS.some(r=>r.id==='rob')){ CURPREFS.push({id:'rob', ...JSON.parse(JSON.stringify(CUR_DEF)), at:nowISO(), by:PERSON, history:[{at:nowISO(), by:PERSON, tone:CUR_DEF.tone}]}); ch = true; }
+  if(!CURPOSTS.some(p=>p.client==='rob')){
+    const sections = CUR_SEED_ROB.sections.map(sec=>({id:uid('CS'), name:sec.name, items:sec.items.map(i=>({id:uid('CI'), url:i.u, title:i.t, source:i.s, date:'', desc:i.d, draft:i.d, featured:!!i.f}))}));
+    const p = {id:'CP-rob-initial', client:'rob', week:CUR_SEED_ROB.week, status:'Draft', intro:CUR_SEED_ROB.intro, introDraft:CUR_SEED_ROB.intro, sections, file:null, from:CUR_SEED_ROB.from, by:'ja', at:nowISO(), updatedAt:nowISO(), updatedBy:PERSON};
+    CURPOSTS.push(p); curTask(p); ch = true; }
+  s.curSeedRob = nowISO(); if(ch) recordChange();
+}
+{ const _sp = setPerson; setPerson = function(){ const r = _sp.apply(this, arguments); setTimeout(()=>{ try{ curSeed(); }catch(e){ console.warn(e); } }, 8000); return r; }; }
+{ const _ore = onRemoteEvent; onRemoteEvent = function(ev){ _ore(ev); if(['curposts','curprefs'].includes(ev?.coll) && CURRENT==='clientws' && WS.tab==='curate' && !curCur()?.genStatus) scheduleRender(); }; }
 </script>
 </body>
 </html>

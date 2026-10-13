@@ -2995,6 +2995,26 @@ body.applicant-mode .cora-web,body.applicant-mode #capFab,body.applicant-mode [o
 .cur-paste{min-height:220px;max-height:50vh;overflow:auto;border:1px dashed var(--line);border-radius:10px;padding:12px;background:var(--panel-2);font-size:13px}
 .cur-ex{display:flex;flex-direction:column;gap:6px;max-height:200px;overflow:auto}.cur-ex div{display:flex;gap:8px;align-items:flex-start;font-size:12.5px;border:1px solid var(--line-2);border-radius:8px;padding:6px 8px}.cur-ex span{flex:1}
 @media (max-width:1000px){.cur-grid{grid-template-columns:1fr}.cur-pv{position:static;max-height:none}}
+/* messages: one list + pop-ups (98) */
+.mp-chips{display:flex;gap:6px;overflow-x:auto;padding:2px 2px 6px;scrollbar-width:none}.mp-chips::-webkit-scrollbar{display:none}
+.mp-chip{flex:none;border:1px solid var(--line);background:color-mix(in srgb,var(--panel) 80%,transparent);color:var(--ink-2);border-radius:999px;padding:4px 11px;font:600 12px Inter,sans-serif;cursor:pointer;transition:background .15s,border-color .15s,color .15s}
+.mp-chip:hover{border-color:var(--brand-2)}.mp-chip.on{background:var(--warn-bg);border-color:var(--brand-2);color:var(--ink)}
+.mp-chip b{display:inline-grid;place-items:center;min-width:17px;height:17px;padding:0 5px;margin-left:3px;border-radius:99px;background:var(--brand-2);color:#1A1206;font-size:10.5px}
+#v-chat .chat-item .nm{display:flex;align-items:baseline;gap:6px;min-width:0}.mp-nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.mp-when{margin-left:auto;flex:none;font-size:10.5px;font-weight:500;color:var(--ink-3);font-variant-numeric:tabular-nums}
+#v-chat .chat-item.unread .mp-when{color:var(--brand-2);font-weight:700}
+.mp-kind{display:inline-block;font-size:9.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-3);border:1px solid var(--line-2);border-radius:5px;padding:0 4px;margin-right:5px;vertical-align:1px}
+.mp-mute{font-size:11px;opacity:.6;flex:none}.chat-item.mp-muted .un{filter:grayscale(1);opacity:.75}
+@keyframes mpFresh{0%{background:color-mix(in srgb,var(--brand-2) 22%,transparent)}100%{background:transparent}}
+#v-chat .chat-item.mp-fresh:not(.on){animation:mpFresh 2.4s ease-out}
+.mp-empty{padding:18px 8px;font-size:12.5px}
+#v-chat .chat-item .un.still{animation:none!important}
+@media (prefers-reduced-motion:reduce){#v-chat .chat-item.mp-fresh{animation:none}}
+/* assistants: errors with Retry, chat feedback (99) */
+.ai-err{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:10px;padding:9px 11px;border-radius:12px;border:1px solid color-mix(in srgb,var(--bad) 35%,transparent);background:color-mix(in srgb,var(--bad) 8%,transparent);font-size:12.5px;color:var(--ink)}
+.ai-err span{flex:1;min-width:160px}.ai-err .btn{padding:5px 12px;font-size:12px}
+.mx-fb{display:inline-flex;gap:4px;margin-left:auto}.mx-fb button{border:1px solid var(--line);background:none;border-radius:8px;padding:3px 9px;font-size:12px;cursor:pointer;color:var(--ink-2)}
+.mx-fb .mx-ok:hover{border-color:var(--ok,#2E7D5B);color:var(--ok,#2E7D5B)}.mx-fb .mx-no:hover{border-color:var(--bad);color:var(--bad)}
 </style>
 </head>
 <body>
@@ -20873,7 +20893,7 @@ async function cooPostFromModal(){ const ch = CHATS.find(c=>c.id===el('paPostC')
    The footer shows which build is running ("Build 2026-10-07 · 1"), and every open portal checks every few minutes
    (and whenever it comes back to the foreground) whether a newer build has been published. If so it shows
    "New version available — Update now" instead of quietly running old code. */
-const BUILD_ID = '2026-10-10 · 3';
+const BUILD_ID = '2026-10-10 · 4';
 function verStamp(){ const f = el('footNote'); if(f && !f.dataset.v){ f.dataset.v = 1; f.textContent = `Cross Core Ops Suite v8 · Build ${BUILD_ID}`; } }
 async function verCheck(){
   if(!/^https?:/.test(location.protocol)) return;
@@ -25986,6 +26006,611 @@ function curSeed(){
 }
 { const _sp = setPerson; setPerson = function(){ const r = _sp.apply(this, arguments); setTimeout(()=>{ try{ curSeed(); }catch(e){ console.warn(e); } }, 8000); return r; }; }
 { const _ore = onRemoteEvent; onRemoteEvent = function(ev){ _ore(ev); if(['curposts','curprefs'].includes(ev?.coll) && CURRENT==='clientws' && WS.tab==='curate' && !curCur()?.genStatus) scheduleRender(); }; }
+/* ===== 98_msgpop.js ===== */
+/* ================= MESSAGES — one conversation list + reliable new-message pop-ups (Oct 2026) =================
+   • The Messages list is one list ordered by the latest message: team groups, client groups, client-portal chats and
+     private messages are no longer split into sections, so whatever just got a message is at the top.
+     "All VAs" stays pinned above it for its members (Unpin removes it; Pin brings it back). Ended contracts stay at
+     the bottom. Quick filters: All · Unread · Direct · Groups · Clients.
+   • A new personal or group message shows a small glass pop-up on every portal page (sender, conversation, preview);
+     clicking it opens that conversation (the conversation screen on phones). The unread badge, the sidebar and the
+     list update at the same moment, and the conversation moves to the top.
+   • Each message pops up once per device (live delivery + catch-up never double up), never for your own messages,
+     never for the conversation you are reading, and not for old messages caught up after a long absence.
+   • Preferences: Notification settings → "Message pop-ups" (all messages, or private messages + @mentions only, or
+     off), and 🔕 Mute on any conversation (no pop-up or sound; @mentions still come through; the badge stays). */
+
+const MP = {shown:new Set(), srv:new Map(), fresh:new Map(), filter:'all', un:{}, unNext:{}};
+try{ MP.filter = localStorage.getItem('cc-chat-filter') || 'all'; }catch(e){}
+
+/* ---------- pins: All VAs pinned by default for its members ---------- */
+const allVaChat = () => CHATS.find(c=>c.id==='chat-allva') || CHATS.find(c=>/^all\s*vas?$/i.test((c.name||'').trim()));
+const isAllVa = id => allVaChat()?.id===id;
+myPins = function(){
+  const p = PREFS.find(x=>x.id===PERSON); const mine = myChats();
+  let list = p && Array.isArray(p.pins) ? p.pins.slice() : defaultPins();
+  const va = allVaChat(); const un = (p && p.unpins) || [];
+  if(va && (va.members||[]).includes(PERSON) && !un.includes(va.id)) list = [va.id, ...list.filter(x=>x!==va.id)];
+  return [...new Set(list)].filter(id=>mine.some(c=>c.id===id));
+};
+togglePin = function(id){
+  const p = myPrefs(); const on = !myPins().includes(id); const base = Array.isArray(p.pins) ? p.pins : defaultPins();
+  if(on){ p.pins = [...base.filter(x=>x!==id), id]; p.unpins = (p.unpins||[]).filter(x=>x!==id); }
+  else { p.pins = base.filter(x=>x!==id); if(isAllVa(id)) p.unpins = [...new Set([...(p.unpins||[]), id])]; }
+  recordChange(); buildNav(); if(CURRENT==='chat') RENDER.chat(); toast(on ? 'Pinned to the top of Messages and your sidebar' : 'Unpinned');
+};
+
+/* ---------- mute + pop-up preferences ---------- */
+const mpPrefs = () => { const p = PREFS.find(x=>x.id===PERSON) || {}; const o = p.pop || {}; return {on:o.on!==false, scope:o.scope||'all', mute:p.mute||{}}; };
+const chatMuted = id => !!mpPrefs().mute[id];
+function chatMute(id){ const p = myPrefs(); p.mute = {...(p.mute||{})}; const on = !p.mute[id]; if(on) p.mute[id] = true; else delete p.mute[id];
+  recordChange(); if(CURRENT==='chat') RENDER.chat(); toast(on ? '🔕 Muted — no pop-ups or sounds from this conversation (you still see @mentions and the unread count)' : '🔔 Unmuted'); }
+function mpSet(k, v){ const p = myPrefs(); p.pop = {...(p.pop||{}), [k]:v}; recordChange(); }
+{ const _ch = chatHeadHTML; chatHeadHTML = function(c){ let h = _ch.apply(this, arguments); if(!c) return h;
+    const m = chatMuted(c.id); const btn = `<button class="btn ghost" onclick="chatMute('${c.id}')" title="${m?'Turn pop-ups and sounds back on':'No pop-ups or sounds from this conversation'}">${m?'🔔 Unmute':'🔕 Mute'}</button>`;
+    return h.replace(/<button class="btn ghost" onclick="togglePin\(/, btn + '<button class="btn ghost" onclick="togglePin('); }; }
+if(typeof pushSettings==='function'){ const _ps = pushSettings; pushSettings = function(){ const r = _ps.apply(this, arguments); const b = el('modalBody'); if(!b) return r;
+    const q = mpPrefs(); const sec = `<div class="push-sec" id="mpSec"><label class="push-row" style="cursor:pointer"><div><b>Message pop-ups</b><div class="hint">A small pop-up in the portal when a message arrives — sender, conversation and a preview. Click it to open the conversation.</div></div>
+      <input type="checkbox" class="push-switch" ${q.on?'checked':''} onchange="mpSet('on', this.checked)"></label>
+      <div class="field" style="margin-top:8px"><label>Show pop-ups for</label><select onchange="mpSet('scope', this.value)"><option value="all" ${q.scope==='all'?'selected':''}>All messages (private and group chats)</option><option value="direct" ${q.scope==='direct'?'selected':''}>Private messages and @mentions only</option></select></div>
+      <div class="hint">Muted conversations (🔕 Mute in the conversation) never pop up, except when someone @mentions you.</div></div>`;
+    const first = b.querySelector('.push-sec'); first ? first.insertAdjacentHTML('afterend', sec) : b.insertAdjacentHTML('afterbegin', sec); return r; }; }
+
+/* ---------- the list ---------- */
+function chatFilter(f){ MP.filter = f; try{ localStorage.setItem('cc-chat-filter', f); }catch(e){} mpRedrawList(); }
+const MP_FILTERS = [['all','All'],['unread','Unread'],['dm','Direct'],['groups','Groups'],['clients','Clients']];
+const mpMatch = (c, f) => f==='all' ? true : f==='unread' ? unreadIn(c.id)>0 : f==='dm' ? c.kind==='dm' : f==='groups' ? (c.kind==='group' || (!c.kind && !c.client)) : f==='clients' ? ['client','clientline'].includes(c.kind) : true;
+function mpItem(c, lastMsg){
+  const last = lastMsg[c.id]; const u = unreadIn(c.id); const live = liveCall(c.id); const muted = chatMuted(c.id); MP.unNext[c.id] = u;
+  const other = (c.members||[]).find(k=>k!==PERSON)||PERSON;
+  const kind = c.kind==='dm' ? '' : c.kind==='client' ? 'Client group' : c.kind==='clientline' ? 'Client portal' : 'Group';
+  const fresh = (MP.fresh.get(c.id)||0) > Date.now() - 4000;
+  return `<button class="chat-item ${CHAT_OPEN===c.id?'on':''} ${u?'unread':''} ${fresh?'mp-fresh':''} ${muted?'mp-muted':''}" data-chat="${esc(c.id)}" onclick="CHAT_OPEN='${c.id}';RENDER.chat(true)">${chatAvatar(c)}
+    <div style="min-width:0;flex:1"><div class="nm"><span class="mp-nm">${esc(chatTitle(c))}</span>${c.kind==='dm'&&typeof tsInline==='function'?tsInline(other):''}${live?` <span class="call-dot" title="Video call in progress">● ${live.status==='meet'?'On Google Meet':'Live call'}</span>`:''}${last?`<span class="mp-when">${esc(mpWhen(last.at))}</span>`:''}</div>
+      <div class="pv">${kind?`<span class="mp-kind">${kind}</span>`:''}${last?esc((last.by===PERSON?'You':first(last.by))+': '+msgPreview(last)):c.kind==='client'?'Client group':'No messages yet'}</div></div>
+    ${muted?'<span class="mp-mute" title="Muted">🔕</span>':''}${u?`<span class="un ${MP.un[c.id]===u?'still':''}" aria-label="${u} unread">${u>99?'99+':u}</span>`:''}</button>`;
+}
+function mpWhen(at){ const d = new Date(at); if(isNaN(d)) return ''; const now = new Date();
+  if(d.toDateString()===now.toDateString()) return d.toLocaleTimeString([], {hour:'numeric', minute:'2-digit'});
+  const y = new Date(now); y.setDate(now.getDate()-1); if(d.toDateString()===y.toDateString()) return 'Yesterday';
+  return Date.now()-d < 6*864e5 ? d.toLocaleDateString([], {weekday:'short'}) : d.toLocaleDateString([], {month:'short', day:'numeric'}); }
+function mpListBase(){
+  const mine = myChats(); const pins = myPins();
+  const lastMsg = {}; for(const m of MESSAGES){ if(m.thread) continue; const l = lastMsg[m.chat]; if(!l || m.at >= l.at) lastMsg[m.chat] = m; }
+  const lastAt = c => lastMsg[c.id]?.at || (c.at instanceof Date ? c.at.toISOString() : c.at) || '';
+  const P_ = pins.map(id=>mine.find(c=>c.id===id)).filter(c=>c && !c.archived);
+  const R_ = mine.filter(c=>!pins.includes(c.id) && !c.archived && mpMatch(c, MP.filter)).sort((a,b)=>String(lastAt(b)).localeCompare(String(lastAt(a))));
+  const A_ = mine.filter(c=>c.archived && (MP.filter==='all' || MP.filter==='clients'));
+  const chips = `<div class="mp-chips" role="tablist">${MP_FILTERS.map(([k,l])=>{ const n = k==='unread' ? mine.filter(c=>!c.archived && unreadIn(c.id)).length : 0;
+    return `<button class="mp-chip ${MP.filter===k?'on':''}" role="tab" aria-selected="${MP.filter===k}" onclick="chatFilter('${k}')">${l}${n?` <b>${n}</b>`:''}</button>`; }).join('')}</div>`;
+  return chips + (P_.length?`<div class="grp">📌 Pinned</div>${P_.map(c=>mpItem(c, lastMsg)).join('')}`:'')
+    + (R_.length?`<div class="grp">${MP.filter==='unread'?'Unread':MP.filter==='dm'?'Direct messages':MP.filter==='groups'?'Groups':MP.filter==='clients'?'Clients':'All conversations'}</div>${R_.map(c=>mpItem(c, lastMsg)).join('')}`
+       : (MP.filter!=='all' ? `<div class="empty mp-empty">${MP.filter==='unread'?'You’re all caught up.':'Nothing here yet.'}</div>` : ''))
+    + (A_.length?`<div class="grp">🗄 Ended Contracts</div>${A_.map(c=>mpItem(c, lastMsg).replace('</div></div>', `</div><div class="pv" style="color:var(--bad)">${esc(endedChatTag(c))}</div></div>`)).join('')}`:'')
+    + (mine.length?'':'<div class="empty">No conversations yet.</div>');
+}
+chatListHTML = function(){
+  let h = mpListBase();
+  if(CHAT_Q.trim()){
+    const q = CHAT_Q.trim().toLowerCase(); const box = document.createElement('div'); box.innerHTML = h;
+    box.querySelectorAll('.chat-item').forEach(n=>{ if(!n.textContent.toLowerCase().includes(q)) n.remove(); });
+    box.querySelectorAll('.grp').forEach(g=>{ let n = g.nextElementSibling, any = false; while(n && !n.classList.contains('grp')){ if(n.classList.contains('chat-item')) any = true; n = n.nextElementSibling; } if(!any) g.remove(); });
+    h = box.innerHTML || ''; if(!box.querySelector('.chat-item')) h = (box.querySelector('.mp-chips')?.outerHTML||'') + `<div class="empty chat-noresult">No conversation matches “${esc(CHAT_Q)}”.</div>`;
+  }
+  MP.un = MP.unNext; MP.unNext = {};   /* badges whose number didn't change don't re-animate on the next redraw */
+  return chatSearchHTML() + h;
+};
+/* redraw the list in place (keeps its scroll position and the search box focus) */
+function mpRedrawList(){
+  const l = el('chatList'); if(!l || CURRENT!=='chat') return;
+  const st = l.scrollTop; const q = document.activeElement?.id==='chatQ'; const pos = q ? el('chatQ').selectionStart : 0;
+  l.innerHTML = chatListHTML(); l.scrollTop = st;
+  if(q){ const i = el('chatQ'); if(i){ i.focus(); try{ i.setSelectionRange(pos, pos); }catch(e){} } }
+}
+
+/* ---------- pop-ups ---------- */
+{ const _ar = SYNC.applyRemote; SYNC.applyRemote = function(ups){ (ups||[]).forEach(r=>{ if(r.collection==='messages' && r.updated_at) MP.srv.set(r.id, r.updated_at); }); if(MP.srv.size > 4000) MP.srv.clear(); return _ar.apply(this, arguments); }; }
+const mpFreshMsg = m => { const at = Date.parse(m.at||0)||0, sv = Date.parse(MP.srv.get(m.id)||0)||0, now = Date.now();
+  if(now - at < 3*60e3) return true;
+  return sv && now - sv < 3*60e3 && now - at < 30*60e3;   /* the sender's clock runs behind: trust the server's time */ };
+msgToast = function(m, kind){
+  const c = CHATS.find(x=>x.id===m.chat); if(!c) return;
+  const conv = c.kind==='dm' ? 'Private message' : c.kind==='clientline' ? 'Client portal · '+esc(chatTitle(c)) : 'in '+esc(chatTitle(c));
+  const label = kind==='mention' ? '@ mentioned you · '+esc(chatTitle(c)) : kind==='thread' ? '↪ Thread reply · '+esc(chatTitle(c)) : conv;
+  const link = {view:'chat', arg:m.chat, ...(m.thread?{thread:m.thread}:{}), msg:m.id};
+  const d = topToast({key:'m|'+m.chat+'|'+(m.thread||''), count:true, ava:av(P(m.by)), title:esc(pname(m.by)), label, kind, text:esc((msgPreview(m) || '').replace(/\s+/g,' ').slice(0,110)), link, tip:'Open '+(m.thread?'the thread':'the conversation'),
+    onOpen:()=>mpOpen(m)});
+  if(d){ d.dataset.mid = m.id; d.setAttribute('aria-label', `New message from ${pname(m.by)} — ${chatTitle(c)}`); }
+};
+function mpOpen(m){
+  CHAT_FORCE = true; try{ followLink({view:'chat', arg:m.chat, ...(m.thread?{thread:m.thread}:{}), msg:m.id}); } finally { CHAT_FORCE = false; }
+  if(CURRENT!=='chat' || CHAT_OPEN!==m.chat){ CHAT_OPEN = m.chat; CHAT_MOB = 'pane'; go('chat'); }
+  CHAT_MOB = 'pane'; if(typeof chatMobApply==='function') chatMobApply();
+}
+cpOnMessage = function(m){
+  if(!m || m.by===PERSON || m.sys || m.kind==='call' || !PEOPLE[PERSON]) return;
+  const c = CHATS.find(x=>x.id===m.chat); if(!c || !(c.members||[]).includes(PERSON)) return;
+  if(m.thread && !inThread(m)) return;
+  /* the list, the badges and the order update right away — even when no pop-up is shown */
+  MP.fresh.set(m.chat, Date.now()); try{ buildNav(); }catch(e){} mpRedrawList();
+  if(MP.shown.has(m.id)) return; MP.shown.add(m.id); if(MP.shown.size > 3000) MP.shown = new Set([...MP.shown].slice(-1000));
+  if(!mpFreshMsg(m) || RG.mute) return;   /* catching up after an absence: badges only, no burst of pop-ups */
+  const viewing = !document.hidden && CURRENT==='chat' && CHAT_OPEN===m.chat && (m.thread ? THREAD_OPEN===m.thread : true);
+  if(viewing) return;
+  const kind = (m.mentions||[]).includes(PERSON) ? 'mention' : m.thread ? 'thread' : 'message';
+  const q = mpPrefs();
+  if(kind!=='mention'){ if(!q.on || chatMuted(m.chat)) return; if(q.scope==='direct' && c.kind!=='dm') return; }
+  msgToast(m, kind);
+  const sp = sndPrefs();
+  if(sp.scope==='direct' && kind==='message' && c.kind!=='dm') return;
+  sndPlay(kind, 'm:'+m.id);
+};
+/* my own message from another device moves the conversation to the top here too */
+{ const _ore = onRemoteEvent; onRemoteEvent = function(ev){ const r = _ore.apply(this, arguments);
+    if(!ev?.deleted && ev.coll==='messages' && ev.isNew && ev.obj?.by===PERSON){ MP.fresh.set(ev.obj.chat, Date.now()); mpRedrawList(); }
+    if(!ev?.deleted && ev.coll==='prefs' && ev.obj?.id===PERSON){ try{ buildNav(); }catch(e){} mpRedrawList(); }   /* read on another device → badge clears here */
+    return r; }; }
+
+/* a session that expired while the device slept is refreshed quietly, so nobody has to sign in again to get updates */
+{ let last = 0; setInterval(async ()=>{ if(BACKEND?.mode!=='live' || !SYNC.ready || !RG.fail || Date.now()-last < 60e3 || !navigator.onLine) return; last = Date.now();
+    try{ const r = await BACKEND.sb.auth.refreshSession(); const s = r?.data?.session; if(s?.access_token){ try{ BACKEND.sb.realtime.setAuth(s.access_token); }catch(e){} rtConnect(); syncCatchUp('session refreshed'); } }catch(e){} }, 5000); }
+/* ===== 99_aifix.js ===== */
+/* ================= AI ASSISTANTS — reliable answers, client-true Marcus, honest action reports, reminders that stop (Oct 2026) =================
+   Reliability (Cora, Marcus chat + Comment & Reply Studio, PM / COO assistants, Content creation):
+   • Every AI call has a time limit and one automatic retry for passing hiccups (busy provider, network blip). A failed
+     answer is shown as failed — with ↻ Retry — instead of an endless spinner, an "AI not connected" mislabel or an
+     offline template that looks like a real draft. A cut-off streamed answer is reported as cut off, not as finished.
+   • Server side, every AI provider call is time-limited too, and an empty AI reply is explained (supabase/functions/cc-admin).
+   Marcus follows the selected client only:
+   • Reads the client's CURRENT published SOP (all writing-related sections, not the first 500 characters), client notes &
+     preferences, the voice profile (tone, language, length, formality, openings, phrases to avoid), the newest approved
+     examples (not only the oldest starred ones) and the "Not aligned" feedback — for that client only.
+   • ✓ Approve / ✕ Not aligned now also work on chat drafts and teach that client's profile only.
+   • Writes about the actual post / comment: if the post or comment text is missing it asks for it (one focused question)
+     instead of producing a generic draft. Drafts that fail the client's checks (generic phrase, repeated opening, too
+     long, repeats the commenter) are rewritten once before you see them; recent openings are never reused.
+   Honest reporting:
+   • Assistants never say something was sent / posted / scheduled unless the server confirmed it. "Posted", "Reminder set",
+     "Followed up" etc. appear only after the server saved it; otherwise you see "Not saved" or "will send when online".
+   • "Yes" only confirms an action that is still waiting — it never re-runs one that already went through.
+   Reminders & follow-ups stop when the work is done:
+   • A reminder can be linked to a task and closes itself when that task is completed, published, approved for posting or
+     cancelled. Reminders for a teammate are delivered even if their portal is closed (from your portal), exactly once.
+   • PM assistant daily check-ins and follow-ups skip completed / published / cancelled / archived tasks; a follow-up
+     waiting for review is closed automatically when its task is done, and re-checked before it is posted.
+   • COO scheduled messages re-check before sending: meeting reminders follow a moved meeting and are dropped for a cancelled
+     one; overdue / evaluation follow-ups are dropped when nothing is outstanding any more. Meeting reminders fire again
+     after a reschedule; availability follow-ups stop when the meeting is cancelled. */
+
+const AIR = {transient:/took too long|didn’t start|timeout|timed out|failed to fetch|networkerror|network|load failed|\b50[234]\b|\b429\b|busy|overload|try again|econn|reset|aborted/i, last:null, paAI:false};
+const aiSleep = ms => new Promise(r=>setTimeout(r, ms));
+const AI_OFF_NOTE = 'The AI provider is not connected yet — a company head connects it in Administration → Finance & Cora.';
+const AI_DEMO_NOTE = 'Demo mode — AI answers work on the live portal once a company head connects the AI provider.';
+
+/* ---------- one non-streamed answer: time-limited, one retry, honest result ---------- */
+async function aiChatCore(system, prompt, {ms=60000, retry=true}={}){
+  if(BACKEND?.mode!=='live') return {text:null, off:true, note:AI_DEMO_NOTE};
+  for(let attempt=1; attempt<=2; attempt++){
+    try{
+      let d;
+      try{ d = await aiTimeout(aiInvoke({action:'ai_chat', system, prompt}), ms, 'The AI service took too long to answer.'); }
+      catch(e){ if(/Unknown action/i.test(e.message)) d = await aiTimeout(aiInvoke({action:'cora', system, prompt}), ms, 'The AI service took too long to answer.'); else throw e; }
+      if(d?.configured===false) return {text:null, off:true, note:AI_OFF_NOTE};
+      if(d?.text && String(d.text).trim()) return {text:String(d.text)};
+      throw new Error('The AI service returned an empty answer');
+    }catch(e){
+      const msg = String(e?.message||e);
+      if(retry && attempt===1 && AIR.transient.test(msg) && !/allowance|used up|quota/i.test(msg)){ await aiSleep(1500); continue; }
+      return {text:null, err:true, note: /Unknown action/i.test(msg) ? 'Update the cc-admin server function to turn on AI answers.' : /took too long|empty answer/i.test(msg) ? msg.replace(/\.?$/, '.') : 'Could not reach the AI service ('+msg.replace(/\.$/,'')+').'};
+    }
+  }
+}
+/* ---------- streamed answer with first-word / total limits ---------- */
+aiStreamX = async function(system, prompt, onText, {first=25000, total=75000}={}){
+  if(BACKEND?.mode!=='live') return {text:null, off:true, note:AI_DEMO_NOTE};
+  if(AIX.stream===false) return aiChatCore(system, prompt, {ms:total});
+  const t00 = Date.now();
+  for(let attempt=1; attempt<=2; attempt++){
+    const ctrl = new AbortController(); let got = false; const tFirst = setTimeout(()=>{ if(!got) ctrl.abort('first'); }, first); const tAll = setTimeout(()=>ctrl.abort('total'), Math.max(15000, total - (Date.now()-t00)));
+    let t = '';
+    try{
+      const {data} = await BACKEND.sb.auth.getSession(); const token = data?.session?.access_token;
+      const r = await fetch(String(CC_CONFIG.SUPABASE_URL).replace(/\/$/,'')+'/functions/v1/cc-admin', {method:'POST', signal:ctrl.signal,
+        headers:{'Content-Type':'application/json', apikey:CC_CONFIG.SUPABASE_ANON_KEY, Authorization:'Bearer '+(token||CC_CONFIG.SUPABASE_ANON_KEY)}, body:JSON.stringify({action:'ai_stream', system, prompt})});
+      if(!/text\/plain/.test(r.headers.get('content-type')||'')){
+        got = true; const d = await r.json().catch(()=>({}));
+        if(/Unknown action/i.test(d.error||'')){ AIX.stream = false; return aiChatCore(system, prompt, {ms:total}); }
+        if(d.configured===false) return {text:null, off:true, note:AI_OFF_NOTE};
+        if(d.error){ if(attempt===1 && AIR.transient.test(d.error) && !/allowance|quota/i.test(d.error)){ await aiSleep(1500); continue; } return {text:null, err:true, note:'Could not reach the AI service ('+d.error+').'}; }
+        return d.text ? {text:d.text} : {text:null, err:true, note:'The AI service returned an empty answer.'};
+      }
+      AIX.stream = true;
+      const rd = r.body.getReader(); const dec = new TextDecoder();
+      for(;;){ const {done, value} = await rd.read(); if(done) break; got = true; t += dec.decode(value, {stream:true}); const shown = t.replace(/\n*\[\[CC_ERR[\s\S]*$/, ''); if(shown) onText?.(shown); }
+      const m = t.match(/\n*\[\[CC_ERROR:([\s\S]*?)\]\]\s*$/);
+      if(m){ const part = t.slice(0, m.index);
+        if(!part.trim() && attempt===1 && AIR.transient.test(m[1]) && !/allowance|quota/i.test(m[1])){ await aiSleep(1500); continue; }
+        return part.trim() ? {text:null, err:true, partial:part, note:'The answer was cut off ('+m[1].trim()+') — tap Retry for the full answer.'} : {text:null, err:true, note:'Could not reach the AI service ('+m[1]+').'}; }
+      return t.trim() ? {text:t} : {text:null, err:true, note:'The AI service returned an empty answer.'};
+    }catch(e){ const why = ctrl.signal.reason;
+      if(!got && attempt===1 && !why){ await aiSleep(1200); continue; }      /* the connection failed before anything arrived: one quiet retry (a slow provider is not retried — the server already retries it) */
+      if(t.trim()) return {text:null, err:true, partial:t, note:'The answer was cut off (the connection dropped) — tap Retry for the full answer.'};
+      return {text:null, err:true, note: why==='first' ? 'The AI service didn’t start answering in time.' : why==='total' ? 'The AI service took too long to answer.' : 'Could not reach the AI service ('+(e?.message||e)+').'}; }
+    finally{ clearTimeout(tFirst); clearTimeout(tAll); }
+  }
+  return {text:null, err:true, note:'The AI service didn’t answer.'};
+};
+aiStream = async function(system, prompt, onText){
+  const app = typeof isApplicant==='function' && isApplicant();
+  const r = await aiStreamX(app && typeof REC_CORA_SYSTEM!=='undefined' ? REC_CORA_SYSTEM : system, prompt, onText, {first:30000, total:90000});
+  AIR.last = r; if(app && !r.text) r.note = '';
+  return r;
+};
+{ const _ac80 = aiChat; aiChat = async function(system, prompt){
+    if(typeof PA!=='undefined' && PA.busy && CURRENT==='pa'){ AIR.paAI = true; return _ac80.apply(this, arguments); }
+    return aiChatCore(system, prompt); }; }
+aiInvoke = (inv => async function(body){ const slow = ['web_search','link_meta'].includes(body?.action) ? 30000 : 90000; return aiTimeout(inv(body), slow, 'The server took too long to answer.'); })(aiInvoke);
+
+/* ---------- Cora: never stuck, Retry on failures ---------- */
+{ const _ca = coraAsk; coraAsk = async function(q, inputId){
+    const qq = String(q ?? el(inputId||'coraIn')?.value ?? '').trim(); if(!qq) return;
+    if(CORA.busy){ toast('Cora is still answering — one moment'); return; }
+    AIR.last = null;
+    try{ await _ca.apply(this, arguments); }
+    catch(e){ console.warn('Cora', e); CORA.busy = false; CORA.live = null; const conv = coraConv(); const last = conv.msgs[conv.msgs.length-1];
+      if(last?.role==='assistant'){ Object.assign(last, {streaming:false, text:last.text || '⚠ I couldn’t finish that answer.', note:'Something went wrong ('+String(e?.message||e).slice(0,120)+').', failed:{q:qq}}); }
+      aiSaveConv(conv); coraRedraw(); return; }
+    const conv = coraConv(); const last = conv.msgs[conv.msgs.length-1];
+    if(last?.role==='assistant' && !last.ai && AIR.last && AIR.last.err && !AIR.last.off){ last.failed = {q:qq}; if(!last.note) last.note = AIR.last.note || 'The AI answer didn’t come through.'; aiSaveConv(conv); coraRedraw(); } }; }
+function coraRetry(){ if(CORA.busy) return; const conv = coraConv(); const i = conv.msgs.length-1; const m = conv.msgs[i]; if(!m?.failed) return;
+  const q = m.failed.q; conv.msgs.splice(Math.max(0, i-1), 2); aiSaveConv(conv); coraRedraw(); coraAsk(q); }
+{ const _cm = coraMsgHTML; coraMsgHTML = function(m){ let h = _cm.apply(this, arguments);
+    if(m.role==='assistant' && m.failed && !m.streaming) h = h.replace('<div class="cora-tools">', `<div class="ai-err"><span>${esc(m.note || 'That answer didn’t come through.')}</span><button class="btn primary" onclick="coraRetry()">↻ Retry</button></div><div class="cora-tools">`);
+    return h; }; }
+
+/* ---------- Marcus: the client's current SOP, notes, profile and newest approvals ---------- */
+const vcA = x => Array.isArray(x) ? x.filter(v=>v!=null && v!=='').map(String) : x ? String(x).split(/\n|\s\|\s/).map(s=>s.trim()).filter(Boolean) : [];
+const MX_RECENT = {};   /* openings used on this device (when the client has no saved profile yet) */
+function vcLang(cid){ const p = vcGet(cid); if(p.language) return p.language;
+  const c = client(cid); const n = String(c?.notes||'') + ' ' + Object.values(c?.sop?.sections||{}).join(' ');
+  const m = n.match(/\b(?:language|write in|reply in|respond in)\s*[:\-–]?\s*([A-Za-z][A-Za-z /&-]{2,30})/i); if(m) return m[1].trim();
+  const ex = (p.examples||[]).map(e=>e.text||'').filter(Boolean); if(ex.length && typeof coraTaglish==='function' && ex.filter(t=>coraTaglish(t)).length >= Math.ceil(ex.length*0.3)) return 'Taglish — mix Tagalog and English the way the examples do';
+  return 'English (switch only if the client’s examples or notes say so)'; }
+vcPrompt = function(cid){
+  const p = vcGet(cid); const c = client(cid); if(!c) return '';
+  const L = p.length && typeof p.length==='object' ? p.length : {};
+  const all = (Array.isArray(p.examples) ? p.examples : []).filter(e=>e && e.text);
+  const newest = [...all].filter(e=>e.at).sort((a,b)=>String(b.at).localeCompare(String(a.at))).slice(0, 10);
+  const seen = new Set(); const ex = [...newest, ...all.filter(e=>e.strong), ...all].filter(e=>{ const k = e.id || e.text; if(seen.has(k)) return false; seen.add(k); return true; }).slice(0, 24);
+  const how = Object.entries(p.how && typeof p.how==='object' ? p.how : {}).filter(([,v])=>v).map(([k,v])=>`  - ${k}: ${v}`).join('\n');
+  const rej = (Array.isArray(p.rejected) ? p.rejected : []).filter(r=>r && (r.text || r.reason));
+  const tagN = {}; rej.slice(-30).forEach(r=>(Array.isArray(r.tags) ? r.tags : String(r.reason||'').split(' · ')).forEach(t=>{ t = String(t).trim(); if(t && t.length < 60) tagN[t] = (tagN[t]||0)+1; }));
+  const lessons = Object.entries(tagN).sort((a,b)=>b[1]-a[1]).slice(0, 6).map(([t,n])=>`${t}${n>1?` (flagged ${n}×)`:''}`);
+  const recent = [...vcA(p.recent), ...(MX_RECENT[cid]||[])].slice(-10);
+  return `=== ${c.name.toUpperCase()} — VOICE PROFILE (use ONLY this; never another client's voice) ===
+Language: ${vcLang(cid)}
+Tone: ${vcA(p.tone).join(', ')||'—'}
+Personality & world: ${p.personality||'—'}
+Writing style: ${p.style||'—'}
+Typical length: ${L.sent||''}${L.min?` · about ${L.min}–${L.max} words`:''}
+Formality: ${p.formality||'—'} · Humor: ${p.humor||'—'} · Emoji: ${p.emoji||'—'} · Punctuation: ${p.punctuation||'—'}
+Openings they use (rotate, sometimes none): ${vcA(p.openings).join(' | ')||'—'}
+Endings: ${vcA(p.endings).join(' | ')||'—'}
+Words / phrases they use: ${vcA(p.phrases).join(' | ')||'—'}
+NEVER use: ${vcA(p.avoid).join(' | ')||'—'}
+How they respond:\n${how||'  —'}
+Standing instructions:\n${vcA(p.instructions).map(i=>'  - '+i).join('\n')||'  —'}
+${p.sop?`Voice SOP: ${coraTrim(String(p.sop), 4000)}\n`:''}${lessons.length?`FEEDBACK TO APPLY (from "Not aligned" reviews of ${c.name}'s drafts): ${lessons.join(' · ')}\n`:''}APPROVED EXAMPLES (real ${c.name} voice, newest first — match these):\n${ex.map(e=>`  [${e.kind||'example'}${e.strong?' ★':''}] ${e.comment?`(to: "${coraTrim(e.comment,120)}") `:''}${e.text}`).join('\n')||'  — none yet'}
+NOT ALIGNED (do NOT write like these):\n${rej.slice(-12).map(r=>`  ✕ "${coraTrim(r.text||'',160)}" — ${r.reason||''}`).join('\n')||'  —'}
+Openings used recently (do not reuse): ${recent.join(' | ')||'—'}`;
+};
+clientVoice = function(cid){
+  const c = client(cid); if(!c) return '';
+  const def = v => v && !/^(—|To be defined)$/i.test(String(v));
+  const ex = clientExamples(cid, 8); const rate = emojiRate(ex.map(e=>e.text));
+  let t = `### Voice & brand for ${c.name} [C:${c.id}|${c.name} workspace]\n`;
+  if(def(c.tone)) t += `Tone of voice: ${c.tone}\n`; if(def(c.audience)) t += `Audience: ${c.audience}\n`;
+  if(def(c.guidelines)) t += `Brand guidelines: ${coraTrim(c.guidelines, 1200)}\n`;
+  if((c.colors||[]).length || def(c.fonts)) t += `Brand kit: colours ${(c.colors||[]).join(', ')||'—'}; fonts ${def(c.fonts)?c.fonts:'—'}\n`;
+  if(def(c.deliverables)) t += `Deliverables: ${c.deliverables}\n`; if(def(c.socials)) t += `Channels: ${c.socials}\n`;
+  if(c.summary) t += `About the client: ${coraTrim(c.summary, 600)}\n`;
+  if(def(c.notes)) t += `Client notes & preferences (current — follow these): ${coraTrim(c.notes, 1200)}\n`;
+  if(c.sop){ const sec = c.sop.sections||{}; const keys = Object.keys(sec).filter(k=>sec[k] && String(sec[k]).trim());
+    const rel = keys.filter(k=>/tone|voice|style|brand|instruction|\bdo|don|communication|language|comment|repl|engag|caption|hashtag|emoji|format|post|content|guideline|rule|avoid|prefer/i.test(k));
+    const use = rel.length ? rel : keys; let budget = 6000;
+    t += `CURRENT SOP — version ${c.sop.version||1}${c.sop.at?`, published ${dstr(c.sop.at)}`:''} [SOP:${c.id}|${c.name} SOP]. It overrides older examples when they disagree:\n`;
+    use.forEach(k=>{ if(budget <= 0) return; const v = coraTrim(String(sec[k]), Math.min(1500, budget)); budget -= v.length; t += `- ${k}: ${v}\n`; }); }
+  else t += `SOP: not published yet — voice comes from the client profile only.\n`;
+  t += `Emoji style: ${ex.length ? (rate>=2?'uses emojis often':rate>=0.5?'uses a few emojis':'rarely or never uses emojis') + ` (from ${ex.length} approved examples)` : 'no examples yet — follow the guidelines; ask before adding many emojis'}\n`;
+  if(ex.length) t += `Approved content examples:\n` + ex.map(e=>`- ${e.ref} (${e.status}): ${coraTrim(e.text, 320)}`).join('\n') + '\n';
+  const v = vcGet(cid); if(!(v._derived && !vcA(v.tone).length)) t += '\n' + vcPrompt(cid);
+  return t;
+};
+function mxRecordOpenings(cid, ops){ ops = ops.filter(Boolean); if(!ops.length) return; const v = vcRec(cid);
+  if(v && vcCanEdit(cid)){ v.recent = [...vcA(v.recent), ...ops].slice(-12); recordChange(); } MX_RECENT[cid] = [...(MX_RECENT[cid]||[]), ...ops].slice(-12); }
+
+const MX_EXTRA = `
+Priority when instructions differ: 1) the writer's request, 2) the client's CURRENT SOP and client notes & preferences, 3) standing instructions and "feedback to apply" in the voice profile, 4) the newest approved examples, 5) the general tone.
+Respond to the specific post / comment given: pick up one concrete detail from it (a point, a name, a number that is in it) and add a thought — never a reply that could sit under any post. Don't summarize or repeat it.
+Match the client's language, wording, length and formality from the profile. Vary openings — never reuse an opening listed as used recently, and don't start two drafts the same way.
+If something essential is missing (e.g. no post text was given), write nothing and instead ask ONE short question starting with "Question:".`;
+function mxMissing(text, mode){
+  const s = String(text||'').trim(); const noUrl = s.replace(/https?:\/\/\S+/g,'').trim();
+  const core = noUrl.toLowerCase().replace(/\b(please|pls|can you|could you|marcus|write|draft|make|create|give me|generate|a|an|the|some|short|quick|friendly|nice|good|professional|warm|linkedin|facebook|instagram|fb|ig|comment|comments|reply|replies|respond|response|caption|post|posts|this|that|for|to|on|under|about|it|me|him|her|them|client|one|new)\b/g,' ').replace(/[^\p{L}\p{N}]+/gu,' ').trim();
+  const words = core ? core.split(/\s+/).length : 0; const hasUrl = /https?:\/\//.test(s);
+  if(mode==='comment' && words < 3) return hasUrl ? 'I can’t open social posts from a link. Could you paste the post’s text (the caption or main points) here? Then I’ll write a comment that responds to what it actually says.' : 'Which post is this for? Paste the post’s text (or its main points) and I’ll write a comment that responds to what it actually says.';
+  if(mode==='reply' && words < 3) return hasUrl ? 'I can’t open the comment from a link. Could you paste the comment or message you’re replying to (and the post, if it helps)?' : 'What did they say? Paste the comment or message you’re replying to (and the post, if it helps), so the reply answers it directly.';
+  if(mode==='caption' && words < 2) return 'What is this post about — the topic, offer or key message, and the platform? One line is enough.';
+  return null;
+}
+mxRun = async function(conv, text, opt={}){
+  const c = client(conv.client); if(!c || MARCUS.busy) return;
+  if(!conv.id){ const n = aiNewConv('marcus', {title:(text||'Revise').slice(0,60), client:conv.client, task:conv.task}); MARCUS.conv = conv = n; }
+  if(!opt.revise && !opt.retry){ const q = mxMissing(text, opt.mode); if(q){ conv.msgs.push({role:'user', text, at:nowISO()}, {role:'assistant', kind:'info', ask:true, text:q, at:nowISO()}); aiSaveConv(conv); RENDER.marcus(); return; } }
+  if(!opt.retry) conv.msgs.push({role:'user', text: opt.revise ? (MX_REVISE.find(r=>r[0]===opt.revise)?.[1] || opt.revise) + ' — ' + coraTrim(opt.base, 80) : text, revise:!!opt.revise, at:nowISO()});
+  /* the post being answered: this message, or the one the earlier question asked for */
+  const n = conv.msgs.length; const prevAsk = !opt.revise && conv.msgs[n-2]?.role==='assistant' && conv.msgs[n-2]?.ask && conv.msgs[n-3]?.role==='user';
+  const src = opt.revise ? '' : prevAsk ? conv.msgs[n-3].text + '\n' + text : text;
+  MARCUS.busy = true; MARCUS.step = `Reading ${c.name}’s SOP, notes and approved examples…`; RENDER.marcus();
+  try{
+    const task = TASKS.find(t=>t.id===conv.task);
+    const hist = conv.msgs.filter(m=>!m.failed).slice(-8, -1).map(m=>`${m.role==='user'?mxWho():'Marcus'}: ${coraTrim(m.text, 600)}`).join('\n');
+    const ask = opt.revise ? `Revise this draft. ${MX_REV_ASK[opt.revise]||opt.revise}\nDRAFT:\n${opt.base}` : `${MX_MODE_ASK[opt.mode]||MX_MODE_ASK.free}:\n${src}`;
+    const prior = conv.msgs.filter(m=>m.role==='assistant' && m.ai).slice(-3).flatMap(m=>mxDrafts(m.text).list.map(d=>vcOpen(d.text))).filter(Boolean);
+    const prompt = `CLIENT VOICE:\n${clientVoice(c.id)}\n${task?`LINKED TASK: ${task.title} · ${task.type||''} · platform ${task.plat||'—'}${task.theme?' · theme: '+task.theme:''}${task.notes?' · brief: '+coraTrim(task.notes,600):''}\n`:''}\n${hist?'EARLIER IN THIS CHAT:\n'+hist+'\n\n':''}${prior.length?`Openings already used in this chat (don't repeat): ${uniq(prior).join(' | ')}\n\n`:''}REQUEST: ${ask}`;
+    MARCUS.step = `Writing in ${c.name}’s voice…`; mxPaintBusy();
+    const res = await aiChat(MARCUS_SYSTEM(c.name) + MX_EXTRA, prompt);
+    if(!res.text) throw {soft:true, note:res.note, off:res.off};
+    let out = res.text.trim();
+    const qm = out.match(/^\s*(?:\*\*)?Question:?(?:\*\*)?\s*([\s\S]+)$/i);
+    if(qm && !/###\s*Draft/i.test(out)){ conv.msgs.push({role:'assistant', kind:'info', ask:true, text:qm[1].trim(), client:c.id, at:nowISO()}); return; }
+    /* the client's own checks; one rewrite if a draft fails them */
+    const kind = opt.mode==='reply' ? 'reply' : 'comment';
+    const check = o => { const L = mxDrafts(o).list; const seenOp = new Set(); const iss = [];
+      L.forEach(d=>{ const op = vcOpen(d.text); if(op && (seenOp.has(op) || prior.includes(op))) iss.push(`Opening “${op}” was already used`); seenOp.add(op);
+        if(['comment','reply','alts'].includes(opt.mode) || opt.revise) iss.push(...vcLocalCheck(c.id, d.text, {comment:opt.mode==='reply'?src:''})); });
+      return uniq(iss); };
+    const issues = check(out);
+    if(issues.length){ MARCUS.step = 'Polishing to match '+c.name+'’s checks…'; mxPaintBusy();
+      const r2 = await aiChat(MARCUS_SYSTEM(c.name) + MX_EXTRA, `${prompt}\n\nYOUR FIRST VERSION:\n${out}\n\nIt failed ${c.name}'s checks:\n${issues.map(i=>'- '+i).join('\n')}\nWrite it again (same format, same number of drafts) fixing these.`);
+      if(r2.text && check(r2.text).length < issues.length) out = r2.text.trim(); }
+    mxRecordOpenings(c.id, mxDrafts(out).list.map(d=>vcOpen(d.text)));
+    conv.msgs.push({role:'assistant', text:out, note:'', client:c.id, mode:opt.revise?'':opt.mode, kind2:kind, ai:true, src:coraTrim(src||'', 1200), at:nowISO()});
+  }catch(e){ const note = e?.soft ? (e.note||'The AI answer didn’t come through.') : 'Something went wrong while writing ('+String(e?.message||e).slice(0,120)+').';
+    conv.msgs.push({role:'assistant', kind:'info', text: e?.off ? '⚠ '+note : `⚠ I couldn’t write that draft — ${note.replace(/\.$/,'')}. Nothing was generated.`, failed:{text, opt:{...opt, retry:true}}, client:c.id, at:nowISO()}); }
+  finally{ MARCUS.busy = false; MARCUS.step = ''; aiSaveConv(conv); RENDER.marcus(); }
+};
+function mxPaintBusy(){ const b = el('mxBody'); const s = b && [...b.querySelectorAll('.cora-m.assistant')].pop(); if(s && MARCUS.busy && /writing|Reading|Polishing/i.test(s.textContent)) s.innerHTML = `<span class="spinner" style="display:inline-block;vertical-align:middle"></span> ${esc(MARCUS.step||'Writing…')}`; }
+function mxRetry(){ if(MARCUS.busy) return; const conv = mxConv(); const i = conv.msgs.length-1; const m = conv.msgs[i]; if(!m?.failed) return;
+  const f = m.failed; conv.msgs.splice(i, 1); aiSaveConv(conv); mxRun(conv, f.text, f.opt); }
+{ const _mh = mxMsgsHTML; mxMsgsHTML = function(conv){ let h = _mh.apply(this, arguments);
+    const i = conv.msgs.length-1; const m = conv.msgs[i];
+    if(m && m.failed && !MARCUS.busy){ const inner = coraRender(m.text); const at = h.lastIndexOf(inner + '</div>'); if(at>=0) h = h.slice(0, at) + inner + `<div class="ai-err"><span>Tap Retry to try again.</span><button class="btn primary" onclick="mxRetry()">↻ Retry</button></div>` + h.slice(at + inner.length); }
+    return h; }; }
+{ const _rm = RENDER.marcus; RENDER.marcus = function(){ const r = _rm.apply(this, arguments);
+    if(MARCUS.busy) mxPaintBusy();
+    const conv = MARCUS.conv; if(!conv) return r;
+    document.querySelectorAll('#mxBody .mx-draft').forEach(d=>{ const i = +d.dataset.i, j = +d.dataset.j; const m = conv.msgs[i]; const acts = d.querySelector('.mx-acts'); if(!m || !acts || acts.querySelector('.mx-fb')) return;
+      const fb = (m.fb||{})[j];
+      acts.insertAdjacentHTML('beforeend', `<span class="mx-fb">${fb==='ok'?'<span class="badge b-approved">✓ Approved for '+esc(first(cname(m.client)))+'</span>':fb==='no'?'<span class="badge b-missed">✕ Marked not aligned</span>':`<button class="mx-ok" onclick="mxApprove(${i},${j})" title="Save as an approved example for this client only">✓ Approve</button><button class="mx-no" onclick="mxReject(${i},${j})" title="Teach this client’s profile what’s off">✕ Not aligned</button>`}</span>`); });
+    return r; }; }
+function mxApprove(i, j){ const conv = mxConv(); const m = conv.msgs[i]; if(!m) return; const cid = m.client || conv.client; const text = mxDraftText(i, j).trim(); if(!text) return;
+  const r = vcEnsure(cid); const kind = m.mode==='reply' || m.kind2==='reply' ? 'reply' : m.mode==='caption' ? 'caption' : 'comment';
+  r.examples = [...(r.examples||[]), {id:uid('VX'), kind, text, ...(kind==='reply'?{comment:coraTrim(m.src||'', 400)}:{post:coraTrim(m.src||'', 600)}), src:'Approved in Ask Marcus chat', by:PERSON, at:nowISO()}];
+  r.updatedAt = nowISO(); r.updatedBy = PERSON; m.fb = {...(m.fb||{}), [j]:'ok'}; aiSaveConv(conv); recordChange();
+  ccConfirmToast(`✓ Saved as an approved ${kind} for ${cname(cid)} only — future drafts follow it`, [SYNC.key('voices', cid)]); RENDER.marcus(); }
+function mxReject(i, j){ const conv = mxConv(); const m = conv.msgs[i]; if(!m) return; const cid = m.client || conv.client; const n = first(cname(cid)); MODAL_CTX = {mxr:{i, j, cid}};
+  openModal('Not aligned — '+cname(cid), `<p class="hint" style="margin-bottom:10px">What’s off? This only teaches <b>${esc(cname(cid))}</b>’s profile — no other client is affected.</p>
+    <div class="vs-reasons">${VC_REASONS(n).map(r=>`<label class="chip"><input type="checkbox" class="mxR" value="${esc(r)}"> ${esc(r)}</label>`).join('')}</div>
+    <div class="field" style="margin-top:10px"><label>Anything else? (optional)</label><input id="mxRx" placeholder="e.g. Shorter, and no exclamation marks"></div>
+    <button class="btn primary" style="width:100%" onclick="mxRejectSave(true)">Save feedback & rewrite</button>
+    <button class="btn" style="width:100%;margin-top:8px;justify-content:center" onclick="mxRejectSave(false)">Save feedback only</button>`); }
+function mxRejectSave(again){ const x = MODAL_CTX?.mxr; if(!x) return; const conv = mxConv(); const m = conv.msgs[x.i]; const tags = [...document.querySelectorAll('.mxR:checked')].map(e=>e.value); const extra = el('mxRx')?.value.trim();
+  const reason = [...tags, extra].filter(Boolean).join(' · '); if(!reason) return toast('Pick at least one reason'); const text = mxDraftText(x.i, x.j);
+  const r = vcEnsure(x.cid); r.rejected = [...(r.rejected||[]), {id:uid('VR'), text, reason, tags, post:coraTrim(m?.src||'', 400), by:PERSON, at:nowISO()}].slice(-60); r.updatedAt = nowISO();
+  if(m){ m.fb = {...(m.fb||{}), [x.j]:'no'}; aiSaveConv(conv); } recordChange(); closeModal(); ccConfirmToast('Feedback saved for '+cname(x.cid)+' only', [SYNC.key('voices', x.cid)]);
+  if(again) mxRun(conv, '', {revise:'Fix this feedback: '+reason, base:text}); else RENDER.marcus(); }
+
+/* which client a message is for: inside a client's chat, words of a pasted post ("test", "signature", "lacrosse"…) never
+   switch or block the client — only the client's full name does; another client is only recognised by its full name */
+mxDetect = function(text){
+  const tl = ' '+String(text||'').toLowerCase()+' '; const strict = !!MARCUS.conv?.client;
+  const full = c => { const n = String(c.name||'').toLowerCase().trim(); return n.length >= 3 && new RegExp('(^|[^\\p{L}])'+reEsc(n)+'([^\\p{L}]|$)', 'iu').test(tl); };
+  const part = c => String(c.name||'').toLowerCase().split(/[\s&()·,.\-/]+/).filter(w=>w.length>=4 && !/^(the|and|clinic|dental|company|group|client|studio|media|inc|corp|services?|marketing|official|shop|store|test|team|news|post|page)$/.test(w)).some(w=>new RegExp('[^\\p{L}]'+reEsc(w)+'[^\\p{L}]','iu').test(tl));
+  const M = marcusClients(); const mine = M.filter(c=>full(c) || (!strict && part(c)));
+  const other = mine.length ? [] : CLIENTS.filter(c=>!isEnded(c) && !M.some(m=>m.id===c.id)).filter(full);
+  const ended = mine.length || other.length ? [] : CLIENTS.filter(c=>isEnded(c)).filter(full);
+  return {mine, other, ended};
+};
+/* ---------- Comment & Reply Studio: keep the best draft, honest checks, Retry ---------- */
+vcGenerate = async function(cid, ctx){
+  const c = client(cid); const kind = ctx.comment ? 'reply' : 'comment';
+  let fb = '', best = null, lastNote = '', judgeOff = false;
+  for(let n=1; n<=3; n++){
+    MXS.step = n===1 ? `Writing in ${first(c.name)}’s voice…` : `Rewriting — attempt ${n} of 3…`; vsPaintBusy();
+    const ask = `${vcPrompt(cid)}\n\nPOST:\n${coraTrim(ctx.post||'(not given — respond only to the comment)', 3000)}\n${ctx.comment?`\nCOMMENT TO REPLY TO${ctx.who?` (from ${ctx.who})`:''}:\n${coraTrim(ctx.comment, 1000)}\n`:''}${ctx.base?`\nCURRENT DRAFT TO REVISE:\n${ctx.base}\n`:''}${ctx.note?`\nINSTRUCTION FOR THIS ONE (temporary): ${ctx.note}\n`:''}${fb?`\nTHE PREVIOUS ATTEMPT FAILED THE ${c.name.toUpperCase()} VOICE CHECK:\n${fb}\nWrite a new version that fixes this.\n`:''}\nWrite the ${kind} now.`;
+    const r = await aiChat(VC_SYS(c.name, kind), ask);
+    if(!r.text){ lastNote = r.note; if(best) break; return {offline:true, note:r.note}; }
+    const text = r.text.trim().replace(/^#+\s*draft\s*\n/i,'').replace(/^["“](.*)["”]$/s,'$1').trim();
+    MXS.step = 'Checking voice alignment…'; vsPaintBusy();
+    const local = vcLocalCheck(cid, text, ctx); let j = null; try{ j = await vcJudge(cid, text, ctx); }catch(e){ j = null; } if(!j) judgeOff = true;
+    const scores = j ? Object.fromEntries(VC_KEYS.map(([k])=>[k, Math.max(0, Math.min(10, +j[k]||0))])) : null;
+    if(scores && !ctx.comment) scores.comment = 10; if(scores && !ctx.post) scores.post = 10;
+    const low = scores ? VC_KEYS.filter(([k])=>scores[k] < 8).map(([,l])=>l) : [];
+    const issues = [...local, ...((j?.issues||[]).slice(0,4))];
+    const total = scores ? Object.values(scores).reduce((a,b)=>a+b,0) - local.length*4 : 50 - local.length*10;
+    const cand = {text, scores, issues, local, low, attempt:n, pass: !local.length && (!scores || !low.length), unchecked:!scores};
+    if(!best || cand.pass || total > best.total) best = {...cand, total};
+    if(cand.pass) break;
+    fb = issues.map(i=>'- '+i).join('\n') + (low.length ? `\n- Low scores: ${low.join(', ')}` : '');
+  }
+  if(best && lastNote) best.note = 'A later rewrite didn’t come through ('+lastNote.replace(/\.$/,'')+') — showing the best version so far.';
+  if(best && judgeOff && !best.scores) best.note = (best.note ? best.note+' ' : '') + 'The AI voice check was unavailable, so only the local checks ran.';
+  return best;
+};
+vsRun = async function(base, extra){
+  if(MXS.busy) return; const cid = MXS.cid; if(!cid) return; const post = (el('vsPost')?.value ?? MXS.post).trim(), comment = (el('vsCom')?.value ?? MXS.comment).trim();
+  if(!post && !comment) return toast('Paste the post caption (and the comment, for a reply)');
+  MXS.post = post; MXS.comment = comment; MXS.who = el('vsWho')?.value.trim() || MXS.who; MXS.note = el('vsNote')?.value.trim() ?? MXS.note;
+  if(MXS.keep && MXS.note && vcCanEdit(cid)){ const r = vcEnsure(cid); r.instructions = uniq([...vcA(r.instructions), MXS.note]); r.updatedAt = nowISO(); r.updatedBy = PERSON; recordChange(); ccConfirmToast(`Saved to ${first(cname(cid))}’s voice profile`, [SYNC.key('voices', cid)]); MXS.keep = false; }
+  MXS.busy = true; MXS.step = ''; MXS.last = {base, extra}; RENDER.marcus();
+  try{
+    const note = [extra, MXS.note].filter(Boolean).join(' · ');
+    const r = await vcGenerate(cid, {post, comment, who:MXS.who, note, base});
+    MXS.out = !r || r.offline ? {cid, offline:true, note:r?.note||'No answer from the AI service.'} : {...r, cid, kind:comment?'reply':'comment'};
+    if(MXS.out.text) mxRecordOpenings(cid, [vcOpen(MXS.out.text)]);
+  }catch(e){ console.warn('studio', e); MXS.out = {cid, offline:true, note:'Something went wrong ('+String(e?.message||e).slice(0,100)+')'}; }
+  finally{ MXS.busy = false; MXS.step = ''; RENDER.marcus(); }
+};
+{ const _vo = vsOutHTML; vsOutHTML = function(o){ let h = _vo.apply(this, arguments);
+    if(o.offline) h = h.replace(/<\/div><\/div>$/, `<div class="vs-acts" style="margin-top:10px"><button class="btn primary" onclick="vsRun(MXS.last?.base, MXS.last?.extra)">↻ Retry</button></div></div></div>`);
+    else if(o.note) h = h.replace('<div class="vs-chks">', `<div class="hint" style="margin:6px 0">ℹ ${esc(o.note)}</div><div class="vs-chks">`);
+    return h; }; }
+
+/* ---------- Content creation (curated posts): never stuck, honest result ---------- */
+const CUR_RUN = new Set();
+{ const _cg = curGenerate; curGenerate = async function(post, opts={}){ CUR_RUN.add(post.id); post.genAt = nowISO(); post.genBy = PERSON;
+    try{ await _cg.apply(this, arguments); return {ok:!post.aiNote, note:post.aiNote}; }
+    catch(e){ console.warn('curation', e); post.genStatus = ''; post.aiNote = 'Generation stopped: '+String(e?.message||e).slice(0,140)+' — tap ↻ Rewrite to try again.'; recordChange(); curDraw(); return {ok:false, note:post.aiNote}; }
+    finally{ CUR_RUN.delete(post.id); } }; }
+curRegen = async function(id){ const p = curCur(); if(!p) return; const r = await curGenerate(p, {only:id, research:CUR.research}); toast(r.ok ? 'Rewritten in the current style' : '⚠ Not rewritten — '+(r.note||'the AI didn’t answer')); };
+curRegenAll = async function(){ const p = curCur(); if(!p) return; const r = await curGenerate(p, {research:CUR.research}); toast(r.ok ? 'Rewritten with the current style & format' : '⚠ Not fully rewritten — '+(r.note||'the AI didn’t answer')); };
+/* a "Writing…" banner left by a closed tab clears itself */
+setInterval(()=>{ try{ (CURPOSTS||[]).forEach(p=>{ if(p.genStatus && !CUR_RUN.has(p.id) && (!p.genAt || Date.now() - Date.parse(p.genAt) > 4*60e3) && (p.genBy===PERSON || !p.genBy)){ p.genStatus = ''; p.aiNote = p.aiNote || 'The last generation didn’t finish — tap ↻ Rewrite to run it again.'; recordChange(); curDraw(); } }); }catch(e){} }, 30000);
+
+/* ---------- PM & COO assistants: never claim an action the system didn’t do ---------- */
+{ const _pc = paContext; paContext = function(a){ const b = _pc.apply(this, arguments);
+    return /IMPORTANT: You cannot send/.test(b) ? b : b + '\n\nIMPORTANT: In this chat you only draft and advise. You cannot send, post, schedule, remind, assign, approve, edit or delete anything yourself, and you have not done so. Never write “I’ve sent / posted / scheduled / reminded / notified …” or “Done”. Offer the draft and say how to do it (e.g. the Post button, the Reminders button, or the assistant’s commands). If key details are missing (which client, which VA, which task, when), ask ONE short question instead of guessing.'; }; }
+const PA_CLAIM = /\b(I(?:’|')?ve|I have|I just|I already|I(?:’|')?ll now)\s+(sent|posted|scheduled|reminded|notified|messaged|tagged|assigned|approved|booked|created|deleted|updated|followed up)\b|^\s*(✅\s*)?Done[.!—]/im;
+{ const _ask = paAsk; paAsk = async function(){ AIR.paAI = false; AIR.pendingWait = null; const r = await _ask.apply(this, arguments);
+    try{ const a = paSel(); const conv = a && paConv(a); const last = conv?.msgs?.[conv.msgs.length-1];
+      if(AIR.pendingWait && conv){ const m = [...conv.msgs].reverse().find(x=>x.role==='assistant' && x.text==='⏳ On it…' && !x.wait); if(m){ m.wait = AIR.pendingWait; aiSaveConv(conv); } AIR.pendingWait = null; }
+      if(AIR.paAI && last && last.role==='assistant' && !last.wait && !last.failed && !last.checked && PA_CLAIM.test(last.text||'')){ last.checked = true; last.note = (last.note ? last.note+' ' : '') + 'ℹ Nothing was sent or changed by this answer — it’s a draft/suggestion. Use the buttons or commands to actually do it.'; aiSaveConv(conv); if(CURRENT==='pa') RENDER.pa(); } }catch(e){}
+    return r; }; }
+/* COO quick commands that reported "✅ Sent" before the server confirmed: now confirmed first */
+{ const _pi = paIntent; paIntent = function(a, text){ const r = _pi.apply(this, arguments);
+    if(r && typeof r.reply==='string' && /^✅ Sent to /.test(r.reply) && !r.wait && typeof cooVerify==='function'){
+      const l = PALOG.find(x=>x.kind==='coo-command' && x.sentBy===PERSON); const keys = (l?.msgs||[]).map(id=>SYNC.key('messages', id)); const tag = uid('W'); AIR.pendingWait = tag;
+      setTimeout(async ()=>{ let txt; try{ const v = keys.length ? await cooVerify(keys) : {ok:false, why:'no message was created'}; txt = v.ok ? r.reply.replace('✅ Sent', '✅ Sent and delivered') : `⚠ I couldn’t confirm delivery: ${v.why}. Say “retry”.`; }catch(e){ txt = '⚠ I couldn’t confirm delivery: '+(e?.message||e)+'. Say “retry”.'; }
+        await aiSleep(50); const conv = AICHATS.find(c=>(c.msgs||[]).some(m=>m.wait===tag)) || paConv(a); const msg = conv.msgs.find(x=>x.wait===tag) || [...conv.msgs].reverse().find(x=>x.role==='assistant' && x.text==='⏳ On it…');
+        if(msg){ msg.text = txt; delete msg.wait; aiSaveConv(conv); if(CURRENT==='pa') RENDER.pa(); } }, 30);
+      return {reply:'⏳ On it…', wait:tag}; }
+    return r; }; }
+/* “yes” only confirms an action that is still waiting — never re-runs one that already went through */
+if(typeof prevActionText==='function'){ prevActionText = function(a){ const msgs = paConv(a).msgs.slice(); if(msgs.length && msgs[msgs.length-1].role==='user') msgs.pop();
+    for(let i=msgs.length-1; i>=0; i--){ const m = msgs[i]; if(m.role!=='user') continue; const t = String(m.text||'');
+      if(!ACTION_RE.test(t.toLowerCase()) || YES_RE.test(t)) continue;
+      const reply = msgs.slice(i+1).find(x=>x.role==='assistant'); if(reply && /^(✅|🗑️|↩️|🕒)/.test(reply.text||'') && !/\?\s*$/.test(reply.text||'')) return null;
+      return t; }
+    return null; }; }
+/* the action confirmation never passes for a record that was never created */
+if(typeof cooVerify==='function'){ const _cv = cooVerify; cooVerify = async function(keys){ const K = (keys||[]).filter(Boolean);
+    if(!K.length || K.some(k=>/\|(undefined|null)?$/.test(k))) return {ok:false, why:'the record wasn’t created'};
+    try{ SYNC.diff(); }catch(e){} return _cv.call(this, K, ...[...arguments].slice(1)); }; }
+/* no “⏳ On it…” stays forever in ANY assistant conversation */
+setInterval(()=>{ try{ if(!PEOPLE[PERSON]) return; let ch = false; const now = Date.now();
+    AICHATS.filter(c=>c.owner===PERSON).forEach(c=>(c.msgs||[]).forEach(m=>{ if(m.role==='assistant' && /^⏳ On it…$/.test(m.text||'') && Date.parse(m.at||0) && now - Date.parse(m.at) > 120000){ m.text = '⚠ That took too long and may not have gone through. Tap Retry or say “retry”.'; delete m.wait; m.failed = {note:'No confirmation from the server.'}; ch = true; } }));
+    if(ch){ recordChange(); if(CURRENT==='pa') RENDER.pa(); } }catch(e){} }, 15000);
+
+/* ---------- success messages only after the server saved it ---------- */
+const CONF = {depth:0};
+function ccConfirmToast(msg, keys, label){ if(BACKEND?.mode!=='live'){ toast(msg); return; }
+  try{ SYNC.diff(); }catch(e){} const K = (keys||[]).filter(k=>SYNC.pending.has(k)); if(!K.length){ toast(msg); return; }
+  avSaved(K, 15000).then(v=>{ toast(v.ok ? msg : v.refused ? `⚠ Not saved — the server refused it${label?' ('+label+')':''}` : v.why==='offline' ? `⏳ Saved on this device only — it goes out when you’re back online` : `⚠ Not confirmed yet${label?' ('+label+')':''} — check the connection pill before assuming it went through`); }); }
+function ccConfirmWrap(name, label){ const f = window[name]; if(typeof f!=='function') return;
+  window[name] = function(){ if(BACKEND?.mode!=='live' || CONF.depth) return f.apply(this, arguments);
+    const before = new Set(SYNC.pending.keys()); const held = []; const _t = toast; CONF.depth++;
+    toast = function(m){ held.push(m); }; let ret;
+    try{ ret = f.apply(this, arguments); } finally { toast = _t; CONF.depth--; }
+    try{ SYNC.diff(); }catch(e){}
+    const keys = [...SYNC.pending.keys()].filter(k=>!before.has(k));
+    if(!held.length) return ret;
+    if(!keys.length){ held.forEach(m=>toast(m)); return ret; }
+    toast('Saving…');
+    avSaved(keys, 15000).then(v=>{ if(v.ok) held.forEach(m=>toast(m));
+      else toast(v.refused ? `⚠ Not saved — the server refused it (${label})` : v.why==='offline' ? `⏳ Saved on this device only — ${label} will go out when you’re back online` : `⚠ ${label}: not confirmed by the server yet — check the connection pill before assuming it went through`);
+      try{ if(CURRENT==='pa') RENDER.pa(); }catch(e){} });
+    return ret; }; }
+
+/* ---------- reminders that stop when the work is done ---------- */
+const TASK_CLOSED = ['Completed','Published','Archived','Cancelled','Done'];
+const taskClosed = t => !t || t.archived || t.deleted || TASK_CLOSED.includes(t.status);
+const remTaskDone = t => !t || t.archived || t.deleted || [...TASK_CLOSED, 'Approved'].includes(t.status);
+function remTaskOptions(sel){ const mine = TASKS.filter(t=>!remTaskDone(t) && (t.assignee===PERSON || t.createdBy===PERSON || (t.client && pmsOf(t.client).includes(PERSON)) || isExec?.() || ROLE==='hr'))
+    .sort((a,b)=>String(a.due||'9').localeCompare(String(b.due||'9'))).slice(0, 80);
+  return `<option value="">Not linked to a task</option>` + mine.map(t=>`<option value="${t.id}" ${t.id===sel?'selected':''}>${esc(coraTrim(t.title, 60))}${t.client?' · '+esc(cname(t.client)):''} · ${esc(t.status)}</option>`).join(''); }
+{ const _rm = remModal; remModal = function(pre={}){ const r = _rm.apply(this, arguments); const h = el('modalBody')?.querySelector('.hint');
+    if(h && !el('remTask')) h.insertAdjacentHTML('beforebegin', `<div class="field"><label>Linked task <span class="hint">(optional — the reminder stops when the task is done or cancelled)</span></label><select id="remTask">${remTaskOptions(pre.task)}</select></div>`);
+    return r; }; }
+{ const _rs = remSave; remSave = function(id){ const sel = el('remTask')?.value || ''; const text = (el('remText')?.value||'').trim().toLowerCase(); const r = _rs.apply(this, arguments);
+    if(r && typeof r==='object'){ let tid = sel;
+      if(!tid && text){ const t = TASKS.find(x=>!remTaskDone(x) && x.title && x.title.length >= 8 && text.includes(x.title.toLowerCase())); if(t) tid = t.id; }
+      if((r.task||'')!==tid){ if(tid) r.task = tid; else delete r.task; recordChange(); } }
+    return r; }; }
+remTick = function(){
+  if(!PEOPLE[PERSON] || ROLE==='client' || !SYNC.ready) return; const now = nowISO(); let changed = false;
+  REMINDERS.forEach(r=>{ if(r.done) return;
+    if(r.task && (r.owner===PERSON || r.to===PERSON)){ const t = TASKS.find(x=>x.id===r.task); if(remTaskDone(t)){ r.done = true; r.doneAt = now; r.autoDone = t ? `the task is ${String(t.status||'closed').toLowerCase()}` : 'the task was removed'; changed = true; return; } }
+    if(r.notified || String(r.due) > now) return;
+    const mine = r.to===PERSON; const sender = r.owner===PERSON && r.to!==PERSON && PEOPLE[r.to];
+    if(!mine && !sender) return;
+    if(sender && Date.now() - Date.parse(r.due) < 90e3) return;      /* the recipient's own portal goes first */
+    const nid = 'N-rem-'+r.id+'-'+(Date.parse(r.due)||0);
+    r.notified = true; r.notifiedAt = now; changed = true;
+    if(!NOTIFS2.some(n=>n.id===nid)) NOTIFS2.unshift({id:nid, to:r.to, type:'reminder', text:`⏰ Reminder${r.owner!==r.to?' from <b>'+esc(first(r.owner))+'</b>':''}: ${esc(r.text)}`, link:{view:'pa'}, by:r.owner, at:now, read:false});
+    if(mine){ toast('⏰ '+r.text); try{ sndPlay?.('notify', 'rem:'+r.id, true); }catch(e){}
+      if(r.owner!==PERSON) notify([r.owner], 'reminder', `✅ ${esc(first(PERSON))} got your reminder: ${esc(String(r.text).slice(0,80))}`, {view:'pa'}); }
+  });
+  if(changed){ recordChange(); renderNotifs(); }
+};
+{ const _rl = remListModal; remListModal = function(){ const r = _rl.apply(this, arguments);
+    document.querySelectorAll('#modalBody .rem-row').forEach(row=>{ const id = row.querySelector('input[onchange*="remDone"]')?.getAttribute('onchange')?.match(/remDone\('([^']+)'\)/)?.[1]; const rm = REMINDERS.find(x=>x.id===id); if(!rm) return;
+      const hint = row.querySelector('.hint'); if(!hint) return; const t = rm.task && TASKS.find(x=>x.id===rm.task);
+      if(rm.autoDone) hint.insertAdjacentHTML('beforeend', ` · closed automatically — ${esc(rm.autoDone)}`); else if(t) hint.insertAdjacentHTML('beforeend', ` · 📌 ${esc(coraTrim(t.title, 40))} (${esc(t.status)})`); });
+    return r; }; }
+/* PM assistants: done / cancelled work never gets a reminder */
+paItems = function(cid, va){
+  const today = mnlNow().date; const tmr = shiftDate(today, 1);
+  const T = TASKS.filter(t=>t.client===cid && t.assignee===va && !t.archived && ![...TASK_CLOSED, 'Approved'].includes(t.status));
+  return {dueToday:T.filter(t=>t.status!=='For Approval' && dayKey(t.due)===today), overdue:T.filter(t=>t.status!=='For Approval' && t.due && dayKey(t.due)<today),
+    tomorrow:T.filter(t=>t.status!=='For Approval' && dayKey(t.due)===tmr), revisions:T.filter(t=>t.status==='Revisions Needed'), waiting:T.filter(t=>t.status==='For Approval')};
+};
+function paStale(l){ const k = String(l?.key||''); let m;
+  if((m = k.match(/^task-(.+)$/))){ const t = TASKS.find(x=>x.id===m[1]); if(!t) return 'that task no longer exists'; if(remTaskDone(t) || t.status==='For Approval') return `that task is already ${t.status.toLowerCase()}`; if(t.assignee && (l.to||[]).length && !(l.to||[]).includes(t.assignee)) return 'that task was reassigned'; }
+  if((m = k.match(/^rev-(.+)$/))){ const t = TASKS.find(x=>x.id===m[1]); if(!t) return 'that task no longer exists'; if(t.status!=='Revisions Needed') return `the revision was already handled (now ${t.status.toLowerCase()})`; }
+  return ''; }
+['remSave', 'paSendAll', 'paApprove', 'paPostPreview', 'paPostCustom', 'cooFollowAll', 'cooTag', 'cooEvalFollowAll', 'cooCancelQ'].forEach(n=>ccConfirmWrap(n, {remSave:'the reminder', paSendAll:'the daily reminders', paApprove:'the follow-up', paPostPreview:'the reminder', paPostCustom:'the message', cooFollowAll:'the follow-ups', cooTag:'the tag', cooEvalFollowAll:'the follow-ups', cooCancelQ:'the cancellation'}[n]));
+{ const _pa = paApprove; paApprove = function(logId){ const l = PALOG.find(x=>x.id===logId); const why = l && l.status==='Pending review' && paStale(l);
+    if(why){ l.status = 'Dismissed'; l.reviewedBy = PERSON; l.reviewedAt = nowISO(); l.autoClosed = why; recordChange(); RENDER.pa(); buildNav(); return toast('Not posted — '+why+'. The follow-up was closed.'); }
+    return _pa.apply(this, arguments); }; }
+function paSweep(){ try{ if(!PEOPLE[PERSON] || !SYNC.ready) return; let ch = false;
+    PALOG.filter(l=>l.status==='Pending review' && l.pm===PERSON).forEach(l=>{ const why = paStale(l); if(why){ l.status = 'Dismissed'; l.reviewedBy = 'auto'; l.reviewedAt = nowISO(); l.autoClosed = why; ch = true; } });
+    if(ch){ recordChange(); buildNav(); if(CURRENT==='pa') RENDER.pa(); } }catch(e){} }
+{ const _ps = paScan; paScan = function(){ const r = _ps.apply(this, arguments); paSweep(); return r; }; }
+setInterval(paSweep, 60000); setTimeout(paSweep, 6000);
+/* COO scheduled messages re-check before they go out */
+if(typeof cooQueueTick==='function'){ const _qt = cooQueueTick; cooQueueTick = function(){
+    try{ if(typeof canRunOps==='function' && canRunOps()){ const now = Date.now(); let ch = false;
+      COOQ.filter(q=>q.status==='scheduled').forEach(q=>{
+        if(!q.meeting){ const mm = String(q.text||'').match(/^⏰ (.+) starts in (\d+) minutes/); if(mm){ const m = MEETINGS.find(x=>x.title===mm[1] && Math.abs(new Date(x.start).getTime() - (+mm[2])*60e3 - new Date(q.at).getTime()) < 90e3); if(m){ q.meeting = m.id; q.mins = +mm[2]; q.mStart = new Date(m.start).getTime(); ch = true; } } }
+        if(q.meeting){ const m = MEETINGS.find(x=>x.id===q.meeting);
+          if(!m || m.status==='cancelled'){ q.status = 'skipped'; q.note = 'meeting cancelled'; ch = true; return; }
+          const st = new Date(m.start).getTime(); if(q.mStart && st!==q.mStart){ const at = st - (q.mins||30)*60e3;
+            if(at > now){ q.at = new Date(at).toISOString(); q.text = String(q.text).replace(/\(([^)]*) PH time\)/, `(${mtTime(m.start)} PH time)`); if(q.notifText) q.notifText = `🔔 COO Assistant: ${q.text}`; q.note = 'moved with the meeting'; }
+            else { q.status = 'skipped'; q.note = 'meeting moved'; } q.mStart = st; ch = true; return; } }
+        if(new Date(q.at).getTime() > now) return;
+        if(q.topic?.kind==='eval' && typeof evalStatus==='function' && !evalStatus().some(x=>!x.done)){ q.status = 'skipped'; q.note = 'evaluations already done'; ch = true; return; }
+        if(q.topic?.kind==='overdue' && typeof cooItems==='function' && !cooItems().some(x=>x.sec==='overdue' && (!(q.topic.clients||[]).length || q.topic.clients.includes(x.client)))){ q.status = 'skipped'; q.note = 'nothing overdue any more'; ch = true; return; }
+      });
+      if(ch) recordChange(); } }catch(e){ console.warn('cooq check', e); }
+    return _qt.apply(this, arguments); }; }
+/* availability follow-ups stop once the meeting is cancelled */
+if(typeof joseNudge==='function'){ const _jn = joseNudge; joseNudge = function(p){ if(!p || p.wiped || p.status==='cancelled') return 0; const m = p.meeting && MEETINGS.find(x=>x.id===p.meeting); if(m && m.status==='cancelled') return 0; return _jn.apply(this, arguments); }; }
+/* meeting reminders fire again after a reschedule (and only once per start time) */
+if(typeof mtNotifOnce==='function'){ const _mn = mtNotifOnce; mtNotifOnce = function(id, to, m, ...rest){
+    if(/^mt(30|5)\|/.test(id) && m?.start){ const st = new Date(m.start).getTime(); const old = NOTIFS2.find(n=>n.id===id); if(old && Math.abs(Date.parse(old.at) - st) < 40*60e3) return false;
+      return _mn.call(this, id+'|'+st, to, m, ...rest); }
+    return _mn.apply(this, arguments); }; }
 </script>
 </body>
 </html>

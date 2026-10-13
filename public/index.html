@@ -3015,6 +3015,12 @@ body.applicant-mode .cora-web,body.applicant-mode #capFab,body.applicant-mode [o
 .ai-err span{flex:1;min-width:160px}.ai-err .btn{padding:5px 12px;font-size:12px}
 .mx-fb{display:inline-flex;gap:4px;margin-left:auto}.mx-fb button{border:1px solid var(--line);background:none;border-radius:8px;padding:3px 9px;font-size:12px;cursor:pointer;color:var(--ink-2)}
 .mx-fb .mx-ok:hover{border-color:var(--ok,#2E7D5B);color:var(--ok,#2E7D5B)}.mx-fb .mx-no:hover{border-color:var(--bad);color:var(--bad)}
+/* birthday status (90) */
+.bd-status{display:flex;flex-direction:column;gap:8px;margin:0 0 14px}
+.bd-stat{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 12px;border-radius:12px;font-size:13px;border:1px solid var(--line);background:var(--panel)}
+.bd-stat.ok{border-color:color-mix(in srgb,var(--ok,#2E7D5B) 40%,transparent);background:color-mix(in srgb,var(--ok,#2E7D5B) 8%,var(--panel))}
+.bd-stat.warn{border-color:color-mix(in srgb,var(--warn,#C98A12) 45%,transparent);background:color-mix(in srgb,var(--warn,#C98A12) 9%,var(--panel))}
+.bd-stat+.bd-stat{margin-top:0}#modalBody .bd-stat{margin-bottom:8px}
 </style>
 </head>
 <body>
@@ -20893,7 +20899,7 @@ async function cooPostFromModal(){ const ch = CHATS.find(c=>c.id===el('paPostC')
    The footer shows which build is running ("Build 2026-10-07 · 1"), and every open portal checks every few minutes
    (and whenever it comes back to the foreground) whether a newer build has been published. If so it shows
    "New version available — Update now" instead of quietly running old code. */
-const BUILD_ID = '2026-10-10 · 4';
+const BUILD_ID = '2026-10-14 · 1';
 function verStamp(){ const f = el('footNote'); if(f && !f.dataset.v){ f.dataset.v = 1; f.textContent = `Cross Core Ops Suite v8 · Build ${BUILD_ID}`; } }
 async function verCheck(){
   if(!/^https?:/.test(location.protocol)) return;
@@ -24564,18 +24570,30 @@ const bdActiveFor = k => bdActiveList().find(c=>c.person===k);
 const bdCeleOf = annId => BDCELE.find(c=>c.ann===annId) || (()=>{ const a = ANNOUNCEMENTS.find(x=>x.id===annId); return a?.birthday ? {id:a.birthday.cele, ann:a.id, ...a.birthday} : null; })();
 
 /* the birthday job: the database runs it (one celebration per person per year, never twice); the demo copy runs it here */
-let BD_LAST_RUN = 0;
+let BD_LAST_RUN = 0; const BD_SRV = {state:'', err:'', at:0};
+const bdLeft = st => /(resign|terminat|inactive|offboard|separat|ended|archiv|left)/i.test(String(st||''));
+/* returns {ok, n, missing, err}: honest result for the "Run birthday check now" button */
 async function bdRun(force){
-  if(bdOff()) return; if(!force && Date.now() - BD_LAST_RUN < 60e3) return; BD_LAST_RUN = Date.now();
-  if(BACKEND?.mode==='live'){ try{ const {error} = await BACKEND.sb.rpc('cc_birthday_run'); if(error) console.warn('birthday check:', error.message); }catch(e){ console.warn('birthday check:', e.message); } return; }
-  bdRunLocal();
+  if(bdOff()) return {ok:false, err:'not available here'}; if(!force && Date.now() - BD_LAST_RUN < 60e3) return {ok:true, skipped:true}; BD_LAST_RUN = Date.now();
+  if(BACKEND?.mode==='live'){
+    try{ const {data, error} = await BACKEND.sb.rpc('cc_birthday_run');
+      if(!error){ BD_SRV.state = 'ok'; BD_SRV.err = ''; BD_SRV.at = Date.now(); return {ok:true, n:+data||0}; }
+      const missing = /cc_birthday_run|could not find|does not exist|schema cache|PGRST202|42883/i.test((error.message||'')+(error.code||''));
+      BD_SRV.state = missing ? 'missing' : 'error'; BD_SRV.err = error.message||String(error); console.warn('birthday check:', BD_SRV.err);
+      /* the server job isn't installed yet: an HR / company-head portal publishes the celebration itself */
+      if(missing && bdCan()){ const n = bdRunLocal(); return {ok:true, n, missing:true}; }
+      return {ok:false, missing, err:BD_SRV.err};
+    }catch(e){ BD_SRV.state = 'error'; BD_SRV.err = e.message; console.warn('birthday check:', e.message); return {ok:false, err:e.message}; } }
+  return {ok:true, n:bdRunLocal()};
 }
 function bdRunLocal(){
-  const today = bdToday(); let changed = false;
+  const today = bdToday(); let changed = false, n = 0;
   [bdAddDays(today, -1), today].forEach(d=>{ const y = +d.slice(0,4);
     BDAYS.filter(r=>/^\d\d-\d\d$/.test(r.md||'') && bdOn(r.md, y)===d).forEach(r=>{
-      const p = PEOPLE[r.id]; if(!p || p.role==='client' || p.teamOnly || (p.empId && !['Active','On Probation'].includes(p.status))) return;
-      const key = `BD-${r.id}-${y}`; if(BDCELE.some(c=>c.id===key)) return;
+      const p = PEOPLE[r.id]; if(!p || p.role==='client' || p.teamOnly || (p.empId && bdLeft(p.status))) return;
+      if(BDCELE.some(c=>c.person===r.id && String(c.date).slice(0,10)===d)) return;            /* already celebrated on this day */
+      let key = `BD-${r.id}-${y}`; if(BDCELE.some(c=>c.id===key)) key += '-' + d.slice(5).replace('-', '');   /* date corrected after an earlier celebration */
+      n++;
       const tpl = r.tplOverride || r.tpl || 'standard'; const nm = r.name || pname(r.id);
       BDCELE.push({id:key, person:r.id, name:nm, year:y, date:d, until:bdAddDays(d, 1), tpl, ann:'ANN-'+key, at:nowISO()});
       if(!ANNOUNCEMENTS.some(a=>a.id==='ANN-'+key)) ANNOUNCEMENTS.unshift({id:'ANN-'+key, title:BD_ANN_TITLE.replace('[NAME]', nm.toUpperCase()), body:`Let's all wish ${nm} a very Happy Birthday!`,
@@ -24585,6 +24603,7 @@ function bdRunLocal(){
   });
   ANNOUNCEMENTS.forEach(a=>{ if(a.birthday && !a.archived && a.birthday.until < today){ a.archived = true; a.archivedBy = 'birthday-expiry'; a.archivedAt = nowISO(); changed = true; } });
   if(changed){ recordChange(); scheduleRender(); }
+  return n;
 }
 
 /* HR / heads portals keep the stored name, role message and post wording current */
@@ -24875,7 +24894,7 @@ RENDER.birthdays = () => {
         <div class="field"><label>Company time zone</label><select id="bdTz">${[...new Set([bdTz(), ...tzs])].map(z=>`<option ${z===bdTz()?'selected':''}>${z}</option>`).join('')}</select></div>
         <button class="btn primary" onclick="bdTzSave()">Save time zone</button>
         <div class="hint" style="margin-top:10px">Today in the company time zone: <b>${bdFmtY(t)}</b>. Celebrations start at 12:00 AM on the birthday and end after the following day; the post then moves to the archive with its greetings and reactions.</div>
-        <div style="margin-top:12px"><button class="btn" onclick="bdRun(true).then(()=>toast('Birthday check finished'))">Run birthday check now</button></div></div></div>
+        <div style="margin-top:12px"><button class="btn" onclick="bdCheckNow()">Run birthday check now</button></div></div></div>
       <div class="card"><div class="card-h"><h3>Template priority</h3><span class="sub">for people with more than one role</span></div><div class="card-b"><div class="bd-prio">
         ${pr.map((x,i)=>`<div><b>${i+1}</b><span>${esc(BD_ROLE[x])}</span><button class="btn ghost" style="padding:3px 8px" ${i?'':'disabled'} aria-label="Move up" onclick="bdPrioMove('${x}',-1)">↑</button><button class="btn ghost" style="padding:3px 8px" ${i<pr.length-1?'':'disabled'} aria-label="Move down" onclick="bdPrioMove('${x}',1)">↓</button></div>`).join('')}</div></div></div>
       <div class="card"><div class="card-h"><h3>Birthday music</h3><span class="sub">one track, played in the pop-up</span></div><div class="card-b">
@@ -24912,7 +24931,9 @@ function bdSaveRow(k){
   Object.assign(r, {md, year:y, name:pname(k), tpl:bdAutoRole(k), tplOverride:ov, updatedBy:PERSON, at:nowISO()});
   recordChange(); if(typeof avSaved==='function') avSaved([mk('bdays', k)]);
   toast(`Saved — ${first(k)}’s birthday is ${BD_MONTHS[+m-1]} ${d}`); RENDER.birthdays();
-  if(bdOn(md, thisY)===bdToday() || bdOn(md, thisY)===bdAddDays(bdToday(), -1)) setTimeout(()=>bdRun(true), 1500);
+  if(bdOn(md, thisY)===bdToday() || bdOn(md, thisY)===bdAddDays(bdToday(), -1)){
+    const go = () => bdRun(true).then(r=>{ setTimeout(()=>{ bdCheckPopup(); scheduleRender(); }, 1200); if(r && !r.ok) toast('⚠ The birthday was saved, but the celebration could not be published: '+(r.missing?'the birthday automation is not installed on the server (run supabase/update-birthdays.sql)':r.err)); });
+    (typeof avSaved==='function' ? avSaved([mk('bdays', k)]).then(go) : setTimeout(go, 1500)); }
 }
 function bdClearRow(k){ if(!bdCan()) return; const i = BDAYS.findIndex(r=>r.id===k); if(i<0) return; BDAYS.splice(i, 1); recordChange(); toast(`Removed ${first(k)}’s birthday`); RENDER.birthdays(); }
 function bdSetEnsure(){ let s = BDSET.find(x=>x.id==='main'); if(!s){ s = {id:'main', tz:'Asia/Manila', templates:{}, priority:[...BD_PRIORITY]}; BDSET.push(s); } s.templates = s.templates || {}; return s; }
@@ -24934,6 +24955,36 @@ function bdMusicUpload(){ if(!bdCan()) return; if(!el('bdLic')?.checked) return 
   i.click(); }
 function bdMusicReset(){ if(!bdCan()) return; const s = bdSetEnsure(); delete s.music; s.at = nowISO(); recordChange(); toast('Using the built-in chime'); RENDER.birthdays(); }
 function bdMusicTest(){ bdMusicPlay(); }
+
+/* ---------- today's status for HR / company heads: who has a birthday today and whether it was published ---------- */
+function bdTodayList(){ const t = bdToday(), y = bdAddDays(t, -1);
+  return BDAYS.filter(r=>/^\d\d-\d\d$/.test(r.md||'')).flatMap(r=>[t, y].filter(d=>bdOn(r.md, +d.slice(0,4))===d).map(d=>({r, d, cele:BDCELE.find(c=>c.person===r.id && String(c.date).slice(0,10)===d)}))); }
+function bdStatusHTML(){
+  const L = bdTodayList(); const t = bdToday();
+  const warn = BD_SRV.state==='missing' ? `<div class="bd-stat warn">⚠ The birthday automation isn’t installed on the server yet, so celebrations are published by HR / company-head portals only. Run <b>supabase/update-birthdays.sql</b> once in Supabase → SQL Editor.</div>`
+    : BD_SRV.state==='error' ? `<div class="bd-stat warn">⚠ The last birthday check failed: ${esc(BD_SRV.err)}</div>` : '';
+  if(!L.length && !warn) return '';
+  return `<div class="bd-status">${L.map(x=>{ const who = esc(x.r.name || pname(x.r.id)); const day = x.d===t ? 'today' : 'yesterday';
+      return x.cele ? `<div class="bd-stat ok">🎂 <b>${who}</b> — birthday ${day} · celebration published${x.cele.ann?` · <a href="#" onclick="openAnn('${esc(x.cele.ann)}');return false">open the post</a>`:''}</div>`
+        : `<div class="bd-stat warn">⚠ <b>${who}</b> — birthday ${day}, but the celebration hasn’t been published yet. <button class="btn" style="padding:4px 10px;font-size:12px" onclick="bdCheckNow()">Publish now</button></div>`; }).join('')}${warn}</div>`; }
+{ const _rb = RENDER.birthdays; RENDER.birthdays = function(){ const r = _rb.apply(this, arguments); const v = el('v-birthdays'); if(!v || !bdCan()) return r;
+    v.querySelector('.bd-status')?.remove(); const g = v.querySelector('.grid.cols-3'); const h = bdStatusHTML(); if(g && h) g.insertAdjacentHTML('afterend', h); return r; }; }
+async function bdCheckNow(){
+  if(!bdCan()) return; toast('Checking birthdays…');
+  const r = await bdRun(true); let chk = null;
+  if(BACKEND?.mode==='live'){ try{ await syncCatchUp?.('birthday'); }catch(e){}
+    try{ const {data, error} = await BACKEND.sb.rpc('cc_birthday_check'); if(!error) chk = data; }catch(e){} }
+  await new Promise(ok=>setTimeout(ok, 600));
+  const L = bdTodayList(); const t = bdToday();
+  const rows = (chk?.birthdays?.length ? chk.birthdays.map(b=>({name:b.name||pname(b.person), d:String(b.date).slice(0,10), ok:b.published, skip:b.skip}))
+    : L.map(x=>({name:x.r.name||pname(x.r.id), d:x.d, ok:!!x.cele})));
+  openModal('Birthday check', `<p class="hint" style="margin-bottom:10px">Today in the company time zone (${esc(chk?.tz || bdTz())}): <b>${bdFmtY(chk?.today ? String(chk.today).slice(0,10) : t)}</b> · ${BDAYS.length} birthday record${BDAYS.length===1?'':'s'} on file</p>
+    ${rows.length ? rows.map(x=>`<div class="bd-stat ${x.ok?'ok':'warn'}">${x.ok?'🎂':'⚠'} <b>${esc(x.name)}</b> — ${x.d===t?'today':'yesterday'}: ${x.ok ? 'celebration published (pop-up, profile decorations and Announcement Board post)' : x.skip ? 'not celebrated — '+esc(x.skip) : 'not published'}</div>`).join('')
+      : '<div class="hint">Nobody has a birthday today or yesterday on the Birthday records.</div>'}
+    ${r?.ok===false ? `<div class="bd-stat warn" style="margin-top:8px">⚠ ${r.missing ? 'The birthday automation isn’t installed on the server. Run supabase/update-birthdays.sql once in Supabase → SQL Editor.' : 'The check failed: '+esc(r.err||'')}</div>`
+      : r?.missing ? '<div class="hint" style="margin-top:8px">The server automation isn’t installed yet — this portal published it instead. Run supabase/update-birthdays.sql so it also runs when nobody is signed in.</div>' : ''}`);
+  scheduleRender();
+}
 /* ===== 91_cbsync.js ===== */
 /* ================= CONTENT BOARD SYNC — field-level saves + an honest "Live · synced" (Oct 2026) =================
    TK-196502884-zrb (Yamille): PM and VA saw different items, statuses and dates on the Content Board while the pill said

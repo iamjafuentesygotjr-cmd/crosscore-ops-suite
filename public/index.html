@@ -3032,9 +3032,6 @@ body.applicant-mode .cora-web,body.applicant-mode #capFab,body.applicant-mode [o
 .fwd-tag{font-size:11px;font-weight:600;color:var(--ink-3);margin-bottom:3px;font-style:italic}
 .wh-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:12.5px;color:var(--ink-2);margin:-6px 0 12px}
 .fu-ed{margin-top:4px;color:var(--brand-2)}
-/* Oct 17 (b0) */
-.auth-bar{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom,0px));z-index:9999;display:flex;align-items:center;gap:10px;flex-wrap:wrap;max-width:calc(100vw - 32px);padding:10px 14px;border-radius:14px;font-size:13px;background:var(--panel);border:1px solid var(--line);box-shadow:0 14px 34px -12px rgba(0,0,0,.35)}
-.auth-bar .spinner{display:inline-block;width:14px;height:14px}
 </style>
 </head>
 <body>
@@ -3653,7 +3650,7 @@ function clientIdsFor(k){
   if(p.role==='manager') return CL.filter(c=>(c.pms||[]).includes(k) || c.mgr===k).map(c=>c.id);
   return CL.filter(c=>(c.team||[]).includes(k)).map(c=>c.id);
 }
-const activePeople = () => Object.keys(PEOPLE).filter(k=>{ const p=PEOPLE[k]; if(p.role==='client' || p.teamOnly) return false; return !p.empId || !empLeft(p.status); });
+const activePeople = () => Object.keys(PEOPLE).filter(k=>{ const p=PEOPLE[k]; if(p.role==='client' || p.teamOnly) return false; return !p.empId || ['Active','On Probation'].includes(p.status); });
 function personByEmail(mail){ mail=(mail||'').trim().toLowerCase(); return Object.keys(PEOPLE).find(k=>PEOPLE[k].email&&PEOPLE[k].email.toLowerCase()===mail); }
 const isExec = () => ['ceo','coo','creative'].includes(ROLE);
 const isHead = k => HEADS.includes(k);
@@ -4381,7 +4378,7 @@ async function liveRefresh(user, known){
     if(['head','hr','pm'].includes(prof.role)){ ensureChats(); recordChange(); }
     SYNC.saveCache(true);
   }catch(e){
-    if(/disabled|not linked/i.test(e.message||'') && await authConfirmGone(e)){ try{ localStorage.removeItem('cc-v8-me-'+user.id); }catch(x){} AUTHX.userOut = true; await BACKEND.sb.auth.signOut(); alert(e.message); location.reload(); return; }
+    if(/disabled|not linked/i.test(e.message||'')){ try{ localStorage.removeItem('cc-v8-me-'+user.id); }catch(x){} await BACKEND.sb.auth.signOut(); alert(e.message); location.reload(); return; }
     console.warn('Background refresh failed — showing the saved copy', e);
   }
   syncUI();
@@ -4461,7 +4458,7 @@ async function CC_BOOT(){
     rebuildPeople();
     const {data:{session}} = await BACKEND.sb.auth.getSession();
     if(session){ try{ el('connMsg').style.display='flex'; el('connTxt').textContent='Loading your workspace…'; await startLiveSession(); }catch(e){ el('loginErr').style.display='block'; el('loginErr').textContent=e.message; } el('connMsg').style.display='none'; }
-    BACKEND.sb.auth.onAuthStateChange((ev, s)=>authOnChange(ev, s));
+    BACKEND.sb.auth.onAuthStateChange((ev)=>{ if(ev==='SIGNED_OUT' && SYNC.ready) location.reload(); });
   } else {
     BACKEND = DemoBackend;
     el('demoBanner').classList.add('on');
@@ -4676,7 +4673,7 @@ function delAnn(id){ if(!confirm('Delete this announcement permanently? Archivin
 /* Important announcements appear as a centered pop-up when the portal opens (and live, when posted) */
 function checkUrgentAnns(){ if(ROLE==='client') return;
   if(el('login').style.display!=='none' || !PEOPLE[PERSON]) return;
-  if(document.getElementById('annGate') || el('pwGate')?.style.display==='grid') return;
+  if(document.getElementById('annGate') || el('pwGate').style.display==='grid') return;
   const urg = annFor(PERSON).find(a=>isImportant(a) && !annRead(a.id)?.ackAt);
   if(!urg) return;
   const d = document.createElement('div'); d.className='urgent-gate'; d.id='annGate';
@@ -14199,7 +14196,7 @@ function pushSetQuiet(k, v){ pushPrefs().quiet[k] = v; recordChange(); }
 
 /* start after sign-in */
 { const _sp = setPerson; setPerson = function(p){ _sp(p); if(PEOPLE[p] && ROLE!=='client'){ PUSH.asked = false; setTimeout(()=>{ if(PUSH.supported && Notification.permission==='granted') pushRegister().then(pushClearRead); pushFromHash(); }, 300);
-  setTimeout(()=>{ if(el('login')?.style.display==='none' && el('pwGate')?.style.display!=='grid') pushInvite(); }, 2500); } }; }
+  setTimeout(()=>{ if(el('login').style.display==='none' && el('pwGate').style.display!=='grid') pushInvite(); }, 2500); } }; }
 
 /* ===== 33_teamstatus.js ===== */
 /* ================= TEAM STATUS — Who's Online =================
@@ -19225,7 +19222,7 @@ const MT = {view:'month', month:null, filter:'all'};
 /* ---------- create / edit ---------- */
 let MT_IMG = null, MT_PICK = [];
 function mtModal(id){
-  const m = id ? MEETINGS.find(x=>x.id===id) : null; if(m && !mtCanEdit(m)) return toast('Only the organizer, HR or a company head can edit this');
+  const m = id ? MEETINGS.find(x=>x.id===id) : null; if(m && m.organizer!==PERSON && !isFullAccess()) return toast('Only the organizer can edit this');
   const d = m ? mtDay(m.start) : manilaDate(); const t0 = m ? mtHHMM(m.start) : '10:00'; const t1 = m ? mtHHMM(m.end) : '10:30';
   MT_IMG = m?.image || null; MT_PICK = [...(m?.participants||[])];
   openModal(m ? 'Edit '+(m.kind||'meeting').toLowerCase() : 'Schedule a meeting', `
@@ -19265,7 +19262,7 @@ function mtSave(id){
   if(!title) return toast('Add a title'); if(!d || !s) return toast('Pick the date and start time'); if(!MT_PICK.length) return toast('Select at least one participant');
   const start = mtIso(d, s); let end = mtIso(d, e||s); if(end <= start) end = new Date(new Date(start).getTime() + 30*60e3).toISOString();
   let link = el('mtL').value.trim(); if(link && !/^https?:\/\//i.test(link)) link = 'https://'+link;
-  const o = {title, kind:el('mtK').value, start, end, participants:MT_PICK.filter(k=>k!==(id ? (MEETINGS.find(x=>x.id===id)?.organizer||PERSON) : PERSON)), link, image:MT_IMG, notes:el('mtN').value.trim()};
+  const o = {title, kind:el('mtK').value, start, end, participants:MT_PICK.filter(k=>k!==PERSON), link, image:MT_IMG, notes:el('mtN').value.trim()};
   if(!id){ const m = {id:'mt'+Math.random().toString(36).slice(2,12), organizer:PERSON, status:'scheduled', createdAt:nowISO(), history:[{at:nowISO(), by:PERSON, act:'Scheduled'}], ...o};
     MEETINGS.push(m); notify(m.participants, 'meeting', `📅 <b>${esc(first(PERSON))}</b> invited you to <b>${esc(title)}</b> — ${esc(mtDate(start))} · ${esc(mtTime(start))}`, {view:'schedule', meeting:m.id});
     audit(`Scheduled “${title}” for ${mtDate(start)} ${mtTime(start)}`); recordChange(); closeModal(); MT.month = mtDay(start).slice(0,7); go('schedule'); toast('Scheduled — participants notified'); return; }
@@ -19279,7 +19276,7 @@ function mtSave(id){
   if(removed.length) notify(removed, 'meeting', `<b>${esc(first(PERSON))}</b> removed you from <b>${esc(title)}</b>`, {view:'schedule'});
   recordChange(); closeModal(); RENDER.schedule?.(); toast(moved?'Rescheduled — participants asked to confirm again':'Saved — participants notified');
 }
-function mtCancel(id){ const m = MEETINGS.find(x=>x.id===id); if(!m || !mtCanEdit(m)) return;
+function mtCancel(id){ const m = MEETINGS.find(x=>x.id===id); if(!m || (m.organizer!==PERSON && !isFullAccess())) return;
   confirmModal(`Cancel “${m.title}”?`, `<p>Everyone invited is notified and it’s marked as cancelled on their calendars.</p>`, 'Cancel meeting', ()=>{
     m.status = 'cancelled'; m.cancelledAt = nowISO(); m.history = [...(m.history||[]), {at:nowISO(), by:PERSON, act:'Cancelled'}];
     notify(m.participants, 'meeting', `❌ <b>${esc(m.title)}</b> on ${esc(mtDate(m.start))} · ${esc(mtTime(m.start))} was cancelled by ${esc(first(PERSON))}`, {view:'schedule', meeting:m.id});
@@ -19324,7 +19321,7 @@ function mtOpen(id){ const m = MEETINGS.find(x=>x.id===id); if(!m) return toast(
     ${org&&rs.length?`<div class="mt-rs">${rs.map(r=>`<div>🔁 <b>${esc(first(r.person))}</b> asked to reschedule${r.propose?` → ${esc(mtDate(r.propose))} ${esc(mtTime(r.propose))}`:''}${r.note?`: “${esc(r.note)}”`:''}</div>`).join('')}</div>`:''}
     <div class="mt-acts">${m.status!=='cancelled'&&m.link&&!mtPast(m)?`<button class="btn primary" onclick="mtJoin('${m.id}')">🎥 Join meeting</button>`:''}
       ${!org&&m.status!=='cancelled'&&!mtPast(m)?`<button class="btn ${me==='accepted'?'mt-on':''}" onclick="mtRespond('${m.id}','accepted')">✓ Accept</button><button class="btn ${me==='declined'?'mt-on':''}" onclick="mtRespond('${m.id}','declined')">✕ Decline</button><button class="btn ${me==='reschedule'?'mt-on':''}" onclick="mtRespond('${m.id}','reschedule')">🔁 Request to reschedule</button>`:''}
-      ${mtCanEdit(m)&&m.status!=='cancelled'?`<button class="btn" onclick="mtModal('${m.id}')">✎ Edit / participants</button><button class="btn danger" onclick="mtCancel('${m.id}')">Cancel meeting</button>`:''}</div>
+      ${org&&m.status!=='cancelled'?`<button class="btn" onclick="mtModal('${m.id}')">✎ Edit / participants</button><button class="btn danger" onclick="mtCancel('${m.id}')">Cancel meeting</button>`:''}</div>
     <div class="hint" style="margin-top:10px">Organized by ${esc(pname(m.organizer))}${(m.history||[]).length>1?` · last change: ${esc(m.history[m.history.length-1].act)} (${esc(dstr(m.history[m.history.length-1].at))})`:''}</div>`, true);
   hydrateChatMedia(el('modalBody')); }
 
@@ -20913,7 +20910,7 @@ async function cooPostFromModal(){ const ch = CHATS.find(c=>c.id===el('paPostC')
    The footer shows which build is running ("Build 2026-10-07 · 1"), and every open portal checks every few minutes
    (and whenever it comes back to the foreground) whether a newer build has been published. If so it shows
    "New version available — Update now" instead of quietly running old code. */
-const BUILD_ID = '2026-10-16 · 2';
+const BUILD_ID = '2026-10-16 · 1';
 function verStamp(){ const f = el('footNote'); if(f && !f.dataset.v){ f.dataset.v = 1; f.textContent = `Cross Core Ops Suite v8 · Build ${BUILD_ID}`; } }
 async function verCheck(){
   if(!/^https?:/.test(location.protocol)) return;
@@ -26216,7 +26213,9 @@ cpOnMessage = function(m){
     if(!ev?.deleted && ev.coll==='prefs' && ev.obj?.id===PERSON){ try{ buildNav(); }catch(e){} mpRedrawList(); }   /* read on another device → badge clears here */
     return r; }; }
 
-/* (session refresh: see b0_oct17.js — only when the token has really expired, never in a loop) */
+/* a session that expired while the device slept is refreshed quietly, so nobody has to sign in again to get updates */
+{ let last = 0; setInterval(async ()=>{ if(BACKEND?.mode!=='live' || !SYNC.ready || !RG.fail || Date.now()-last < 60e3 || !navigator.onLine) return; last = Date.now();
+    try{ const r = await BACKEND.sb.auth.refreshSession(); const s = r?.data?.session; if(s?.access_token){ try{ BACKEND.sb.realtime.setAuth(s.access_token); }catch(e){} rtConnect(); syncCatchUp('session refreshed'); } }catch(e){} }, 5000); }
 /* ===== 99_aifix.js ===== */
 /* ================= AI ASSISTANTS — reliable answers, client-true Marcus, honest action reports, reminders that stop (Oct 2026) =================
    Reliability (Cora, Marcus chat + Comment & Reply Studio, PM / COO assistants, Content creation):
@@ -27036,134 +27035,6 @@ function fbTicketUpdates3(){ if(!SYNC.ready || PERSON!==cooKey() || S().fbFix3) 
     t.comments = [...(t.comments||[]), {id:uid('C'), by:PERSON, at:nowISO(), text:note}]; try{ tkSetStatus(t, 'For Testing', 'please test and confirm'); }catch(e){ t.status = 'For Testing'; t.updated = nowISO(); } n++; });
   const s = SETTINGS.find(x=>x.id==='global'); if(s){ s.fbFix3 = nowISO(); } recordChange(); if(n) toast(`${n} tickets moved to For Testing — reporters were notified`); }
 { const _sp = setPerson; setPerson = function(){ const r = _sp.apply(this, arguments); setTimeout(()=>{ try{ fbTicketUpdates3(); }catch(e){ console.warn(e); } }, 11000); return r; }; }
-/* ===== b0_oct17.js ===== */
-/* ================= OCT 16 (2) — stable sessions, messages behind every notification, birthdays, HR calendar =================
-   • Auto-logout: a portal no longer signs you out because of a passing problem. Causes found:
-       – the background refresh read the directory while the login token was being renewed (phone waking up, slow or
-         busy connection); the empty answer looked like "your login isn't linked" and the portal signed out;
-       – a renewal answered "too many requests / try again" (many devices on one office connection, a busy server)
-         ended the session at once;
-       – after the server had a hiccup, the portal renewed the login every minute, which made the above more likely.
-     Now: only a confirmed disabled / removed account signs out; any other sign-out restores the session quietly from the
-     last good login (retrying for a while), and renewals happen only when the token has really expired.
-   • A chat notification always has its message: if the notification arrives first, the conversation (and the chat
-     itself, if this device didn't have it yet) is fetched at once. Opening a notification opens that conversation
-     and shows the exact message, also when the chat or the message wasn't on this device yet.
-   • Birthdays: people whose employee status is not exactly "Active" / "On Probation" (e.g. "Regular") were left out
-     of the list (and of group chats). Every current team member — including Yam and Tricia — is listed; records
-     for anyone else are shown too, so nothing is hidden.
-   • Calendar: HR (and company heads) can edit, reschedule and cancel any event they can see, and schedule events for
-     any VA from every team — with quick groups per client team, per PM, per department, All VAs and Everyone.
-     Participants get the event in their calendar right away with a notification; the organizer is told when HR
-     changes their event. */
-
-/* ---------- people who have left (the only statuses that remove someone) ---------- */
-function empLeft(st){ return /(resign|terminat|inactive|offboard|separat|ended|archiv|\bleft\b|deceased)/i.test(String(st||'')); }
-
-/* ---------- 1. sessions that stay signed in ---------- */
-const AUTHX = {userOut:false, recovering:false, bak:'cc-auth-bak', lastRefresh:0, recovered:0};
-function authBackup(s){ if(!s?.refresh_token) return; try{ localStorage.setItem(AUTHX.bak, JSON.stringify({rt:s.refresh_token, uid:s.user?.id||null, at:Date.now()})); }catch(e){} }
-function authBak(){ try{ return JSON.parse(localStorage.getItem(AUTHX.bak)||'null'); }catch(e){ return null; } }
-function authOnChange(ev, s){
-  if(s) authBackup(s);
-  if(s?.access_token && ['TOKEN_REFRESHED','SIGNED_IN'].includes(ev)){ try{ BACKEND.sb.realtime.setAuth(s.access_token); }catch(e){} }
-  if(ev==='SIGNED_OUT' && SYNC.ready){ if(AUTHX.userOut) return location.reload(); authRecover(); }
-}
-function authBanner(t){ let d = el('authBar'); if(!t){ d?.remove(); return; } if(!d){ d = document.createElement('div'); d.id = 'authBar'; d.className = 'auth-bar'; document.body.appendChild(d); } d.innerHTML = t; }
-async function authRecover(){
-  if(AUTHX.recovering) return; AUTHX.recovering = true; const t0 = Date.now(); let tried = '';
-  authBanner('<span class="spinner"></span> Reconnecting your session…');
-  const waits = [0, 1500, 3000, 6000, 12000, 20000, 30000, 45000];
-  for(const w of waits){
-    if(w) await new Promise(r=>setTimeout(r, w));
-    const bak = authBak(); if(!bak?.rt){ break; }
-    if(!navigator.onLine){ continue; }
-    try{
-      const {data, error} = await BACKEND.sb.auth.refreshSession({refresh_token: bak.rt});
-      if(data?.session){ authBackup(data.session); AUTHX.recovering = false; AUTHX.recovered++; authBanner('');
-        try{ BACKEND.sb.realtime.setAuth(data.session.access_token); }catch(e){}
-        try{ rtConnect(); }catch(e){} try{ syncCatchUp('session restored'); }catch(e){} try{ SYNC.flush(); }catch(e){}
-        console.info('Session restored after an unexpected sign-out ('+Math.round((Date.now()-t0)/1000)+' s)'); return true; }
-      const msg = String(error?.message||''); const st = error?.status||0;
-      /* a token another tab already renewed: try the newer one it saved */
-      if(/already used|invalid refresh token|not found|revoked|expired/i.test(msg) && st>=400 && st<500 && st!==429){
-        const nb = authBak(); if(nb?.rt && nb.rt!==bak.rt && tried!==nb.rt){ tried = nb.rt; continue; }
-        break; }
-    }catch(e){ /* network: keep trying */ }
-  }
-  AUTHX.recovering = false;
-  authBanner(`Your session ended — please sign in again. Nothing you saved is lost. <button class="btn primary" onclick="location.reload()">Sign in</button>`);
-  return false;
-}
-/* the portal only signs out when the server confirms the account is disabled or removed */
-async function authConfirmGone(err){
-  try{ const {data, error} = await BACKEND.sb.auth.getUser(); if(error || !data?.user) return false;     /* couldn't check → stay signed in */
-    await new Promise(r=>setTimeout(r, 1500));
-    const {data:prof, error:e2} = await BACKEND.sb.from('cc_people').select('active').eq('user_id', data.user.id).maybeSingle();
-    if(e2) return false;
-    if(/disabled/i.test(err?.message||'')) return prof && prof.active===false;
-    return !prof; }catch(e){ return false; } }
-{ const _so = signOut; signOut = async function(){ AUTHX.userOut = true; try{ localStorage.removeItem(AUTHX.bak); }catch(e){} return _so.apply(this, arguments); }; }
-/* renew the login only when it has really expired (supabase renews it on its own otherwise) */
-setInterval(async ()=>{ try{ if(BACKEND?.mode!=='live' || !SYNC.ready || AUTHX.recovering || !navigator.onLine) return;
-    if(Date.now() - AUTHX.lastRefresh < 5*60e3) return;
-    const {data} = await BACKEND.sb.auth.getSession(); const s = data?.session; if(s) authBackup(s);
-    if(s && s.expires_at && s.expires_at*1000 - Date.now() < 30e3){ AUTHX.lastRefresh = Date.now(); const r = await BACKEND.sb.auth.refreshSession(); if(r?.data?.session){ try{ BACKEND.sb.realtime.setAuth(r.data.session.access_token); }catch(e){} rtConnect(); syncCatchUp('session renewed'); } }
-  }catch(e){} }, 20000);
-
-/* ---------- 2. the message behind every chat notification ---------- */
-const NMSG = {busy:new Set()};
-async function fetchChatRecord(id){ if(BACKEND?.mode!=='live' || !id) return false;
-  try{ const r = await BACKEND.sb.from('cc_records').select('collection,id,data,updated_at').eq('collection','chats').eq('id', id).maybeSingle();
-    if(r.data){ SYNC.applyRemote([{collection:'chats', id:r.data.id, data:r.data.data, updated_at:r.data.updated_at}], []); return true; } }catch(e){} return false; }
-async function ensureChatMsg(chatId, msgId){ if(!chatId || BACKEND?.mode!=='live') return; const key = chatId+'|'+(msgId||''); if(NMSG.busy.has(key)) return; NMSG.busy.add(key);
-  try{ for(const w of [0, 1500, 4000, 9000]){ if(w) await new Promise(r=>setTimeout(r, w));
-      if(!CHATS.some(c=>c.id===chatId)) await fetchChatRecord(chatId);
-      if(!msgId || MESSAGES.some(m=>m.id===msgId)) break;
-      await fetchChat(chatId); if(MESSAGES.some(m=>m.id===msgId)) break; }
-    scheduleRender(); }
-  finally{ NMSG.busy.delete(key); } }
-{ const _ore = onRemoteEvent; onRemoteEvent = function(ev){ const r = _ore.apply(this, arguments);
-    try{ const n = ev?.obj; if(!ev?.deleted && ev.coll==='notifs' && ev.isNew && n?.to===PERSON && n.link?.view==='chat' && n.link.arg){
-        if(!CHATS.some(c=>c.id===n.link.arg) || (n.link.msg && !MESSAGES.some(m=>m.id===n.link.msg))) ensureChatMsg(n.link.arg, n.link.msg); } }catch(e){}
-    return r; }; }
-/* opening a chat notification: make sure the conversation is on this device first, then open it at the message */
-{ const _fl = followLink; followLink = function(link){
-    if(link?.view==='chat' && link.arg && BACKEND?.mode==='live' && !CHATS.some(c=>c.id===link.arg)){
-      toast('Opening the conversation…'); fetchChatRecord(link.arg).then(()=>fetchChat(link.arg)).then(()=>{
-        if(CHATS.some(c=>c.id===link.arg && (c.members||[]).includes(PERSON))) _fl.call(this, link); else toast('You are no longer in that conversation'); });
-      return; }
-    return _fl.apply(this, arguments); }; }
-/* the open conversation stays the one you asked for (it no longer jumps to another chat while it loads) */
-{ const _rc = RENDER.chat; RENDER.chat = function(){ const want = CHAT_OPEN; const r = _rc.apply(this, arguments);
-    if(want && CHAT_OPEN!==want && BACKEND?.mode==='live' && !CHATS.some(c=>c.id===want)){ fetchChatRecord(want).then(ok=>{ if(ok && CHATS.some(c=>c.id===want && (c.members||[]).includes(PERSON))){ CHAT_OPEN = want; RENDER.chat(true); } }); }
-    return r; }; }
-
-/* ---------- 3. birthdays: every current team member, and every record on file ---------- */
-{ const _rb = RENDER.birthdays; RENDER.birthdays = function(){ const r = _rb.apply(this, arguments); const v = el('v-birthdays'); if(!v || !bdCan() || BDV.tab!=='people') return r;
-    const elig = new Set(bdEligible()); const extra = BDAYS.filter(x=>!elig.has(x.id));
-    if(extra.length && !v.querySelector('.bd-extra')) v.querySelector('.card')?.insertAdjacentHTML('afterend', `<div class="card bd-extra" style="margin-top:14px"><div class="card-h"><h3>Other birthday records</h3><span class="sub">people not in the current team list (left, inactive or not linked)</span></div><div class="card-b">${extra.map(x=>`<div class="list-row">${av(P(x.id)||{name:x.name||x.id})}<div style="flex:1"><b style="font-size:12.5px">${esc(x.name||pname(x.id)||x.id)}</b><div class="hint">${esc(bdFmt(bdOn(x.md, +bdToday().slice(0,4))))}${PEOPLE[x.id]?.status?' · status: '+esc(PEOPLE[x.id].status):''}</div></div></div>`).join('')}</div></div>`);
-    return r; }; }
-
-/* ---------- 4. HR schedules events for any VA ---------- */
-function mtCanEdit(m){ return !!m && (m.organizer===PERSON || ROLE==='hr' || isHead(PERSON) || isFullAccess()); }
-{ const _qg = mtQuickGroups; mtQuickGroups = function(){ const G = _qg.apply(this, arguments); if(!(ROLE==='hr' || isHead(PERSON) || isFullAccess() || ROLE==='manager')) return G;
-    const act = new Set(activePeople()); const has = n => G.some(g=>g[0]===n);
-    const vas = [...act].filter(k=>PEOPLE[k]?.role==='employee' && k!==PERSON && !isAssistantKey(k)); if(vas.length && !has('All VAs')) G.push(['All VAs', vas]);
-    const all = [...act].filter(k=>k!==PERSON && !isAssistantKey(k) && PEOPLE[k]?.role!=='client'); if(!has('Everyone')) G.push(['Everyone', all]);
-    activePeople().filter(k=>PEOPLE[k]?.role==='manager').forEach(pm=>{ const t = uniq(CLIENTS.filter(c=>!isEnded(c) && pmsOf(c.id).includes(pm)).flatMap(c=>c.team||[])).filter(k=>act.has(k) && k!==PERSON); if(t.length && !has(`${first(pm)}’s VAs`)) G.push([`${first(pm)}’s VAs`, t]); });
-    if(typeof mkKeys==='function'){ const mk = mkKeys().filter(k=>act.has(k) && k!==PERSON); if(mk.length && !has('Marketing Department')) G.push(['Marketing Department', mk]); }
-    CLIENTS.filter(c=>!isEnded(c) && c.status==='Active' && (c.team||[]).length).sort((a,b)=>a.name.localeCompare(b.name)).forEach(c=>{ const t = (c.team||[]).filter(k=>act.has(k) && k!==PERSON); if(t.length) G.push([`${c.name} team`, t]); });
-    return G; }; }
-{ const _ms = mtSave; mtSave = function(id){ const m = id ? MEETINGS.find(x=>x.id===id) : null; const org = m?.organizer; const r = _ms.apply(this, arguments);
-    if(m && org && org!==PERSON && MEETINGS.find(x=>x.id===id)) notify([org], 'meeting', `✏️ <b>${esc(first(PERSON))}</b> updated your event <b>${esc(m.title)}</b> — ${esc(mtDate(m.start))} · ${esc(mtTime(m.start))}`, {view:'schedule', meeting:m.id});
-    return r; }; }
-{ const _mc = mtCancel; mtCancel = function(id){ const m = MEETINGS.find(x=>x.id===id); const r = _mc.apply(this, arguments);
-    if(m && m.organizer!==PERSON){ const t = setInterval(()=>{ if(m.status==='cancelled'){ clearInterval(t); notify([m.organizer], 'meeting', `❌ <b>${esc(first(PERSON))}</b> cancelled your event <b>${esc(m.title)}</b>`, {view:'schedule', meeting:m.id}); recordChange(); } }, 500); setTimeout(()=>clearInterval(t), 60000); }
-    return r; }; }
-/* phones: a chat notification always opens the conversation itself (not the list) */
-{ const _fl = followLink; followLink = function(link){ if(link?.view!=='chat') return _fl.apply(this, arguments);
-    CHAT_FORCE = true; try{ return _fl.apply(this, arguments); } finally { CHAT_FORCE = false; CHAT_MOB = 'pane'; try{ chatMobApply(); }catch(e){} setTimeout(()=>{ if(CURRENT==='chat' && CHAT_OPEN===link.arg){ CHAT_MOB = 'pane'; try{ chatMobApply(); }catch(e){} } }, 400); } }; }
 </script>
 </body>
 </html>

@@ -3021,6 +3021,17 @@ body.applicant-mode .cora-web,body.applicant-mode #capFab,body.applicant-mode [o
 .bd-stat.ok{border-color:color-mix(in srgb,var(--ok,#2E7D5B) 40%,transparent);background:color-mix(in srgb,var(--ok,#2E7D5B) 8%,var(--panel))}
 .bd-stat.warn{border-color:color-mix(in srgb,var(--warn,#C98A12) 45%,transparent);background:color-mix(in srgb,var(--warn,#C98A12) 9%,var(--panel))}
 .bd-stat+.bd-stat{margin-top:0}#modalBody .bd-stat{margin-bottom:8px}
+/* Oct 16 (a0) */
+.badge.b-pendingclientapproval{background:color-mix(in srgb,var(--info,#2F6FB0) 14%,var(--panel));color:var(--info,#2F6FB0);border:1px solid color-mix(in srgb,var(--info,#2F6FB0) 30%,transparent)}
+.ct-st{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--ink-2);margin-left:6px}.ct-st select{padding:4px 8px;font-size:12px}.ct-st input{width:auto}
+.ct-pca{margin:0 0 12px;padding:10px 12px;border-radius:12px;font-size:12.5px;border:1px solid color-mix(in srgb,var(--info,#2F6FB0) 30%,transparent);background:color-mix(in srgb,var(--info,#2F6FB0) 8%,var(--panel))}
+.tr-note{margin:0 0 10px;padding:10px 12px;border-radius:12px;font-size:12.5px;border:1px solid color-mix(in srgb,var(--brand-2) 35%,transparent);background:var(--warn-bg)}
+.fwd-pv{padding:10px 12px;border-radius:12px;background:var(--panel-2);border:1px solid var(--line);font-size:13px;white-space:pre-wrap;max-height:160px;overflow:auto}
+.fwd-list{max-height:300px;overflow:auto;display:flex;flex-direction:column;gap:2px}
+.fwd-row{display:flex;align-items:center;gap:10px;padding:7px 8px;border-radius:10px;cursor:pointer}.fwd-row:hover{background:var(--panel-2)}.fwd-row input{width:auto}.fwd-row span{display:flex;flex-direction:column;min-width:0}.fwd-row .avatar{width:30px;height:30px;font-size:12px}
+.fwd-tag{font-size:11px;font-weight:600;color:var(--ink-3);margin-bottom:3px;font-style:italic}
+.wh-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:12.5px;color:var(--ink-2);margin:-6px 0 12px}
+.fu-ed{margin-top:4px;color:var(--brand-2)}
 </style>
 </head>
 <body>
@@ -8129,7 +8140,7 @@ function attState(r){
   if((r.breaks||[]).some(b=>!b.e)) return ['On break','b-onbreak'];
   return ['Working','b-working'];
 }
-const isLate = r => r?.in && manilaMins(r.in) > lateMins();
+const isLate = r => !!r?.in && attLateFor(r);   /* per-client work hours (a0_oct16.js), else the company 'Late after' time */
 function attWatchersFor(k){ const w=(S().attWatch||[]); return uniq([...HR_KEYS(), ...HEADS, ...activePeople().filter(p=>PEOPLE[p].role==='manager')]).filter(x=>w.includes(x) && overseenBy(x).includes(k)); }
 function attNotifyOversight(text, type='attendance'){ notify(uniq([...HR_KEYS(), ...activePeople().filter(p=>PEOPLE[p].role==='manager' && overseenBy(p).includes(PERSON))]), type, text, {view:'attendance'}); }
 /* ---- Time In / Break / Time Out ----
@@ -18855,8 +18866,8 @@ Openings used recently (do not reuse): ${(p.recent||[]).slice(-8).join(' | ')||'
 
 /* ---------- generation + alignment check ---------- */
 const VC_SYS = (name, kind) => `You write a LinkedIn ${kind} AS ${name} — in ${name}'s own voice, exactly as they would type it themselves.
-Use ONLY ${name}'s voice profile below. Ignore every other client's style.
-Rules: respond to the actual post${kind==='reply'?' and directly to what the commenter said':''}; add a real thought instead of repeating or summarizing; match ${name}'s usual length, openings, vocabulary, punctuation and emoji habits; vary the opening; sound human, never like an AI engagement bot or social media manager; never invent facts, numbers, experiences or relationships.
+Use ONLY ${name}'s saved tone of voice, SOP, client notes & preferences and voice profile below. Ignore every other client's style.
+Rules: respond to a specific point of the actual post${kind==='reply'?' and directly to what the commenter said':''}; add a real thought instead of repeating or summarizing; match ${name}'s usual length, language, formality, openings, vocabulary, punctuation and emoji habits; vary the opening; sound human, never like an AI engagement bot; never invent facts, numbers, experiences or relationships.
 Avoid generic AI phrases (e.g. "Great insights", "This really highlights the importance of", "Couldn't agree more", "powerful reminder", "game changer").
 Output ONLY the ${kind} text — no quotes, labels, headings or explanations.`;
 function vcLocalCheck(cid, text, ctx){
@@ -20899,7 +20910,7 @@ async function cooPostFromModal(){ const ch = CHATS.find(c=>c.id===el('paPostC')
    The footer shows which build is running ("Build 2026-10-07 · 1"), and every open portal checks every few minutes
    (and whenever it comes back to the foreground) whether a newer build has been published. If so it shows
    "New version available — Update now" instead of quietly running old code. */
-const BUILD_ID = '2026-10-14 · 1';
+const BUILD_ID = '2026-10-16 · 1';
 function verStamp(){ const f = el('footNote'); if(f && !f.dataset.v){ f.dataset.v = 1; f.textContent = `Cross Core Ops Suite v8 · Build ${BUILD_ID}`; } }
 async function verCheck(){
   if(!/^https?:/.test(location.protocol)) return;
@@ -26479,7 +26490,7 @@ vcGenerate = async function(cid, ctx){
   let fb = '', best = null, lastNote = '', judgeOff = false;
   for(let n=1; n<=3; n++){
     MXS.step = n===1 ? `Writing in ${first(c.name)}’s voice…` : `Rewriting — attempt ${n} of 3…`; vsPaintBusy();
-    const ask = `${vcPrompt(cid)}\n\nPOST:\n${coraTrim(ctx.post||'(not given — respond only to the comment)', 3000)}\n${ctx.comment?`\nCOMMENT TO REPLY TO${ctx.who?` (from ${ctx.who})`:''}:\n${coraTrim(ctx.comment, 1000)}\n`:''}${ctx.base?`\nCURRENT DRAFT TO REVISE:\n${ctx.base}\n`:''}${ctx.note?`\nINSTRUCTION FOR THIS ONE (temporary): ${ctx.note}\n`:''}${fb?`\nTHE PREVIOUS ATTEMPT FAILED THE ${c.name.toUpperCase()} VOICE CHECK:\n${fb}\nWrite a new version that fixes this.\n`:''}\nWrite the ${kind} now.`;
+    const ask = `CLIENT VOICE — the client's saved tone, SOP, notes & preferences and voice profile. Follow these exactly (the current SOP and notes win over older examples):\n${clientVoice(cid)}\n\nPOST:\n${coraTrim(ctx.post||'(not given — respond only to the comment)', 3000)}\n${ctx.comment?`\nCOMMENT TO REPLY TO${ctx.who?` (from ${ctx.who})`:''}:\n${coraTrim(ctx.comment, 1000)}\n`:''}${ctx.base?`\nCURRENT DRAFT TO REVISE:\n${ctx.base}\n`:''}${ctx.note?`\nINSTRUCTION FOR THIS ONE (temporary): ${ctx.note}\n`:''}${fb?`\nTHE PREVIOUS ATTEMPT FAILED THE ${c.name.toUpperCase()} VOICE CHECK:\n${fb}\nWrite a new version that fixes this.\n`:''}\nWrite the ${kind} now.`;
     const r = await aiChat(VC_SYS(c.name, kind), ask);
     if(!r.text){ lastNote = r.note; if(best) break; return {offline:true, note:r.note}; }
     const text = r.text.trim().replace(/^#+\s*draft\s*\n/i,'').replace(/^["“](.*)["”]$/s,'$1').trim();
@@ -26662,6 +26673,368 @@ if(typeof mtNotifOnce==='function'){ const _mn = mtNotifOnce; mtNotifOnce = func
     if(/^mt(30|5)\|/.test(id) && m?.start){ const st = new Date(m.start).getTime(); const old = NOTIFS2.find(n=>n.id===id); if(old && Math.abs(Date.parse(old.at) - st) < 40*60e3) return false;
       return _mn.call(this, id+'|'+st, to, m, ...rest); }
     return _mn.apply(this, arguments); }; }
+/* ===== a0_oct16.js ===== */
+/* ================= OCT 16 FIXES — System Ops Support tickets + leadership concerns =================
+   TK-1539307521986-njm  Content Board: PMs can reopen approved content (In Progress / Revisions Needed), a separate
+                         "Pending Client Approval" status, content stays editable while the client reviews, full history.
+   TK-0015-6ea           Tickets can be saved as drafts (and closing the window keeps the draft).
+   TK-1539307521-qex     Changing a status from a dropdown keeps the page where it was (no jump to the top).
+   TK-19650290-vo1       Forward a message to another conversation or group chat.
+   TK-0001-see           Time Out always stops the clock (a stale device can no longer re-open a session); Marcus
+                         follows the client's saved tone in the Comment & Reply Studio too.
+   TK-15393075219-8a4    PM assistant: every VA working on the client is listed (and the PM can add more).
+   TK-0001-vlw           Add VAs / core team to a meeting — also to meetings you were invited to, and to calls on Meet.
+   TK-1539307521985-qmj  Review queue: edits to an AI follow-up are kept and the edited text is what gets posted.
+   TK-0001-co4           Work hours per client assignment; lateness uses the VA's hours for that client (or none if flexible).
+   Leadership: VA reassignment requests go to the COO / company heads for approval; messages for VAs stay in sync. */
+
+/* ---------- 1. Content approval workflow ---------- */
+const PCA = 'Pending Client Approval';
+if(!STATUSES.includes(PCA)) STATUSES.splice(STATUSES.indexOf('Approved'), 0, PCA);
+const ctNeedsClient = cid => client(cid)?.clientApproval !== false;           /* default: content goes to the client after PM approval */
+function ctStatusLabel(s){ return s==='Approved' ? 'Approved (final)' : s; }
+/* PM approval: to the client first when that client approves content, otherwise final */
+approveTask = function(id, final){ const t = TASKS.find(x=>x.id===id); if(!t) return;
+  const to = final || !ctNeedsClient(t.client) ? 'Approved' : PCA;
+  setTaskStatus(t, to, to===PCA ? 'Approved by the PM — waiting for the client' : ''); recordChange(); closeModal(); RENDER[CURRENT]?.(); buildNav();
+  toast(to===PCA ? `Approved — now waiting for ${cname(t.client)}’s approval (still editable)` : `Approved — ${first(t.assignee)} was notified`); };
+function ctMove(id, status, note){ const t = TASKS.find(x=>x.id===id); if(!t) return; if(!canApproveTask(t)) return toast('Only the client’s PM or a company head can change this status');
+  if(status==='Revisions Needed' && !note) return reviewModal(id, 'revise');
+  if(el('teTitle') && !el('teTitle').disabled) saveTaskEdits(id, true);
+  setTaskStatus(t, status, note || (['Approved','Completed',PCA].includes(t.status) && ['In Progress','Draft'].includes(status) ? 'Reopened by '+first(PERSON) : ''));
+  recordChange(); RENDER[CURRENT]?.(); buildNav(); if(el('teTitle')) openTask(id);
+  toast(`Moved to ${status}`); }
+function ctClientDecision(id, ok){ const t = TASKS.find(x=>x.id===id); if(!t) return;
+  if(ok){ setTaskStatus(t, 'Approved', 'Client approved'); recordChange(); RENDER[CURRENT]?.(); buildNav(); if(el('teTitle')) openTask(id); toast('Marked as approved by the client'); return; }
+  openModal('Client requested changes', `<p style="font-size:13px;margin-bottom:10px"><b>${esc(t.title)}</b> · ${esc(cname(t.client))}</p>
+    <div class="field"><label>What does the client want changed? (required)</label><textarea id="ctCliNote" rows="4"></textarea></div>
+    <button class="btn primary" style="width:100%" onclick="ctClientChanges('${id}')">Send back to ${esc(first(t.assignee))} for revisions</button>`); }
+function ctClientChanges(id){ const n = el('ctCliNote')?.value.trim(); if(!n) return toast('Describe what the client wants changed');
+  const t = TASKS.find(x=>x.id===id); setTaskStatus(t, 'Revisions Needed', 'Client feedback: '+n); recordChange(); closeModal(); RENDER[CURRENT]?.(); buildNav(); toast('Sent back for revisions — the VA was notified'); }
+function ctToggleClientApproval(cid, on){ const c = client(cid); if(!c || !canEditOrg(cid)) return; c.clientApproval = !!on; recordChange(); toast(on ? `${c.name}: content goes to the client after PM approval` : `${c.name}: PM approval is final`); }
+/* the task window: status control, reopen / client actions, full history with who changed what and when */
+{ const _ot = openTask; openTask = function(id){ const r = _ot.apply(this, arguments); const t = TASKS.find(x=>x.id===id); const b = el('modalBody'); if(!t || !b) return r;
+    const appr = canApproveTask(t); const can = canEditContent(t);
+    const acts = [...b.querySelectorAll('.btn')].find(x=>/Save changes|Submit for approval|Mark completed|Approve/.test(x.textContent))?.parentElement;
+    const extra = [];
+    if(appr && t.status==='For Approval'){ acts?.querySelectorAll('button').forEach(x=>{ if(/^✓ Approve$/.test(x.textContent.trim())) x.remove(); });
+      extra.push(`<button class="btn primary" onclick="saveTaskEdits('${id}',true);approveTask('${id}')">✓ Approve${ctNeedsClient(t.client)?' → send to client':''}</button>`);
+      if(ctNeedsClient(t.client)) extra.push(`<button class="btn" onclick="saveTaskEdits('${id}',true);approveTask('${id}',true)">✓ Final approve</button>`); }
+    if(t.status===PCA && (appr || can)){ extra.push(`<button class="btn primary" onclick="ctClientDecision('${id}',true)">✓ Client approved</button>`, `<button class="btn" onclick="ctClientDecision('${id}',false)">✎ Client requested changes</button>`); }
+    if(appr && ['Approved',PCA,'Completed'].includes(t.status)) extra.push(`<button class="btn" onclick="ctMove('${id}','In Progress')">↺ Reopen — In Progress</button>`, `<button class="btn" onclick="ctMove('${id}','Revisions Needed')">↺ Return for revisions</button>`);
+    if(acts && extra.length) acts.insertAdjacentHTML('beforeend', extra.join(''));
+    const head = b.querySelector('.badge')?.parentElement;
+    if(head && appr && !el('ctSt')) head.insertAdjacentHTML('beforeend', `<label class="ct-st">Status <select id="ctSt" onchange="ctMove('${id}', this.value)">${STATUSES.map(s=>`<option value="${esc(s)}" ${s===t.status?'selected':''}>${esc(ctStatusLabel(s))}</option>`).join('')}</select></label>
+      ${t.client && canEditOrg(t.client) ? `<label class="ct-st"><input type="checkbox" ${ctNeedsClient(t.client)?'checked':''} onchange="ctToggleClientApproval('${t.client}', this.checked)"> Client approves content</label>` : ''}`);
+    if(t.status===PCA && !b.querySelector('.ct-pca')) b.querySelector('.split > div')?.insertAdjacentHTML('afterbegin', `<div class="ct-pca">⏳ Approved by ${esc(taskApprovers(t).map(first).join(' & '))} — waiting for ${esc(cname(t.client))}’s approval. You can still edit it; changes are saved as new versions and the PM is told.</div>`);
+    const tl = b.querySelector('.timeline'); if(tl) tl.innerHTML = ctHistoryHTML(t);
+    return r; }; }
+function ctHistoryHTML(t){ const H = (t.history||[]).slice().reverse();
+  return H.map(h=>{ const st = STATUSES.includes(h.act) || /^(Requested revisions|Submitted for approval)$/.test(h.act); const to = h.act==='Requested revisions' ? 'Revisions Needed' : h.act==='Submitted for approval' ? 'For Approval' : h.act;
+    const col = /Approved/.test(to) ? 'var(--ok)' : /revision|Reject/i.test(h.act) ? 'var(--bad)' : 'var(--ink)';
+    return `<div class="ti"><b style="color:${col}">${st && h.from && h.from!==to ? `${esc(h.from)} → ${esc(to)}` : esc(h.act)}</b> · ${esc(h.who ? pname(h.who) : h.by||'')} · <span class="hint">${esc(h.when || (h.at ? dtstr(h.at) : ''))}</span>${h.note?`<div style="margin-top:2px">${/^Edited/.test(h.act) ? 'Changed: ' + esc(h.note) : '“'+esc(h.note)+'”'}</div>`:''}</div>`; }).join('') || '<div class="hint">No activity yet.</div>'; }
+/* edits while waiting for the client: allowed, versioned, PM informed (no automatic return to "For Approval") */
+{ const _cv = ceRecordVersion; ceRecordVersion = function(t, before, changed){ const was = t.status; const r = _cv.apply(this, arguments);
+    if(was===PCA && !canApproveTask(t)) notify(taskApprovers(t), 'assignment', `${esc(first(PERSON))} edited <b>${esc(t.title)}</b> while it waits for the client (${esc(changed.map(k=>CE_LABEL[k]||k).join(', '))}) — version ${t.version}`, {view:'tasks', task:t.id});
+    return r; }; }
+/* dragging on the board follows the same rules */
+{ const _dt = dropTask; dropTask = function(e, status){ const t = TASKS.find(x=>x.id===dragId);
+    if(t && status===PCA && !canApproveTask(t)){ e.currentTarget.classList.remove('dragover'); return toast('Only the client’s PM or a company head can approve content'); }
+    if(t && ['Approved',PCA,'Completed'].includes(t.status) && ['Draft','In Progress','For Approval'].includes(status) && !canApproveTask(t)){ e.currentTarget.classList.remove('dragover'); return toast('Only the client’s PM or a company head can reopen approved content'); }
+    return _dt.apply(this, arguments); }; }
+/* waiting for the client is not the VA's overdue work */
+if(typeof TASK_CLOSED!=='undefined' && !TASK_CLOSED.includes(PCA)) TASK_CLOSED.push(PCA);
+
+/* ---------- 2. VA reassignment requests → COO / company heads approve ---------- */
+let TEAMREQS = [];
+COLL.teamreqs = {get:()=>TEAMREQS, set:v=>TEAMREQS=v, aud:r=>uniq([...HEADS, r.by, ...pmsOf(r.client)])};
+const trApprover = () => isHead(PERSON) || isFullAccess();
+const trNeedsApproval = cid => ROLE==='manager' && !canCreateOrgs() && !trApprover() && !!client(cid);
+const trPending = () => TEAMREQS.filter(r=>r.status==='Pending' && client(r.client));
+function trDesc(r){ const p = [...(r.add||[]).map(k=>'+ '+pname(k)), ...(r.remove||[]).map(k=>'− '+pname(k)), ...(r.pmsAdd||[]).map(k=>'+ '+pname(k)+' (PM)'), ...(r.pmsRemove||[]).map(k=>'− '+pname(k)+' (PM)')]; return p.join(', ') || 'no change'; }
+{ const _so = saveOrg; saveOrg = function(cid){
+    if(!cid || !trNeedsApproval(cid)) return _so.apply(this, arguments);
+    const c = client(cid); const prevTeam = [...(c.team||[])], prevPms = pmsOf(cid);
+    const team = [...document.querySelectorAll('.ogMem:checked')].map(x=>x.value); const pms = [...document.querySelectorAll('#ogPms input:checked')].map(x=>x.value);
+    const resp = {}; document.querySelectorAll('.ogResp').forEach(i=>{ if(team.includes(i.dataset.id) && i.value.trim()) resp[i.dataset.id] = i.value.trim(); });
+    const add = team.filter(k=>!prevTeam.includes(k)), remove = prevTeam.filter(k=>!team.includes(k)), pmsAdd = pms.filter(k=>!prevPms.includes(k)), pmsRemove = prevPms.filter(k=>!pms.includes(k));
+    if(add.length || remove.length || pmsAdd.length || pmsRemove.length){
+      /* the rest of the form saves now; the team stays as it is until leadership approves */
+      document.querySelectorAll('.ogMem').forEach(x=>x.checked = prevTeam.includes(x.value)); document.querySelectorAll('#ogPms input').forEach(x=>x.checked = prevPms.includes(x.value));
+      const out = _so.apply(this, arguments);
+      const r = {id:uid('TR'), client:cid, by:PERSON, at:nowISO(), status:'Pending', add, remove, pmsAdd, pmsRemove, resp, note:''};
+      TEAMREQS.unshift(r); c.assignLog = [...(c.assignLog||[]).slice(-40), {at:nowISO(), by:PERSON, note:'Requested a team change (waiting for approval): '+trDesc(r)}];
+      notify(HEADS.filter(k=>k!==PERSON && PEOPLE[k]), 'approval', `👥 <b>${esc(first(PERSON))}</b> requests a VA change for <b>${esc(c.name)}</b>: ${esc(trDesc(r))} — review in Approvals`, {view:'approvals', teamreq:r.id});
+      recordChange(); closeModal(); toast('Team change sent to the COO and company heads for approval — it takes effect once approved'); return out; }
+    return _so.apply(this, arguments); }; }
+function trDecide(id, ok){ const r = TEAMREQS.find(x=>x.id===id); if(!r || r.status!=='Pending' || !trApprover()) return;
+  if(!ok) return openModal('Reject the team change', `<p style="font-size:13px;margin-bottom:10px">${esc(cname(r.client))}: ${esc(trDesc(r))} · requested by ${esc(pname(r.by))}</p>
+    <div class="field"><label>Reason (sent to ${esc(first(r.by))})</label><textarea id="trWhy" rows="3"></textarea></div><button class="btn primary" style="width:100%" onclick="trReject('${id}')">Reject request</button>`);
+  const c = client(r.client); if(!c) return toast('That client no longer exists');
+  const before = [...(c.team||[])], beforeP = pmsOf(c.id);
+  c.team = uniq([...(c.team||[]).filter(k=>!(r.remove||[]).includes(k)), ...(r.add||[])]);
+  c.pms = uniq([...beforeP.filter(k=>!(r.pmsRemove||[]).includes(k)), ...(r.pmsAdd||[])]); c.mgr = c.pms[0] || c.mgr || null;
+  c.resp = {...(c.resp||{})}; Object.entries(r.resp||{}).forEach(([k,v])=>{ if(c.team.includes(k) && !c.resp[k]) c.resp[k] = v; }); (r.add||[]).forEach(k=>{ if(!c.resp[k]) c.resp[k] = P(k)?.sub || 'VA'; });
+  EMPLOYEES.forEach(e=>{ const on = c.team.includes(e.id); const has = (e.clients||[]).includes(c.id); if(on && !has) e.clients = [...(e.clients||[]), c.id]; if(!on && has) e.clients = e.clients.filter(x=>x!==c.id); });
+  c.assignLog = [...(c.assignLog||[]).slice(-40), {at:nowISO(), by:PERSON, added:r.add||[], removed:r.remove||[], pmsAdded:r.pmsAdd||[], pmsRemoved:r.pmsRemove||[], note:`Approved ${first(r.by)}’s request`}];
+  Object.assign(r, {status:'Approved', decidedBy:PERSON, decidedAt:nowISO()});
+  rebuildPeople(); ensureChats(); recordChange();
+  notify([r.by], 'approval', `✅ ${esc(first(PERSON))} approved your team change for <b>${esc(c.name)}</b>: ${esc(trDesc(r))}`, {view:'clientws', client:c.id});
+  if((r.add||[]).length) notify(r.add, 'assignment', `👋 You’ve been assigned to <b>${esc(c.name)}</b> — the client workspace and group chat are now in your portal`, {view:'chat', arg:c.chatId});
+  if((r.remove||[]).length) notify(r.remove, 'assignment', `You’ve been moved off <b>${esc(c.name)}</b>`, {view:'dashboard'});
+  try{ notify(financeKeys(), 'hr', `${esc(first(PERSON))} approved assignment changes for <b>${esc(c.name)}</b>: ${esc(trDesc(r))}. Review the agreed rates in Finance.`, finLink('clients')); }catch(e){}
+  if(CURRENT==='approvals') RENDER.approvals(); buildNav(); toast(`Approved — ${c.name}’s team is updated in every portal`); }
+function trReject(id){ const r = TEAMREQS.find(x=>x.id===id); if(!r) return; const why = el('trWhy')?.value.trim() || '';
+  Object.assign(r, {status:'Rejected', decidedBy:PERSON, decidedAt:nowISO(), reason:why}); recordChange(); closeModal();
+  notify([r.by], 'revision', `${esc(first(PERSON))} did not approve your team change for <b>${esc(cname(r.client))}</b>${why?': “'+esc(why)+'”':''}`, {view:'approvals', teamreq:r.id});
+  if(CURRENT==='approvals') RENDER.approvals(); buildNav(); toast('Rejected — '+first(r.by)+' was notified'); }
+function trCancel(id){ const r = TEAMREQS.find(x=>x.id===id); if(!r || r.by!==PERSON || r.status!=='Pending') return; r.status = 'Cancelled'; r.decidedAt = nowISO(); recordChange(); RENDER.approvals?.(); toast('Request withdrawn'); }
+function trCardHTML(){ const mine = TEAMREQS.filter(r=>r.by===PERSON).slice(0, 8); const P_ = trApprover() ? trPending() : [];
+  if(!P_.length && !mine.length) return '';
+  const row = (r, act) => `<div class="list-row tr-row" data-tr="${r.id}" style="flex-wrap:wrap">${av(P(r.by))}<div style="flex:1;min-width:200px"><b style="font-size:12.5px">${esc(cname(r.client))}</b> — ${esc(trDesc(r))}
+      <div class="hint">Requested by ${esc(pname(r.by))} · ${esc(ago(r.at))}${r.status!=='Pending'?` · <b>${esc(r.status)}</b>${r.decidedBy?' by '+esc(first(r.decidedBy)):''}${r.reason?' — “'+esc(r.reason)+'”':''}`:''}</div></div>
+      ${act && r.status==='Pending' ? `<span style="display:inline-flex;gap:6px"><button class="btn primary" style="padding:5px 11px;font-size:12px" onclick="trDecide('${r.id}',true)">✓ Approve</button><button class="btn" style="padding:5px 11px;font-size:12px" onclick="trDecide('${r.id}',false)">✕ Reject</button></span>`
+        : r.status==='Pending' && r.by===PERSON ? `<button class="btn ghost" style="padding:5px 11px;font-size:12px" onclick="trCancel('${r.id}')">Withdraw</button>` : ''}</div>`;
+  return `<div class="card tr-card" style="margin-bottom:16px"><div class="card-h"><h3>VA assignment changes ${P_.length?`<span class="pill">${P_.length}</span>`:''}</h3><span class="sub">PM requests take effect after the COO or a company head approves</span></div><div class="card-b" style="padding-top:6px">
+    ${trApprover() ? (P_.map(r=>row(r, true)).join('') || '<div class="hint" style="padding:6px 0">No requests waiting.</div>') : ''}
+    ${mine.length ? `<div class="nav-label" style="padding:10px 0 4px">Your requests</div>${mine.map(r=>row(r, false)).join('')}` : ''}</div></div>`; }
+{ const _ra = RENDER.approvals; RENDER.approvals = function(){ const r = _ra.apply(this, arguments); const v = el('v-approvals'); if(!v) return r;
+    const h = trCardHTML(); if(h) v.querySelector('.page-head')?.insertAdjacentHTML('afterend', h); return r; }; }
+pendingApprovalCount = (f => function(){ return f.apply(this, arguments) + (trApprover() ? trPending().length : 0); })(pendingApprovalCount);
+if(typeof cooItems==='function'){ const _ci = cooItems; cooItems = function(){ const I = _ci.apply(this, arguments);
+    if(trApprover()) trPending().forEach(r=>I.push({sec:'approve', key:'treq:'+r.id, title:`VA change — ${cname(r.client)}`, sub:`${trDesc(r)} · requested by ${first(r.by)}`, who:[], open:`go('approvals')`, decide:true}));
+    return I; }; }
+/* the "Team" form tells PMs that changes need approval */
+{ const _om = orgModal; orgModal = function(cid){ const r = _om.apply(this, arguments);
+    if(cid && trNeedsApproval(cid)){ const t = el('ogTeam'); const pend = TEAMREQS.filter(x=>x.client===cid && x.status==='Pending');
+      t?.closest('.field')?.insertAdjacentHTML('beforebegin', `<div class="tr-note">👥 Changes to the PMs or VAs are sent to the COO and company heads for approval and take effect once approved.${pend.length?` <b>${pend.length} request${pend.length>1?'s':''} already waiting:</b> ${pend.map(x=>esc(trDesc(x))).join('; ')}`:''}</div>`); }
+    return r; }; }
+/* following a notification opens the Approvals page */
+{ const _fl = followLink; followLink = function(link){ if(link?.view==='approvals' && link.teamreq){ go('approvals'); setTimeout(()=>document.querySelector(`.tr-row[data-tr="${link.teamreq}"]`)?.scrollIntoView({block:'center'}), 150); return; } return _fl.apply(this, arguments); }; }
+
+/* ---------- 3. TK-qex: re-drawing a page keeps its scroll position (status dropdowns, live updates) ---------- */
+const SCR = {view:null, busy:0};
+function scrEls(){ return [document.querySelector('.content'), document.scrollingElement].filter(Boolean); }
+function scrWrap(k){ const f = RENDER[k]; if(typeof f!=='function' || f.__scr) return;
+  const w = function(){ if(SCR.busy){ return f.apply(this, arguments); }
+    const same = SCR.view===k && CURRENT===k; const pos = same ? scrEls().map(e=>e.scrollTop) : null; SCR.busy++;
+    let r; try{ r = f.apply(this, arguments); } finally { SCR.busy--; }
+    if(pos){ const els = scrEls(); const put = () => els.forEach((e,i)=>{ if(pos[i] && Math.abs(e.scrollTop - pos[i]) > 2) e.scrollTop = pos[i]; }); put(); requestAnimationFrame(put); }
+    SCR.view = k; return r; };
+  w.__scr = true; RENDER[k] = w; }
+function scrWrapAll(){ Object.keys(RENDER).forEach(k=>{ if(k!=='chat') scrWrap(k); }); }
+scrWrapAll(); setTimeout(scrWrapAll, 0);
+{ const _go = go; go = function(id){ if(id!==CURRENT) SCR.view = null; return _go.apply(this, arguments); }; }
+
+/* ---------- 4. TK-vo1: forward a message to another conversation ---------- */
+{ const _rb = reactBtnHTML; reactBtnHTML = function(m){ const h = _rb.apply(this, arguments);
+    if(!m || m.deleted || m.kind==='call' || m.sys || (!m.text && !(m.files||[]).length)) return h;
+    return h + ` <button class="msg-act" onclick="fwdModal('${m.id}')" title="Forward to another conversation">↪ Forward</button>`; }; }
+function fwdModal(id){ const m = MESSAGES.find(x=>x.id===id); if(!m) return;
+  const C = myChats().filter(c=>!c.archived && !(c.kind==='clientline' && ROLE==='client')).sort((a,b)=>chatTitle(a).localeCompare(chatTitle(b)));
+  openModal('Forward message', `<div class="fwd-pv"><div class="hint">${esc(pname(m.by))} · ${esc(chatTitle(CHATS.find(c=>c.id===m.chat)||{name:''}))}</div>${esc((m.text||msgPreview(m)).slice(0,300))}${(m.files||[]).length?`<div class="hint">📎 ${(m.files||[]).length} attachment${m.files.length>1?'s':''}</div>`:''}</div>
+    <input id="fwdQ" placeholder="Search conversations…" oninput="document.querySelectorAll('.fwd-row').forEach(r=>r.hidden=!r.dataset.q.includes(this.value.toLowerCase()))" style="width:100%;margin:10px 0 8px">
+    <div class="fwd-list">${C.map(c=>`<label class="fwd-row" data-q="${esc(chatTitle(c).toLowerCase())}"><input type="checkbox" value="${c.id}">${chatAvatar(c)}<span><b>${esc(chatTitle(c))}</b><small class="hint">${c.kind==='dm'?'Private message':c.kind==='client'?'Client group':c.kind==='clientline'?'Client portal':'Group'}</small></span></label>`).join('')}</div>
+    <div class="field" style="margin-top:10px"><label>Add a note (optional)</label><input id="fwdNote" placeholder="e.g. FYI — please check this"></div>
+    <div class="cf-acts"><button class="btn" onclick="closeModal()">Cancel</button><button class="btn primary" onclick="fwdSend('${id}')">↪ Forward</button></div>`);
+  setTimeout(()=>el('fwdQ')?.focus(), 40); }
+function fwdSend(id){ const m = MESSAGES.find(x=>x.id===id); if(!m) return; const to = [...document.querySelectorAll('.fwd-list input:checked')].map(x=>x.value); if(!to.length) return toast('Choose at least one conversation');
+  const note = el('fwdNote')?.value.trim() || ''; const src = CHATS.find(c=>c.id===m.chat); let n = 0;
+  to.forEach(cid=>{ const c = CHATS.find(x=>x.id===cid); if(!c || !(c.members||[]).includes(PERSON) || c.archived) return;
+    const f = {id:uid('M'), chat:c.id, by:PERSON, text:(note ? note + '\n\n' : '') + (m.text||''), at:nowISO(), files:JSON.parse(JSON.stringify(m.files||[])),
+      fwd:{by:m.by, chat:m.chat, chatName:src ? chatTitle(src) : '', at:m.at, msg:m.id, note:!!note}};
+    MESSAGES.push(f); n++;
+    const what = (note || m.text || msgPreview(m)).slice(0, 90);
+    if(c.kind==='dm') notify(c.members.filter(k=>k!==PERSON), 'message', `↪ <b>${esc(first(PERSON))}</b> forwarded a message: ${esc(what)}`, {view:'chat', arg:c.id});
+    myPrefs().lastRead[c.id] = f.at; });
+  recordChange(); closeModal(); if(CURRENT==='chat') RENDER.chat(); toast(`Forwarded to ${n} conversation${n>1?'s':''}`); }
+{ const _mt = msgText; msgText = function(m){ const h = _mt.apply(this, arguments); if(!m?.fwd) return h;
+    const lbl = `<div class="fwd-tag">↪ Forwarded${m.fwd.by?` from ${esc(pname(m.fwd.by))}`:''}${m.fwd.chatName && (CHATS.find(c=>c.id===m.fwd.chat)?.members||[]).includes(PERSON)?` · ${esc(m.fwd.chatName)}`:''}</div>`;
+    return lbl + h; }; }
+{ const _mp = msgPreview; msgPreview = function(m){ const p = _mp.apply(this, arguments); return m?.fwd && !m.fwd.note ? '↪ ' + p : p; }; }
+{ const _sg = msgSig; msgSig = (m, prev) => _sg(m, prev) + (m?.fwd ? '|f' : ''); }
+
+/* ---------- 5. TK-6ea: tickets can be saved as drafts ---------- */
+const tkDrafts = () => { const p = PREFS.find(x=>x.id===PERSON); return (p?.tkDrafts||[]); };
+function tkDraftHasContent(d){ return !!(d && ((d.title||'').trim() || (d.desc||'').trim() || (d.files||[]).length)); }
+function tkDraftSave(quiet){ if(!el('tkTitle')) return false; tkSaveDraft(); const d = TK_DRAFT; if(!tkDraftHasContent(d)){ if(!quiet) toast('Nothing to save yet'); return false; }
+  const p = myPrefs(); d.draftId = d.draftId || uid('TD'); d.savedAt = nowISO();
+  const clean = JSON.parse(JSON.stringify({...d, files:(d.files||[]).filter(f=>!f.uploading)}));
+  p.tkDrafts = [clean, ...(p.tkDrafts||[]).filter(x=>x.draftId!==d.draftId)].slice(0, 20); recordChange();
+  if(!quiet) toast('Draft saved — find it under System Ops Support → Your drafts'); return true; }
+function tkDraftOpen(id){ const d = tkDrafts().find(x=>x.draftId===id); if(!d) return; TK_DRAFT = JSON.parse(JSON.stringify(d)); ticketModal({}); }
+function tkDraftDelete(id){ const p = myPrefs(); p.tkDrafts = (p.tkDrafts||[]).filter(x=>x.draftId!==id); recordChange(); RENDER.support?.(); toast('Draft deleted'); }
+{ const _tm = ticketModal; ticketModal = function(){ const r = _tm.apply(this, arguments); const acts = el('tkSend')?.parentElement;
+    if(acts && !el('tkDraftBtn')) acts.insertAdjacentHTML('afterbegin', `<button class="btn" id="tkDraftBtn" onclick="if(tkDraftSave()){ TK_DRAFT=null; closeModal(); }">💾 Save as draft</button>`);
+    const cancel = [...(acts?.querySelectorAll('button')||[])].find(b=>b.textContent.trim()==='Cancel'); if(cancel) cancel.setAttribute('onclick', 'TK_DRAFT=null;closeModal()');
+    return r; }; }
+/* closing the window (✕, outside click, Esc) keeps what you typed as a draft */
+{ const _cm = closeModal; closeModal = function(){ try{ if(el('tkTitle') && TK_DRAFT && el('modal')?.classList.contains('open')){ tkSaveDraft(); if(tkDraftHasContent(TK_DRAFT) && tkDraftSave(true)) setTimeout(()=>toast('Saved as a draft — continue it under System Ops Support → Your drafts'), 50); } }catch(e){}
+    return _cm.apply(this, arguments); }; }
+{ const _ts = tkSubmit; tkSubmit = async function(){ const did = TK_DRAFT?.draftId; const n = TICKETS.length; const r = await _ts.apply(this, arguments);
+    if(did && TICKETS.length > n){ const p = myPrefs(); p.tkDrafts = (p.tkDrafts||[]).filter(x=>x.draftId!==did); recordChange(); }
+    return r; }; }
+{ const _rs = RENDER.support; RENDER.support = function(){ const r = _rs.apply(this, arguments); const v = el('v-support'); const D = tkDrafts(); if(!v || !D.length) return r;
+    v.querySelector('.tk-drafts')?.remove();
+    v.querySelector('.page-head')?.insertAdjacentHTML('afterend', `<div class="card tk-drafts" style="margin-bottom:14px"><div class="card-h"><h3>Your drafts <span class="pill">${D.length}</span></h3><span class="sub">Only you can see these until you submit</span></div><div class="card-b" style="padding-top:4px">
+      ${D.map(d=>`<div class="list-row"><div style="flex:1;min-width:0"><b style="font-size:12.5px">${esc(d.title||'(no title yet)')}</b><div class="hint">${esc(d.type||'')} · ${esc(d.priority||'')} · saved ${esc(ago(d.savedAt))}${(d.files||[]).length?` · 📎 ${d.files.length}`:''}</div></div>
+        <button class="btn primary" style="padding:5px 11px;font-size:12px" onclick="tkDraftOpen('${d.draftId}')">Continue</button><button class="btn ghost" style="padding:5px 9px;font-size:12px" onclick="tkDraftDelete('${d.draftId}')">✕</button></div>`).join('')}</div></div>`);
+    return r; }; }
+
+/* ---------- 6. TK-vlw: add VAs / core team to meetings and calls ---------- */
+const mtCanInvite = m => !!m && m.status!=='cancelled' && !mtPast(m) && (m.organizer===PERSON || (m.participants||[]).includes(PERSON) || isHead(PERSON) || ROLE==='hr' || isFullAccess());
+let MTI_PICK = [];
+function mtInviteModal(id){ const m = MEETINGS.find(x=>x.id===id); if(!mtCanInvite(m)) return toast('Only people in this meeting can add others'); MTI_PICK = [];
+  const groups = mtQuickGroups(); const va = activePeople().filter(k=>PEOPLE[k] && PEOPLE[k].role==='employee' && !isAssistantKey(k)); if(va.length) groups.push(['All VAs', va]);
+  openModal('Add people — '+m.title, `<input id="mtiQ" placeholder="Search people…" oninput="mtiDraw('${id}')" style="width:100%;margin-bottom:8px">
+    <div class="mt-quick">${groups.map((g,i)=>`<button type="button" class="chip" onclick="MTI_PICK=uniq([...MTI_PICK, ...${esc(JSON.stringify(g[1]))}]);mtiDraw('${id}')">+ ${esc(g[0])}</button>`).join('')}</div>
+    <div id="mtiList" class="mt-pick" style="max-height:340px;overflow:auto;margin-top:8px"></div>
+    <div class="cf-acts"><button class="btn" onclick="closeModal()">Cancel</button><button class="btn primary" onclick="mtInviteSave('${id}')">Add & notify</button></div>`);
+  mtiDraw(id); setTimeout(()=>el('mtiQ')?.focus(), 40); }
+function mtiDraw(id){ const m = MEETINGS.find(x=>x.id===id); const box = el('mtiList'); if(!m || !box) return; const q = (el('mtiQ')?.value||'').toLowerCase(); const inM = new Set([m.organizer, ...(m.participants||[])]);
+  const all = activePeople().filter(k=>!inM.has(k) && !isAssistantKey(k) && PEOPLE[k]?.role!=='client').sort((a,b)=>pname(a).localeCompare(pname(b)));
+  box.innerHTML = all.filter(k=>MTI_PICK.includes(k) || !q || (pname(k)+' '+(PEOPLE[k].sub||'')).toLowerCase().includes(q)).map(k=>`<label class="mt-p ${MTI_PICK.includes(k)?'on':''}"><input type="checkbox" ${MTI_PICK.includes(k)?'checked':''} onchange="MTI_PICK=this.checked?uniq([...MTI_PICK,'${k}']):MTI_PICK.filter(x=>x!=='${k}');mtiDraw('${id}')">${av(P(k))}<span><b>${esc(pname(k))}</b><small>${esc(PEOPLE[k].sub||'')}</small></span></label>`).join('') || '<div class="hint">Everyone is already invited.</div>'; }
+function mtInviteSave(id){ const m = MEETINGS.find(x=>x.id===id); if(!mtCanInvite(m)) return; const add = MTI_PICK.filter(k=>k!==m.organizer && !(m.participants||[]).includes(k)); if(!add.length) return toast('Pick at least one person');
+  m.participants = uniq([...(m.participants||[]), ...add]); m.updatedAt = nowISO(); m.history = [...(m.history||[]), {at:nowISO(), by:PERSON, act:`${first(PERSON)} added ${add.map(first).join(', ')}`}];
+  notify(add, 'meeting', `📅 <b>${esc(first(PERSON))}</b> invited you to <b>${esc(m.title)}</b> — ${esc(mtDate(m.start))} · ${esc(mtTime(m.start))}`, {view:'schedule', meeting:m.id});
+  if(m.organizer!==PERSON) notify([m.organizer], 'meeting', `${esc(first(PERSON))} added ${esc(add.map(first).join(', '))} to <b>${esc(m.title)}</b>`, {view:'schedule', meeting:m.id});
+  recordChange(); closeModal(); RENDER.schedule?.(); toast(`Added ${add.map(first).join(', ')} — they were notified`); }
+{ const _mo = mtOpen; mtOpen = function(id){ const r = _mo.apply(this, arguments); const m = MEETINGS.find(x=>x.id===id); const a = el('modalBody')?.querySelector('.mt-acts');
+    if(a && mtCanInvite(m) && !a.querySelector('.mt-inv')) a.insertAdjacentHTML('beforeend', `<button class="btn mt-inv" onclick="mtInviteModal('${id}')">＋ Add people</button>`); return r; }; }
+/* the full "Edit" (organizer) also gets a one-tap "All VAs" group */
+{ const _qg = mtQuickGroups; mtQuickGroups = function(){ const G = _qg.apply(this, arguments); const va = activePeople().filter(k=>k!==PERSON && PEOPLE[k] && PEOPLE[k].role==='employee' && !isAssistantKey(k));
+    if(va.length && !G.some(g=>g[0]==='All VAs')) G.push(['All VAs', va]);
+    const hr = HR_KEYS().filter(k=>k!==PERSON && PEOPLE[k]); if(hr.length && !G.some(g=>g[0]==='HR')) G.push(['HR', hr]); return G; }; }
+/* a call that moved to Google Meet can still bring people in (they get the Meet link) */
+{ const _ca = callAddModal; callAddModal = function(){ if(CALL && CALL.inMeet){ CALL.inMeet = false; try{ return _ca.apply(this, arguments); } finally { CALL.inMeet = true; } } return _ca.apply(this, arguments); }; }
+
+/* ---------- 7. TK-qmj: review-queue edits are kept and posted ---------- */
+const PA_EDIT = {};
+document.addEventListener('input', e=>{ const t = e.target; if(t?.id?.startsWith('fu-')){ const id = t.id.slice(3); PA_EDIT[id] = t.value; } }, true);
+document.addEventListener('change', e=>{ const t = e.target; if(t?.id?.startsWith('fu-')){ const id = t.id.slice(3); const l = PALOG.find(x=>x.id===id); if(l && l.status==='Pending review' && t.value!==(l.edited||l.text)){ l.edited = t.value; l.editedBy = PERSON; l.editedAt = nowISO(); recordChange(); } } }, true);
+{ const _rp = RENDER.pa; RENDER.pa = function(){ const r = _rp.apply(this, arguments);
+    document.querySelectorAll('#v-pa textarea[id^="fu-"]').forEach(t=>{ const id = t.id.slice(3); const l = PALOG.find(x=>x.id===id); const v = PA_EDIT[id] ?? l?.edited; if(v!=null && t.value!==v) t.value = v;
+      if(l?.edited && !t.parentElement.querySelector('.fu-ed')) t.insertAdjacentHTML('afterend', `<div class="hint fu-ed">✎ Edited${l.editedBy?' by '+esc(first(l.editedBy)):''} — the edited text is what will be posted</div>`); });
+    return r; }; }
+{ const _pa = paApprove; paApprove = function(logId){ const l = PALOG.find(x=>x.id===logId); const ta = el('fu-'+logId);
+    const txt = (ta?.value ?? PA_EDIT[logId] ?? l?.edited ?? '').trim();
+    if(l && txt && txt!==l.text){ l.original = l.original || l.text; l.text = txt; l.edited = txt; }
+    const r = _pa.apply(this, arguments); delete PA_EDIT[logId]; return r; }; }
+
+/* ---------- 8. TK-8a4: every VA working on a client is listed in the PM assistant ---------- */
+paVAs = function(cid){ const c = client(cid); if(!c) return []; const act = new Set(activePeople()); const cc = Object.values(PACFG||[]).map(x=>(x.clients||{})[cid]).filter(Boolean);
+  const fromAssign = (typeof ASSIGNS!=='undefined' ? ASSIGNS : []).filter(a=>a.client===cid && a.status==='Active').map(a=>a.va);
+  const fromLG = (LEADCFG.find(x=>x.id===cid)?.vas)||[];
+  const fromTasks = TASKS.filter(t=>t.client===cid && t.assignee && !['Completed','Archived','Cancelled'].includes(t.status) && Date.now() - Date.parse(t.updatedAt||t.at||t.createdAt||0) < 30*864e5).map(t=>t.assignee);
+  const extra = cc.flatMap(x=>x.extra||[]);
+  return uniq([...(c.team||[]), ...fromLG, ...fromAssign, ...fromTasks, ...extra]).filter(k=>PEOPLE[k] && act.has(k) && PEOPLE[k].role!=='client' && !pmsOf(cid).includes(k) && !isHead(k) && !isAssistantKey(k)); };
+/* recipients: everyone except the VAs the PM switched off (so a VA who joins later is included automatically) */
+paRecipients = function(cfg, cid){ const cc = paClientCfg(cfg, cid); const all = paVAs(cid);
+  if(Array.isArray(cc.exclude)) return all.filter(k=>!cc.exclude.includes(k));
+  if(Array.isArray(cc.recipients)) return all.filter(k=>cc.recipients.includes(k));   /* older saved choice (until the settings are saved again) */
+  return all; };
+{ const _ss = paSaveSettings; paSaveSettings = function(id){ const before = JSON.parse(JSON.stringify(paCfg(id))); const r = _ss.apply(this, arguments);
+    const cfg = paCfg(id); let ch = false;
+    document.querySelectorAll('#v-pa tr[data-c]').forEach(tr=>{ const cid = tr.dataset.c; const all = paVAs(cid); const on = [...tr.querySelectorAll('.paTo:checked')].map(x=>x.value);
+      const cc = cfg.clients?.[cid]; if(!cc) return; cc.exclude = all.filter(k=>!on.includes(k)); cc.recipients = null; cc.extra = (before.clients?.[cid]?.extra)||cc.extra||[]; ch = true; });
+    if(ch){ paSaveCfg(cfg); RENDER.pa(); } return r; }; }
+function paAddVA(aid, cid){ const a = assistant(aid); if(!paCan(a)) return; const cur = new Set(paVAs(cid));
+  const L = activePeople().filter(k=>PEOPLE[k]?.role==='employee' && !cur.has(k) && !isAssistantKey(k)).sort((x,y)=>pname(x).localeCompare(pname(y)));
+  openModal('Add a VA to the reminders — '+cname(cid), `<input placeholder="Search…" oninput="document.querySelectorAll('.paxr').forEach(r=>r.hidden=!r.textContent.toLowerCase().includes(this.value.toLowerCase()))" style="width:100%;margin-bottom:8px">
+    <div style="max-height:340px;overflow:auto">${L.map(k=>`<label class="list-row paxr" style="cursor:pointer"><input type="checkbox" class="paX" value="${k}" style="width:auto"> ${av(P(k))}<div><b style="font-size:12.5px">${esc(pname(k))}</b><div class="hint">${esc(P(k).sub||'')}</div></div></label>`).join('') || '<div class="hint">Every active VA is already listed.</div>'}</div>
+    <div class="hint" style="margin:8px 0">They’re tagged in ${esc(cname(cid))}’s daily reminder. This doesn’t change the client’s team — use “Edit client team” for that.</div>
+    <div class="cf-acts"><button class="btn" onclick="closeModal()">Cancel</button><button class="btn primary" onclick="paAddVASave('${aid}','${cid}')">Add</button></div>`); }
+function paAddVASave(aid, cid){ const ks = [...document.querySelectorAll('.paX:checked')].map(x=>x.value); if(!ks.length) return toast('Pick at least one VA');
+  const cfg = JSON.parse(JSON.stringify(paCfg(aid))); cfg.clients = cfg.clients || {}; const cc = cfg.clients[cid] = {...paClientCfg(cfg, cid)}; cc.extra = uniq([...(cc.extra||[]), ...ks]); if(Array.isArray(cc.exclude)) cc.exclude = cc.exclude.filter(k=>!ks.includes(k));
+  paSaveCfg(cfg); closeModal(); RENDER.pa(); toast(`${ks.map(first).join(', ')} added to ${cname(cid)}’s reminders`); }
+{ const _rp = RENDER.pa; RENDER.pa = function(){ const r = _rp.apply(this, arguments); const a = typeof paSel==='function' ? paSel() : null; if(!a || !paCan(a)) return r;
+    document.querySelectorAll('#v-pa tr[data-c]').forEach(tr=>{ const td = tr.children[2]; if(td && !td.querySelector('.pa-add')) td.insertAdjacentHTML('beforeend', ` <button class="btn ghost pa-add" style="padding:2px 8px;font-size:11.5px" onclick="paAddVA('${a.id}','${tr.dataset.c}')">＋ VA</button>`); });
+    return r; }; }
+
+/* ---------- 9. TK-co4 / TK-see: work hours per client assignment, and Time Out that always sticks ---------- */
+/* c.hours = {va: {start:'21:00', end:'05:00', flex:false}} — set by HR, company heads or the client's PM */
+const hmToMins = v => { const m = String(v||'').match(/^(\d{1,2}):(\d{2})/); return m ? (+m[1])*60 + +m[2] : null; };
+const minsToLabel = m => { if(m==null) return ''; const h = Math.floor(m/60)%24, mm = m%60; return `${(h%12)||12}:${String(mm).padStart(2,'0')} ${h<12?'AM':'PM'}`; };
+function attHoursFor(k, cid){ const c = cid && client(cid); const h = c?.hours?.[k]; if(h && (h.flex || hmToMins(h.start)!=null)) return h;
+  const e = EMPLOYEES.find(x=>x.id===k); if(e?.workHours && (e.workHours.flex || hmToMins(e.workHours.start)!=null)) return e.workHours; return null; }
+function attLateFor(r){ const inM = manilaMins(r.in); if(inM==null) return false;
+  const first = (r.events||[]).find(ev=>ev.kind==='Time in'); const cid = first ? first.client : r.client;
+  const h = attHoursFor(r.person, cid || r.client);
+  if(h?.flex) return false;
+  if(h){ const st = hmToMins(h.start); const grace = +(S().lateGraceMins ?? 15); const diff = (inM - st + 1440) % 1440; return diff > grace && diff < 12*60; }
+  return inM > lateMins(); }
+const attCanSetHours = cid => ROLE==='hr' || isHead(PERSON) || isFullAccess() || pmsOf(cid).includes(PERSON);
+function attHoursModal(){ const C = visClients().filter(c=>c.status==='Active' && !isEnded(c) && attCanSetHours(c.id));
+  const rows = C.flatMap(c=>uniq([...(c.team||[]), ...((LEADCFG.find(x=>x.id===c.id)?.vas)||[])]).filter(k=>PEOPLE[k]).map(k=>{ const h = c.hours?.[k] || {};
+    return `<tr data-c="${c.id}" data-k="${k}"><td>${esc(c.name)}</td><td>${esc(pname(k))}</td><td><input type="time" class="whS" value="${esc(h.start||'')}" ${h.flex?'disabled':''}></td><td><input type="time" class="whE" value="${esc(h.end||'')}" ${h.flex?'disabled':''}></td>
+      <td><label style="display:flex;gap:6px;align-items:center"><input type="checkbox" class="whF" style="width:auto" ${h.flex?'checked':''} onchange="this.closest('tr').querySelectorAll('input[type=time]').forEach(i=>i.disabled=this.checked)"> Flexible</label></td></tr>`; }));
+  openModal('Work hours by client', `<p class="hint" style="margin-bottom:10px">Set each VA’s working hours for each client (Philippine time). Time In is marked <b>Late</b> only when it is more than ${+(S().lateGraceMins ?? 15)} minutes after their start time for that client — night shifts past midnight work too. <b>Flexible</b> = the client doesn’t set fixed hours, so it’s never marked late. Without hours, the company “Late after ${esc(S().lateAfter||'9:15 AM')}” rule applies.</p>
+    <div class="tbl-wrap" style="max-height:52vh"><table class="tbl"><thead><tr><th>Client</th><th>VA</th><th>Starts</th><th>Ends</th><th></th></tr></thead><tbody>${rows.join('') || '<tr><td colspan="5" class="empty">No assignments you can manage.</td></tr>'}</tbody></table></div>
+    <div class="cf-acts"><button class="btn" onclick="closeModal()">Cancel</button><button class="btn primary" onclick="attHoursSave()">Save work hours</button></div>`, true); }
+function attHoursSave(){ let n = 0;
+  document.querySelectorAll('#modalBody tr[data-c]').forEach(tr=>{ const c = client(tr.dataset.c), k = tr.dataset.k; if(!c || !attCanSetHours(c.id)) return;
+    const h = {start:tr.querySelector('.whS').value||'', end:tr.querySelector('.whE').value||'', flex:tr.querySelector('.whF').checked};
+    const cur = c.hours?.[k] || {}; if(JSON.stringify({start:cur.start||'', end:cur.end||'', flex:!!cur.flex})===JSON.stringify(h)) return;
+    c.hours = {...(c.hours||{})}; if(!h.start && !h.end && !h.flex) delete c.hours[k]; else c.hours[k] = {...h, by:PERSON, at:nowISO()}; n++; });
+  if(n) recordChange(); closeModal(); RENDER.attendance?.(); toast(n ? `Saved work hours for ${n} assignment${n>1?'s':''}` : 'No changes'); }
+{ const _ra = RENDER.attendance; RENDER.attendance = function(){ const r = _ra.apply(this, arguments); const v = el('v-attendance'); if(!v) return r;
+    const head = v.querySelector('.page-head'); const mineH = visClients().filter(c=>c.hours?.[PERSON]).map(c=>{ const h = c.hours[PERSON]; return `${esc(c.name)}: ${h.flex?'flexible':esc(minsToLabel(hmToMins(h.start)))+(h.end?'–'+esc(minsToLabel(hmToMins(h.end))):'')}`; });
+    if(head && !v.querySelector('.wh-bar')) head.insertAdjacentHTML('afterend', `<div class="wh-bar">${mineH.length?`🕘 Your work hours — ${mineH.join(' · ')}`:''}${C_canHours()?` <button class="btn ghost" style="padding:4px 10px;font-size:12px" onclick="attHoursModal()">🕘 Work hours by client</button>`:''}</div>`);
+    return r; }; }
+const C_canHours = () => ROLE==='hr' || isHead(PERSON) || isFullAccess() || (ROLE==='manager');
+/* attendance saves only the fields that changed (a phone with an old copy can no longer re-open a session that was timed out) */
+if(typeof PATCH_COLLS!=='undefined'){ PATCH_COLLS.add('attendance'); PATCH_COLLS.add('clients'); }
+/* Time Out: confirmed by the server; if another device re-opened it, the newest Time Out wins */
+{ const _ore = onRemoteEvent; onRemoteEvent = function(ev){ const r = _ore.apply(this, arguments);
+    try{ if(!ev?.deleted && ev.coll==='attendance' && ev.obj?.person===PERSON){ const x = ev.obj; const lastOut = (x.events||[]).filter(e=>e.kind==='Time out').map(e=>e.t).sort().pop(); const lastIn = (x.events||[]).filter(e=>e.kind==='Time in').map(e=>e.t).sort().pop();
+        if(lastOut && (!lastIn || lastOut > lastIn) && !x.out){ x.out = lastOut; const ss = attSessions(x); const l = ss[ss.length-1]; if(l && !l.out) l.out = lastOut; x.sessions = ss; recordChange(); } } }catch(e){}
+    return r; }; }
+/* the running clock stops at the last Time Out even if the record's out field was overwritten */
+{ const _wm = workedMins; workedMins = function(r){ if(r && !r.out){ const lastOut = (r.events||[]).filter(e=>e.kind==='Time out').map(e=>e.t).sort().pop(); const lastIn = (r.events||[]).filter(e=>e.kind==='Time in').map(e=>e.t).sort().pop();
+      if(lastOut && (!lastIn || lastOut > lastIn)) return _wm.call(this, {...r, out:lastOut, sessions:attSessions(r).map((s,i,a)=>i===a.length-1 && !s.out ? {...s, out:lastOut} : s)}); }
+    return _wm.apply(this, arguments); }; }
+
+/* ---------- 10. Marcus: the Comment & Reply Studio also reads the client's saved tone, SOP and notes ---------- */
+vcJudge = async function(cid, text, ctx){
+  const c = client(cid); const kind = ctx.comment ? 'reply' : 'comment';
+  const res = await aiChat(`You are a strict editor checking whether a LinkedIn ${kind} sounds exactly like ${c.name} and follows ${c.name}'s saved tone, SOP and preferences. Score honestly. Reply with JSON only.`,
+    `${clientVoice(cid)}\n\nPOST:\n${coraTrim(ctx.post||'(no post given — judge the reply against the comment only)', 2500)}\n${ctx.comment?`\nCOMMENT BEING REPLIED TO:\n${coraTrim(ctx.comment, 800)}\n`:''}\nDRAFT ${kind.toUpperCase()}:\n${text}\n\nScore 0-10 each: post (responds to a specific point of THIS post, not generic), comment (${ctx.comment?'addresses what the commenter said':'use 10'}), voice (sounds like ${c.name}), tone (matches the saved tone of voice), style (structure, vocabulary, pacing like the approved examples), length (fits the usual length), natural (a human would type this), fresh (no repeated / formulaic opening or AI pattern).\nReturn {"post":n,"comment":n,"voice":n,"tone":n,"style":n,"length":n,"natural":n,"fresh":n,"issues":["short reason", ...]}`);
+  return res.text ? vcParseJSON(res.text) : null; };
+
+/* ---------- 11. messages for VAs: chat membership never shrinks by accident ---------- */
+/* Group / client chat members are recomputed on several portals. A portal that is still loading (or has an older copy of
+   the team list) could save a SHORTER member list — the left-out VAs then stopped receiving that chat's messages until
+   a head's portal put them back. Now only HR and company-head portals with fully loaded data remove members; other
+   portals only add. The database enforces the same rule (supabase/update-oct16.sql). */
+{ const _ec = ensureChats; ensureChats = function(){ const before = new Map(CHATS.map(c=>[c.id, [...(c.members||[])]]));
+    const r = _ec.apply(this, arguments);
+    const full = ['head','hr'].includes(BACKEND?.profile?.role) && !(typeof LIVE_BG!=='undefined' && LIVE_BG.on) && SYNC?.ready;
+    if(BACKEND?.mode==='live' && !full) CHATS.forEach(c=>{ const was = before.get(c.id); if(!was || c.kind==='dm') return; const lost = was.filter(k=>!(c.members||[]).includes(k) && PEOPLE[k] && activePeople().includes(k));
+      if(lost.length) c.members = uniq([...(c.members||[]), ...lost]).sort(); });
+    return r; }; }
+/* added to a chat (or put back): pull its history right away instead of waiting for the next full refresh */
+{ const _ore = onRemoteEvent; onRemoteEvent = function(ev){ const r = _ore.apply(this, arguments);
+    try{ if(!ev?.deleted && ev.coll==='chats' && (ev.obj?.members||[]).includes(PERSON) && typeof fetchChat==='function' && BACKEND?.mode==='live'){
+        const id = ev.obj.id; const have = MESSAGES.some(m=>m.chat===id);
+        if(ev.isNew || !have){ MS_FETCHED?.set?.(id, Date.now()); fetchChat(id).then(()=>{ scheduleRender(); }).catch(()=>{}); } } }catch(e){}
+    return r; }; }
+
+/* ---------- 12. ticket notes → For Testing (once, by JA's portal) ---------- */
+const FB_FIXED3 = {
+  'TK-1539307521986-njm':'Fixed: PM approval now moves content to the new “Pending Client Approval” status (or “Final approve” for clients who don’t review content — set per client with “Client approves content”). It stays editable while the client reviews; edits are saved as new versions and the PM is told. PMs can reopen anything approved (↺ Reopen — In Progress, ↺ Return for revisions, or the Status dropdown), mark “Client approved” or “Client requested changes”. The history shows every change as “from → to” with who and when, plus each edit.',
+  'TK-0015-6ea':'Added: “💾 Save as draft” in the ticket window. Closing the window also keeps what you typed as a draft. Your drafts are listed at the top of System Ops Support (only you see them) — Continue or delete them; a draft disappears once submitted.',
+  'TK-1539307521-qex':'Fixed: changing a status from a dropdown (and any live update) now redraws the page in place — it stays where you were instead of jumping to the top.',
+  'TK-19650290-vo1':'Added: “↪ Forward” on every message — pick one or more conversations or group chats, add an optional note. Forwarded messages keep their attachments and show “Forwarded from …”.',
+  'TK-0001-see':'Fixed: (1) Time Out now always stops the clock — a second device (e.g. a phone with an older copy) can no longer re-open a session that was timed out, and the timer stops at the last Time Out. (2) Ask Marcus: the Comment & Reply Studio now uses the client’s saved tone, SOP, notes & preferences and voice profile (not only the voice profile) and is checked against them before you see it.',
+  'TK-15393075219-8a4':'Fixed: your assistant now lists every VA working on the client (client team, Lead Gen VAs, VA assignments and VAs with open tasks), and “＋ VA” adds anyone else to a client’s daily reminder. VAs who join a client later are included automatically (switching someone off is remembered).',
+  'TK-0001-vlw':'Fixed: “＋ Add people” on a meeting — the organizer, invited participants, HR and company heads can add VAs or core-team members (they are notified and get it in their calendar). The meeting form also has one-tap “All VAs”, “Core Team” and “HR”. In a call that moved to Google Meet, “➕ Add people” works too.',
+  'TK-1539307521985-qmj':'Fixed: edits to an AI follow-up in the Review queue are kept while the page updates, saved to the follow-up, and the edited text is what gets posted.',
+  'TK-0001-co4':'Added: Attendance → “🕘 Work hours by client” (HR, company heads and the client’s PM). Set each VA’s hours per client (night shifts past midnight work) or mark them Flexible. Time In is marked Late only when it is more than 15 minutes after that VA’s start for that client; flexible hours are never late. Without hours, the company “Late after” time applies.'};
+function fbTicketUpdates3(){ if(!SYNC.ready || PERSON!==cooKey() || S().fbFix3) return; let n = 0;
+  Object.entries(FB_FIXED3).forEach(([id, note])=>{ const t = TICKETS.find(x=>x.id===id); if(!t || !['Submitted','In Progress','Reopened','Open'].includes(t.status)) return;
+    t.comments = [...(t.comments||[]), {id:uid('C'), by:PERSON, at:nowISO(), text:note}]; try{ tkSetStatus(t, 'For Testing', 'please test and confirm'); }catch(e){ t.status = 'For Testing'; t.updated = nowISO(); } n++; });
+  const s = SETTINGS.find(x=>x.id==='global'); if(s){ s.fbFix3 = nowISO(); } recordChange(); if(n) toast(`${n} tickets moved to For Testing — reporters were notified`); }
+{ const _sp = setPerson; setPerson = function(){ const r = _sp.apply(this, arguments); setTimeout(()=>{ try{ fbTicketUpdates3(); }catch(e){ console.warn(e); } }, 11000); return r; }; }
 </script>
 </body>
 </html>

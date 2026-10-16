@@ -20914,7 +20914,7 @@ async function cooPostFromModal(){ const ch = CHATS.find(c=>c.id===el('paPostC')
    The footer shows which build is running ("Build 2026-10-07 · 1"), and every open portal checks every few minutes
    (and whenever it comes back to the foreground) whether a newer build has been published. If so it shows
    "New version available — Update now" instead of quietly running old code. */
-const BUILD_ID = '2026-10-17 · 1';
+const BUILD_ID = '2026-10-17 · 2';
 function verStamp(){ const f = el('footNote'); if(f && !f.dataset.v){ f.dataset.v = 1; f.textContent = `Cross Core Ops Suite v8 · Build ${BUILD_ID}`; } }
 async function verCheck(){
   if(!/^https?:/.test(location.protocol)) return;
@@ -27576,6 +27576,105 @@ setInterval(()=>{ if(BACKEND?.mode==='live' && Date.now() - TEAMX.at > 14*60e3) 
 /* "Everyone" and "All VAs" first in the quick picks for HR and heads */
 { const _qg = mtQuickGroups; mtQuickGroups = function(){ const G = _qg.apply(this, arguments); const pri = ['All VAs','Everyone','HR','Company heads','Core Team'];
     return G.slice().sort((a,b)=>((pri.indexOf(a[0])+1)||99)-((pri.indexOf(b[0])+1)||99)); }; }
+/* ===== f0_resync.js ===== */
+/* ================= A SAVED COPY NEVER STAYS OUTDATED (Oct 17 2026) =================
+   Cause of "Maria Teresa's portal is outdated / Marcus shows No assigned clients": a portal opens instantly from the
+   copy saved on that device, then (1) downloads everything again to refresh it and (2) checks every few seconds for
+   changes. The every-few-seconds check only looked back 10 minutes, and the full refresh was all-or-nothing: if any
+   part of it failed (a slow or limited connection, a server time-out, the profile check failing) nothing was refreshed
+   and it wasn't retried. Everything that changed between the saved copy and those last 10 minutes — new client
+   assignments, messages, read receipts — never arrived on that device, while another device (or a fresh sign-in) was
+   fine. Anyone who opens the portal from a saved copy was affected.
+   • The saved copy now records exactly how far it was synced; on opening, the check catches up from that point, so
+     every missed change arrives (in pages, oldest first, deletions included) — even when the full refresh fails.
+   • The full refresh works collection by collection: what downloads is applied right away, the team / clients / chats
+     first, and anything that failed is retried automatically (and again on reconnect).
+   • A copy older than 3 days is not trusted: the portal does a full refresh first and shows "Updating your portal…".
+   • Client assignments, Marcus and the menus redraw as soon as an assignment changes. */
+
+const VSYNC = {cacheAt:0, cacheSince:0, okAt:0, failed:new Set(), retryT:null, tries:0, banner:false};
+const VSYNC_FIRST = ['employees','clients','leadcfg','chats','chatreads','prefs','settings','meetings','sops','voices','teamreqs'];
+
+/* the saved copy carries how far it was synced */
+SYNC.saveCache = function(now){ if(BACKEND?.mode!=='live' || !PERSON) return;
+  clearTimeout(this._ct); const run = () => { try{ const rows = []; Object.keys(COLL).forEach(c=>(COLL[c].get()||[]).forEach(o=>rows.push({collection:c, id:String(o.id), data:o})));
+      CCIDB.set(this.cacheKey(), {at:Date.now(), since:CU.since||0, okAt:VSYNC.okAt||0, rows:JSON.parse(JSON.stringify(rows))}); }catch(e){} };
+  this._ct = setTimeout(()=>{ if(window.requestIdleCallback) requestIdleCallback(run, {timeout:4000}); else run(); }, now ? 50 : 4000); };
+{ const _rc = SYNC.readCache.bind(SYNC); SYNC.readCache = async function(){ const c = await _rc();
+    if(c?.rows?.length){ VSYNC.cacheAt = c.at||0; VSYNC.cacheSince = c.since||0; VSYNC.okAt = c.okAt||0; } return c; }; }
+/* opening from the saved copy: catch up from where it was synced, not from "10 minutes ago" */
+const vsyncStart = () => { if(!VSYNC.cacheAt) return 0; const base = VSYNC.cacheSince || (VSYNC.cacheAt - 15*60e3); return Math.max(base - 3*60e3, Date.now() - 45*864e5); };
+{ const _sp = setPerson; setPerson = function(){ const r = _sp.apply(this, arguments); const s = vsyncStart(); if(s && (!CU.since || s < CU.since)) CU.since = s; return r; }; }
+{ const _cu = syncCatchUp; syncCatchUp = async function(){ const s = vsyncStart(); if(s && VSYNC.cacheAt && !VSYNC.caught && (!CU.since || s < CU.since)) CU.since = s;
+    const r = await _cu.apply(this, arguments); if(RG.lastOk && RG.lastOk >= Date.now() - 2000) VSYNC.caught = true; return r; }; }
+
+/* the full refresh, one collection at a time; what fails is retried */
+async function vsyncLoad(colls, t0){
+  const out = {ok:[], failed:[]}; const q = [...colls];
+  await Promise.all(Array.from({length:Math.min(4, q.length)}, async ()=>{ while(q.length){ const c = q.shift(); const rows = [];
+      try{ await BACKEND.loadColl(c, d=>rows.push(...d)); }
+      catch(e){ out.failed.push(c); continue; }
+      const server = {}; rows.forEach(r=>{ server[r.id] = r; });
+      const ups = rows.map(r=>({collection:c, id:r.id, data:r.data, _snap:t0})); const dels = [];
+      (SYNC.last[c]||new Map()).forEach((_, id)=>{ const k = sgKey(c, id); if(!(id in server) && !SYNC.pending.has(SYNC.key(c, id)) && (SG.localAt.get(k)||0) < t0) dels.push({collection:c, id, _snap:t0}); });
+      try{ SYNC.applyRemote(ups, dels); out.ok.push(c); }catch(e){ console.warn('refresh apply', c, e); out.failed.push(c); } } }));
+  return out;
+}
+{ const _rs = SYNC.resync; SYNC.resync = async function(){
+    if(BACKEND?.mode!=='live' || typeof BACKEND.loadColl!=='function') return _rs.apply(this, arguments);
+    if(this._resyncing){ this._resyncAgain = true; return; } this._resyncing = true; const t0 = Date.now();
+    try{
+      const all = Object.keys(COLL); const first = VSYNC_FIRST.filter(c=>COLL[c]); const rest = all.filter(c=>!first.includes(c));
+      const a = await vsyncLoad(first, t0); if(a.ok.length) scheduleRender?.();
+      const b = await vsyncLoad(rest, t0);
+      const failed = [...a.failed, ...b.failed];
+      if(!failed.length){ VSYNC.okAt = Date.now(); VSYNC.tries = 0; VSYNC.failed.clear(); vsyncBanner(false); SYNC.saveCache(true); }
+      else { failed.forEach(c=>VSYNC.failed.add(c)); vsyncRetry(); console.warn('Refresh incomplete — will retry:', failed.join(', ')); }
+    } finally { this._resyncing = false; if(this._resyncAgain){ this._resyncAgain = false; setTimeout(()=>SYNC.resync(), 1000); } }
+  }; }
+function vsyncRetry(){ clearTimeout(VSYNC.retryT); const wait = Math.min(5*60e3, 15e3 * Math.pow(2, VSYNC.tries++));
+  VSYNC.retryT = setTimeout(async ()=>{ if(!navigator.onLine || !VSYNC.failed.size) return; const L = [...VSYNC.failed]; VSYNC.failed.clear();
+    const r = await vsyncLoad(L, Date.now()); r.failed.forEach(c=>VSYNC.failed.add(c));
+    if(VSYNC.failed.size) vsyncRetry(); else { VSYNC.okAt = Date.now(); VSYNC.tries = 0; vsyncBanner(false); SYNC.saveCache(true); scheduleRender?.(); } }, wait); }
+window.addEventListener('online', ()=>{ if(VSYNC.failed.size){ VSYNC.tries = 0; vsyncRetry(); } });
+
+/* the background refresh after an instant open: if anything in it fails, still refresh (and keep retrying) */
+{ const _lr = liveRefresh; liveRefresh = async function(user, known){
+    const old = VSYNC.cacheAt && Date.now() - VSYNC.cacheAt > 3*864e5; if(old) vsyncBanner(true);
+    let done = false; const t = setTimeout(()=>{ if(!done) SYNC.resync(); }, 45000);
+    try{ return await _lr.apply(this, arguments); }
+    finally{ done = true; clearTimeout(t); if(!VSYNC.okAt || VSYNC.okAt < Date.now() - 60e3) setTimeout(()=>{ if(!VSYNC.okAt || VSYNC.okAt < Date.now() - 120e3) SYNC.resync(); }, 4000); } }; }
+function vsyncBanner(on){ const b = el('vsyncBar'); if(!on){ b?.remove(); return; } if(b) return;
+  document.body.insertAdjacentHTML('beforeend', `<div id="vsyncBar" class="bg-load" style="position:fixed;left:50%;top:10px;transform:translateX(-50%);z-index:90;padding:6px 14px;border-radius:999px;background:var(--card,#fff);box-shadow:0 4px 14px rgba(0,0,0,.12);font-size:12.5px">⟳ Updating your portal — it was last opened a while ago…</div>`);
+  setTimeout(()=>vsyncBanner(false), 90e3); }
+
+/* assignments: the client list, Marcus and the menus follow at once */
+{ const _ore = onRemoteEvent; onRemoteEvent = function(ev){ _ore(ev);
+    if(['clients','leadcfg','employees'].includes(ev?.coll)){ clearTimeout(VSYNC.rt); VSYNC.rt = setTimeout(()=>{ try{ buildNav(); }catch(e){}
+      const typing = document.activeElement && /TEXTAREA|INPUT|SELECT/.test(document.activeElement.tagName);
+      if(!typing && ['marcus','clients','dashboard','leads'].includes(CURRENT) && !(CURRENT==='marcus' && (MXS?.busy || MARCUS?.busy))) RENDER[CURRENT]?.(); }, 600); } }; }
+
+/* the same person under two records (e.g. re-added by HR with a new id, same email): assignments on either count */
+function vsyncAliases(k){ const em = String(PEOPLE[k]?.email||'').trim().toLowerCase(); if(!em) return [];
+  return EMPLOYEES.filter(e=>e.id!==k && String(e.email||'').trim().toLowerCase()===em && !empLeft(e.status)).map(e=>e.id); }
+{ const _ci = clientIdsFor; clientIdsFor = function(k){ const r = _ci.apply(this, arguments); const p = PEOPLE[k];
+    if(!p || p.role==='client' || ['ceo','coo','creative','hr'].includes(p.role)) return r; const al = vsyncAliases(k); if(!al.length) return r;
+    const extra = CLIENTS.filter(c=>!isEnded(c) && al.some(a=>(c.team||[]).includes(a) || pmsOf(c.id).includes(a))).map(c=>c.id);
+    return uniq([...r, ...extra]); }; }
+
+/* each device reports which build it runs and when it last fully synced (HR / heads can check who is outdated) */
+let SYNCSTAT = [];
+COLL.syncstat = {get:()=>SYNCSTAT, set:v=>SYNCSTAT=v, aud:r=>uniq([r.person, ...HEADS, ...HR_KEYS()].filter(Boolean))};
+function vsyncDev(){ try{ let d = localStorage.getItem('cc-dev-id'); if(!d){ d = Math.random().toString(36).slice(2, 10); localStorage.setItem('cc-dev-id', d); } return d; }catch(e){ return 'nodev'; } }
+function vsyncReport(){ if(BACKEND?.mode!=='live' || !SYNC?.ready || !PEOPLE[PERSON] || ROLE==='client') return;
+  const id = PERSON+'|'+vsyncDev(); let r = SYNCSTAT.find(x=>x.id===id); const ua = navigator.userAgent||'';
+  const dev = /iPhone|iPad/.test(ua) ? 'iPhone / iPad' : /Android/.test(ua) ? 'Android' : /Mac/.test(ua) ? 'Mac' : /Windows/.test(ua) ? 'Windows' : 'Other';
+  const v = {id, person:PERSON, build:BUILD_ID, device:dev, app:matchMedia?.('(display-mode: standalone)').matches ? 'installed app' : 'browser',
+    okAt:VSYNC.okAt ? new Date(VSYNC.okAt).toISOString() : null, cacheAt:VSYNC.cacheAt ? new Date(VSYNC.cacheAt).toISOString() : null, failed:[...VSYNC.failed].slice(0,10), at:nowISO()};
+  if(r && r.build===v.build && r.okAt===v.okAt && Date.now() - Date.parse(r.at||0) < 6*3600e3) return;
+  if(!r){ r = {id}; SYNCSTAT.push(r); } Object.assign(r, v); recordChange(); }
+{ const _sp = setPerson; setPerson = function(){ const r = _sp.apply(this, arguments); setTimeout(vsyncReport, 60e3); return r; }; }
+setInterval(vsyncReport, 30*60e3);
 </script>
 </body>
 </html>

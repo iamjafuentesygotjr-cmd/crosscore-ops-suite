@@ -20914,7 +20914,7 @@ async function cooPostFromModal(){ const ch = CHATS.find(c=>c.id===el('paPostC')
    The footer shows which build is running ("Build 2026-10-07 · 1"), and every open portal checks every few minutes
    (and whenever it comes back to the foreground) whether a newer build has been published. If so it shows
    "New version available — Update now" instead of quietly running old code. */
-const BUILD_ID = '2026-10-16 · 3';
+const BUILD_ID = '2026-10-16 · 4';
 function verStamp(){ const f = el('footNote'); if(f && !f.dataset.v){ f.dataset.v = 1; f.textContent = `Cross Core Ops Suite v8 · Build ${BUILD_ID}`; } }
 async function verCheck(){
   if(!/^https?:/.test(location.protocol)) return;
@@ -27231,6 +27231,275 @@ if(typeof mpItem==='function'){ const _mi = mpItem; mpItem = function(c, lastMsg
 
 /* live updates for the open conversation keep flowing even if one remote record is odd */
 if(typeof updateMessages==='function'){ const _um = updateMessages; updateMessages = function(c){ try{ return _um.apply(this, arguments); }catch(e){ chatSafeLog('live update', c?.id, e); try{ const sc = el('chatScroll'); if(sc && c) sc.innerHTML = messagesHTML(c); }catch(_){} } }; }
+/* ===== d0_voicesop.js ===== */
+/* ================= ASK MARCUS — VOICE PROFILES BUILT FROM THE CLIENT SOP (Oct 2026) =================
+   • Automatic setup: a new Lead Gen or full-package client (content + graphics + lead gen) that has its group chat and a
+     completed (published) SOP is added to Marcus with a Voice Profile filled from that SOP.
+   • Automatic updates: whenever the SOP changes (a new published version), the profile is refreshed from it, so Marcus
+     always follows the current SOP. Fields the SOP covers follow the SOP; fields the SOP doesn't cover keep what the PM
+     wrote; approved examples and "Not aligned" feedback are never touched.
+   • Existing clients: every active client with a completed SOP gets its profile filled from that SOP now.
+   • No guessing: only what the SOP actually says is used — every AI-read value must be found in the SOP text, otherwise
+     it is dropped. Anything the SOP doesn't cover is flagged "Missing — PM to complete" and the client's PM is notified.
+   • Logins, passwords and other credentials in an SOP are never copied into a voice profile.
+   • Runs in the portal of the client's PM (right away) or of HR / a company head (if the PM hasn't been online for a few
+     minutes); one portal at a time, never twice for the same SOP version. */
+
+let VSOP_SINCE = '2026-10-17T00:00:00+08:00';            /* clients created before this are "existing clients" (filled from any completed SOP) */
+const VSOP_FIELDS = [
+  ['tone','Tone','list','vpTone'], ['personality','Personality & topics','text','vpPers'], ['style','Writing style / structure','text','vpStyle'],
+  ['length','Typical length','len','vpLenS'], ['openings','Openings they use','list','vpOpen'], ['endings','Endings','list','vpEnd'],
+  ['phrases','Words & expressions they use','list','vpPhr'], ['avoid','Words & phrases they avoid','list','vpAvoid'],
+  ['how.agree','How they agree','text','vpH_agree'], ['how.disagree','How they disagree','text','vpH_disagree'], ['how.opinion','How they add an opinion','text','vpH_opinion'],
+  ['how.compliment','How they respond to compliments','text','vpH_compliment'], ['how.question','How they answer questions','text','vpH_question'], ['how.criticism','How they respond to criticism','text','vpH_criticism'],
+  ['formality','Casual ↔ formal','text','vpForm'], ['humor','Humor','text','vpHum'], ['emoji','Emoji use','text','vpEmo'], ['punctuation','Punctuation & capitalization','text','vpPun'],
+  ['instructions','Standing voice instructions','list','vpIns']];
+const VSOP_LABEL = Object.fromEntries(VSOP_FIELDS.map(f=>[f[0], f[1]]));
+const VSOP = {busy:false, t:null, notified:new Set()};
+
+/* ---------- reading / writing one field ---------- */
+function vsopGetF(p, k){ if(k.startsWith('how.')) return (p.how||{})[k.slice(4)] || ''; return p[k]; }
+function vsopSetF(p, k, v){ if(k.startsWith('how.')){ p.how = {...(p.how||{}), [k.slice(4)]:v}; return; } p[k] = v; }
+const vsopNoTbd = s => !/^(to be defined|tbd|—|-|n\/?a|none yet)$/i.test(String(s||'').trim());
+function vsopEmpty(kind, v){
+  if(kind==='list') return !(Array.isArray(v) ? v : vcA(v)).filter(x=>vsopNoTbd(x)).length;
+  if(kind==='len') return !(v && (String(v.sent||'').trim() || +v.min || +v.max));
+  return !String(v||'').trim() || !vsopNoTbd(v);
+}
+const vsopKind = k => (VSOP_FIELDS.find(f=>f[0]===k)||[])[2] || 'text';
+function vsopSame(kind, a, b){ return JSON.stringify(vsopNorm(kind, a)) === JSON.stringify(vsopNorm(kind, b)); }
+function vsopNorm(kind, v){ if(kind==='list') return vcA(v).map(x=>x.trim()).filter(Boolean); if(kind==='len') return {sent:String(v?.sent||'').trim(), min:+v?.min||0, max:+v?.max||0}; return String(v||'').trim(); }
+
+/* ---------- the SOP text (completed = published to the group chat) ---------- */
+const VSOP_SECRET = /(password|passcode|\bpass\s*[:=]|\bpw\s*[:=]|\blog-?in\b|username|user\s*name|2fa|one[- ]time code|\botp\b|auth(entication)? code|api[ -]?key|secret|token|credential)/i;
+function vsopClean(t){ return String(t||'').split('\n').filter(l=>!VSOP_SECRET.test(l)).join('\n').replace(/\n{3,}/g, '\n\n').trim(); }
+function vsopDone(c){ return !!(c?.sop && Object.values(c.sop.sections||{}).some(v=>String(v||'').trim())); }
+function vsopText(c){
+  if(!vsopDone(c)) return '';
+  const sec = c.sop.sections||{}; const labels = Object.fromEntries((typeof SOP_SECTIONS!=='undefined'?SOP_SECTIONS:[]));
+  let t = Object.keys(sec).filter(k=>String(sec[k]||'').trim()).map(k=>`${(labels[k]||k).toUpperCase()}\n${sec[k]}`).join('\n\n');
+  const s = typeof sopFor==='function' ? sopFor(c.id) : null; const files = c.sop.files||[];
+  if(s?.extracts) files.forEach(f=>{ const x = s.extracts[f.path||f.name]; if(x) t += `\n\nATTACHED DOCUMENT — ${f.name||'file'}\n${String(x).slice(0, 8000)}`; });
+  return vsopClean(t).slice(0, 16000);
+}
+const vsopHash = s => { let h = 5381; for(let i=0;i<s.length;i++) h = ((h<<5)+h+s.charCodeAt(i))|0; return (h>>>0).toString(36); };
+function vsopSig(c){ const t = vsopText(c); return t ? `v${c.sop.version||1}|${vsopHash(t)}` : null; }
+const vsopHasGC = c => !!c && (CHATS.some(x=>x.id===c.chatId) || CHATS.some(x=>x.kind==='client' && x.client===c.id));
+function vsopPackage(c){ const sv = (c?.services||[]).join(' ') + ' ' + (c?.package||'');
+  const lead = (typeof lgIsLeadGen==='function' && lgIsLeadGen(c)) || /lead/i.test(sv);
+  const full = /content|caption|planning/i.test(sv) && /graphic|design/i.test(sv) && /lead/i.test(sv);
+  return full ? 'full package' : lead ? 'lead gen' : ''; }
+const vsopExisting = c => !c.createdAt || Date.parse(c.createdAt) < Date.parse(VSOP_SINCE);
+/* who gets a profile from the SOP */
+function vsopEligible(c){
+  if(!c || isEnded(c) || c.status!=='Active' || !vsopDone(c)) return false;
+  if(vcRec(c.id)?.sopSync) return true;                                      /* already following the SOP: keep it current */
+  if(vsopExisting(c)) return true;                                           /* existing clients: from their current SOP */
+  return !!vsopPackage(c) && vsopHasGC(c);                                   /* new: Lead Gen / full package with a GC + completed SOP */
+}
+
+/* ---------- reading the SOP: labelled lines and lists (works without AI) ---------- */
+const VSOP_RX = [
+  ['avoid', /\b(avoid|never (use|say|write)|do not (use|say|write)|don[’']?t (use|say|write)|banned|words? to avoid|phrases? to avoid|not allowed)\b/i],
+  ['tone', /\b(tone( of voice)?|brand voice|voice)\b/i],
+  ['personality', /\b(personality|persona|about (the )?client|who (they|he|she) (is|are)|background|topics?|interests?|industry focus)\b/i],
+  ['style', /\b(writing style|style|structure|format(ting)?|approach)\b/i],
+  ['length', /\b(length|word count|how long|max(imum)? words|sentences?)\b/i],
+  ['openings', /\b(openings?|opening lines?|openers?|start (with|comments)|how to start|intro(duction)?s?)\b/i],
+  ['endings', /\b(endings?|closings?|sign[- ]?offs?|end (with|comments)|how to end|ctas?|call to action)\b/i],
+  ['phrases', /\b((words|phrases|expressions|vocabulary|terms)( they| to| we)? (use|like)|preferred (words|phrases)|signature phrases?|key ?words)\b/i],
+  ['how.agree', /\bwhen (they|you|we|he|she) agree\b|\bagreeing\b/i], ['how.disagree', /\bdisagree/i], ['how.opinion', /\b(add(ing)? an opinion|opinions?|perspective)\b/i],
+  ['how.compliment', /\bcompliments?|praise\b/i], ['how.question', /\b(answer(ing)? questions|when (someone|people) asks?|questions? (in|on) comments)\b/i],
+  ['how.criticism', /\b(criticism|negative comments?|complaints?|trolls?|haters?)\b/i],
+  ['formality', /\b(formal(ity)?|casual|professional(ism)? level|register)\b/i], ['humor', /\bhumou?r|jokes?|funny|playful\b/i],
+  ['emoji', /\bemojis?|emoticons?\b/i], ['punctuation', /\b(punctuation|capitali[sz]ation|hashtags?|exclamation)\b/i],
+  ['instructions', /\b(instructions?|rules?|guidelines?|do[’']?s and don[’']?ts|always|must|remember)\b/i]];
+function vsopLineField(label){ const l = String(label||'').toLowerCase(); for(const [k, rx] of VSOP_RX) if(rx.test(l)) return k; return null; }
+const vsopBullet = l => /^\s*([-•*▪●◦·]|\d+[.)]|[a-z][.)])\s+/i.test(l);
+const vsopStrip = l => String(l).replace(/^\s*([-•*▪●◦·]|\d+[.)]|[a-z][.)])\s+/i, '').trim();
+function vsopSplitList(v){ return String(v).split(/\s*[;|•·]\s*|,\s+(?![^()]*\))|\s+\/\s+/).map(s=>s.replace(/^["“'‘]|["”'’.]$/g,'').trim()).filter(s=>s && s.length<=90); }
+function vsopLocal(text){
+  const out = {}; const lines = String(text||'').split('\n'); const add = (k, v) => { v = String(v||'').trim(); if(!v) return; (out[k] = out[k] || []).push(v); };
+  for(let i=0; i<lines.length; i++){
+    const raw = lines[i]; const line = vsopStrip(raw); if(!line) continue;
+    const m = line.match(/^([^:–—]{2,60})\s*[:–—]\s*(.*)$/);
+    if(m){ const k = vsopLineField(m[1]); if(!k) continue;
+      if(m[2].trim()) { add(k, m[2]); continue; }
+      /* a heading: take the bullet lines under it */
+      for(let j=i+1; j<lines.length; j++){ const l = lines[j]; if(!l.trim()) { if(j>i+1) break; else continue; } if(!vsopBullet(l) && /[:]\s*$/.test(l)) break; if(!vsopBullet(l) && j>i+1 && !/^\s/.test(l)) break; add(k, vsopStrip(l)); i = j; }
+      continue; }
+    /* a heading line without a colon followed by bullets ("Words to avoid") */
+    if(!vsopBullet(raw) && line.split(/\s+/).length <= 6 && vsopBullet(lines[i+1]||'')){ const k = vsopLineField(line); if(!k) continue;
+      for(let j=i+1; j<lines.length && vsopBullet(lines[j]); j++){ add(k, vsopStrip(lines[j])); i = j; } }
+  }
+  /* sentences that state a rule about emoji / length even without a label */
+  if(!out.emoji){ const s = String(text).match(/[^.\n]*\bemojis?\b[^.\n]*[.\n]?/i); if(s) add('emoji', s[0]); }
+  if(!out.length){ const s = String(text).match(/[^.\n]*\b(\d+\s*(–|-|to)\s*\d+)\s*(words|sentences)\b[^.\n]*/i); if(s) add('length', s[0]); }
+  const r = {};
+  Object.entries(out).forEach(([k, arr])=>{ const kind = vsopKind(k);
+    if(kind==='list') r[k] = uniq(arr.flatMap(v=>k==='instructions' ? [v] : vsopSplitList(v))).slice(0, 25);
+    else if(kind==='len') r[k] = vsopLen(arr.join(' · '));
+    else r[k] = uniq(arr).join(' · ').slice(0, 600); });
+  return r;
+}
+function vsopLen(s){ s = String(s||''); const w = s.match(/(\d+)\s*(?:–|-|to)\s*(\d+)\s*words/i) || s.match(/(?:max(?:imum)?|up to|under|no more than)\s*(\d+)\s*words/i);
+  const sent = (s.match(/(\d+\s*(?:–|-|to)\s*\d+|\d+|one|two|three|1|2|3)\s*(?:short\s+|concise\s+)?sentences?/i)||[])[0] || '';
+  return {sent:sent || (w?'':s.slice(0,80)), min:w && w[2] ? +w[1] : 0, max:w ? +(w[2]||w[1]) : 0}; }
+
+/* ---------- reading the SOP with the AI — only values that are really in the SOP survive ---------- */
+const VSOP_SYS = `VOICE PROFILE EXTRACTOR. You read a client's SOP and fill the client's writing voice profile for comments, replies and captions.
+Use ONLY what the SOP states. Never guess, never invent, never add generic advice. If the SOP doesn't say it, leave the field empty ("" or []).
+Copy the SOP's own words wherever possible. Never include logins, passwords or account details.
+Return only JSON: {"tone":[],"personality":"","style":"","length":{"sent":"","min":0,"max":0},"openings":[],"endings":[],"phrases":[],"avoid":[],
+"how":{"agree":"","disagree":"","opinion":"","compliment":"","question":"","criticism":""},"formality":"","humor":"","emoji":"","punctuation":"","instructions":[]}`;
+const vsopWords = s => (String(s||'').toLowerCase().normalize('NFKD').match(/[\p{L}\p{N}]{4,}/gu) || []).filter(w=>!/^(that|this|with|they|them|their|from|into|have|when|what|your|will|should|about|more|than|always|never|only)$/.test(w));
+function vsopGrounded(v, sopLow){ const s = String(v||'').trim(); if(!s) return false;
+  if(sopLow.includes(s.toLowerCase())) return true;
+  const w = vsopWords(s); if(!w.length) return false; const hit = w.filter(x=>sopLow.includes(x)).length; return hit / w.length >= 0.7; }
+function vsopFilterAI(j, text){ const low = text.toLowerCase(); const out = {}; const dropped = [];
+  VSOP_FIELDS.forEach(([k,,kind])=>{ let v = k.startsWith('how.') ? (j.how||{})[k.slice(4)] : j[k]; if(v==null) return;
+    if(kind==='list'){ const L = vcA(v); const keep = L.filter(x=>vsopGrounded(x, low)); if(L.length > keep.length) dropped.push(k); if(keep.length) out[k] = keep.slice(0, 25); }
+    else if(kind==='len'){ const n = {sent:String(v?.sent||''), min:+v?.min||0, max:+v?.max||0};
+      const okS = !n.sent || vsopGrounded(n.sent, low); const okN = !(n.min||n.max) || [n.min, n.max].filter(Boolean).every(x=>low.includes(String(x)));
+      const r = {sent:okS?n.sent:'', min:okN?n.min:0, max:okN?n.max:0}; if(!okS || !okN) dropped.push(k); if(!vsopEmpty('len', r)) out[k] = r; }
+    else { const s = String(v||'').trim(); if(!s) return; if(vsopGrounded(s, low)) out[k] = s.slice(0, 600); else dropped.push(k); } });
+  return {out, dropped};
+}
+async function vsopRead(c){
+  const text = vsopText(c); const local = vsopLocal(text); let via = 'rules', dropped = [];
+  let ai = null;
+  if(BACKEND?.mode==='live' && typeof aiChatCore==='function'){
+    const r = await aiChatCore(VSOP_SYS, `CLIENT: ${c.name}\nSOP (version ${c.sop.version||1}):\n${text}`, {ms:60000});
+    if(r?.text){ try{ const m = String(r.text).match(/\{[\s\S]*\}/); const j = m ? JSON.parse(m[0]) : null; if(j){ const f = vsopFilterAI(j, text); ai = f.out; dropped = f.dropped; via = 'ai'; } }catch(e){} } }
+  /* the SOP's "Important client instructions" section is the standing instructions, line by line */
+  const ins = vsopClean(c.sop.sections?.instructions||'').split('\n').map(vsopStrip).filter(l=>l && l.length>3).slice(0, 25);
+  if(ins.length) local.instructions = uniq([...ins, ...(local.instructions||[])]).slice(0, 25);
+  const ext = {...local, ...(ai||{})};
+  /* lists: what the AI found + any labelled SOP lines it missed */
+  VSOP_FIELDS.forEach(([k,,kind])=>{ if(kind==='list' && ai && local[k]) ext[k] = uniq([...(ai[k]||[]), ...local[k]]).slice(0, 25); });
+  return {ext, via, dropped, text};
+}
+
+/* ---------- applying it to the profile ---------- */
+function vsopApply(cid, read, sig){
+  const c = client(cid); const r = vcEnsure(cid); const isFirst = !r.sopSync; const src = {...(r.src||{})};
+  if(isFirst){ VSOP_FIELDS.forEach(([k,,kind])=>{ if(!src[k] && !vsopEmpty(kind, vsopGetF(r, k))) src[k] = r._seed||VC_SEED[cid] ? 'seed' : 'pm'; }); }
+  /* a client tone that was never filled in ("To be defined") is not a tone */
+  if(Array.isArray(r.tone)) r.tone = r.tone.filter(vsopNoTbd);
+  const changed = [];
+  VSOP_FIELDS.forEach(([k,,kind])=>{ const v = read.ext[k]; const cur = vsopGetF(r, k);
+    if(v!=null && !vsopEmpty(kind, v)){
+      if(isFirst && src[k] && src[k]!=='sop' && !vsopEmpty(kind, cur)){            /* first time: keep the PM's / curated wording, add what the SOP lists */
+        if(kind==='list'){ const m = uniq([...vcA(cur), ...vcA(v)]); if(m.length!==vcA(cur).length){ vsopSetF(r, k, m); changed.push(k); } }
+        return; }
+      if(!vsopSame(kind, cur, v)){ vsopSetF(r, k, kind==='list' ? vcA(v) : v); changed.push(k); } src[k] = 'sop';
+    } else if(src[k]==='sop'){                                                     /* the SOP no longer says it */
+      vsopSetF(r, k, kind==='list' ? [] : kind==='len' ? {} : ''); src[k] = ''; changed.push(k); }
+  });
+  /* the SOP text itself isn't copied: Marcus already reads the current SOP with the client profile, and the
+     "comment & reply SOP" box stays the PM's own (older versions of this update filled it — clear those) */
+  if(src.sop==='sop'){ r.sop = ''; src.sop = ''; }
+  const missing = VSOP_FIELDS.filter(([k,,kind])=>vsopEmpty(kind, vsopGetF(r, k))).map(f=>f[0]);
+  const prev = r.sopSync || null;
+  r.src = src; r.sopSync = {sig, version:c.sop.version||1, sopAt:c.sop.at||'', at:nowISO(), by:PERSON, via:read.via, missing, changed, dropped:read.dropped||[]};
+  r.updatedAt = nowISO(); r.updatedBy = PERSON; delete r.sopLease;
+  if(typeof audit==='function') audit(`${prev?'Updated':'Set up'} ${c.name}’s Marcus voice profile from the SOP (v${c.sop.version||1})`);
+  recordChange();
+  /* tell the PM what the SOP doesn't cover */
+  const key = cid+'|'+sig; if(!VSOP.notified.has(key)){ VSOP.notified.add(key);
+    const pms = (typeof pmsOf==='function' ? pmsOf(cid) : []).filter(k=>PEOPLE[k]); const to = pms.length ? pms : HEADS;
+    const lbl = missing.map(k=>VSOP_LABEL[k]).slice(0, 6).join(', ') + (missing.length>6?` and ${missing.length-6} more`:'');
+    const head = prev ? `🎙 <b>${esc(c.name)}</b>’s Marcus voice profile was updated from the new SOP (v${c.sop.version||1})` : `🎙 <b>${esc(c.name)}</b> was added to Ask Marcus — the voice profile was filled from the SOP (v${c.sop.version||1})`;
+    const nid = 'vsop-'+cid+'-'+sig.replace(/[^A-Za-z0-9]/g,'');
+    if(missing.length) vsopNotify(to, 'assignment', `${head}. The SOP doesn’t cover ${missing.length} detail${missing.length>1?'s':''} — please complete: ${esc(lbl)}.`, {view:'marcus', arg:cid, vp:true}, nid);
+    else if(!prev) vsopNotify(to, 'system', `${head}. Everything is covered.`, {view:'marcus', arg:cid, vp:true}, nid);
+  }
+  return r;
+}
+
+/* to the PM(s) — also when the PM's own portal did the work (it ran in the background, they still need to know) */
+function vsopNotify(to, type, text, link, idBase){
+  uniq([].concat(to)).filter(k=>k && PEOPLE[k]).forEach(k=>{ const id = `N-${idBase}-${k}`; if(NOTIFS2.some(n=>n.id===id)) return;
+    NOTIFS2.unshift({id, to:k, type, text, link, by:PERSON, asst:'asst:marcus', at:nowISO(), read:false}); });
+  recordChange(); if(typeof updateBadges==='function') try{ updateBadges(); }catch(e){} }
+
+/* ---------- the automation ---------- */
+async function vsopTick(force){
+  if(VSOP.busy || !SYNC?.ready || !PEOPLE[PERSON] || ROLE==='client') return 0; VSOP.busy = true; let n = 0;
+  try{
+    VOICES.forEach(v=>{ if(v?.src?.sop==='sop' && vcCanEdit(v.id)){ v.sop = ''; v.src = {...v.src, sop:''}; recordChange(); } });   /* SOP text copied by an earlier test build */
+    for(const c of CLIENTS){
+      if(!vsopEligible(c) || !vcCanEdit(c.id)) continue;
+      const sig = vsopSig(c); if(!sig) continue; const r = vcRec(c.id);
+      if(r?.sopSync?.sig===sig && !force) continue;
+      const mine = (typeof pmsOf==='function' ? pmsOf(c.id) : []).includes(PERSON);
+      const age = Date.now() - (Date.parse(c.sop.at||0) || 0);
+      if(!mine && !force && age < 3*60e3 && (typeof pmsOf==='function' ? pmsOf(c.id) : []).some(k=>PEOPLE[k])) continue;     /* the PM's portal goes first */
+      if(r?.sopLease && r.sopLease.by!==PERSON && Date.parse(r.sopLease.until) > Date.now() && !force) continue;
+      const rec = vcEnsure(c.id); rec.sopLease = {by:PERSON, sig, until:new Date(Date.now()+3*60e3).toISOString()}; recordChange();
+      try{ const read = await vsopRead(c); if(vsopSig(c)===sig){ vsopApply(c.id, read, sig); n++; } else delete rec.sopLease; }
+      catch(e){ console.warn('voice profile from SOP:', c.name, e); delete rec.sopLease; }
+    }
+  } finally { VSOP.busy = false; }
+  if(n){ if(CURRENT==='marcus' && !MXS.busy && !(document.activeElement && /TEXTAREA|INPUT/.test(document.activeElement.tagName))) RENDER.marcus(); }
+  return n;
+}
+function vsopSoon(ms=4000){ clearTimeout(VSOP.t); VSOP.t = setTimeout(()=>vsopTick().catch(e=>console.warn(e)), ms); }
+async function vsopNow(cid){ const c = client(cid); if(!c || !vcCanEdit(cid)) return;
+  if(!vsopDone(c)) return toast(`${c.name} has no completed SOP yet — publish the SOP first (client page → SOP tab)`);
+  toast('Reading the SOP…'); const sig = vsopSig(c); const read = await vsopRead(c); vsopApply(cid, read, sig);
+  toast(`Voice profile updated from the SOP${vcRec(cid).sopSync.missing.length?` — ${vcRec(cid).sopSync.missing.length} details for the PM to complete`:''}`);
+  vcProfileModal(cid); if(CURRENT==='marcus') RENDER.marcus(); }
+{ const _sp = setPerson; setPerson = function(p){ const r = _sp.apply(this, arguments); setTimeout(()=>vsopSoon(0), 8000); return r; }; }
+setInterval(()=>vsopSoon(0), 5*60e3);
+{ const _ore = onRemoteEvent; onRemoteEvent = function(ev){ _ore(ev); if(['clients','sops','chats'].includes(ev?.coll)) vsopSoon(5000); }; }
+if(typeof sopPublish==='function'){ const _pub = sopPublish; sopPublish = function(){ const r = _pub.apply(this, arguments); vsopSoon(1500); return r; }; }
+
+/* ---------- the profile: never "To be defined" as a tone ---------- */
+{ const _d = vcDefault; vcDefault = function(cid){ const r = _d.apply(this, arguments); r.tone = (r.tone||[]).filter(vsopNoTbd); return r; }; }
+{ const _st = vcStatus; vcStatus = function(cid){ const s = _st.apply(this, arguments); const y = s.p?.sopSync; if(!y) return s;
+    const m = (y.missing||[]).length; return {...s, active:true, label:`${s.label.startsWith('Needs')?s.label+' · ':''}From SOP v${y.version}${m?` · ${m} to complete`:' ✓'}`}; }; }
+/* saving the profile by hand: those fields are now the PM's (a later SOP version that covers them still wins) */
+{ const _sv = vcSaveProfile; vcSaveProfile = function(cid){ const before = JSON.parse(JSON.stringify(vcGet(cid))); const r = _sv.apply(this, arguments); vsopMarkPM(cid, before); return r; }; }
+{ const _ss = vcSaveSop; vcSaveSop = function(cid){ const before = JSON.parse(JSON.stringify(vcGet(cid))); const r = _ss.apply(this, arguments); vsopMarkPM(cid, before, true); return r; }; }
+function vsopMarkPM(cid, before, sopTab){ const r = vcRec(cid); if(!r) return; const src = {...(r.src||{})}; let ch = false;
+  VSOP_FIELDS.forEach(([k,,kind])=>{ if(!vsopSame(kind, vsopGetF(before, k), vsopGetF(r, k))){ src[k] = 'pm'; ch = true; } });
+  if(sopTab && String(before.sop||'')!==String(r.sop||'')){ src.sop = 'pm'; ch = true; }
+  if(r.sopSync){ r.sopSync = {...r.sopSync, missing:VSOP_FIELDS.filter(([k,,kind])=>vsopEmpty(kind, vsopGetF(r, k))).map(f=>f[0])}; ch = true; }
+  if(ch){ r.src = src; recordChange(); if(el('modalBody')) vcProfileModal(cid); } }
+
+/* ---------- what the PM sees ---------- */
+function vsopBanner(cid){ const c = client(cid); const p = vcGet(cid); const y = p.sopSync; const can = vcCanEdit(cid);
+  if(!vsopDone(c)) return `<div class="vsop-banner warn">📘 ${esc(c?.name||'')} has no completed SOP yet. Once the SOP is published, Marcus fills this profile from it automatically.${can?` <a href="#" onclick="closeModal();followLink({view:'client', arg:'${cid}', tab:'sop'});return false">Open the SOP →</a>`:''}</div>`;
+  if(!y) return `<div class="vsop-banner">📘 Not yet filled from the SOP (v${c.sop.version||1}).${can?` <button class="btn" onclick="vsopNow('${cid}')">↻ Fill from SOP now</button>`:''}</div>`;
+  const stale = vsopSig(c) && vsopSig(c)!==y.sig;
+  const m = (y.missing||[]).map(k=>`<span class="vsop-miss-chip">${esc(VSOP_LABEL[k])}</span>`).join('');
+  return `<div class="vsop-banner ${y.missing?.length?'warn':'ok'}"><div>📘 <b>Filled from the SOP — version ${y.version}</b>${y.sopAt?` (published ${esc(dstr(y.sopAt))})`:''} · updated ${esc(ago ? ago(y.at) : dstr(y.at))}${stale?' · <b>a newer SOP is being applied…</b>':''}. Fields marked <span class="vsop-tag">SOP</span> follow the SOP and update automatically when it changes.</div>
+    ${y.missing?.length?`<div style="margin-top:6px">⚠ <b>Not in the SOP — PM to complete (${y.missing.length}):</b> ${m}</div>`:'<div style="margin-top:6px">✓ The SOP covers every field.</div>'}
+    ${can?`<div style="margin-top:8px"><button class="btn" onclick="vsopNow('${cid}')">↻ Update from SOP now</button></div>`:''}</div>`; }
+{ const _pm = vcProfileModal; vcProfileModal = function(cid, tab){ const r = _pm.apply(this, arguments); try{ const b = el('modalBody'); if(!b) return r;
+    b.querySelector('.vsop-banner')?.remove(); const who = b.querySelector('.vp-who'); const h = vsopBanner(cid); if(who) who.insertAdjacentHTML('afterend', h); else b.insertAdjacentHTML('afterbegin', h);
+    const p = vcGet(cid); const y = p.sopSync; const src = p.src||{};
+    VSOP_FIELDS.forEach(([k,,kind,id])=>{ const inp = el(id); if(!inp) return; const lab = inp.closest('.field')?.querySelector('label'); if(!lab) return;
+      if(y && vsopEmpty(kind, vsopGetF(p, k))){ inp.classList.add('vsop-missing'); if(!inp.value) inp.placeholder = 'Not in the SOP — PM to complete'; lab.insertAdjacentHTML('beforeend', ' <span class="vsop-flag">Missing — PM to complete</span>'); }
+      else if(src[k]==='sop') lab.insertAdjacentHTML('beforeend', ' <span class="vsop-tag" title="From the current SOP — updates automatically when the SOP changes">SOP</span>'); });
+  }catch(e){ console.warn(e); } return r; }; }
+{ const _vh = vsHeadHTML; vsHeadHTML = function(cid){ let h = _vh.apply(this, arguments); const c = client(cid); const p = vcGet(cid); const y = p.sopSync;
+    const row = !vsopDone(c) ? `<div class="vs-row"><span class="vs-k">SOP</span><span class="hint">No completed SOP yet — the profile fills itself once it’s published</span></div>`
+      : `<div class="vs-row"><span class="vs-k">SOP</span><span>${y?`<code>Following SOP v${y.version}</code>`:`<code>SOP v${c.sop.version||1} — being applied</code>`}${y?.missing?.length?` <button class="vsop-chip" onclick="vcProfileModal('${cid}','profile')" title="${esc(y.missing.map(k=>VSOP_LABEL[k]).join(', '))}">⚠ ${y.missing.length} detail${y.missing.length>1?'s':''} for the PM</button>`:''}</span></div>`;
+    return h.replace(/(<div class="vs-row"><span class="vs-k">Examples loaded)/, row + '$1'); }; }
+/* a notification about a voice profile opens it */
+{ const _fl = followLink; followLink = function(link){ if(link?.view==='marcus' && link.vp && link.arg){ closeOverlays?.(); MXS.on = true; MXS.cid = link.arg; MXS.out = null; go('marcus'); setTimeout(()=>{ if(vcCanUse(link.arg)) vcProfileModal(link.arg, 'profile'); }, 120); return; } return _fl.apply(this, arguments); }; }
+
+(function(){ const st = document.createElement('style'); st.textContent = `
+.vsop-banner{border:1px solid rgba(46,139,87,.28);background:rgba(46,139,87,.07);border-radius:12px;padding:10px 12px;margin:0 0 12px;font-size:12.5px;line-height:1.5}
+.vsop-banner.warn{border-color:rgba(227,147,18,.38);background:rgba(242,180,64,.12)}
+.vsop-miss-chip{display:inline-block;margin:2px 4px 2px 0;padding:2px 8px;border-radius:999px;background:rgba(227,147,18,.16);font-size:11.5px;font-weight:600}
+.vsop-flag{display:inline-block;margin-left:6px;padding:1px 7px;border-radius:999px;background:rgba(227,147,18,.18);color:#9a5b00;font-size:10.5px;font-weight:700}
+.vsop-tag{display:inline-block;margin-left:6px;padding:1px 6px;border-radius:6px;background:rgba(46,139,87,.14);color:#1d6b40;font-size:10px;font-weight:700;letter-spacing:.04em}
+.vsop-missing{border-color:rgba(227,147,18,.6)!important;background:rgba(242,180,64,.07)!important}
+.vsop-chip{border:0;cursor:pointer;margin-left:6px;padding:2px 9px;border-radius:999px;background:rgba(227,147,18,.18);color:#8a5200;font-weight:700;font-size:11.5px}
+[data-theme="dark"] .vsop-flag,[data-theme="dark"] .vsop-chip{color:#ffc977} [data-theme="dark"] .vsop-tag{color:#8fe0b0}`; document.head.appendChild(st); })();
 </script>
 </body>
 </html>

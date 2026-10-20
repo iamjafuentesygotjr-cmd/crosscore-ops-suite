@@ -3736,7 +3736,7 @@ const ROLE_ME = new Proxy({},{get:()=>PEOPLE[PERSON]});
 function navAllowed(n){
   if(ROLE==='client') return CLIENT_NAV.some(x=>x.id===n.id);
   if(n.client) return false;
-  if(isFullAccess()) return !(n.id==='mydocs' && !myDocs().length && !myPayslips().length);
+  if(isFullAccess()) return !(n.id==='mydocs' && !myDocs().length && !myPayslips().length && !(typeof sgMine==='function' && sgMine().length));
   if(n.fin) return finAuth();
   if(!n.roles.includes(ROLE)) return false;
   if(n.admin && !isSysAdmin()) return false;
@@ -3781,7 +3781,7 @@ function buildNav(){
     if(n.id==='approvals') pill = pendingApprovalCount();
     if(n.id==='announce') pill = annUnread().length;
     if(n.id==='chat') pill = totalUnread();
-    if(n.id==='mydocs') pill = myDocs().filter(d=>!docRead(d.id)?.ackAt).length;
+    if(n.id==='mydocs') pill = myDocs().filter(d=>!docRead(d.id)?.ackAt).length + (typeof sgMine==='function' ? sgMine().length : 0);
     if(n.id==='coo') pill = HRDOCS.filter(d=>d.status==='Submitted').length + QREPORTS.filter(q=>q.status==='Sent to JA').length;
     if(n.id==='orgsetup') pill = ROLE==='hr' ? BRIEFS.filter(b=>b.status==='New'||(isReg(b)&&b.status==='Endorsed')).length : isExec() ? BRIEFS.filter(b=>isReg(b)&&b.status==='Registered'&&b.by===PERSON).length : 0;
     if(n.id==='evals' && ROLE==='hr') pill = EVALS.filter(v=>v.kind==='monthly'&&v.status==='Submitted').length;
@@ -20914,7 +20914,7 @@ async function cooPostFromModal(){ const ch = CHATS.find(c=>c.id===el('paPostC')
    The footer shows which build is running ("Build 2026-10-07 · 1"), and every open portal checks every few minutes
    (and whenever it comes back to the foreground) whether a newer build has been published. If so it shows
    "New version available — Update now" instead of quietly running old code. */
-const BUILD_ID = '2026-10-21 · 2';
+const BUILD_ID = '2026-10-21 · 3';
 function verStamp(){ const f = el('footNote'); if(f && !f.dataset.v){ f.dataset.v = 1; f.textContent = `Cross Core Ops Suite v8 · Build ${BUILD_ID}`; } }
 async function verCheck(){
   if(!/^https?:/.test(location.protocol)) return;
@@ -30144,6 +30144,531 @@ if(RENDER.cchat){ const _cc = RENDER.cchat; RENDER.cchat = function(){
 [data-theme="dark"] .bp-rec .bx-bars{color:#F2F2F0}[data-theme="dark"] .bx-doc{background:rgba(255,255,255,.07)}[data-theme="dark"] .bp-m.mine .bx-doc{background:rgba(26,18,6,.12)}
 [data-theme="dark"] .bp-tray,[data-theme="dark"] .bp-rec,[data-theme="dark"] .bp-call-s{border-color:rgba(255,255,255,.08)}
 [data-theme="dark"] .bx-err{background:#3A1418;color:#FFB4BD}
+`; document.head.appendChild(st); })();
+/* ===== p0_signers.js ===== */
+/* ================= OPTIONAL ADDITIONAL SIGNATORIES (Oct 21 2026) =================
+   Every document made in HR Documents — memos, notices, letters, warning letters, contracts and renewals, NDAs,
+   employee agreements, Job Orders and other official documents — gets an optional “+ Add Another Signatory”.
+   Nothing changes unless the creator adds someone. For each added signatory the creator picks the person (any Ops Suite
+   user; their position shows automatically), the signing role (Prepared / Reviewed / Approved / Authorized / Acknowledged /
+   Signed By), the label printed on the document, where the field goes (signature section at the end, top of the document,
+   or exactly where they place it in the text) and whether that signature is required to complete the document — and
+   whether signatories sign when the document is sent, or before it may be sent. Signatories can be removed or changed
+   until the document is sent.
+   Each signatory gets the request in their own portal (notification, dashboard and My Documents), reads the document,
+   draws their signature on a pad (mouse, trackpad, touch, stylus) → clear / redraw → preview it in place → confirm.
+   Signatures appear in the right field on every portal in real time; when every required signature is in, the document
+   is complete and a PDF with every signature and a full audit trail is saved. Only the person themselves can sign their
+   field — the database refuses a signature written by anyone else, and signed records are locked (update-oct21-3.sql). */
+
+let COSIGN = [];
+const SG_ROLES = ['Prepared By','Reviewed By','Approved By','Authorized By','Acknowledged By','Signed By'];
+const SG_PLACES = {end:'In the signature section at the end', start:'At the top of the document', token:'Exactly where I place it in the text'};
+COLL.cosign = {get:()=>COSIGN, set:v=>COSIGN=v, aud:r=>{ const d = HRDOCS.find(x=>x.id===r.doc);
+  return uniq([r.person, ...HR_KEYS(), ...HEADS, 'ja', 'paul', d?.by, ...(d?.signers||[]).map(s=>s.person), ...(d?.sentTo||[]), ...(r.shareWith||[])].filter(Boolean)); }};
+/* the document reaches its signatories once they are asked to sign */
+{ const H = COLL.hrdocs; const _a = H.aud; H.aud = d => { const a = _a(d) || [];
+    return ['Approved','Sent','Published'].includes(d.status) && (d.signers||[]).length ? uniq([...a, ...d.signers.map(s=>s.person)]) : a; }; }
+
+const sgOf = d => (d?.signers||[]);
+const sgRec = (docId, sid) => COSIGN.find(r=>r.doc===docId && r.sid===sid && r.status==='Signed');
+const sgReq = (d, s) => !!d.sgReq?.[s.id];
+const sgFlow = d => d.signFlow==='before' ? 'before' : 'with';
+const sgCanManage = d => !!d && (d.by===PERSON || ROLE==='hr' || isFullAccess() || isExec());
+const sgEditable = d => !d || !['Sent','Published'].includes(d.status);
+/* the moment requests go out: “before” → once the document is approved / ready; “with” → once it is sent or published */
+const sgReady = d => sgFlow(d)==='before' ? ['Approved','Sent','Published'].includes(d.status) : ['Sent','Published'].includes(d.status);
+function sgState(d){
+  const S = sgOf(d); const signed = S.filter(s=>sgRec(d.id, s.id));
+  const needReq = S.filter(s=>s.required && !sgRec(d.id, s.id)); const optPend = S.filter(s=>!s.required && !sgRec(d.id, s.id));
+  const rec = esNeeds(d) ? (d.sentTo||[]).filter(k=>!esSig(d.id, k)) : [];
+  const sent = ['Sent','Published'].includes(d.status);
+  return {S, signed, needReq, optPend, recPend:rec, complete: S.length>0 && sent && !needReq.length && !rec.length};
+}
+/* the signature requests waiting for me */
+function sgMine(){ if(!PEOPLE[PERSON]) return [];
+  return HRDOCS.filter(d=>sgReady(d) && !d.supersededBy).flatMap(d=>sgOf(d).filter(s=>s.person===PERSON && sgReq(d, s) && !sgRec(d.id, s.id)).map(s=>({d, s}))); }
+
+/* ---------- who can be added: every active Ops Suite user, grouped like the company ---------- */
+function sgCat(k){ const p = PEOPLE[k]; if(!p) return ['Other authorized personnel', ''];
+  const sub = String(p.sub||p.level||''); const r = p.role;
+  if(r==='coo' || /\bCOO\b|chief operating/i.test(sub)) return ['COO / Authorized Company Representative', 'Authorized Company Representative'];
+  if(['ceo','creative'].includes(r) || HEADS.includes(k)) return ['CEO / Company Heads', r==='ceo' ? 'Chief Executive Officer' : 'Company Head'];
+  if(HR_KEYS().includes(k) || r==='hr') return ['HR', 'HR Representative'];
+  if(/financ|account|payroll|bookkeep/i.test(sub)) return ['Finance', 'Finance Representative'];
+  if(/\bhead\b|director|lead\b|manager of|department/i.test(sub) && !/lead ?gen/i.test(sub)) return ['Department Heads', 'Department Head'];
+  if(r==='manager' || p.portal==='pm') return ['Project Managers', 'Project Manager'];
+  if(/consult/i.test(sub)) return ['Consultants', 'Consultant'];
+  return ['Other authorized personnel', sub || 'Authorized personnel']; }
+const SG_ORDER = ['COO / Authorized Company Representative','CEO / Company Heads','Department Heads','HR','Finance','Project Managers','Consultants','Other authorized personnel'];
+const sgPos = k => String(P(k)?.sub || P(k)?.level || '').trim();
+function sgPeopleOptions(sel){
+  const ks = activePeople().filter(k=>PEOPLE[k] && !(typeof isAssistantKey==='function' && isAssistantKey(k)) && PEOPLE[k].role!=='applicant');
+  const g = {}; ks.forEach(k=>{ const c = sgCat(k)[0]; (g[c] = g[c]||[]).push(k); });
+  return `<option value="">Choose a person…</option>` + SG_ORDER.filter(c=>g[c]).map(c=>`<optgroup label="${esc(c)}">${g[c].sort((a,b)=>pname(a).localeCompare(pname(b))).map(k=>`<option value="${k}" ${k===sel?'selected':''}>${esc(pname(k))}${sgPos(k)?' — '+esc(sgPos(k)):''}</option>`).join('')}</optgroup>`).join(''); }
+
+/* ---------- the editor: “+ Add Another Signatory (Optional)” ---------- */
+const SGE = {rows:[], flow:'with', host:null};
+function sgEdLoad(d){ SGE.rows = sgOf(d).map(s=>({...s, _t:true})); SGE.flow = sgFlow(d||{}); }
+function sgEdHTML(){
+  const R = SGE.rows;
+  return `<div class="sg-ed-h"><div><b>Additional signatories</b> <span class="hint">optional</span><div class="hint">Add company heads, the COO, department heads, HR, Finance, project managers, consultants or anyone else whose signature is needed. Leave empty to keep the usual workflow.</div></div></div>
+    ${R.map((s, i)=>{ const pos = s.person ? sgPos(s.person) : '';
+      return `<div class="sg-row" data-i="${i}">
+        <div class="sg-row-h"><span class="sg-n">${esc(s.id)}</span><b>${s.person?esc(pname(s.person)):'New signatory'}</b>${pos?`<span class="hint">· ${esc(pos)}</span>`:''}<button type="button" class="sg-x" onclick="sgEdRm(${i})" title="Remove this signatory" aria-label="Remove signatory ${esc(s.id)}">✕</button></div>
+        <div class="sg-grid">
+          <label class="field"><span>Person</span><select onchange="sgEdSet(${i},'person',this.value)">${sgPeopleOptions(s.person)}</select></label>
+          <label class="field"><span>Signing role</span><select onchange="sgEdSet(${i},'role',this.value)">${SG_ROLES.map(r=>`<option ${r===s.role?'selected':''}>${r}</option>`).join('')}</select></label>
+          <label class="field"><span>Label on the document</span><input value="${esc(s.title||'')}" placeholder="e.g. Authorized Company Representative" oninput="sgEdSet(${i},'title',this.value,true)"></label>
+          <label class="field"><span>Position of the field</span><select onchange="sgEdSet(${i},'place',this.value)">${Object.entries(SG_PLACES).map(([k,v])=>`<option value="${k}" ${k===s.place?'selected':''}>${v}</option>`).join('')}</select></label>
+        </div>
+        <div class="sg-row-f"><label class="sg-req"><input type="checkbox" ${s.required?'checked':''} onchange="sgEdSet(${i},'required',this.checked)"> Required to complete the document</label>
+          ${s.place==='token'?`<button type="button" class="btn ghost sg-ins" onclick="sgEdToken(${i})">↳ Insert its field at the cursor</button><span class="hint">${sgTokenIn(s) ? 'Field placed: <code>[sign:'+esc(s.id)+']</code>' : 'Not placed yet — it goes to the signature section until you insert it'}</span>`:''}</div></div>`; }).join('')}
+    <button type="button" class="btn sg-add" onclick="sgEdAdd()">+ Add Another Signatory <span class="hint">(optional)</span></button>
+    ${R.length?`<label class="field sg-flow"><span>When signatories are asked to sign</span><select onchange="SGE.flow=this.value"><option value="with" ${SGE.flow==='with'?'selected':''}>When the document is sent to its recipients (or published)</option><option value="before" ${SGE.flow==='before'?'selected':''}>Before it is sent — it can’t be sent until the required signatures are in</option></select></label>`:''}`;
+}
+const sgBodyEl = () => el('hdBody');
+const sgTokenIn = s => new RegExp('\\[sign:'+s.id+'\\]', 'i').test(sgBodyEl()?.value || SGE.body || '');
+function sgEdDraw(){ const h = el('sgEd'); if(h) h.innerHTML = sgEdHTML(); }
+function sgNextId(){ const n = Math.max(0, ...SGE.rows.map(r=>+String(r.id).replace(/\D/g,'')||0), ...(SGE.used||[])); return 'S'+(n+1); }
+function sgEdAdd(){ SGE.rows.push({id:sgNextId(), person:'', role:'Approved By', title:'', place:'end', required:true}); sgEdDraw(); setTimeout(()=>{ const r = document.querySelector('#sgEd .sg-row:last-of-type select'); r?.focus(); r?.scrollIntoView({block:'nearest'}); }, 30); }
+function sgEdRm(i){ const s = SGE.rows[i]; if(!s) return;
+  const b = sgBodyEl(); if(b) b.value = b.value.replace(new RegExp('\\s?\\[sign:'+s.id+'\\]', 'gi'), '');
+  SGE.rows.splice(i, 1); sgEdDraw(); }
+function sgEdSet(i, k, v, quiet){ const s = SGE.rows[i]; if(!s) return;
+  if(k==='person'){ s.person = v; if(v && (!s.title || !s._custom)){ s.title = sgCat(v)[1]; s._custom = false; } }
+  else if(k==='title'){ s.title = v; s._custom = true; }
+  else s[k] = v;
+  if(!quiet) sgEdDraw(); }
+function sgEdToken(i){ const s = SGE.rows[i]; const b = sgBodyEl(); if(!s || !b) return;
+  if(sgTokenIn(s)) return toast('Its field is already in the text — move [sign:'+s.id+'] if needed');
+  const at = b.selectionStart ?? b.value.length; const pre = at>0 && b.value[at-1]!=='\n' ? '\n' : ''; const post = b.value[at]==='\n' ? '' : '\n';
+  insertAtCursor(b, `${pre}[sign:${s.id}]${post}`); sgEdDraw(); toast('Field placed in the text'); }
+/* read the editor → clean signers (or an error message) */
+function sgEdRead(body){
+  const out = []; const seen = new Set();
+  for(const s of SGE.rows){
+    if(!s.person) return {err:`Choose a person for signatory ${s.id}, or remove it`};
+    if(seen.has(s.person)) return {err:`${pname(s.person)} is added twice`}; seen.add(s.person);
+    const place = s.place==='token' && !new RegExp('\\[sign:'+s.id+'\\]', 'i').test(body||'') ? 'end' : (s.place||'end');
+    out.push({id:s.id, person:s.person, role:SG_ROLES.includes(s.role)?s.role:'Signed By', title:(s.title||sgCat(s.person)[1]).trim().slice(0,80), place, required:!!s.required, pos:sgPos(s.person), addedBy:s.addedBy||PERSON, addedAt:s.addedAt||nowISO()});
+  }
+  return {signers:out, flow:out.length ? SGE.flow : null};
+}
+function sgApply(d, r, body){
+  const before = JSON.stringify(sgOf(d).map(s=>[s.id,s.person,s.role,s.title,s.place,s.required])) + (d.signFlow||'');
+  d.signers = r.signers; if(r.flow) d.signFlow = r.flow; else delete d.signFlow;
+  const tokens = body.match(/\[sign:S\d+\]/gi)||[]; const ids = new Set(r.signers.map(s=>s.id.toLowerCase()));
+  if(tokens.some(t=>!ids.has(t.slice(6,-1).toLowerCase())) && d.body){ d.body = d.body.replace(/\s?\[sign:(S\d+)\]/gi, (m, id)=>ids.has(id.toLowerCase()) ? m : ''); }
+  const after = JSON.stringify(sgOf(d).map(s=>[s.id,s.person,s.role,s.title,s.place,s.required])) + (d.signFlow||'');
+  if(before!==after){ d.history = [...(d.history||[]), {at:nowISO(), by:PERSON, act:r.signers.length ? `Signatories: ${r.signers.map(s=>`${pname(s.person)} (${s.role}${s.required?'':', optional'})`).join(', ')}` : 'Additional signatories removed', note:''}]; }
+}
+
+/* in the New / Edit document form */
+{ const _hm = hrDocModal; hrDocModal = function(id){
+    const r = _hm.apply(this, arguments);
+    const d = id ? HRDOCS.find(x=>x.id===id) : null; sgEdLoad(d); SGE.body = d?.body || ''; SGE.used = [];
+    const anchor = document.querySelector('#modalBody .es-opt') || document.querySelector('#modalBody #hdCoo')?.closest('label');
+    if(anchor && !el('sgEd')){ const box = document.createElement('div'); box.id = 'sgEd'; box.className = 'sg-ed'; anchor.parentNode.insertBefore(box, anchor.nextSibling); sgEdDraw(); }
+    return r; }; }
+{ const _sv = saveHrDoc; saveHrDoc = function(id, submit){
+    const body = el('hdBody')?.value || ''; const rd = el('sgEd') ? sgEdRead(body) : null;
+    if(rd?.err) return toast(rd.err);
+    const n0 = HRDOCS.length; const u0 = id ? HRDOCS.find(x=>x.id===id)?.updatedAt : null; const r = _sv.apply(this, arguments);
+    const d = id ? HRDOCS.find(x=>x.id===id && x.updatedAt!==u0) : (HRDOCS.length > n0 ? HRDOCS[0] : null);   /* only when it was saved */
+    if(d && rd){ sgApply(d, rd, d.body||''); recordChange(); sgDispatch(d); RENDER[CURRENT]?.(); }
+    return r; }; }
+/* manage signatories on an existing document (any time before it is sent) */
+function sgManage(docId){
+  const d = HRDOCS.find(x=>x.id===docId); if(!d || !sgCanManage(d)) return;
+  if(!sgEditable(d)) return toast('This document was already sent — issue a new version to change its signatories');
+  sgEdLoad(d); SGE.body = d.body; SGE.used = sgOf(d).map(s=>+s.id.slice(1));
+  openModal('Signatories — '+d.title, `<div class="hint" style="margin-bottom:10px">${esc(d.kind)} · ${esc(d.id)} · ${esc(d.status)}. Changes are saved to the document; anyone removed no longer sees a request.</div>
+    <div class="field"><label>Document text <span class="hint">(to place fields exactly)</span></label><textarea id="hdBody" rows="8" style="font-family:inherit;line-height:1.55">${esc(d.body)}</textarea></div>
+    <div id="sgEd" class="sg-ed"></div>
+    <div style="display:flex;gap:8px;margin-top:12px"><button class="btn" style="flex:1" onclick="closeModal();openHrDoc('${d.id}')">Cancel</button><button class="btn primary" style="flex:1" onclick="sgManageSave('${d.id}')">Save signatories</button></div>`, true);
+  sgEdDraw();
+}
+function sgManageSave(docId){
+  const d = HRDOCS.find(x=>x.id===docId); if(!d || !sgEditable(d)) return;
+  const body = el('hdBody').value; const r = sgEdRead(body); if(r.err) return toast(r.err);
+  const removed = sgOf(d).filter(s=>!r.signers.some(x=>x.id===s.id && x.person===s.person));
+  if(removed.some(s=>sgRec(d.id, s.id))) return toast('Someone who already signed can’t be removed — issue a new version instead');
+  if(body!==d.body){ d.body = body; }
+  sgApply(d, r, body); removed.forEach(s=>{ if(d.sgReq) delete d.sgReq[s.id]; });
+  d.updatedAt = nowISO(); recordChange(); sgDispatch(d); closeModal(); toast(r.signers.length ? 'Signatories saved' : 'Additional signatories removed'); setTimeout(()=>openHrDoc(d.id), 60);
+}
+
+/* ---------- requests: notify each signatory once (by the creator, HR or a company head) ---------- */
+function sgDispatch(d){
+  if(!d || !sgOf(d).length || !sgReady(d) || d.supersededBy) return 0;
+  if(!(d.by===PERSON || HR_KEYS().includes(PERSON) || ROLE==='hr' || isFullAccess() || isExec())) return 0;
+  const todo = sgOf(d).filter(s=>!sgReq(d, s) && !sgRec(d.id, s.id)); if(!todo.length) return 0;
+  d.sgReq = {...(d.sgReq||{})}; const at = nowISO();
+  todo.forEach(s=>{ d.sgReq[s.id] = at;
+    if(s.person!==PERSON) notify(s.person, 'hr', `✍️ <b>${esc(first(d.by))}</b> needs your signature as <b>${esc(s.role)}</b> (${esc(s.title)}) on <b>${esc(d.kind)}: ${esc(d.title)}</b>${s.required?'':' — optional'}`, {view:'mydocs', sign:d.id}); });
+  d.history = [...(d.history||[]), {at, by:PERSON, act:`Signature requested from ${todo.map(s=>pname(s.person)).join(', ')}`, note:''}];
+  recordChange(); return todo.length;
+}
+function sgShare(d){ let ch = false; COSIGN.filter(r=>r.doc===d.id).forEach(r=>{ const w = uniq([...(r.shareWith||[]), ...(d.sentTo||[])]); if(w.length!==(r.shareWith||[]).length){ r.shareWith = w; ch = true; } }); if(ch) recordChange(); }
+/* “sign before sending”: required signatures first */
+function sgBlock(d){ if(!d || sgFlow(d)!=='before') return ''; const miss = sgOf(d).filter(s=>s.required && !sgRec(d.id, s.id));
+  return miss.length ? `Waiting for ${miss.map(s=>pname(s.person)+' ('+s.role+')').join(', ')} to sign before this can be sent` : ''; }
+{ const _sd = sendHrDoc; sendHrDoc = function(id){ const d = HRDOCS.find(x=>x.id===id); const b = sgBlock(d); if(b) return toast(b);
+    const r = _sd.apply(this, arguments); if(d && d.status==='Sent'){ sgDispatch(d); sgShare(d); } return r; }; }
+{ const _pd = publishHrDoc; publishHrDoc = function(id){ const d = HRDOCS.find(x=>x.id===id); const b = sgBlock(d); if(b) return toast(b);
+    const r = _pd.apply(this, arguments); if(d) sgDispatch(d); return r; }; }
+if(typeof joRelease==='function'){ const _jr = joRelease; joRelease = async function(docId, to){ const d = HRDOCS.find(x=>x.id===docId); const b = sgBlock(d); if(b){ toast(b); return {ok:false, why:b}; }
+    const r = await _jr.apply(this, arguments); if(r?.ok && d){ sgDispatch(d); sgShare(d); } return r; }; }
+if(typeof joSubmit==='function'){ const _js = joSubmit; joSubmit = function(docId){ const r = _js.apply(this, arguments); const d = HRDOCS.find(x=>x.id===docId); if(r && d) setTimeout(()=>sgDispatch(d), 0); return r; }; }
+{ const _cd = cooDecide; cooDecide = function(id){ const r = _cd.apply(this, arguments); const d = HRDOCS.find(x=>x.id===id); if(d) sgDispatch(d); return r; }; }
+/* new versions keep the signatory set-up (not the signatures) */
+{ const _nv = esNewVersion; esNewVersion = function(docId){ const d = HRDOCS.find(x=>x.id===docId); const n0 = HRDOCS.length; const r = _nv.apply(this, arguments);
+    const nd = HRDOCS.length > n0 ? HRDOCS[0] : null; if(nd && d && sgOf(d).length){ nd.signers = sgOf(d).map(s=>({...s})); if(d.signFlow) nd.signFlow = d.signFlow; recordChange(); } return r; }; }
+
+/* ---------- the document with its signature fields ---------- */
+const sgDate = at => new Date(at).toLocaleString('en-US',{timeZone:'Asia/Manila', month:'short', day:'numeric', year:'numeric', hour:'numeric', minute:'2-digit'});
+function sgBlockHTML(d, s, opt={}){
+  const r = sgRec(d.id, s.id); const me = s.person===PERSON;
+  const draft = opt.draft && opt.draft.sid===s.id ? opt.draft : null;
+  const img = r ? r.img : draft ? draft.img : '';
+  const st = r ? `Signed ${esc(sgDate(r.signedAt))}` : draft ? 'Preview — not signed yet' : !sgReq(d, s) ? (s.required ? 'Signature required' : 'Optional signature') : s.required ? 'Awaiting signature' : 'Optional — awaiting signature';
+  const canSign = !r && !draft && me && sgReq(d, s) && opt.signable;
+  return `<div class="sg-b ${r?'signed':draft?'draft':'pending'} ${s.required?'':'optional'} ${me&&!r?'sg-me':''}" data-sid="${esc(s.id)}">
+    <span class="sg-k">${esc(s.title)}${s.required?'':' <i>(optional)</i>'}</span>
+    ${canSign ? `<button type="button" class="sg-sign" onclick="sgPad('${esc(d.id)}','${esc(s.id)}')">✍️ Sign here</button>` : `<span class="sg-img">${img?`<img src="${img}" alt="Signature of ${esc(pname(s.person))}">`:''}</span>`}
+    <span class="sg-line"></span><b>${esc(pname(s.person))}</b><small>${esc(s.role)}${s.pos?' · '+esc(s.pos):''}</small><small class="sg-st">${st}</small></div>`;
+}
+function sgRecipBlock(d, k){ const r = k ? esSig(d.id, k) : null; const f = r?.fields?.find(x=>x.kind==='signature');
+  return `<div class="sg-b ${f?'signed':'pending'}"><span class="sg-k">${esc(/agreement|contract|nda|non-disclosure/i.test(d.kind)?'Employee signature':'Recipient signature')}</span><span class="sg-img">${f?`<img src="${f.img}" alt="">`:''}</span><span class="sg-line"></span><b>${k?esc(pname(k)):'Each recipient'}</b><small>${k?esc(sgPos(k)||'Recipient'):'signs their own copy'}</small><small class="sg-st">${f?'Signed '+esc(sgDate(r.signedAt)):'Awaiting signature'}</small></div>`; }
+/* body text (filled for recipient k) with [sign:Sx] fields, plus top / end sections */
+function sgDocHTML(d, k, opt={}){
+  const S = sgOf(d); const kk = k || ((d.sentTo||[]).length===1 ? d.sentTo[0] : null);
+  const txt = kk ? fillDoc(d.body, kk, d.sentAt) : String(d.body||'').replace(/\{name\}/g, '[Recipient]').replace(/\{date\}/g, dstr(d.sentAt||nowISO()));
+  const inlineIds = new Set(); const R = kk ? esSig(d.id, kk) : null; const ini = R?.fields?.find(f=>f.kind==='initials');
+  let body = linkify(txt.replace(/^[ \t]*(?:-{3,}\s*page\s*break\s*-{3,}|\[\[page\]\]|\[page break\])[ \t]*$/gim, '\u2063PB\u2063')).replace(/(?:<br>)?\u2063PB\u2063(?:<br>)?/g, '<span class="sg-pb" aria-hidden="true"></span>')
+    .replace(/\[signature\]/gi, ()=>`<span class="sg-inline">${sgRecipBlock(d, kk)}</span>`)
+    .replace(/\[initials\]/gi, ()=>`<span class="sg-ini">${ini?`<img src="${ini.img}" alt="Initials">`:'Initials'}</span>`).replace(/\[sign:(S\d+)\]/gi, (m, id)=>{ const s = S.find(x=>x.id.toLowerCase()===id.toLowerCase()); if(!s) return ''; inlineIds.add(s.id); return `<span class="sg-inline">${sgBlockHTML(d, s, opt)}</span>`; });
+  const top = S.filter(s=>s.place==='start' && !inlineIds.has(s.id)), end = S.filter(s=>(s.place==='end' || (s.place==='token' && !inlineIds.has(s.id))) && !inlineIds.has(s.id) && s.place!=='start');
+  const recip = esNeeds(d) && !/\[signature\]/i.test(d.body) && opt.recipient!==false;
+  return `${top.length?`<div class="sg-sec top">${top.map(s=>sgBlockHTML(d, s, opt)).join('')}</div>`:''}<div class="sg-body">${body}</div>
+    ${end.length||recip?`<div class="sg-sec end"><div class="sg-sec-h">Signatures</div><div class="sg-grid2">${recip?sgRecipBlock(d, k):''}${end.map(s=>sgBlockHTML(d, s, opt)).join('')}</div></div>`:''}`;
+}
+/* the recipient's e-sign screen shows the other signature fields too (filled in as people sign) */
+{ const _pg = esPageHTML; esPageHTML = function(pg, preview){
+    let h = _pg.apply(this, arguments); const d = ES.doc?.id ? HRDOCS.find(x=>x.id===ES.doc.id) : null; if(!d || !sgOf(d).length) return h;
+    const S = sgOf(d); const last = pg===ES.pages.length;
+    h = h.replace(/\[sign:(S\d+)\]/gi, (m, id)=>{ const s = S.find(x=>x.id.toLowerCase()===id.toLowerCase()); return s ? `<span class="sg-inline">${sgBlockHTML(d, s, {})}</span>` : ''; });
+    const inl = new Set((ES.pages.join('\n').match(/\[sign:S\d+\]/gi)||[]).map(t=>t.slice(6,-1).toUpperCase()));
+    const top = pg===1 ? S.filter(s=>s.place==='start' && !inl.has(s.id.toUpperCase())) : [];
+    const end = last ? S.filter(s=>s.place!=='start' && !inl.has(s.id.toUpperCase())) : [];
+    if(top.length) h = h.replace('<div class="es-text">', `<div class="sg-sec top">${top.map(s=>sgBlockHTML(d, s, {})).join('')}</div><div class="es-text">`);
+    if(end.length) h = h.replace(/<\/div>$/, `<div class="sg-sec end"><div class="sg-sec-h">Other signatories</div><div class="sg-grid2">${end.map(s=>sgBlockHTML(d, s, {})).join('')}</div></div></div>`);
+    return h; }; }
+
+/* in the document view: fields in place + a Signatures panel (status, Sign now, Manage, completed PDF) */
+function sgAreaHTML(d){
+  const st = sgState(d); const isHR = ROLE==='hr' || isExec() || isFullAccess() || d.by===PERSON;
+  const mine = st.S.find(s=>s.person===PERSON && !sgRec(d.id, s.id));
+  const rows = st.S.map(s=>{ const r = sgRec(d.id, s.id);
+    return `<div class="list-row sg-st-row">${av(P(s.person))}<div style="flex:1;min-width:0"><b style="font-size:12.5px">${esc(pname(s.person))}</b> <span class="hint">· ${esc(s.role)} · ${esc(s.title)}</span>
+      <div class="hint">${s.required?'Required':'Optional'} · ${esc(SG_PLACES[s.place]||SG_PLACES.end).toLowerCase()}</div></div>
+      ${r?`<span class="badge b-approved">Signed ${esc(dtstr(r.signedAt))}</span>`:sgReq(d, s)?`<span class="badge ${s.required?'b-pending':'b-draft'}">${s.required?'Awaiting signature':'Optional · not signed'}</span>`:`<span class="badge b-draft">${sgFlow(d)==='before'?'Asked once approved':'Asked when sent'}</span>`}
+      ${!r && s.person===PERSON && sgReq(d, s) ? `<button class="btn primary" style="padding:5px 11px;font-size:12px" onclick="sgOpen('${d.id}')">Review & sign</button>` : ''}</div>`; }).join('');
+  const recips = esNeeds(d) && ['Sent','Published'].includes(d.status) ? `<div class="hint" style="margin:6px 0 2px">Recipients: ${(d.sentTo||[]).filter(k=>esSig(d.id,k)).length} of ${(d.sentTo||[]).length} signed</div>` : '';
+  const pdfs = st.complete ? ((d.sentTo||[]).length && (isHR) ? (d.sentTo||[]).map(k=>`<button class="btn" onclick="sgDownload('${d.id}','${k}')">⬇ Completed PDF — ${esc(first(k))}</button>`).join('') : `<button class="btn" onclick="sgDownload('${d.id}','${(d.sentTo||[]).includes(PERSON)?PERSON:''}')">⬇ Completed PDF</button>`) : '';
+  const block = sgBlock(d);
+  return `<div class="nav-label" style="padding:16px 0 6px;display:flex;align-items:center;gap:8px">Signatures ${st.complete?'<span class="badge b-approved">Complete</span>':st.S.length?`<span class="badge b-pending">${st.signed.length} of ${st.S.length} signed</span>`:''}</div>
+    ${rows}${recips}
+    ${block && d.status==='Approved' ? `<div class="sg-note">⏳ ${esc(block)}.</div>` : ''}
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">${mine && sgReq(d, mine) ? `<button class="btn primary" onclick="sgOpen('${d.id}')">✍️ Review & sign as ${esc(mine.role)}</button>` : ''}
+      ${isHR && sgEditable(d) && sgCanManage(d) ? `<button class="btn" onclick="sgManage('${d.id}')">${st.S.length?'Change signatories':'+ Add Another Signatory'}</button>` : ''}${pdfs}
+      ${isHR && !st.complete && st.S.length && ['Sent','Published'].includes(d.status) || (isHR && sgFlow(d)==='before' && d.status==='Approved') ? `<button class="btn ghost" onclick="sgRemind('${d.id}')">Remind signatories</button>` : ''}</div>`;
+}
+{ const _oh = openHrDoc; openHrDoc = function(id){
+    const r = _oh.apply(this, arguments); const d = HRDOCS.find(x=>x.id===id); const mb = el('modalBody'); if(!d || !mb) return r;
+    const canAdd = sgCanManage(d) && sgEditable(d) && (ROLE==='hr' || isExec() || isFullAccess());
+    if(!sgOf(d).length && !canAdd) return r;
+    const paper = mb.querySelector('.doc-paper');
+    if(paper && sgOf(d).length){ const recipient = (d.sentTo||[]).includes(PERSON); paper.innerHTML = sgDocHTML(d, recipient ? PERSON : null, {}); paper.classList.add('sg-paper'); }
+    const area = document.createElement('div'); area.className = 'sg-area'; area.id = 'sgArea'; area.dataset.doc = d.id; area.innerHTML = sgAreaHTML(d);
+    const after = mb.querySelector('.doc-paper + div[style*="margin-top:10px"]') || paper; after?.insertAdjacentElement('afterend', area);
+    return r; }; }
+function sgRemind(docId){ const d = HRDOCS.find(x=>x.id===docId); if(!d) return;
+  const P_ = sgOf(d).filter(s=>sgReq(d, s) && !sgRec(d.id, s.id) && s.person!==PERSON); if(!P_.length) return toast('Nobody to remind');
+  notify(P_.map(s=>s.person), 'hr', `⏰ Reminder: your signature is needed on <b>${esc(d.kind)}: ${esc(d.title)}</b>`, {view:'mydocs', sign:d.id}); recordChange(); toast(`Reminded ${P_.map(s=>first(s.person)).join(', ')}`); }
+
+/* ---------- signing: read → draw (mouse · trackpad · touch · stylus) → clear / redraw → preview in place → confirm ---------- */
+const SGV = {doc:null, sid:null, draft:null, agree:false, thick:+(localStorage.getItem('cc-es-thick')||4) || 4};
+function sgOpen(docId){
+  const d = HRDOCS.find(x=>x.id===docId); if(!d) return toast('This document is not available to you');
+  const s = sgOf(d).find(x=>x.person===PERSON && !sgRec(d.id, x.id)) || sgOf(d).find(x=>x.person===PERSON);
+  if(!s) return toast('You are not a signatory on this document');
+  if(!sgReq(d, s)) return toast('Your signature hasn’t been requested yet');
+  closeModal(); Object.assign(SGV, {doc:d.id, sid:s.id, draft:null, agree:false}); sgDraw();
+}
+function sgClose(){ if(SGV.draft && !confirm('Leave without signing? Your drawn signature will be discarded.')) return; el('sgView')?.remove(); document.body.classList.remove('es-open'); Object.assign(SGV, {doc:null, sid:null, draft:null}); }
+function sgDraw(){
+  const d = HRDOCS.find(x=>x.id===SGV.doc); if(!d){ el('sgView')?.remove(); return; }
+  const s = sgOf(d).find(x=>x.id===SGV.sid); const r = s && sgRec(d.id, s.id);
+  let o = el('sgView'); if(!o){ o = document.createElement('div'); o.id = 'sgView'; o.className = 'es-overlay sg-view'; document.body.appendChild(o); document.body.classList.add('es-open'); }
+  const scroll = o.querySelector('.es-scroll')?.scrollTop || 0;
+  o.innerHTML = `<div class="es-top"><div><b>${r?'Signed':SGV.draft?'Preview your signature':'Review & sign'}</b><small>${esc(d.kind)}: ${esc(d.title)} · you sign as ${esc(s.role)} — ${esc(s.title)}${s.required?'':' (optional)'} · requested by ${esc(pname(d.by))}</small></div><button class="icon-btn" onclick="sgClose()" title="Close" aria-label="Close">✕</button></div>
+    <section class="es-scroll"><div class="es-paper sg-paper"><div class="es-pagehead"><span>${esc(d.title)}${(d.version||1)>1?' · version '+d.version:''}</span><span>${esc(d.id)}</span></div>${sgDocHTML(d, null, {signable:true, draft:SGV.draft})}</div></section>
+    <div class="es-bottom ${SGV.draft?'es-confirm':''}">${r ? `<span class="es-mid">✓ You signed this on ${esc(sgDate(r.signedAt))}</span><button class="btn" onclick="sgClose()">Close</button>`
+      : SGV.draft ? `<label><input type="checkbox" id="sgAgree" ${SGV.agree?'checked':''} onchange="SGV.agree=this.checked;el('sgConfirm').disabled=!this.checked"><span>I, <b>${esc(pname(PERSON))}</b>, have read this ${esc(d.kind.toLowerCase())} and sign it as <b>${esc(s.role)}</b> (${esc(s.title)}). My electronic signature is legally binding, the same as signing by hand.</span></label>
+          <div class="es-btns"><button class="btn" onclick="SGV.draft=null;SGV.agree=false;sgDraw()">Clear & redraw</button><button class="btn" onclick="sgPad('${d.id}','${s.id}')">Edit drawing</button><button class="btn primary" id="sgConfirm" onclick="sgConfirm()" ${SGV.agree?'':'disabled'}>Confirm & sign</button></div>`
+      : `<span class="es-mid">Read the document, then sign in your field (highlighted).</span><button class="btn primary" onclick="sgPad('${d.id}','${s.id}')">✍️ Sign now</button>`}</div>`;
+  const sc = o.querySelector('.es-scroll'); if(sc) sc.scrollTop = scroll;
+  if(SGV.draft) setTimeout(()=>o.querySelector(`.sg-b[data-sid="${CSS.escape(s.id)}"]`)?.scrollIntoView({block:'center', behavior:'smooth'}), 60);
+}
+const SGP = {};
+function sgPad(docId, sid){
+  const d = HRDOCS.find(x=>x.id===docId); const s = sgOf(d).find(x=>x.id===sid); if(!d || !s || s.person!==PERSON) return toast('Only '+(s?pname(s.person):'the signatory')+' can sign this field');
+  if(!el('sgView')) { Object.assign(SGV, {doc:docId, sid, draft:null, agree:false}); sgDraw(); }
+  el('sgPadBox')?.remove();
+  const box = document.createElement('div'); box.className = 'es-pad-back'; box.id = 'sgPadBox';
+  box.innerHTML = `<div class="es-pad" role="dialog" aria-label="Draw your signature"><div class="es-pad-h"><b>Draw your signature</b><span class="hint">${esc(s.role)} · ${esc(s.title)} · use your mouse, trackpad, finger or stylus</span></div>
+    <div class="es-canvas-wrap signature"><canvas id="sgCanvas" aria-label="Signature pad"></canvas><span class="es-x">✕</span><span class="es-line"></span><span class="es-ph" id="sgPh">Sign here</span></div>
+    <div class="es-pad-tools"><label>Pen thickness <input type="range" min="2" max="10" step="1" value="${SGV.thick}" oninput="SGV.thick=+this.value;el('sgThickV').textContent=this.value;sgPadRedraw()"> <b id="sgThickV">${SGV.thick}</b></label>
+      <button class="btn" onclick="sgPadClear()">Clear</button></div>
+    <div class="es-pad-btns"><button class="btn" onclick="el('sgPadBox').remove()">Cancel</button><button class="btn primary" id="sgPadOk" onclick="sgPadApply()">Preview signature →</button></div></div>`;
+  document.body.appendChild(box);
+  const cv = el('sgCanvas'); const wrap = cv.parentNode; const dpr = Math.max(1, window.devicePixelRatio||1);
+  const W = wrap.clientWidth, H = wrap.clientHeight; cv.width = W*dpr; cv.height = H*dpr; cv.style.width = W+'px'; cv.style.height = H+'px'; cv.style.touchAction = 'none';
+  Object.assign(SGP, {cv, ctx:cv.getContext('2d'), W, H, strokes:(SGV.draft?.strokes||[]).map(x=>x.map(p=>({...p}))), cur:null});
+  SGP.ctx.scale(dpr, dpr); if(SGP.strokes.length){ el('sgPh').style.display = 'none'; sgPadRedraw(); }
+  const pt = e => { const r = cv.getBoundingClientRect(); return {x:e.clientX-r.left, y:e.clientY-r.top, p:e.pressure||0.5}; };
+  cv.onpointerdown = e => { e.preventDefault(); try{ cv.setPointerCapture(e.pointerId); }catch(_){} SGP.cur = [pt(e)]; SGP.strokes.push(SGP.cur); SGP.kind = e.pointerType; el('sgPh').style.display = 'none'; sgPadRedraw(); };
+  cv.onpointermove = e => { if(!SGP.cur) return; e.preventDefault(); const co = e.getCoalescedEvents ? e.getCoalescedEvents() : null; (co && co.length ? co : [e]).forEach(x=>SGP.cur.push(pt(x))); sgPadRedraw(); };
+  const up = () => { if(SGP.cur){ SGP.cur = null; sgPadRedraw(); } };
+  cv.onpointerup = up; cv.onpointercancel = up; cv.onpointerleave = e => { if(e.buttons===0) up(); };
+}
+function sgPadRedraw(){ if(!SGP.ctx) return; SGP.ctx.clearRect(0, 0, SGP.W, SGP.H); padPaint(SGP.ctx, SGP.strokes, SGV.thick); }
+function sgPadClear(){ SGP.strokes = []; SGP.cur = null; sgPadRedraw(); const ph = el('sgPh'); if(ph) ph.style.display = ''; }
+function sgPadApply(){
+  let ink = 0; SGP.strokes.forEach(s=>{ for(let i=1;i<s.length;i++) ink += Math.hypot(s[i].x-s[i-1].x, s[i].y-s[i-1].y); });
+  if(ink < 60) return toast('Please draw your full signature');
+  const pts = SGP.strokes.flat(); const pad = SGV.thick + 6;
+  const x0 = Math.max(0, Math.min(...pts.map(p=>p.x))-pad), y0 = Math.max(0, Math.min(...pts.map(p=>p.y))-pad), x1 = Math.min(SGP.W, Math.max(...pts.map(p=>p.x))+pad), y1 = Math.min(SGP.H, Math.max(...pts.map(p=>p.y))+pad);
+  const c = document.createElement('canvas'); c.width = Math.max(10, Math.round((x1-x0)*2)); c.height = Math.max(10, Math.round((y1-y0)*2));
+  padPaint(c.getContext('2d'), SGP.strokes, SGV.thick, 2, x0, y0);
+  SGV.draft = {sid:SGV.sid, img:c.toDataURL('image/png'), w:c.width, h:c.height, strokes:SGP.strokes.map(x=>x.map(p=>({...p}))), input:SGP.kind||'', at:nowISO()}; SGV.agree = false;
+  try{ localStorage.setItem('cc-es-thick', String(SGV.thick)); }catch(e){}
+  el('sgPadBox').remove(); sgDraw();
+}
+async function sgConfirm(){
+  const d = HRDOCS.find(x=>x.id===SGV.doc); const s = sgOf(d).find(x=>x.id===SGV.sid); const D = SGV.draft; if(!d || !s || !D || !SGV.agree) return;
+  if(s.person!==PERSON) return toast('Only '+pname(s.person)+' can sign this field');
+  if(sgRec(d.id, s.id)) return toast('Already signed');
+  const b = el('sgConfirm'); if(b){ b.disabled = true; b.textContent = 'Signing…'; }
+  try{
+    const signedAt = nowISO(); const hash = await esHash(`${d.id}|v${d.version||1}|${d.body}`);
+    const rec = {id:`CS-${d.id}-${s.id}`, doc:d.id, docTitle:d.title, docKind:d.kind, version:d.version||1, sid:s.id, person:PERSON, personName:pname(PERSON), account:PEOPLE[PERSON]?.email||'',
+      role:s.role, title:s.title, pos:s.pos||sgPos(PERSON), required:!!s.required, img:D.img, w:D.w, h:D.h, input:D.input, drawnAt:D.at, signedAt, hash, tz:'Asia/Manila',
+      device:navigator.userAgent.slice(0,180), requestedAt:d.sgReq?.[s.id]||null, requestedBy:d.by, status:'Signed', locked:true, shareWith:uniq(d.sentTo||[])};
+    COSIGN.push(rec);
+    notify(uniq([d.by, ...HR_KEYS()]).filter(k=>k && k!==PERSON), 'hr', `✍️ <b>${esc(pname(PERSON))}</b> signed <b>${esc(d.title)}</b> as ${esc(s.role)}`, {view:'hrdocs', doc:d.id});
+    audit(`${pname(PERSON)} signed ${d.title} as ${s.role} (${s.title})`);
+    recordChange();
+    const v = typeof avSaved==='function' ? await avSaved([mk('cosign', rec.id)]).catch(()=>({ok:true})) : {ok:true};
+    if(v && v.ok===false){ COSIGN = COSIGN.filter(x=>x!==rec); throw new Error(v.why||'the server did not accept the signature'); }
+    SGV.draft = null; sgDraw(); toast('Signed — your signature is now in the document'); sgAfterSign(d);
+  }catch(e){ if(b){ b.disabled = false; b.textContent = 'Confirm & sign'; } toast('Could not sign: '+(e.message||e)); }
+}
+/* completion: every required signature in → mark complete, tell everyone, save the PDF */
+function sgAfterSign(d){ try{ sgCheck(d); }catch(e){ console.warn(e); } try{ RENDER[CURRENT]?.(); buildNav(); }catch(e){} }
+function sgCheck(d){
+  const st = sgState(d); if(!st.complete || d.completedAt) return;
+  if(PEOPLE[PERSON]?.role==='applicant') return;
+  d.completedAt = nowISO(); d.history = [...(d.history||[]), {at:d.completedAt, by:PERSON, act:'All required signatures received — document complete', note:''}];
+  notify(uniq([d.by, ...HR_KEYS(), ...st.S.map(s=>s.person), ...(d.sentTo||[])]).filter(k=>k && k!==PERSON), 'hr', `✅ <b>${esc(d.kind)}: ${esc(d.title)}</b> is fully signed — the completed PDF is ready`, {view:'mydocs', doc:d.id});
+  recordChange(); setTimeout(()=>sgSavePDFs(d), 200);
+}
+let SG_SAVING = false;
+async function sgSavePDFs(d){
+  if(SG_SAVING || !d || !sgState(d).complete) return; const isHR = ROLE==='hr' || HR_KEYS().includes(PERSON) || isFullAccess() || isExec();
+  const keys = (d.sentTo||[]).length ? d.sentTo : ['_doc']; const todo = keys.filter(k=>!d.completedPdf?.[k] && (isHR || k===PERSON)); if(!todo.length) return;
+  SG_SAVING = true;
+  try{ for(const k of todo){ const pdf = await sgPDF(d, k==='_doc'?null:k); const blob = pdf.output('blob'); const name = sgFileName(d, k==='_doc'?null:k);
+      const dir = k==='_doc' ? 'docs/'+d.id : 'hr201/'+k+'/signed';
+      const ref = await BACKEND.upload(new File([blob], name, {type:'application/pdf'}), dir);
+      d.completedPdf = {...(d.completedPdf||{}), [k]:{...ref, at:nowISO()}}; }
+    recordChange(); }catch(e){ console.warn('Completed PDF not saved yet', e); }
+  finally{ SG_SAVING = false; }
+}
+const sgFileName = (d, k) => `${String(d.title).replace(/[^\w\- ]+/g,'').replace(/\s+/g,'-').slice(0,60)}-v${d.version||1}-completed${k?'-'+pname(k).replace(/[^\w]+/g,'-'):''}.pdf`;
+async function sgDownload(docId, k){
+  const d = HRDOCS.find(x=>x.id===docId); if(!d) return; k = k || null; const key = k || '_doc';
+  try{ const f = d.completedPdf?.[key];
+    if(f){ let url; if(BACKEND.mode==='live' && f.path){ const {data, error} = await BACKEND.sb.storage.from('cc-files').createSignedUrl(f.path, 600, {download:sgFileName(d, k)}); if(error) throw error; url = data.signedUrl; } else url = await BACKEND.fileUrl(f); const a = document.createElement('a'); a.href = url; a.download = sgFileName(d, k); a.target = '_blank'; a.rel = 'noopener'; document.body.appendChild(a); a.click(); a.remove(); return; }
+    (await sgPDF(d, k)).save(sgFileName(d, k)); }
+  catch(e){ try{ (await sgPDF(d, k)).save(sgFileName(d, k)); }catch(x){ toast('Could not create the PDF: '+x.message); } }
+}
+/* recipients' signed copies include the other signatures once the document is complete */
+{ const _ed = esDownload; esDownload = function(id){ const r = ESIGN.find(x=>x.id===id); const d = r && HRDOCS.find(x=>x.id===r.doc);
+    if(d && sgOf(d).length) return sgDownload(d.id, r.person); return _ed.apply(this, arguments); }; }
+
+/* ---------- PDF: the document with every signature in its field + signature certificate & audit trail ---------- */
+async function sgPDF(d, k){
+  await loadScript(JSPDF_SRC);
+  const doc = new window.jspdf.jsPDF({unit:'pt', format:'a4'}); const W = 595, H = 842, M = 56;
+  const R = k ? esSig(d.id, k) : null; const S = sgOf(d);
+  const text = R ? R.pages.join('\n\n--- page break ---\n\n') : (k ? fillDoc(d.body, k, d.sentAt) : d.body.replace(/\{name\}/g, '—').replace(/\{date\}/g, dstr(d.sentAt||nowISO())));
+  const pages = R ? R.pages : esPaginate(text);
+  const fp = await esHash(`${d.id}|v${d.version||1}|${d.body}`);
+  let pno = 0; const marks = [];
+  const head = () => { pno++; doc.setFillColor(242,180,64); doc.rect(0,0,W,6,'F'); doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(120); doc.text(`The Cross Core OPC · ${d.title}${(d.version||1)>1?' · version '+d.version:''}`, M, 30); doc.setTextColor(20); };
+  const foot = () => marks.push(pno);
+  const fit = (img, w, h, bw, bh) => { const r = Math.min(bw/(w||bw), bh/(h||bh)); return [(w||bw)*r, (h||bh)*r]; };
+  const sigBox = (x, y, o) => { const bw = 230, bh = 50;
+    doc.setFontSize(8); doc.setTextColor(110); doc.text(String(o.label).toUpperCase(), x, y+8); doc.setTextColor(20);
+    if(o.img){ const [iw, ih] = fit(o.img, o.w, o.h, 190, bh-8); try{ doc.addImage(o.img, 'PNG', x, y+12+(bh-8-ih), iw, ih); }catch(e){} }
+    doc.setDrawColor(40); doc.setLineWidth(0.7); doc.line(x, y+bh+8, x+bw, y+bh+8);
+    doc.setFont('helvetica','bold'); doc.setFontSize(9.5); doc.text(o.name, x, y+bh+20); doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(90);
+    doc.text(doc.splitTextToSize(o.sub, bw), x, y+bh+31); doc.text(o.st, x, y+bh+42); doc.setTextColor(20);
+    return bh + 52; };
+  const sgBoxOf = s => { const r = sgRec(d.id, s.id); return {label:s.title+(s.required?'':' (optional)'), img:r?.img, w:r?.w, h:r?.h, name:pname(s.person), sub:`${s.role}${s.pos?' · '+s.pos:''}`, st:r ? `Signed electronically ${esManila(r.signedAt)}` : s.required ? 'Not signed' : 'Optional — not signed'}; };
+  const recipSig = R?.fields?.find(f=>f.kind==='signature' && !f.inline);
+  const recipBox = () => ({label:/agreement|contract|nda|non-disclosure/i.test(d.kind)?'Employee signature':'Recipient signature', img:recipSig?.img, w:recipSig?.w, h:recipSig?.h, name:k?pname(k):'Recipient', sub:k?(sgPos(k)||'Recipient'):'', st:R?`Signed electronically ${esManila(R.signedAt)}`:esNeeds(d)?'Not signed':''});
+  const inl = new Set((text.match(/\[sign:S\d+\]/gi)||[]).map(t=>t.slice(6,-1).toUpperCase()));
+  const top = S.filter(s=>s.place==='start' && !inl.has(s.id.toUpperCase())), end = S.filter(s=>s.place!=='start' && !inl.has(s.id.toUpperCase()));
+  let y = 64;
+  const need = h => { if(y + h > H-60){ foot(); doc.addPage(); head(); y = 64; } };
+  const grid = boxes => { for(let i=0;i<boxes.length;i+=2){ need(110); const h1 = sigBox(M, y, boxes[i]); const h2 = boxes[i+1] ? sigBox(M+260, y, boxes[i+1]) : 0; y += Math.max(h1, h2) + 10; } };
+  head();
+  if(top.length){ grid(top.map(sgBoxOf)); y += 6; }
+  pages.forEach((txt, i)=>{
+    const pg = i+1; if(i){ foot(); doc.addPage(); head(); y = 64; }
+    doc.setFont('helvetica','normal'); doc.setFontSize(10.5);
+    let n = 0; String(txt).split(/(\[(?:signature|initials)\]|\[sign:S\d+\])/i).forEach(sg=>{
+      const m = sg.match(/^\[sign:(S\d+)\]$/i);
+      if(m){ const s = S.find(x=>x.id.toUpperCase()===m[1].toUpperCase()); if(s){ need(110); y += sigBox(M, y, sgBoxOf(s)) + 4; doc.setFont('helvetica','normal'); doc.setFontSize(10.5); } return; }
+      if(/^\[(signature|initials)\]$/i.test(sg)){ const f = R?.fields?.find(x=>x.page===pg && x.inline && x.id===`p${pg}-f${++n}`); need(100);
+        y += sigBox(M, y, {label:f?.kind==='initials'?'Initials':'Signature', img:f?.img, w:f?.w, h:f?.h, name:k?pname(k):'Recipient', sub:'', st:f?`Signed ${esManila(f.at)}`:'Not signed'}) + 4; doc.setFont('helvetica','normal'); doc.setFontSize(10.5); return; }
+      doc.splitTextToSize(sg.replace(/\n$/,''), W-2*M).forEach(line=>{ need(16); doc.text(line, M, y); y += 14.5; });
+    });
+    const ini = R?.fields?.filter(f=>f.page===pg && !f.inline && f.kind==='initials') || [];
+    ini.forEach(f=>{ const [iw, ih] = fit(f.img, f.w, f.h, 70, 30); try{ doc.addImage(f.img, 'PNG', W-M-80, H-110, iw, ih); }catch(e){} doc.setFontSize(7); doc.setTextColor(110); doc.text(`Initials · ${k?pname(k):''}`, W-M-80, H-72); doc.setTextColor(20); });
+  });
+  const boxes = [...(esNeeds(d) && !/\[signature\]/i.test(d.body) ? [recipBox()] : []), ...end.map(sgBoxOf)];
+  if(boxes.length){ need(140); y += 10; doc.setFont('helvetica','bold'); doc.setFontSize(11); doc.text('Signatures', M, y); y += 14; doc.setFont('helvetica','normal'); grid(boxes); }
+  foot();
+  /* certificate & audit trail */
+  doc.addPage(); head(); y = 80;
+  doc.setFont('helvetica','bold'); doc.setFontSize(16); doc.text('Signature certificate & audit trail', M, y); y += 24;
+  doc.setFontSize(10); const st = sgState(d);
+  const kv = (a, b) => { need(18); doc.setFont('helvetica','bold'); doc.text(a, M, y); doc.setFont('helvetica','normal'); const L = doc.splitTextToSize(String(b), W-2*M-160); doc.text(L, M+160, y); y += Math.max(15, L.length*12.5)+3; };
+  kv('Document', `${d.kind}: ${d.title}`); kv('Document ID · version', `${d.id} · version ${d.version||1}`); kv('Text fingerprint (SHA-256)', fp);
+  if(R) kv('Signed copy fingerprint', R.hash); if(k) kv('Copy for', `${pname(k)}${PEOPLE[k]?.email?' ('+PEOPLE[k].email+')':''}`);
+  kv('Created by', `${pname(d.by)} on ${esManila(d.at)}`); if(d.sentAt) kv('Sent / published', esManila(d.sentAt));
+  kv('Status', st.complete ? `Complete — every required signature received${d.completedAt?' on '+esManila(d.completedAt):''}` : `Incomplete — waiting for ${[...st.needReq.map(s=>pname(s.person)), ...st.recPend.map(pname)].join(', ')||'—'}`);
+  y += 6; doc.setFont('helvetica','bold'); doc.setFontSize(11); need(20); doc.text('Signatures', M, y); y += 16; doc.setFontSize(9);
+  const sigRow = (who, role, acct, at, img, w, h, dev, req) => { need(60); doc.setFont('helvetica','bold'); doc.text(who, M, y); doc.setFont('helvetica','normal'); doc.setTextColor(80);
+    doc.text(doc.splitTextToSize(`${role}${acct?' · '+acct:''}${req?' · '+req:''}`, W-2*M-110), M, y+11); const AT = doc.splitTextToSize(at, W-2*M-110); doc.text(AT, M, y+22); const dy = (AT.length-1)*10; if(dev) doc.text(doc.splitTextToSize(dev, W-2*M-110)[0], M, y+33+dy); doc.setTextColor(20); y += dy;
+    if(img){ const [iw, ih] = fit(img, w, h, 90, 30); try{ doc.addImage(img, 'PNG', W-M-95, y-8, iw, ih); }catch(e){} } y += 52; };
+  if(R) sigRow(R.personName, 'Recipient', R.account, `Signed ${esManila(R.signedAt)}`, R.fields.find(f=>f.kind==='signature')?.img, R.fields.find(f=>f.kind==='signature')?.w, R.fields.find(f=>f.kind==='signature')?.h, R.device, 'required');
+  S.forEach(s=>{ const r = sgRec(d.id, s.id);
+    sigRow(pname(s.person), `${s.role} · ${s.title}`, r?.account||PEOPLE[s.person]?.email||'', r ? `Signed ${esManila(r.signedAt)}${r.requestedAt?' · requested '+esManila(r.requestedAt):''}` : (sgReq(d, s)?'Requested '+esManila(d.sgReq[s.id])+' · not signed':'Not requested'), r?.img, r?.w, r?.h, r?.device, s.required?'required':'optional'); });
+  y += 4; doc.setFont('helvetica','bold'); doc.setFontSize(11); need(20); doc.text('History', M, y); y += 15; doc.setFont('helvetica','normal'); doc.setFontSize(8.5);
+  const ev = [...(d.history||[]).map(h=>({at:h.at, t:`${h.act} — ${pname(h.by)}${h.note?' · “'+h.note+'”':''}`})), ...(R?[{at:R.signedAt, t:`Signed by ${R.personName} (recipient)`}]:[]), ...COSIGN.filter(r=>r.doc===d.id && r.status==='Signed').map(r=>({at:r.signedAt, t:`Signed by ${r.personName} as ${r.role} (${r.title})`}))]
+    .sort((a,b)=>(a.at||'').localeCompare(b.at||''));
+  ev.forEach(e=>{ const L = doc.splitTextToSize(`${esManila(e.at)} — ${e.t}`, W-2*M); need(L.length*11+3); doc.text(L, M, y); y += L.length*11+3; });
+  y += 8; need(30); doc.setFontSize(8); doc.setTextColor(110); doc.text(doc.splitTextToSize('Signed electronically in the Cross Core Ops Suite. Each signature was drawn by the signatory in their own signed-in portal; the database accepts a signature only from that person and locks it once saved. The fingerprint identifies the exact document text; any change produces a different fingerprint.', W-2*M), M, y); doc.setTextColor(20);
+  foot();
+  const total = doc.getNumberOfPages();
+  for(let i=1;i<=total;i++){ doc.setPage(i); doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(120); doc.text(`Page ${i} of ${total} · ${d.id} v${d.version||1} · ${st.complete?'Completed':'In progress'} · fingerprint ${fp.slice(0,20)}…`, M, H-26); doc.setTextColor(20); }
+  return doc;
+}
+
+/* ---------- requests in each signatory's portal: dashboard banner and My Documents ---------- */
+function sgMineHTML(){ const L = sgMine(); if(!L.length) return '';
+  return `<div class="card sg-mine"><div class="card-h"><h3>✍️ Signature requests <span class="badge b-pending">${L.length}</span></h3></div><div class="card-b" style="padding-top:4px">
+    ${L.map(({d, s})=>`<div class="list-row"><span class="badge b-draft" style="min-width:92px;justify-content:center">${esc(d.kind)}</span><div style="flex:1;min-width:0"><b style="font-size:13px">${esc(d.title)}</b>
+      <div class="hint">Sign as <b>${esc(s.role)}</b> — ${esc(s.title)}${s.required?'':' · optional'} · from ${esc(pname(d.by))} · ${esc(ago(d.sgReq?.[s.id]||d.updatedAt))}</div></div>
+      <button class="btn primary" style="padding:5px 11px;font-size:12px" onclick="sgOpen('${d.id}')">Review & sign</button></div>`).join('')}</div></div>`; }
+{ const _rd = RENDER.dashboard; RENDER.dashboard = function(){ const r = _rd.apply(this, arguments); const v = el('v-dashboard'); const h = sgMineHTML();
+    if(v && h){ v.querySelector('.sg-mine')?.remove(); const head = v.querySelector('.page-head'); head ? head.insertAdjacentHTML('afterend', h) : v.insertAdjacentHTML('afterbegin', h); } return r; }; }
+if(RENDER.mydocs){ const _md = RENDER.mydocs; RENDER.mydocs = function(){ const r = _md.apply(this, arguments); const v = el('v-mydocs'); const h = sgMineHTML();
+    if(v && h){ const head = v.querySelector('.page-head'); head ? head.insertAdjacentHTML('afterend', h) : v.insertAdjacentHTML('afterbegin', h); }
+    /* completed documents I signed as a signatory */
+    const done = HRDOCS.filter(d=>sgOf(d).some(s=>s.person===PERSON && sgRec(d.id, s.id)));
+    if(v && done.length) v.insertAdjacentHTML('beforeend', `<div class="card" style="margin-top:16px"><div class="card-h"><h3>Documents I signed as a signatory</h3></div><div class="card-b" style="padding-top:4px">${done.map(d=>{ const s = sgOf(d).find(x=>x.person===PERSON); const st = sgState(d);
+      return `<div class="list-row"><span class="badge b-approved">Signed</span><div style="flex:1;min-width:0"><b style="font-size:12.5px;cursor:pointer" onclick="openHrDoc('${d.id}')">${esc(d.title)}</b><div class="hint">${esc(s.role)} · ${esc(dtstr(sgRec(d.id, s.id).signedAt))} · ${st.complete?'document complete':'waiting for others'}</div></div><button class="btn ghost" onclick="openHrDoc('${d.id}')">View</button>${st.complete?`<button class="btn ghost" onclick="sgDownload('${d.id}')">⬇ PDF</button>`:''}</div>`; }).join('')}</div></div>`);
+    return r; }; }
+{ const _fl = followLink; followLink = function(link){ if(link?.sign){ closeOverlays(); return sgOpen(link.sign); } return _fl.apply(this, arguments); }; }
+/* the HR list shows signatory progress */
+{ const _hr = hrDocRow; hrDocRow = function(d){ const h = _hr.apply(this, arguments); if(!sgOf(d).length) return h; const st = sgState(d);
+    const tag = st.complete ? '<span class="badge b-approved">All signatures in</span>' : `<span class="badge b-pending">✍️ ${st.signed.length}/${st.S.length} signatories</span>`;
+    return h.replace('</b> ', `</b> ${tag} `); }; }
+
+/* ---------- live: anything signed anywhere shows at once ---------- */
+function sgLive(){
+  if(el('sgView') && SGV.doc) sgDraw();
+  const a = el('sgArea'); if(a){ const d = HRDOCS.find(x=>x.id===a.dataset.doc); if(d){ a.innerHTML = sgAreaHTML(d); const paper = el('modalBody')?.querySelector('.doc-paper.sg-paper'); if(paper) paper.innerHTML = sgDocHTML(d, (d.sentTo||[]).includes(PERSON) ? PERSON : null, {}); } }
+  if(el('esign') && ES.doc && typeof esDraw==='function') try{ esDraw(); }catch(e){}
+  if(['dashboard','mydocs','hrdocs'].includes(CURRENT)) try{ RENDER[CURRENT](); }catch(e){}
+  try{ buildNav(); }catch(e){}
+}
+{ const _ore = onRemoteEvent; onRemoteEvent = function(ev){ const r = _ore.apply(this, arguments);
+    if(ev?.coll==='cosign' || ev?.coll==='hrdocs' || ev?.coll==='esign'){ clearTimeout(sgLive._t); sgLive._t = setTimeout(()=>{ sgLive(); sgSweep(); }, 120); }
+    return r; }; }
+/* creators / HR / heads: send requests that are due, mark completed documents, keep PDF copies */
+function sgSweep(){ if(!PEOPLE[PERSON] || !SYNC.ready) return; const mgr = ROLE==='hr' || HR_KEYS().includes(PERSON) || isFullAccess() || isExec();
+  HRDOCS.forEach(d=>{ if(!sgOf(d).length) return; if(mgr || d.by===PERSON){ sgDispatch(d); if(['Sent','Published'].includes(d.status)) sgShare(d); }
+    if(sgState(d).complete){ if(!d.completedAt && (mgr || d.by===PERSON || sgOf(d).some(s=>s.person===PERSON))) sgCheck(d); else if(mgr || (d.sentTo||[]).includes(PERSON)) sgSavePDFs(d); } }); }
+setInterval(()=>{ try{ sgSweep(); }catch(e){ console.warn(e); } }, 15000);
+{ const _sp = setPerson; setPerson = function(){ const r = _sp.apply(this, arguments); setTimeout(()=>{ try{ sgSweep(); buildNav(); }catch(e){} }, 4000); return r; }; }
+/* the recipient's own signature can complete the document */
+{ const _es = esSubmit; esSubmit = async function(){ const d = ES.doc ? HRDOCS.find(x=>x.id===ES.doc.id) : null; const r = await _es.apply(this, arguments); if(d && sgOf(d).length) setTimeout(()=>sgCheck(d), 300); return r; }; }
+
+/* ---------- more document types ---------- */
+if(!HRDOC_KINDS.includes('Non-Disclosure Agreement (NDA)')) HRDOC_KINDS.splice(HRDOC_KINDS.indexOf('New contract')+1 || HRDOC_KINDS.length, 0, 'Non-Disclosure Agreement (NDA)');
+if(!HRDOC_KINDS.includes('Official document')) HRDOC_KINDS.push('Official document');
+DOC_TEMPLATES['Non-Disclosure Agreement (NDA)'] = 'NON-DISCLOSURE AGREEMENT\n\nThis Non-Disclosure Agreement is made on {date} between Cross Core OPC ("the Company") and {name} ("the Employee").\n\n1. Confidential information: all client data, account logins, business plans, pricing, processes and any information the Employee receives through their work with the Company or its clients.\n2. Obligations: the Employee keeps confidential information secret, uses it only for their work, and does not copy, share or disclose it to anyone without written permission.\n3. Return of information: on request or when the engagement ends, the Employee returns or deletes all confidential information.\n4. Duration: these obligations continue during the engagement and for [number] years after it ends.\n5. Remedies: a breach may result in disciplinary action, termination and legal remedies.\n\n--- page break ---\n\nSIGNATURES\n\nBy signing, the Employee confirms they have read and agree to this agreement.\n\nEmployee signature — {name}:\n[signature]';
+DOC_TEMPLATES['Official document'] = '[DOCUMENT TITLE]\n\nDate: {date}\nTo: {name}\n\n[Body of the document.]\n\nCross Core OPC';
+if(DOC_TEMPLATES['Employee agreement']===undefined && typeof JO_AGREEMENT_TPL!=='undefined') DOC_TEMPLATES['Employee agreement'] = JO_AGREEMENT_TPL;
+{ const _hm2 = hrDocModal; hrDocModal = function(id){ const r = _hm2.apply(this, arguments);
+    const k = el('hdKind'); if(k && !id && /nda|agreement/i.test(k.value)){ el('hdSign').checked = true; el('hdSignOpts').style.display = ''; }
+    if(k){ const _oc = k.onchange; k.onchange = function(e){ _oc?.call(this, e); if(/nda|non-disclosure|agreement/i.test(this.value)){ el('hdSign').checked = true; el('hdSignOpts').style.display = ''; } }; }
+    return r; }; }
+
+(function(){ const st = document.createElement('style'); st.id = 'sgCss'; st.textContent = `
+.sg-ed{margin:4px 0 14px;padding:12px;border:1px dashed var(--line);border-radius:14px;background:var(--panel-2)}
+.sg-ed-h{display:flex;gap:10px;margin-bottom:8px}.sg-ed-h b{font-size:13px}
+.sg-row{border:1px solid var(--line);border-radius:12px;background:var(--panel);padding:10px 12px;margin-bottom:8px}
+.sg-row-h{display:flex;align-items:center;gap:6px;margin-bottom:6px;font-size:13px}.sg-row-h .hint{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sg-n{font:700 10.5px Inter,sans-serif;padding:2px 7px;border-radius:999px;background:linear-gradient(120deg,#FBE2A6,#F2B440);color:#1A1206}
+.sg-x{margin-left:auto;width:28px;height:28px;border-radius:50%;border:0;background:transparent;cursor:pointer;color:var(--ink-3)}.sg-x:hover{background:var(--panel-2);color:var(--bad)}
+.sg-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.sg-grid .field{margin:0}.sg-grid .field > span{display:block;font-size:11.5px;color:var(--ink-3);margin-bottom:3px}
+.sg-grid select,.sg-grid input{width:100%}
+.sg-row-f{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:8px;font-size:12.5px}
+.sg-req{display:flex;align-items:center;gap:6px}.sg-req input{width:auto}
+.sg-ins{padding:4px 10px;font-size:12px}
+.sg-add{width:100%;justify-content:center;border-style:dashed}
+.sg-flow{margin:10px 0 0}.sg-flow > span{display:block;font-size:11.5px;color:var(--ink-3);margin-bottom:3px}
+@media (max-width:640px){.sg-grid{grid-template-columns:1fr}}
+.sg-paper .sg-body{white-space:pre-wrap}
+.sg-sec{margin:14px 0}.sg-sec.top{margin-top:0;display:flex;flex-wrap:wrap;gap:12px;padding-bottom:12px;border-bottom:1px dashed var(--line)}
+.sg-sec-h{font:700 11px Inter,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3);margin:6px 0 10px}
+.sg-grid2{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:18px 22px}
+.sg-inline{display:block;margin:10px 0;white-space:normal}
+.sg-pb{display:block;height:0;border-top:1px dashed var(--line);margin:14px 0}
+.sg-ini{display:inline-flex;align-items:flex-end;min-width:70px;height:30px;border-bottom:1px solid var(--ink-3);font-size:10.5px;color:var(--ink-3)}.sg-ini img{max-height:28px}
+.sg-b{display:flex;flex-direction:column;gap:2px;min-width:200px;max-width:280px;white-space:normal}
+.sg-k{font:600 11px Inter,sans-serif;color:var(--ink-3);text-transform:uppercase;letter-spacing:.06em}.sg-k i{text-transform:none;font-style:normal;letter-spacing:0}
+.sg-img{height:56px;display:flex;align-items:flex-end}.sg-img img{max-height:54px;max-width:220px}
+.sg-line{height:1px;background:var(--ink,#141416);opacity:.55}
+.sg-b b{font-size:12.5px;margin-top:3px}.sg-b small{font-size:11px;color:var(--ink-3)}.sg-b .sg-st{font-weight:600}
+.sg-b.signed .sg-st{color:var(--ok)}.sg-b.pending .sg-st{color:#B26A00}.sg-b.optional.pending .sg-st{color:var(--ink-3)}
+.sg-b.draft{outline:2px solid #F2B440;outline-offset:6px;border-radius:4px}.sg-b.draft .sg-st{color:#B26A00}
+.sg-sign{height:56px;border:2px dashed #E39312;border-radius:10px;background:rgba(242,180,64,.12);color:#8A5200;font:700 14px Sora,Inter,sans-serif;cursor:pointer;animation:sgPulse 1.6s ease-in-out infinite}
+.sg-sign:hover{background:rgba(242,180,64,.22)}
+@keyframes sgPulse{50%{box-shadow:0 0 0 6px rgba(242,180,64,.18)}}
+.sg-note{margin-top:8px;padding:9px 12px;border-radius:10px;background:var(--warn-bg,#FFF6E3);font-size:12.5px}
+.sg-view .es-scroll{display:block}.sg-view .es-paper{max-width:820px;margin:0 auto}
+.sg-view .es-confirm label{display:flex;gap:10px;align-items:flex-start;font-size:13px;flex:1}.sg-view .es-confirm label input{width:auto;margin-top:3px}
+.sg-mine{margin-bottom:16px;border:1px solid rgba(242,180,64,.45)!important}
 `; document.head.appendChild(st); })();
 </script>
 </body>

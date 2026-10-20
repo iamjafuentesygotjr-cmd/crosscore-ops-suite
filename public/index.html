@@ -20914,7 +20914,7 @@ async function cooPostFromModal(){ const ch = CHATS.find(c=>c.id===el('paPostC')
    The footer shows which build is running ("Build 2026-10-07 · 1"), and every open portal checks every few minutes
    (and whenever it comes back to the foreground) whether a newer build has been published. If so it shows
    "New version available — Update now" instead of quietly running old code. */
-const BUILD_ID = '2026-10-21 · 1';
+const BUILD_ID = '2026-10-21 · 2';
 function verStamp(){ const f = el('footNote'); if(f && !f.dataset.v){ f.dataset.v = 1; f.textContent = `Cross Core Ops Suite v8 · Build ${BUILD_ID}`; } }
 async function verCheck(){
   if(!/^https?:/.test(location.protocol)) return;
@@ -28920,6 +28920,7 @@ function bubSync(){
     const U = bubUnread(id);
     if(id===BUB.open){ const last = MESSAGES.filter(m=>m.chat===id && !m.thread).map(m=>m.at).sort().pop() || it.at; if(last!==it.at){ it.at = last; ch = true; } return; }
     if(!U.length){ if(typeof LIVE_BG!=='undefined' && LIVE_BG.on && !MESSAGES.some(m=>m.id===it.mid)) return;   /* history still loading */
+      if(typeof bxRinging==='function' && bxRinging(id)) return;                     /* an incoming call keeps its head */
       BUB.items.delete(id); ch = true; return; }                                      /* read here, in Messages or on another device */
     const L = U[U.length-1]; if(L.id!==it.mid){ it.mid = L.id; it.at = L.at; ch = true; }
     if((BUB.dismissed[id]||'') >= it.at){ BUB.items.delete(id); ch = true; }
@@ -29048,6 +29049,7 @@ function bubMsgsHTML(id){
     prevBy = m.by; });
   return out;
 }
+function bubPaintMsgs(box, id){ const h = bubMsgsHTML(id); if(box._h!==h){ box.innerHTML = h; box._h = h; } }
 function bubPanelHTML(id){
   const c = bubChat(id); const g = c.kind!=='dm';
   const other = c.kind==='dm' ? (c.members||[]).find(k=>k!==PERSON) : null;
@@ -29098,7 +29100,7 @@ function bubRender(){
   let P_ = L.querySelector('.bub-panel');
   if(BUB.open){
     if(!P_ || P_.dataset.chat!==BUB.open){ P_?.remove(); L.insertAdjacentHTML('beforeend', `<section class="bub-panel bub-glass in" data-chat="${esc(BUB.open)}" aria-label="Conversation">${bubPanelHTML(BUB.open)}</section>`); P_ = L.querySelector('.bub-panel'); BUB.stick = true; }
-    const box = el('bubMsgs'); if(box){ const near = BUB.stick || box.scrollHeight - box.scrollTop - box.clientHeight < 80; const h = bubMsgsHTML(BUB.open); if(box._h!==h){ box.innerHTML = h; box._h = h; } if(near) box.scrollTop = box.scrollHeight; BUB.stick = false;
+    const box = el('bubMsgs'); if(box){ const near = BUB.stick || box.scrollHeight - box.scrollTop - box.clientHeight < 80; bubPaintMsgs(box, BUB.open); if(near) box.scrollTop = box.scrollHeight; BUB.stick = false;
       if(!box._rd){ box._rd = true; box.addEventListener('scroll', ()=>{ clearTimeout(box._rt); box._rt = setTimeout(()=>bubMarkRead(BUB.open), 200); }, {passive:true}); }
       const oid = BUB.open; requestAnimationFrame(()=>bubMarkRead(oid)); }
     const others = list.filter(it=>it.chat!==BUB.open && bubUnread(it.chat).length).length;
@@ -29446,6 +29448,703 @@ function fxClientColours(){ (typeof CLIENTS!=='undefined' ? CLIENTS : []).forEac
 { const _go = go; go = function(){ fxClientColours(); return _go.apply(this, arguments); }; }
 { const _ra = renderAll; renderAll = function(){ fxClientColours(); return _ra.apply(this, arguments); }; }
 { const _ore = onRemoteEvent; onRemoteEvent = function(ev){ if(ev?.coll==='clients') fxClientColours(); return _ore.apply(this, arguments); }; }
+/* ===== o0_bubplus.js ===== */
+/* ================= CHAT BUBBLES+ — emoji, reactions, voice & video calls, voice messages, files (Oct 21 2026) =================
+   An open chat bubble is now a full conversation, on every portal (team, PMs, HR, heads and the client portal):
+   • 😊 emoji picker in the reply box, and ☺ reactions on any message (the same reactions as Messages).
+   • 📞 voice call and 🎥 video call buttons at the top. Incoming calls ring with Answer / Decline (the chat head shows a
+     green phone), and the open bubble shows the live call with Mute and End. Personal and group chats.
+   • 🎤 voice messages: record → pause / resume → cancel, or stop and listen back (play / pause) → send. They play inside
+     the conversation with a waveform and length.
+   • 📎 attachments: images (JPG, PNG, GIF, WEBP, HEIC…), videos (MP4, MOV, WEBM…) and documents (PDF, Word, Excel,
+     PowerPoint, TXT, CSV…). Upload progress on each file, clear messages for unsupported or oversized files, images
+     open full size, videos play inline, every file has a download button. Drag a file onto the bubble or paste it.
+   Everything is the same message / reaction / call record that Messages uses — sent once, synced live to every portal
+   and device, with Sent · Delivered · Seen. Uploads go to chat/<conversation>/<sender>/…; the database only accepts them
+   from members of that conversation and refuses executable file types (update-oct21-2.sql). */
+
+const BX = {pend:{bub:[], cp:[]}, rec:null, draft:null, declined:new Set(), ringHidden:new Set(), ringSig:'', errT:{}};
+const BX_VOICE_MAX = 5*60*1000;
+const BX_IMG = /\.(jpe?g|jfif|png|gif|webp|heic|heif|bmp|avif|tiff?)$/i, BX_VID = /\.(mp4|m4v|mov|webm|ogv|avi|mkv|3gp)$/i,
+  BX_AUD = /\.(mp3|m4a|wav|ogg|oga|aac|opus|flac)$/i,
+  BX_DOC = /\.(pdf|docx?|dotx?|xlsx?|xlsm|xltx|pptx?|ppsx?|txt|csv|tsv|rtf|odt|ods|odp|md|json|xml|pages|numbers|key|zip|eml|msg|vcf|ics)$/i,
+  BX_BLOCK = /\.(exe|msi|msix|bat|cmd|com|scr|pif|ps1|psm1|vbs|vbe|js|mjs|jse|wsf|wsh|jar|apk|aab|app|dmg|pkg|deb|rpm|sh|bash|dll|sys|lnk|reg|hta|cpl|msc|iso|img|html?|xhtml|svgz?|php|py|rb|pl)$/i;
+const BX_TYPES_TXT = 'images (JPG, PNG, GIF, WEBP, HEIC), videos (MP4, MOV, WEBM) and documents (PDF, Word, Excel, PowerPoint, TXT, CSV)';
+function bxKind(f){ const n = f?.name||'', t = (f?.type||'').toLowerCase();
+  if(BX_BLOCK.test(n) || /svg|html|javascript|x-msdownload|x-sh\b/.test(t)) return null;
+  if(/^image\//.test(t) || BX_IMG.test(n)) return 'image';
+  if(/^audio\//.test(t)) return 'audio';
+  if(/^video\//.test(t) || BX_VID.test(n)) return 'video';
+  if(BX_AUD.test(n)) return 'audio';
+  if(BX_DOC.test(n) || /^(application\/(pdf|msword|rtf|zip|json|vnd\.(openxmlformats|ms-|oasis))|text\/(plain|csv))/.test(t)) return 'doc';
+  return null; }
+const BX_MIME = {jpg:'image/jpeg',jpeg:'image/jpeg',jfif:'image/jpeg',png:'image/png',gif:'image/gif',webp:'image/webp',heic:'image/heic',heif:'image/heif',bmp:'image/bmp',avif:'image/avif',
+  mp4:'video/mp4',m4v:'video/mp4',mov:'video/quicktime',webm:'video/webm',mkv:'video/x-matroska',avi:'video/x-msvideo','3gp':'video/3gpp',
+  mp3:'audio/mpeg',m4a:'audio/mp4',wav:'audio/wav',ogg:'audio/ogg',aac:'audio/aac',pdf:'application/pdf',
+  doc:'application/msword',docx:'application/vnd.openxmlformats-officedocument.wordprocessingml.document',xls:'application/vnd.ms-excel',xlsx:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  ppt:'application/vnd.ms-powerpoint',pptx:'application/vnd.openxmlformats-officedocument.presentationml.presentation',txt:'text/plain',csv:'text/csv',rtf:'application/rtf',zip:'application/zip'};
+const bxExt = n => (String(n||'').match(/\.([a-z0-9]+)$/i)||[])[1]?.toLowerCase() || '';
+const bxType = f => f.type || BX_MIME[bxExt(f.name)] || 'application/octet-stream';
+function bxWhy(f){
+  if(!f) return 'No file';
+  if(!bxKind(f)) return `“${f.name}” can’t be sent — that file type isn’t supported. You can send ${BX_TYPES_TXT}.`;
+  if(!f.size) return `“${f.name}” is empty (0 bytes) — pick the file again.`;
+  return typeof bigCheck==='function' ? bigCheck(f) : (f.size > 50*1048576 ? `“${f.name}” is larger than 50 MB.` : '');
+}
+function bxPermMsg(e, what){ const n = (e?.name||'') + ' ' + (e?.message||''); const W = what[0].toUpperCase()+what.slice(1);
+  if(/NotAllowed|Permission|denied|Security/i.test(n)) return `${W} access is blocked — tap the 🔒 (or ⓘ) next to the address and allow the ${what} for this site, then try again`;
+  if(/NotFound|DevicesNotFound|Overconstrained/i.test(n)) return `No ${what} was found on this device`;
+  if(/NotReadable|TrackStart|in use/i.test(n)) return `Your ${what} is being used by another app — close it and try again`;
+  if(!window.isSecureContext) return `The ${what} only works when the portal is opened over https`;
+  return `Couldn’t start the ${what} (${e?.message||e})`; }
+
+/* ---------- where each composer lives: the chat bubble (“bub”) and the client portal’s Messages (“cp”) ---------- */
+const BXC = {
+  bub:{ chat:()=>BUB.open, input:()=>el('bubReply'), wrap:()=>document.querySelector('#bubLayer .bub-panel'), tray:()=>document.querySelector('#bubLayer .bp-tray'), rec:()=>document.querySelector('#bubLayer .bp-rec') },
+  cp:{ chat:()=> typeof clientLineId==='function' && typeof myClientId==='function' ? clientLineId(myClientId()) : null, input:()=>el('cpMsg'), wrap:()=>document.querySelector('#v-cchat .cp-chat'), tray:()=>el('cpTray'), rec:()=>el('cpRec') }
+};
+function bxErr(ctx, msg){
+  const w = BXC[ctx]?.wrap(); toast(msg);
+  if(!w) return; let b = w.querySelector('.bx-err'); const host = BXC[ctx].tray();
+  if(!b && host){ b = document.createElement('div'); b.className = 'bx-err'; b.setAttribute('role','alert'); host.parentElement.insertBefore(b, host); }
+  if(!b) return; b.innerHTML = `<span>⚠️</span><span style="flex:1">${esc(msg)}</span><button type="button" onclick="this.parentElement.remove()" aria-label="Dismiss">✕</button>`;
+  clearTimeout(BX.errT[ctx]); BX.errT[ctx] = setTimeout(()=>b.remove(), 9000);
+}
+
+/* ---------- attachments: pick · drop · paste → upload with progress → send ---------- */
+function bxPick(ctx){ const i = document.createElement('input'); i.type = 'file'; i.multiple = true;
+  i.accept = 'image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.xlsm,.ppt,.pptx,.txt,.csv,.rtf,.odt,.ods,.odp,.zip,.heic,.heif,.mov,.mp4,.webm,.m4v,.mp3,.m4a,.wav';
+  i.onchange = () => bxAttach(ctx, i.files); i.click(); }
+function bxAttach(ctx, list){
+  const chat = BXC[ctx].chat(); if(!chat) return;
+  const c = CHATS.find(x=>x.id===chat); if(c && typeof chatReadOnly==='function' && chatReadOnly(c)) return bxErr(ctx, 'This chat is archived — read-only');
+  for(const f of [...(list||[])]){
+    const why = bxWhy(f); if(why){ bxErr(ctx, why); continue; }
+    const kind = bxKind(f);
+    const p = {id:uid('U'), chat, file:f, name:f.name, size:f.size, type:bxType(f), kind, prog:0, state:'up', local:(kind==='image'||kind==='video') ? URL.createObjectURL(f) : null};
+    BX.pend[ctx].push(p);
+    bxUpload(p).then(ref=>{ if(p.state==='cancel') return; p.ref = ref; p.state = 'done'; p.prog = 1; bxTray(ctx); bxComposer(ctx); })
+      .catch(e=>{ if(p.state==='cancel' || e?.cancelled) return; p.state = 'err'; p.err = e.message || String(e); bxErr(ctx, `“${f.name}” couldn’t be uploaded — ${p.err}`); bxTray(ctx); bxComposer(ctx); });
+  }
+  bxTray(ctx); bxComposer(ctx);
+}
+async function bxUpload(p){
+  const f = p.file; const dir = `chat/${p.chat}/${PERSON}`;
+  const prog = x => { p.prog = x; bxProg(p); };
+  if(BACKEND.mode!=='live'){ prog(.35); const r = await BACKEND.upload(f); prog(1); return {...r, type:r.type||p.type}; }
+  if(typeof bigUpload==='function' && (f.size > BIG_CHUNK || (isVideoFile(f) && f.size > 1.4*1048576))){
+    p.big = true; return bigUpload(f, dir, {onProgress:prog, onError:why=>{ p.state = 'err'; p.err = why; bxTray(bxCtxOf(p)); }}).then(r=>({...r, type:r.type||p.type})); }
+  return bxXhr(f, dir, prog, p);
+}
+const bxCtxOf = p => BX.pend.bub.includes(p) ? 'bub' : 'cp';
+function bxXhr(f, dir, prog, p){
+  return new Promise(async (ok, bad)=>{
+    let tok; try{ tok = await bigToken(); }catch(e){ return bad(e); }
+    const path = `${dir}/${Date.now().toString(36)}${Math.random().toString(36).slice(2,5)}-${f.name.replace(/[^\w.\-]+/g,'_').slice(-120)}`;
+    const x = new XMLHttpRequest(); p.xhr = x;
+    x.open('POST', CC_CONFIG.SUPABASE_URL.replace(/\/$/,'') + '/storage/v1/object/cc-files/' + path.split('/').map(encodeURIComponent).join('/'));
+    x.setRequestHeader('Authorization', 'Bearer '+tok); x.setRequestHeader('apikey', CC_CONFIG.SUPABASE_ANON_KEY);
+    x.setRequestHeader('x-upsert', 'false'); x.setRequestHeader('cache-control', '3600'); x.setRequestHeader('Content-Type', bxType(f));
+    x.upload.onprogress = e => { if(e.lengthComputable) prog(Math.min(.98, e.loaded/e.total)); };
+    x.onload = () => { if(x.status>=200 && x.status<300){ prog(1); ok({name:f.name, type:bxType(f), size:f.size, path}); } else bad(new Error(bxHttpWhy(x))); };
+    x.onerror = () => bad(new Error('the connection dropped — check your internet and try again'));
+    x.ontimeout = () => bad(new Error('the upload timed out — try again'));
+    x.onabort = () => bad(Object.assign(new Error('cancelled'), {cancelled:true}));
+    x.send(f);
+  });
+}
+function bxHttpWhy(x){ let m = ''; try{ const j = JSON.parse(x.responseText||'{}'); m = j.message || j.error || ''; }catch(e){}
+  if(x.status===413 || /too large|exceeded/i.test(m)) return 'the file is larger than storage allows';
+  if(x.status===401) return 'your session expired — sign in again';
+  if(x.status===403 || /row-level security|policy/i.test(m)) return 'storage refused it (only members of this chat can upload here, and some file types are blocked)';
+  if(x.status===409) return 'a file with that name is already uploading — try again';
+  return m || `HTTP ${x.status}`; }
+function bxCancel(ctx, id){ const L = BX.pend[ctx]; const p = L.find(x=>x.id===id); if(!p) return;
+  if(p.state==='up'){ p.state = 'cancel'; try{ p.xhr?.abort(); }catch(e){} if(p.big && typeof BIGQ!=='undefined'){ const u = [...BIGQ.values()].find(u=>u.file===p.file); if(u) bigCancel(u.id); } }
+  if(p.local) URL.revokeObjectURL(p.local); L.splice(L.indexOf(p), 1); bxTray(ctx); bxComposer(ctx); }
+const bxPendFor = (ctx, chat) => BX.pend[ctx].filter(p=>p.chat===chat);
+function bxClear(ctx, chat){ BXC[ctx]?.wrap()?.querySelector('.bx-err')?.remove(); BX.pend[ctx] = BX.pend[ctx].filter(p=>{ if(p.chat!==chat) return true; if(p.local) setTimeout(()=>URL.revokeObjectURL(p.local), 4000); return false; }); bxTray(ctx); bxComposer(ctx); }
+/* the files ready to send (waits for uploads still running); null = nothing can be sent */
+function bxReady(ctx, chat){
+  const L = () => bxPendFor(ctx, chat);
+  const done = () => L().filter(p=>p.state==='done' && p.ref).map(p=>({...p.ref}));
+  if(!L().some(p=>p.state==='up')) return done();
+  toast('Waiting for the upload to finish…');
+  return (async ()=>{ for(let n=0; n<3000 && L().some(p=>p.state==='up'); n++) await new Promise(r=>setTimeout(r, 200)); return done(); })();
+}
+const BX_ICON = {
+  pdf:['PDF','#D93025'], doc:['DOC','#2B579A'], docx:['DOC','#2B579A'], xls:['XLS','#1E7145'], xlsx:['XLS','#1E7145'], xlsm:['XLS','#1E7145'], csv:['CSV','#1E7145'],
+  ppt:['PPT','#C43E1C'], pptx:['PPT','#C43E1C'], txt:['TXT','#5F6368'], rtf:['RTF','#5F6368'], zip:['ZIP','#7A5AF8'], md:['MD','#5F6368'] };
+const bxDocIco = n => { const [t, c] = BX_ICON[bxExt(n)] || [(bxExt(n)||'FILE').slice(0,4).toUpperCase(), '#6E7078']; return `<span class="bx-dico" style="--c:${c}">${esc(t)}</span>`; };
+function bxTray(ctx){
+  const T = BXC[ctx].tray(); if(!T) return; const chat = BXC[ctx].chat(); const L = chat ? bxPendFor(ctx, chat) : [];
+  T.hidden = !L.length;
+  T.innerHTML = L.map(p=>`<div class="bx-pf ${p.state}" data-id="${p.id}" title="${esc(p.name)}">
+      <span class="bx-pth">${p.local && p.kind==='image' ? `<img src="${p.local}" alt="">` : p.local && p.kind==='video' ? `<video src="${p.local}" muted playsinline></video><b class="bx-pplay">▶</b>` : bxDocIco(p.name)}</span>
+      <span class="bx-pn"><b>${esc(p.name)}</b><small>${p.state==='err' ? `<span class="bx-bad">Failed — ${esc(p.err||'')}</span>` : p.state==='done' ? `${fsize(p.size)} · ready` : `<span class="bx-pct">${Math.round(p.prog*100)}%</span> · ${fsize(p.size)}`}</small>
+        <span class="bx-bar"><i style="width:${Math.round((p.state==='done'?1:p.prog)*100)}%"></i></span></span>
+      <button type="button" class="bx-px" onclick="bxCancel('${ctx}','${p.id}')" aria-label="${p.state==='up'?'Cancel upload':'Remove'} ${esc(p.name)}" title="${p.state==='up'?'Cancel upload':'Remove'}">✕</button></div>`).join('');
+}
+function bxProg(p){ if(p.onp) p.onp(p.prog); const n = document.querySelector(`.bx-pf[data-id="${p.id}"]`); if(!n) return;
+  const i = n.querySelector('.bx-bar i'); if(i) i.style.width = Math.round(p.prog*100)+'%'; const t = n.querySelector('.bx-pct'); if(t) t.textContent = Math.round(p.prog*100)+'%'; }
+/* reply box: 😊 📎 [text] 🎤 / ➤ */
+function bxComposer(ctx){
+  const inp = BXC[ctx].input(); const chat = BXC[ctx].chat(); if(!inp) return;
+  const f = inp.closest('.bp-f, .chat-input'); if(!f) return;
+  const L = chat ? bxPendFor(ctx, chat) : [];
+  f.classList.toggle('bx-has', !!inp.value.trim() || L.some(p=>p.state!=='err'));
+  const s = f.querySelector('.bp-send, .cp-send'); if(s){ const up = L.some(p=>p.state==='up'); s.classList.toggle('busy', up); s.title = up ? 'Uploading… (sends when ready)' : 'Send'; }
+}
+
+/* ---------- sending: one ordinary message (text and/or files) — the same record Messages uses ---------- */
+function bxPost(chatId, text, files, opts={}){
+  const c = CHATS.find(x=>x.id===chatId); if(!c) return null;
+  const t = String(text||'').trim().slice(0, 4000);
+  const mentions = c.kind==='dm' || !t ? [] : (typeof findMentions==='function' ? findMentions(t, c) : []);
+  const nB = NOTIFS2.length;
+  const m = {id:uid('M'), chat:c.id, by:PERSON, text:t, at:nowISO(), files:files||[], ...(mentions.length?{mentions}:{})};
+  MESSAGES.push(m);
+  const what = (t.slice(0,90) || msgPreview(m) || 'Attachment').replace(/\s+/g,' ');
+  if(ROLE==='client') notify(c.members.filter(k=>k!==PERSON), 'message', `💬 <b>${esc(pname(PERSON))}</b> (client portal${typeof myClientId==='function'?' · '+esc(cname(myClientId())):''}): ${esc(what.slice(0,120))}`, {view:'chat', arg:c.id});
+  else if(c.kind==='dm') notify(c.members.filter(k=>k!==PERSON), 'message', `💬 <b>${esc(first(PERSON))}</b>: ${esc(what)}`, {view:'chat', arg:c.id});
+  else if(mentions.length) notify(mentions, 'message', `${esc(first(PERSON))} tagged you in <b>${esc(chatTitle(c))}</b>: ${esc(what)}`, {view:'chat', arg:c.id});
+  if(typeof tagMsgNotifs==='function') try{ tagMsgNotifs(nB, [m]); }catch(e){}
+  myPrefs().lastRead[c.id] = m.at; if(typeof rcBump==='function') rcBump(c.id, 'seen', m.at);
+  if(t && typeof OPS_RE!=='undefined' && OPS_RE.test(t) && typeof opsRoute==='function') try{ opsRoute(m, c, opts.where||'a message bubble'); }catch(e){}
+  recordChange();
+  const it = BUB.items.get(c.id); if(it){ it.at = m.at; it.mid = m.id; }
+  try{ buildNav(); if(typeof mpRedrawList==='function') mpRedrawList(); }catch(e){}
+  if(CURRENT==='chat' && CHAT_OPEN===c.id) try{ updateMessages(c); }catch(e){}
+  return m;
+}
+/* the bubble's Send: text only → unchanged path; with files → wait for uploads, then one message */
+{ const _bs = bubSend; bubSend = function(){
+    const id = BUB.open; const c = bubChat(id); const inp = el('bubReply'); if(!c || !inp) return;
+    if(!bxPendFor('bub', id).length){ const r = _bs.apply(this, arguments); bxComposer('bub'); return r; }
+    if(typeof chatReadOnly==='function' && chatReadOnly(c)) return toast('This chat is archived — read-only');
+    try{ tyStop(id); }catch(e){}
+    const go_ = files => { const t = inp.value; if(!t.trim() && !files.length) return;
+      const m = bxPost(id, t, files); if(!m) return; inp.value = ''; bubGrow(inp); bxClear('bub', id); BUB.stick = true; bubRender(); if(BUB.open===id) inp.focus(); };
+    const r = bxReady('bub', id); return r && typeof r.then==='function' ? r.then(go_) : go_(r); }; }
+if(typeof cpSend==='function'){ const _cs = cpSend; cpSend = function(){
+    const chat = BXC.cp.chat(); if(!chat || !bxPendFor('cp', chat).length) return _cs.apply(this, arguments);
+    try{ tyStop(chat); }catch(e){}
+    const go_ = files => { const inp = el('cpMsg'); const t = inp?.value||''; if(!t.trim() && !files.length) return;
+      bxPost(chat, t, files, {where:'the client portal'}); if(inp) inp.value = ''; bxClear('cp', chat); RENDER.cchat(); bubSyncSoon(); };
+    const r = bxReady('cp', chat); return r && typeof r.then==='function' ? r.then(go_) : go_(r); }; }
+
+/* ---------- voice messages: record → pause / resume → cancel · stop → listen → send ---------- */
+const BXI = {
+  mic:'<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v4"/></svg>',
+  clip:'<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21.4 11.1-9.2 9.2a6 6 0 0 1-8.5-8.5l9.2-9.2a4 4 0 0 1 5.7 5.7l-9.2 9.2a2 2 0 0 1-2.8-2.8l8.5-8.5"/></svg>',
+  smile:'<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2M9 9h.01M15 9h.01"/></svg>',
+  send:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4z"/></svg>',
+  play:'<svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.5v15l13-7.5z" fill="currentColor"/></svg>',
+  pause:'<svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4h4v16H6zM14 4h4v16h-4z" fill="currentColor"/></svg>',
+  stop:'<svg width="13" height="13" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="5" width="14" height="14" rx="2" fill="currentColor"/></svg>',
+  trash:'<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>',
+  redo:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8M3 3v5h5"/></svg>',
+  phone:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8 9.8a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.7 2z"/></svg>',
+  video:'<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m23 7-7 5 7 5z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>',
+  dl:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>',
+  micOff:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m2 2 20 20M9 9v2a3 3 0 0 0 5.1 2.1M15 9.3V5a3 3 0 0 0-5.9-.6M17 16.9A7 7 0 0 1 5 11M19 11a7 7 0 0 1-.1 1.2M12 18v4"/></svg>',
+  hang:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="transform:rotate(135deg)"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8 9.8a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.7 2z"/></svg>'
+};
+const bxRecMs = R => R ? R.acc + (R.paused ? 0 : Date.now() - R.t0) : 0;
+async function bxRecStart(ctx){
+  if(BX.rec) return; if(BX.draft) bxDraftDiscard(true);
+  const chat = BXC[ctx].chat(); if(!chat) return;
+  const c = CHATS.find(x=>x.id===chat); if(c && typeof chatReadOnly==='function' && chatReadOnly(c)) return bxErr(ctx, 'This chat is archived — read-only');
+  if(!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) return bxErr(ctx, window.isSecureContext ? 'Voice messages need a newer browser (Chrome, Edge, Firefox or Safari)' : 'Voice messages only work when the portal is opened over https');
+  if(typeof VM!=='undefined' && VM.mr) return bxErr(ctx, 'You are already recording a voice message in Messages');
+  BX.rec = {ctx, chat, starting:true}; bxRecDraw();
+  let stream; try{ stream = await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true, noiseSuppression:true}}); }
+  catch(e){ BX.rec = null; bxRecDraw(ctx); return bxErr(ctx, bxPermMsg(e, 'microphone')); }
+  if(!BX.rec || BX.rec.chat!==chat){ stream.getTracks().forEach(t=>t.stop()); return; }
+  const type = ['audio/webm;codecs=opus','audio/webm','audio/mp4','audio/ogg;codecs=opus'].find(t=>MediaRecorder.isTypeSupported?.(t)) || '';
+  let mr; try{ mr = new MediaRecorder(stream, type ? {mimeType:type, audioBitsPerSecond:48000} : {}); }
+  catch(e){ stream.getTracks().forEach(t=>t.stop()); BX.rec = null; bxRecDraw(ctx); return bxErr(ctx, 'Recording could not start: '+e.message); }
+  const R = BX.rec = {ctx, chat, mr, stream, chunks:[], t0:Date.now(), acc:0, paused:false, type:mr.mimeType||type||'audio/webm', lv:[]};
+  mr.ondataavailable = e => { if(e.data?.size) R.chunks.push(e.data); };
+  mr.onstop = () => bxRecStopped(R);
+  mr.start(250);
+  try{ const AC = window.AudioContext||window.webkitAudioContext; R.ac = new AC(); const src = R.ac.createMediaStreamSource(stream); R.an = R.ac.createAnalyser(); R.an.fftSize = 256; src.connect(R.an); R.buf = new Uint8Array(R.an.frequencyBinCount); }catch(e){}
+  R.tick = setInterval(()=>bxRecTick(R), 120);
+  bxRecDraw();
+}
+function bxRecTick(R){
+  if(BX.rec!==R) return clearInterval(R.tick);
+  if(!R.mr) return;
+  const ms = bxRecMs(R); if(ms >= BX_VOICE_MAX){ toast('Stopped at the 5-minute limit — listen back, then send'); return bxRecStop(false); }
+  let lv = 0; if(R.an && !R.paused){ R.an.getByteTimeDomainData(R.buf); let s = 0; for(const v of R.buf){ const d = (v-128)/128; s += d*d; } lv = Math.min(1, Math.sqrt(s/R.buf.length)*4); }
+  R.lv = R.lv || []; R.lv.push(lv); if(R.lv.length > 28) R.lv.shift();
+  const host = BXC[R.ctx].rec(); if(!host) return;
+  const t = host.querySelector('.bx-rt'); if(t) t.textContent = vmDur(ms/1000);
+  const w = host.querySelector('.bx-lv'); if(w) w.innerHTML = Array.from({length:28}, (_, i)=>`<i style="height:${Math.round(12 + (R.lv[i - (28 - R.lv.length)]||0)*88)}%"></i>`).join('');
+}
+function bxRecPause(){ const R = BX.rec; if(!R?.mr) return;
+  if(!R.paused){ try{ R.mr.pause(); }catch(e){} R.acc += Date.now() - R.t0; R.paused = true; }
+  else { try{ R.mr.resume(); }catch(e){} R.t0 = Date.now(); R.paused = false; }
+  bxRecDraw(); }
+function bxRecCancel(){ const R = BX.rec; if(!R) return; R.cancel = true; if(R.mr && R.mr.state!=='inactive') R.mr.stop(); else { BX.rec = null; bxRecDraw(R.ctx); } }
+function bxRecStop(send){ const R = BX.rec; if(!R?.mr) return; R.sendNow = !!send; if(!R.paused){ R.acc += Date.now() - R.t0; R.paused = true; }
+  if(R.mr.state!=='inactive'){ try{ R.mr.requestData?.(); }catch(e){} R.mr.stop(); } }
+function bxRecStopped(R){
+  clearInterval(R.tick); R.stream?.getTracks().forEach(t=>t.stop()); try{ R.ac?.close(); }catch(e){}
+  if(BX.rec===R) BX.rec = null;
+  if(R.cancel){ bxRecDraw(R.ctx); return toast('Voice message discarded'); }
+  const type = (R.type||'audio/webm').split(';')[0]; const ext = type.includes('mp4') ? 'm4a' : type.includes('ogg') ? 'ogg' : 'webm';
+  const blob = new Blob(R.chunks, {type}); const secs = Math.max(1, Math.round(R.acc/1000));
+  if(!blob.size || R.acc < 700){ bxRecDraw(R.ctx); return bxErr(R.ctx, 'That was too short — hold on a little longer'); }
+  const stamp = typeof recStamp==='function' ? recStamp() : nowISO().slice(0,19).replace(/[:T]/g,'.');
+  BX.draft = {ctx:R.ctx, chat:R.chat, file:new File([blob], `Voice message ${stamp}.${ext}`, {type}), secs, url:URL.createObjectURL(blob), prog:0};
+  bxRecDraw(R.ctx);
+  if(R.sendNow) bxDraftSend();
+}
+function bxDraftDiscard(quiet){ const D = BX.draft; if(!D) return; try{ D.audio?.pause(); }catch(e){} if(D.url) URL.revokeObjectURL(D.url); BX.draft = null; bxRecDraw(D.ctx); if(!quiet) toast('Voice message deleted'); }
+function bxDraftRedo(){ const D = BX.draft; if(!D) return; const ctx = D.ctx; bxDraftDiscard(true); bxRecStart(ctx); }
+function bxDraftPlay(){ const D = BX.draft; if(!D) return;
+  if(!D.audio){ D.audio = new Audio(D.url); D.audio.ontimeupdate = D.audio.onplay = D.audio.onpause = D.audio.onended = () => bxDraftPaint(); }
+  if(D.audio.paused){ if(BXA.cur) BXA.cur.pause(); D.audio.play().catch(e=>toast('Could not play: '+e.message)); } else D.audio.pause(); }
+function bxDraftPaint(){ const D = BX.draft; const host = D && BXC[D.ctx].rec(); if(!host || !D.audio) return; const p = D.secs ? Math.min(1, D.audio.currentTime/D.secs) : 0;
+  const b = host.querySelector('.bx-dp'); if(b){ b.innerHTML = D.audio.paused ? BXI.play : BXI.pause; b.setAttribute('aria-label', D.audio.paused ? 'Play' : 'Pause'); }
+  host.querySelectorAll('.bx-bars i').forEach((x, i, all)=>x.classList.toggle('on', (i+.5)/all.length <= p));
+  const t = host.querySelector('.bx-rt'); if(t) t.textContent = vmDur(D.audio.paused && (!D.audio.currentTime || D.audio.ended) ? D.secs : D.audio.currentTime); }
+async function bxDraftSend(){
+  const D = BX.draft; if(!D || D.sending) return; D.sending = true; try{ D.audio?.pause(); }catch(e){} bxRecDraw(D.ctx);
+  const p = {id:uid('U'), chat:D.chat, file:D.file, name:D.file.name, size:D.file.size, type:D.file.type, kind:'audio', prog:0, state:'up'};
+  p.onp = x => { const b = BXC[D.ctx].rec()?.querySelector('.bx-rsend'); if(b) b.style.setProperty('--p', Math.round(x*100)+'%'); };
+  try{ const ref = await bxUpload(p);
+    if(BX.draft!==D) return;
+    bxPost(D.chat, '', [{...ref, voice:true, dur:D.secs}], {where:D.ctx==='cp'?'the client portal':'a message bubble'});
+    if(D.url) setTimeout(()=>URL.revokeObjectURL(D.url), 5000); BX.draft = null; bxRecDraw(D.ctx);
+    if(D.ctx==='bub'){ BUB.stick = true; bubRender(); } else RENDER.cchat();
+  }catch(e){ D.sending = false; bxRecDraw(D.ctx); if(!e?.cancelled) bxErr(D.ctx, 'The voice message couldn’t be sent — '+(e.message||e)+'. It’s still here; tap Send to try again.'); }
+}
+function bxRecDraw(ctx){
+  ctx = ctx || BX.rec?.ctx || BX.draft?.ctx; if(!ctx) return;
+  const host = BXC[ctx].rec(); const wrap = BXC[ctx].wrap(); if(!host) return;
+  const R = BX.rec && BX.rec.ctx===ctx && BX.rec.chat===BXC[ctx].chat() ? BX.rec : null;
+  const D = !R && BX.draft && BX.draft.ctx===ctx && BX.draft.chat===BXC[ctx].chat() ? BX.draft : null;
+  wrap?.classList.toggle('bx-recording', !!(R||D));
+  if(!R && !D){ host.hidden = true; host.innerHTML = ''; return; }
+  host.hidden = false;
+  if(R){ host.innerHTML = `<button type="button" class="bx-ib bx-del" onclick="bxRecCancel()" title="Cancel" aria-label="Cancel recording">${BXI.trash}</button>
+      <span class="bx-rdot ${R.paused?'paused':''}" aria-hidden="true"></span><span class="bx-rt" aria-live="off">${vmDur(bxRecMs(R)/1000)}</span>
+      <span class="bx-lv" aria-hidden="true"></span><span class="bx-rs">${R.starting ? 'Allow the microphone…' : R.paused ? 'Paused' : 'Recording'}</span>
+      <button type="button" class="bx-ib" onclick="bxRecPause()" ${R.mr?'':'disabled'} title="${R.paused?'Resume':'Pause'}" aria-label="${R.paused?'Resume recording':'Pause recording'}">${R.paused ? BXI.mic : BXI.pause}</button>
+      <button type="button" class="bx-ib" onclick="bxRecStop(false)" ${R.mr?'':'disabled'} title="Stop and listen" aria-label="Stop and listen back">${BXI.stop}</button>
+      <button type="button" class="bp-send bx-rsend" onclick="bxRecStop(true)" ${R.mr?'':'disabled'} title="Send" aria-label="Send voice message">${BXI.send}</button>`;
+    bxRecTick(R); return; }
+  host.innerHTML = `<button type="button" class="bx-ib bx-del" onclick="bxDraftDiscard()" ${D.sending?'disabled':''} title="Delete" aria-label="Delete voice message">${BXI.trash}</button>
+    <button type="button" class="bx-ib bx-dp" onclick="bxDraftPlay()" aria-label="Play">${BXI.play}</button>
+    <span class="bx-bars" aria-hidden="true">${bxBars(D.url, 26)}</span><span class="bx-rt">${vmDur(D.secs)}</span>
+    <button type="button" class="bx-ib" onclick="bxDraftRedo()" ${D.sending?'disabled':''} title="Record again" aria-label="Record again">${BXI.redo}</button>
+    <button type="button" class="bp-send bx-rsend ${D.sending?'busy':''}" onclick="bxDraftSend()" ${D.sending?'disabled':''} title="${D.sending?'Sending…':'Send'}" aria-label="Send voice message">${BXI.send}</button>`;
+  bxDraftPaint();
+}
+/* a voice message in the conversation: play / pause, waveform, seek, length */
+const BXA = {map:new Map(), cur:null};
+function bxBars(k, n=30){ let h = 0; for(const ch of String(k||'v')) h = (h*31 + ch.charCodeAt(0)) >>> 0;
+  return Array.from({length:n}, (_, i)=>{ h = (h*1103515245 + 12345) >>> 0; const v = 25 + (h % 70); const env = Math.sin(Math.PI*(i+.5)/n)*.55 + .45; return `<i style="height:${Math.round(v*env)}%"></i>`; }).join(''); }
+const bxFkey = f => f.path || f.url || f.idb || ('d:'+(f.name||'')+':'+(f.size||0));
+function bxVoiceHTML(f){ const k = bxFkey(f);
+  return `<div class="bx-voice" data-k="${esc(k)}" data-f='${esc(JSON.stringify({name:f.name, type:f.type, size:f.size, path:f.path, data:f.data, url:f.url, idb:f.idb, dur:f.dur}))}'>
+    <button type="button" class="bx-vp" onclick="bxVoice(this)" aria-label="Play voice message${f.dur?', '+vmDur(f.dur):''}">${BXI.play}</button>
+    <span class="bx-bars" onclick="bxSeek(event,this)">${bxBars(k)}</span><span class="bx-vt">${vmDur(f.dur||0)}</span></div>`; }
+async function bxVoice(btn){
+  const w = btn.closest('.bx-voice'); const k = w.dataset.k; let a = BXA.map.get(k);
+  if(!a){ const f = JSON.parse(w.dataset.f); a = new Audio(); a.preload = 'auto'; a._dur = +f.dur || 0; BXA.map.set(k, a);
+    const paint = () => bxVoicePaint(k); a.ontimeupdate = a.onplay = a.onpause = paint; a.onended = () => { a.currentTime = 0; paint(); };
+    a.onloadedmetadata = () => { if(isFinite(a.duration) && a.duration > 0) a._dur = a.duration; paint(); };
+    try{ a.src = await BACKEND.fileUrl(f); }catch(e){ BXA.map.delete(k); return toast('Could not load this voice message'); } }
+  if(a.paused){ if(BXA.cur && BXA.cur!==a) BXA.cur.pause(); if(BX.draft?.audio) BX.draft.audio.pause(); BXA.cur = a; a.play().catch(e=>toast('Could not play: '+e.message)); }
+  else a.pause();
+}
+function bxSeek(e, bars){ const w = bars.closest('.bx-voice'); const a = BXA.map.get(w.dataset.k); if(!a) return bxVoice(w.querySelector('.bx-vp'));
+  const r = bars.getBoundingClientRect(); const p = Math.max(0, Math.min(1, (e.clientX - r.left)/r.width)); const d = a._dur || a.duration; if(d && isFinite(d)) a.currentTime = p*d; bxVoicePaint(w.dataset.k); }
+function bxVoicePaint(k){ const a = BXA.map.get(k); if(!a) return; const d = a._dur || (isFinite(a.duration) ? a.duration : 0); const p = d ? Math.min(1, a.currentTime/d) : 0;
+  document.querySelectorAll(`.bx-voice[data-k="${CSS.escape(k)}"]`).forEach(w=>{ w.classList.toggle('playing', !a.paused);
+    const b = w.querySelector('.bx-vp'); b.innerHTML = a.paused ? BXI.play : BXI.pause; b.setAttribute('aria-label', a.paused ? 'Play voice message' : 'Pause voice message');
+    w.querySelectorAll('.bx-bars i').forEach((x, i, all)=>x.classList.toggle('on', (i+.5)/all.length <= p));
+    w.querySelector('.bx-vt').textContent = vmDur(!a.currentTime ? d : a.currentTime); }); }
+const bxVoiceSync = () => BXA.map.forEach((a, k)=>bxVoicePaint(k));
+
+/* attachments inside a message: images (tap = full size), videos (play inline), voice, documents — all downloadable */
+async function bxDl(btn){
+  const f = JSON.parse(btn.closest('[data-f]').dataset.f);
+  try{ let url;
+    if(BACKEND.mode==='live' && f.path){ const {data, error} = await BACKEND.sb.storage.from('cc-files').createSignedUrl(f.path, 600, {download: f.name || true}); if(error) throw error; url = data.signedUrl; }
+    else url = await BACKEND.fileUrl(f);
+    const a = document.createElement('a'); a.href = url; a.download = f.name || 'file'; a.rel = 'noopener'; if(!f.data && !/^blob:/.test(url)) a.target = '_blank'; document.body.appendChild(a); a.click(); a.remove();
+  }catch(e){ toast('Could not download: '+(e.message||e)); } }
+function bxFilesHTML(files){
+  const F = files||[]; if(!F.length) return '';
+  const data = f => esc(JSON.stringify({name:f.name, type:f.type, size:f.size, path:f.path, data:f.data, url:f.url, idb:f.idb}));
+  const imgs = F.filter(f=>isImg(f) && !isVoice(f)), vids = F.filter(f=>isVid(f) && !isVoice(f)), voice = F.filter(isVoice), docs = F.filter(f=>!isImg(f) && !isVid(f) && !isVoice(f));
+  return `<div class="bx-att">${imgs.length ? `<div class="bx-imgs n${Math.min(imgs.length, 3)}">${imgs.map(f=>`<span class="bx-im" data-f='${data(f)}'><img class="chat-img" alt="${esc(f.name)}" data-f='${data(f)}' onclick="viewMedia(this)"><button type="button" class="bx-dl over" onclick="event.stopPropagation();bxDl(this)" title="Download ${esc(f.name)}" aria-label="Download ${esc(f.name)}">${BXI.dl}</button></span>`).join('')}</div>` : ''}
+    ${vids.map(f=>`<div class="bx-vid" data-f='${data(f)}'><video class="chat-video" controls preload="metadata" playsinline data-f='${data(f)}'></video><div class="bx-cap"><span>🎬 ${esc(f.name)} · ${fsize(f.size)}</span><button type="button" class="bx-dl" onclick="bxDl(this)" title="Download" aria-label="Download ${esc(f.name)}">${BXI.dl}</button></div></div>`).join('')}
+    ${voice.map(bxVoiceHTML).join('')}
+    ${docs.map(f=>`<div class="bx-doc" data-f='${data(f)}'><button type="button" class="bx-dopen" onclick="openFileRef(this.parentElement)" title="Open ${esc(f.name)}">${bxDocIco(f.name)}<span class="bx-dn"><b>${esc(f.name)}</b><small>${fsize(f.size)}${bxExt(f.name)?' · '+bxExt(f.name).toUpperCase():''}</small></span></button><button type="button" class="bx-dl" onclick="bxDl(this)" title="Download" aria-label="Download ${esc(f.name)}">${BXI.dl}</button></div>`).join('')}</div>`;
+}
+
+/* ---------- reactions in the bubble ---------- */
+function bxRxHTML(m){ const R = reactionsFor(m.id); if(!R.length) return '';
+  const g = {}; R.forEach(r=>(g[r.emoji] = g[r.emoji]||[]).push(r.person));
+  return `<span class="bx-rxs">${Object.entries(g).map(([e, who])=>`<button type="button" class="bx-rx ${who.includes(PERSON)?'mine':''}" title="${esc(who.map(k=>k===PERSON?'You':pname(k)).join(', '))}" onclick="event.stopPropagation();bxReact('${esc(m.id)}','${e}')">${e}${who.length>1?` <b>${who.length}</b>`:''}</button>`).join('')}</span>`; }
+function bxReact(mid, e){ toggleReaction(mid, e); bubSyncSoon(0); if(CURRENT==='cchat') RENDER.cchat(); }
+function bxReactPick(btn, mid){ emojiOpen(btn, e=>bxReact(mid, e), {quick:true, alignRight:btn.closest('.bp-m')?.classList.contains('mine')}); }
+document.addEventListener('click', e=>{ const m = e.target.closest?.('#bubMsgs .bp-m'); document.querySelectorAll('#bubMsgs .bp-m.act').forEach(x=>{ if(x!==m) x.classList.remove('act'); });
+  if(m && matchMedia('(hover: none)').matches && !e.target.closest('button,a,video,audio,img')) m.classList.toggle('act'); });
+
+/* ---------- the bubble conversation: keyed drawing so playing videos / voice keep playing while messages arrive ---------- */
+function bxCallLine(m){
+  const audio = m.media==='audio'; const ico = audio ? BXI.phone : BXI.video; const kind = audio ? 'Voice call' : 'Video call';
+  const live = ['live','meet'].includes(m.status) && Date.parse(m.at) > Date.now() - (typeof CALL_STALE_H!=='undefined' ? CALL_STALE_H : 6)*3600e3;
+  const mins = Math.max(1, Math.round((Date.parse(m.endedAt||m.switchedAt||nowISO()) - Date.parse(m.at))/60000));
+  const others = (m.joined||[]).filter(k=>k!==m.by);
+  const missed = !live && !others.length && m.by!==PERSON;
+  const st = live ? (m.status==='meet' ? 'Continued on Google Meet' : `In progress · ${(m.joined||[]).length} joined`)
+    : m.declined ? `Declined${m.declined===PERSON?'':' by '+first(m.declined)}` : missed ? 'Missed' : !others.length ? 'No answer' : `${mins} min`;
+  const btn = live ? (CALL?.msgId===m.id ? `<button type="button" class="bx-cbtn" onclick="CALL.ui='full';drawCall()">Open</button>` : m.status==='meet' && m.meetUrl ? `<button type="button" class="bx-cbtn" onclick="openMeet('${esc(m.id)}')">Join Meet</button>` : `<button type="button" class="bx-cbtn" onclick="joinCall('${esc(m.id)}')">Join</button>`)
+    : `<button type="button" class="bx-cbtn ghost" onclick="bxCall('${esc(m.chat)}','${audio?'audio':'video'}')">Call back</button>`;
+  return `<div class="bp-callc ${live?'live':''} ${missed||m.declined?'missed':''}"><span class="bx-cico">${ico}</span><span class="bx-ct"><b>${missed?'Missed '+kind.toLowerCase():kind}</b><small>${m.by===PERSON?'You':esc(first(m.by))} · ${esc(clock(m.at))} · ${esc(st)}</small></span>${btn}</div>`;
+}
+function bxItems(id){
+  const c = bubChat(id); if(!c) return [];
+  const M = MESSAGES.filter(m=>m.chat===id && !m.thread).sort((a, b)=>a.at < b.at ? -1 : 1).slice(-60);
+  const out = []; let prevBy = null, newShown = false; const lastMine = [...M].reverse().find(m=>m.by===PERSON && !m.sys && !m.kind)?.id;
+  M.forEach(m=>{
+    if(!newShown && BUB.readAt && m.at > BUB.readAt && m.by!==PERSON){ out.push({k:'new', b:'<div class="bp-new" data-k="new"><span>New</span></div>', m:''}); newShown = true; prevBy = null; }
+    if(m.kind==='call'){ const h = `<div class="bp-cw" data-k="c${esc(m.id)}" data-mid="${esc(m.id)}">${bxCallLine(m)}</div>`; out.push({k:'c'+m.id, b:h, m:''}); prevBy = null; return; }
+    if(m.sys){ out.push({k:'s'+m.id, b:`<div class="bp-sys" data-k="s${esc(m.id)}">${esc(String(msgPreview(m)||'').slice(0, 160))}</div>`, m:''}); prevBy = null; return; }
+    const me = m.by===PERSON; const head = !me && prevBy!==m.by;
+    const txt = m.deleted ? '<i class="bx-del-t">🚫 This message was deleted</i>' : m.text ? linkify(String(m.text).slice(0, 4000)) + (m.editedAt ? ' <small class="bx-ed">(edited)</small>' : '') : '';
+    const files = m.deleted ? '' : bxFilesHTML(m.files);
+    const mediaOnly = !txt && files && (m.files||[]).every(f=>(isImg(f) || isVid(f)) && !isVoice(f));
+    const body = `${txt ? `<span class="bx-txt">${txt}</span>` : ''}${files}` || esc(msgPreview(m)||'');
+    const can = !m.deleted && typeof toggleReaction==='function';
+    const b = `<div class="bp-m ${me?'mine':''} ${head?'head':''}" data-k="m${esc(m.id)}" data-mid="${esc(m.id)}">${head ? bubFace(m.by, 'mini') : ''}<div class="bp-col">${head && c.kind!=='dm' ? `<small>${esc(pname(m.by))}</small>` : ''}<div class="bp-row"><div class="bp-b ${mediaOnly?'media':''} ${(m.files||[]).some(isVoice)?'has-voice':''}">${body}</div>${can?`<button type="button" class="bp-react" data-emoji-btn onclick="event.stopPropagation();bxReactPick(this,'${esc(m.id)}')" title="React" aria-label="React to this message">${BXI.smile}</button>`:''}</div><!--meta--></div></div>`;
+    const meta = `${bxRxHTML(m)}<small class="bp-at">${esc(clock(m.at))}${me && typeof bubRcpt==='function' ? bubRcpt(m, m.id===lastMine) : ''}</small>`;
+    out.push({k:'m'+m.id, b, m:meta}); prevBy = m.by; });
+  return out;
+}
+bubPaintMsgs = function(box, id){
+  const items = bxItems(id);
+  if(!items.length){ if(box._empty!==id){ box.innerHTML = '<div class="bp-empty">No messages yet — say hello 👋</div>'; box._empty = id; } return; }
+  if(box._empty){ box.innerHTML = ''; box._empty = null; }
+  const have = new Map(); [...box.children].forEach(n=>{ if(n.dataset?.k) have.set(n.dataset.k, n); else n.remove(); });
+  let prev = null;
+  items.forEach(it=>{
+    let n = have.get(it.k);
+    if(n && n._b===it.b){ if(n._m!==it.m){ const mm = n.querySelector('.bp-meta'); if(mm) mm.innerHTML = it.m; n._m = it.m; } }
+    else { const t = document.createElement('template'); t.innerHTML = it.b.replace('<!--meta-->', `<div class="bp-meta">${it.m}</div>`).trim(); const nn = t.content.firstElementChild; nn._b = it.b; nn._m = it.m; if(n) n.replaceWith(nn); n = nn; }
+    have.delete(it.k);
+    const want = prev ? prev.nextElementSibling : box.firstElementChild; if(want!==n) box.insertBefore(n, want);
+    prev = n; });
+  have.forEach(n=>n.remove());
+  try{ hydrateChatMedia(box); }catch(e){} bxVoiceSync();
+  if(!box._bx){ box._bx = true;
+    box.addEventListener('scroll', ()=>{ box._bot = box.scrollHeight - box.scrollTop - box.clientHeight < 60; }, {passive:true});
+    box.addEventListener('load', ()=>{ if(box._bot !== false) box.scrollTop = box.scrollHeight; }, true);
+    box.addEventListener('loadedmetadata', ()=>{ if(box._bot !== false) box.scrollTop = box.scrollHeight; }, true); }
+};
+
+/* ---------- the panel: header with 📞 🎥, live call strip, conversation, files tray, recorder, reply box ---------- */
+bubPanelHTML = function(id){
+  const c = bubChat(id); const g = c.kind!=='dm';
+  const other = c.kind==='dm' ? (c.members||[]).find(k=>k!==PERSON) : null;
+  const last = MESSAGES.filter(m=>m.chat===id && !m.thread && m.by!==PERSON && !m.sys).sort((a, b)=>a.at < b.at ? 1 : -1)[0];
+  const sub = c.kind==='dm' ? 'Private message' : c.kind==='clientline' ? 'Client portal chat' : `${c.kind==='client'?'Client group':'Group'} · ${(c.members||[]).length} members`;
+  const ro = typeof chatReadOnly==='function' && chatReadOnly(c);
+  const calls = !ro && !!window.RTCPeerConnection;
+  const who = c.kind==='dm' ? first(other||'') : chatTitle(c);
+  return `<div class="bp-h"><span class="bub-face sm ${g?'grp':''}">${g ? bubFaces(c, last || {by:(c.members||[]).find(k=>k!==PERSON)||PERSON}) : bubFace(other)}</span>
+      <div class="bp-ttl"><b>${esc(chatTitle(c))}</b><small>${esc(sub)}</small></div>
+      ${calls ? `<button class="bp-ib bx-call" onclick="bxCall('${esc(id)}','audio')" title="Voice call" aria-label="Start a voice call with ${esc(who)}">${BXI.phone}</button><button class="bp-ib bx-call" onclick="bxCall('${esc(id)}','video')" title="Video call" aria-label="Start a video call with ${esc(who)}">${BXI.video}</button>` : ''}
+      <button class="bp-ib" onclick="bubToMessages('${esc(id)}')" title="Open in Messages" aria-label="Open this conversation in Messages"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg></button>
+      <button class="bp-ib" onclick="bubMinimize()" title="Minimise" aria-label="Minimise"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14"/></svg></button>
+      <button class="bp-ib" onclick="bubDismiss('${esc(id)}')" title="Close (keeps the conversation)" aria-label="Close this bubble (the conversation stays in Messages)">${BUB_X}</button></div>
+    <div class="bp-call-s" hidden></div>
+    <div class="bp-msgs" id="bubMsgs" aria-live="polite"></div>
+    <div class="bp-tray" hidden></div>
+    <div class="bp-rec" hidden role="group" aria-label="Voice message"></div>
+    ${ro ? '<div class="bp-ro">This chat is archived — read-only.</div>' : `<div class="bp-f">
+      <button type="button" class="bx-ib bx-emo" data-emoji-btn onclick="emojiOpen(this, e=>insertAtCursor(el('bubReply'), e))" title="Emoji" aria-label="Add an emoji">${BXI.smile}</button>
+      <button type="button" class="bx-ib" onclick="bxPick('bub')" title="Attach photos, videos or files" aria-label="Attach a file">${BXI.clip}</button>
+      <textarea id="bubReply" rows="1" placeholder="Reply to ${esc(who)}…" aria-label="Reply" oninput="bubGrow(this);bxComposer('bub')" onkeydown="bubKey(event)" onpaste="bxPaste(event,'bub')"></textarea>
+      <button type="button" class="bx-ib bx-mic" onclick="bxRecStart('bub')" title="Record a voice message" aria-label="Record a voice message">${BXI.mic}</button>
+      <button class="bp-send" onclick="bubSend()" aria-label="Send" title="Send">${BXI.send}</button></div>`}
+    <div class="bp-all"><button onclick="bubToMessages()">View all messages</button></div>`;
+};
+function bxPaste(e, ctx){ const items = [...(e.clipboardData?.items||[])].filter(it=>it.kind==='file'); if(!items.length) return; e.preventDefault();
+  const stamp = new Date().toLocaleString('en-CA',{timeZone:'Asia/Manila',hour12:false}).replace(/[/:]/g,'.').replace(', ',' at ');
+  bxAttach(ctx, items.map((it, i)=>{ const f = it.getAsFile(); const ext = (f.type.split('/')[1]||'png').replace('jpeg','jpg'); return /^image\//.test(f.type) && (!f.name || /^image\.\w+$/.test(f.name)) ? new File([f], `Screenshot ${stamp}${items.length>1?' ('+(i+1)+')':''}.${ext}`, {type:f.type}) : f; })); }
+function bxDropZone(node, ctx){ if(!node || node._bxd) return; node._bxd = true;
+  const on = e => { if(![...(e.dataTransfer?.types||[])].includes('Files')) return; e.preventDefault(); node.classList.add('bx-drop'); };
+  node.addEventListener('dragenter', on); node.addEventListener('dragover', on);
+  node.addEventListener('dragleave', e=>{ if(!node.contains(e.relatedTarget)) node.classList.remove('bx-drop'); });
+  node.addEventListener('drop', e=>{ if(!e.dataTransfer?.files?.length) return; e.preventDefault(); node.classList.remove('bx-drop'); bxAttach(ctx, e.dataTransfer.files); }); }
+
+/* after each bubble draw: tray, recorder, live call strip; stop a recording when its conversation closes */
+{ const _br = bubRender; bubRender = function(){
+    const r = _br.apply(this, arguments);
+    const P_ = document.querySelector('#bubLayer .bub-panel');
+    if(BX.rec?.ctx==='bub' && BX.rec.chat!==BUB.open) bxRecCancel();
+    if(BX.draft?.ctx==='bub' && BX.draft.chat!==BUB.open && !BX.draft.sending) bxDraftDiscard(true);
+    if(P_){ if(P_._bxChat!==P_.dataset.chat){ P_._bxChat = P_.dataset.chat; bxDropZone(P_, 'bub'); bxTray('bub'); bxRecDraw('bub'); bxComposer('bub'); } bxCallStrip(); }
+    return r; }; }
+
+/* ---------- calls: 📞 voice and 🎥 video, from the bubble, Messages and the client portal ---------- */
+function bxCall(chatId, media){
+  const c = CHATS.find(x=>x.id===chatId); if(!c) return;
+  if(!window.RTCPeerConnection) return toast('This browser does not support built-in calls — please use Chrome, Edge or Safari');
+  const ex = liveCall(chatId); if(ex) return ex.status==='meet' ? openMeet(ex.id) : joinCall(ex.id);
+  if(media!=='audio') return startCall(chatId);
+  const r = crypto.getRandomValues(new Uint8Array(12)); const callId = 'c'+[...r].map(b=>b.toString(36).padStart(2,'0')).join('').slice(0,20);
+  const m = {id:uid('M'), chat:chatId, by:PERSON, kind:'call', media:'audio', text:'📞 Voice call', callId, status:'live', joined:[], at:nowISO(), files:[]};
+  MESSAGES.push(m); myPrefs().lastRead[chatId] = m.at;
+  notify(c.members.filter(k=>k!==PERSON), 'message', `📞 <b>${esc(first(PERSON))}</b> started a voice call${c.kind==='dm'?' with you':` in <b>${esc(chatTitle(c))}</b>`} — tap to join`, {view:'chat', arg:chatId});
+  if(typeof CALLX!=='undefined'){ CALLX.ringNext = true; setTimeout(()=>{ CALLX.ringNext = false; }, 4000); }
+  recordChange(); joinCall(m.id); bubSyncSoon(0);
+}
+const bxCallMsg = () => CALL ? MESSAGES.find(x=>x.id===CALL.msgId) : null;
+const bxCallMedia = () => bxCallMsg()?.media || CALL?.media || 'video';
+/* microphone only for voice calls; clear messages when the browser blocks the camera or microphone */
+getMedia = async function(){
+  const A = {echoCancellation:true, noiseSuppression:true, autoGainControl:true};
+  if(!navigator.mediaDevices?.getUserMedia){ toast(window.isSecureContext ? 'This browser can’t use a camera or microphone here' : 'Calls need the portal to be opened over https'); return null; }
+  if(bxCallMedia()==='audio'){ try{ return await navigator.mediaDevices.getUserMedia({audio:A}); }catch(e){ toast(bxPermMsg(e, 'microphone')+' — you can still hear the others'); return null; } }
+  try{ return await navigator.mediaDevices.getUserMedia({audio:A, video:{width:{ideal:640}, height:{ideal:360}, frameRate:{ideal:24}}}); }
+  catch(e){ try{ const s = await navigator.mediaDevices.getUserMedia({audio:A}); toast(/NotAllowed|denied|Permission/i.test(e.name+e.message) ? 'Camera access is blocked — you joined with audio only. Allow the camera for this site to turn it on.' : 'No camera available — you joined with audio only'); return s; }
+    catch(e2){ toast(bxPermMsg(e2, 'camera and microphone')+' — you can still see and hear the others'); return null; } }
+};
+/* voice calls look like voice calls; "End call" is always one tap away */
+{ const _dc = drawCall; drawCall = function(){
+    const r = _dc.apply(this, arguments); const d = el('callPanel'); if(!d || !CALL) return r;
+    const audio = bxCallMedia()==='audio'; d.classList.toggle('voice', audio);
+    const t = d.querySelector('.cp-head b'); if(t && audio) t.textContent = t.textContent.replace('📹', '📞').replace('Video call', 'Voice call');
+    const mini = d.querySelector('.cp-mini'); if(mini && audio) mini.innerHTML = mini.innerHTML.replace('📹', '📞');
+    d.querySelectorAll('.cp-ctrl button').forEach(b=>{ if(audio && b.title==='Camera') b.remove(); if(b.classList.contains('leave')){ b.textContent = '✆ End call'; b.title = 'Leave the call (it ends when the last person leaves)'; } });
+    bxCallStrip(); return r; }; }
+{ const _mp = msgPreview; msgPreview = function(m){ const r = _mp.apply(this, arguments); return m?.kind==='call' && m.media==='audio' && typeof r==='string' ? r.replace(/📹/g, '📞').replace(/[Vv]ideo call/g, 'Voice call') : r; }; }
+{ const _cc = callCard; callCard = function(m){ const h = _cc.apply(this, arguments); return m?.media==='audio' ? h.replace(/📹/g, '📞').replace(/Video call/g, 'Voice call') : h; }; }
+{ const _ch = callHeadButton; callHeadButton = function(c){ const h = _ch.apply(this, arguments); const live = liveCall(c.id);
+    if(live) return live.media==='audio' ? h.replace(/📹/g, '📞').replace('live call', 'voice call') : h;
+    return `<button class="btn" onclick="bxCall('${c.id}','audio')" title="Start a voice call with ${c.kind==='dm'?esc(chatTitle(c)):'everyone in this chat'}">📞 Voice call</button>` + h; }; }
+/* the person who was called declined a one-to-one call → the caller is told, and the call closes */
+{ const _dl = drawCallLight; drawCallLight = function(){ const m = bxCallMsg();
+    if(m && m.status==='ended' && m.declined && m.declined!==PERSON){ toast(`${first(m.declined)} declined the call`); leaveCall(true); return; }
+    return _dl.apply(this, arguments); }; }
+function bxDecline(mid){
+  const m = MESSAGES.find(x=>x.id===mid); if(!m) return;
+  BX.declined.add(mid); if(typeof SEEN_CALLS!=='undefined') SEEN_CALLS.add(m.id+':'+m.status);
+  const ring = el('callRing'); if(ring && ring.dataset.id===mid) ring.remove();
+  const c = CHATS.find(x=>x.id===m.chat);
+  if(c?.kind==='dm' && m.status==='live' && !(m.joined||[]).some(k=>k!==m.by)){ m.status = 'ended'; m.endedAt = nowISO(); m.endedBy = PERSON; m.declined = PERSON; recordChange(); }
+  bubSyncSoon(0);
+}
+function bxAnswer(mid){ const ring = el('callRing'); if(ring && ring.dataset.id===mid) ring.remove(); BX.ringHidden.add(mid); joinCall(mid); bubSyncSoon(0); }
+/* an incoming call for me, still ringing (≤ 45 s, not answered, declined or started by me) */
+function bxRingingCall(chat){
+  if(!PEOPLE[PERSON]) return null; const cut = new Date(Date.now()-45e3).toISOString();
+  return MESSAGES.filter(m=>m.chat===chat && m.kind==='call' && m.callId && m.status==='live' && m.by!==PERSON && m.at > cut && !(m.joined||[]).includes(PERSON) && !BX.declined.has(m.id) && CALL?.msgId!==m.id).pop() || null; }
+const bxRinging = chat => !!bxRingingCall(chat) && !BX.ringHidden.has(bxRingingCall(chat)?.id);
+/* the ring pop-up: Answer / Decline, voice or video */
+{ const _ci = checkIncomingCalls; checkIncomingCalls = function(){
+    const r = _ci.apply(this, arguments);
+    const ring = el('callRing');
+    if(ring && !ring._bx && !ring.classList.contains('invite') && !ring.classList.contains('meet')){ ring._bx = true; const m = MESSAGES.find(x=>x.id===ring.dataset.id);
+      if(m){ const audio = m.media==='audio'; const h = ring.querySelector('.hint'); if(h) h.textContent = h.textContent.replace('📹 Video call', audio ? '📞 Incoming voice call' : '📹 Incoming video call');
+        ring.classList.toggle('voice', audio);
+        const bs = ring.querySelectorAll('button'); const dec = [...bs].find(b=>/Decline/.test(b.textContent)), ans = [...bs].find(b=>/Join/.test(b.textContent));
+        if(dec){ dec.removeAttribute('onclick'); dec.onclick = () => bxDecline(m.id); dec.classList.add('bx-decline'); dec.innerHTML = `${BXI.hang} Decline`; }
+        if(ans){ ans.removeAttribute('onclick'); ans.onclick = () => bxAnswer(m.id); ans.classList.add('bx-answer'); ans.innerHTML = `${audio?BXI.phone:BXI.video} Answer`; } } }
+    bxCallWatch(); return r; }; }
+/* chat heads ring too: a head with a green phone for each incoming call (outside Messages) */
+function bxCallWatch(){
+  if(!PEOPLE[PERSON] || typeof BUB==='undefined') return;
+  const mine = myChats().map(c=>c.id); const ring = mine.map(bxRingingCall).filter(Boolean);
+  const sig = ring.map(m=>m.id).join(',') + '|' + (CALL?.msgId||'') + '|' + [...BX.ringHidden].length;
+  ring.forEach(m=>{ if(BX.ringHidden.has(m.id)) return; const it = BUB.items.get(m.chat); if(!it){ BUB.items.set(m.chat, {chat:m.chat, at:m.at, mid:m.id}); BUB.newKeys.add(m.chat); } else if(it.at < m.at){ it.at = m.at; } });
+  if(sig!==BX.ringSig){ BX.ringSig = sig; bubSyncSoon(0); }
+  else if(BUB.open) bxCallStrip();
+}
+setInterval(()=>{ try{ bxCallWatch(); }catch(e){} }, 1500);
+{ const _bh = bubHeadHTML; bubHeadHTML = function(it, newest){
+    const call = bxRinging(it.chat) ? bxRingingCall(it.chat) : null;
+    if(!call) return _bh.apply(this, arguments);
+    const audio = call.media==='audio'; let h = _bh.call(this, {...it, mid:call.id}, newest);
+    if(!h) return h;
+    h = h.replace(/<span class="bub-pv">[\s\S]*?<\/span>/, `<span class="bub-ring-t">${audio?'📞 Incoming voice call':'📹 Incoming video call'}</span>`)
+      .replace('</button>', `<span class="bub-ring" aria-hidden="true">${audio?BXI.phone:BXI.video}</span></button>`)
+      .replace('aria-label="Open conversation:', `aria-label="${audio?'Incoming voice call':'Incoming video call'} —`);
+    return h; }; }
+{ const _bd = bubDismiss; bubDismiss = function(id){ const call = bxRingingCall(id); if(call) BX.ringHidden.add(call.id); return _bd.apply(this, arguments); }; }
+/* the live call strip in an open bubble: ringing → Answer / Decline; in the call → Mute · Open · End; otherwise → Join */
+function bxCallStrip(){
+  const P_ = document.querySelector('#bubLayer .bub-panel'); const s = P_?.querySelector('.bp-call-s'); if(!s) return;
+  const id = P_.dataset.chat; const ringM = bxRingingCall(id); const live = typeof liveCall==='function' ? liveCall(id) : null;
+  let h = '', cls = '';
+  if(CALL && CALL.chatId===id){ const audio = bxCallMedia()==='audio'; const secs = Math.round((Date.now() - (CALL.startedAt||Date.now()))/1000);
+    const n = Object.values(CALL.peers||{}).filter(p=>p.pc?.connectionState==='connected').length;
+    cls = 'in'; h = `<span class="bx-cdot"></span><span class="bx-ct"><b>${audio?'Voice call':'Video call'} · ${vmDur(secs)}</b><small>${n ? `${n+1} on the call` : 'Calling…'}${CALL.mic===false?' · you are muted':''}</small></span>
+      <button type="button" class="bx-cb ${CALL.mic===false?'on':''}" onclick="toggleMic();bxCallStrip()" title="${CALL.mic===false?'Unmute':'Mute'}" aria-label="${CALL.mic===false?'Unmute your microphone':'Mute your microphone'}">${CALL.mic===false?BXI.micOff:BXI.mic}</button>
+      <button type="button" class="bx-cb" onclick="CALL.ui='full';drawCall()" title="Open the call window" aria-label="Open the call window">${audio?BXI.phone:BXI.video}</button>
+      <button type="button" class="bx-cb end" onclick="leaveCall()" title="End call" aria-label="End call">${BXI.hang}</button>`; }
+  else if(ringM){ const audio = ringM.media==='audio'; cls = 'ring';
+    h = `<span class="bx-cico pulse">${audio?BXI.phone:BXI.video}</span><span class="bx-ct"><b>${esc(first(ringM.by))} is calling…</b><small>${audio?'Voice call':'Video call'}</small></span>
+      <button type="button" class="bx-cb end wide" onclick="bxDecline('${esc(ringM.id)}')" aria-label="Decline the call">${BXI.hang}<span>Decline</span></button>
+      <button type="button" class="bx-cb ok wide" onclick="bxAnswer('${esc(ringM.id)}')" aria-label="Answer the call">${audio?BXI.phone:BXI.video}<span>Answer</span></button>`; }
+  else if(live){ const audio = live.media==='audio'; cls = 'live';
+    h = live.status==='meet' && live.meetUrl ? `<span class="bx-cico">${BXI.video}</span><span class="bx-ct"><b>Call moved to Google Meet</b><small>Tap to join</small></span><button type="button" class="bx-cb ok wide" onclick="openMeet('${esc(live.id)}')"><span>Join</span></button>`
+      : `<span class="bx-cico">${audio?BXI.phone:BXI.video}</span><span class="bx-ct"><b>${audio?'Voice call':'Video call'} in progress</b><small>${(live.joined||[]).length} joined</small></span><button type="button" class="bx-cb ok wide" onclick="joinCall('${esc(live.id)}')" aria-label="Join the call">${audio?BXI.phone:BXI.video}<span>Join</span></button>`; }
+  if(s._h!==h){ s.innerHTML = h; s._h = h; } s.className = 'bp-call-s ' + cls; s.hidden = !h;
+}
+setInterval(()=>{ if(CALL && BUB.open) bxCallStrip(); }, 1000);
+/* reactions, calls and messages from other people redraw the bubble */
+{ const _ore = onRemoteEvent; onRemoteEvent = function(ev){ const r = _ore.apply(this, arguments);
+    if(ev?.coll==='reactions') bubSyncSoon(40);
+    if(ev?.coll==='messages'){ setTimeout(()=>{ try{ bxCallWatch(); checkIncomingCalls(); }catch(e){} }, 60); }
+    if(ROLE==='client' && CURRENT==='cchat' && ev?.coll==='reactions') try{ RENDER.cchat(); }catch(e){}
+    return r; }; }
+{ const _tr = toggleReaction; toggleReaction = function(){ const r = _tr.apply(this, arguments); bubSyncSoon(0); return r; }; }
+
+/* ---------- the client portal's Messages gets the same: files, voice, emoji, reactions, calls ---------- */
+if(RENDER.cchat){ const _cc = RENDER.cchat; RENDER.cchat = function(){
+    const r = _cc.apply(this, arguments); const v = el('v-cchat'); const chat = BXC.cp.chat(); if(!v || !chat) return r;
+    v.querySelectorAll('.cp-msg[data-mid]').forEach(n=>{ const m = MESSAGES.find(x=>x.id===n.dataset.mid); if(!m) return;
+      const body = n.querySelector(':scope > div');
+      if(m.kind==='call'){ n.classList.add('cp-callm'); if(body) body.innerHTML = bxCallLine(m); return; }
+      if((m.files||[]).length && body) body.insertAdjacentHTML('beforeend', bxFilesHTML(m.files));
+      if(!m.text && !(m.files||[]).length && body) body.textContent = msgPreview(m)||'';
+      n.insertAdjacentHTML('beforeend', `<div class="cp-rx">${bxRxHTML(m)}<button type="button" class="bp-react" data-emoji-btn onclick="bxReactPick(this,'${esc(m.id)}')" title="React" aria-label="React">${BXI.smile}</button></div>`); });
+    const head = v.querySelector('.page-head');
+    if(head && window.RTCPeerConnection && !head.querySelector('.cp-calls')){ const live = liveCall(chat);
+      head.insertAdjacentHTML('beforeend', `<div class="cp-calls">${live ? `<button class="btn primary" onclick="joinCall('${esc(live.id)}')">${live.media==='audio'?'📞':'📹'} ${CALL?.msgId===live.id?'Back to call':'Join call'}</button>`
+        : `<button class="btn" onclick="bxCall('${esc(chat)}','audio')">📞 Voice call</button><button class="btn primary" onclick="bxCall('${esc(chat)}','video')">📹 Video call</button>`}</div>`); }
+    const inp = el('cpMsg'); const bar = inp?.closest('.chat-input');
+    if(bar && !bar.querySelector('.bx-clip')){
+      inp.insertAdjacentHTML('beforebegin', `<button type="button" class="btn bx-clip" onclick="bxPick('cp')" title="Attach photos, videos or files" aria-label="Attach a file">${BXI.clip}</button>`);
+      inp.insertAdjacentHTML('afterend', `<button type="button" class="btn bx-mic" onclick="bxRecStart('cp')" title="Record a voice message" aria-label="Record a voice message">${BXI.mic}</button>`);
+      bar.insertAdjacentHTML('beforebegin', '<div class="bp-tray cp-tray" id="cpTray" hidden></div><div class="bp-rec cp-rec" id="cpRec" hidden role="group" aria-label="Voice message"></div>');
+      inp.addEventListener('paste', e=>bxPaste(e, 'cp')); inp.addEventListener('input', ()=>bxComposer('cp'));
+      bar.querySelector('.btn.primary')?.classList.add('cp-send');
+      bxDropZone(v.querySelector('.cp-chat'), 'cp'); }
+    try{ hydrateChatMedia(v); }catch(e){} bxVoiceSync(); bxTray('cp'); bxRecDraw('cp'); bxComposer('cp');
+    const b = el('cpMsgs'); if(b) b.scrollTop = b.scrollHeight;
+    return r; }; }
+/* a voice message or files on their own can be sent from the client portal too */
+
+(function(){ const st = document.createElement('style'); st.id = 'bxCss'; st.textContent = `
+.bp-h{gap:4px}
+.bp-h .bx-call{color:#1F7A4D}.bp-h .bx-call:hover{background:rgba(31,122,77,.1);color:#16653F}
+.bp-f{align-items:flex-end;gap:4px;padding:8px 8px 6px}
+.bx-ib{flex:none;width:38px;height:42px;border:0;border-radius:12px;background:transparent;color:#55575E;display:grid;place-items:center;cursor:pointer;padding:0}
+.bx-ib:hover{background:rgba(17,18,20,.07);color:#141416}.bx-ib:disabled{opacity:.4;cursor:default}
+.bp-f textarea{min-width:0}
+.bp-f .bp-send{display:none}.bp-f.bx-has .bp-send{display:grid}.bp-f.bx-has .bx-mic{display:none}
+.bp-send.busy{opacity:.75}
+.bp-call-s{display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid rgba(17,18,20,.07);background:rgba(31,122,77,.08)}
+.bp-call-s[hidden]{display:none}.bp-call-s.ring{background:linear-gradient(90deg,rgba(31,122,77,.16),rgba(31,122,77,.06))}
+.bx-cdot{width:9px;height:9px;border-radius:50%;background:#1FA463;box-shadow:0 0 0 4px rgba(31,164,99,.18);flex:none;margin-left:4px}
+.bx-ct{flex:1;min-width:0;display:flex;flex-direction:column}.bx-ct b{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.bx-ct small{font-size:11.5px;color:#55575E}
+.bx-cico{flex:none;width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:#1F7A4D;color:#fff}
+.bx-cico.pulse{animation:bxPulse 1.2s ease-in-out infinite}
+@keyframes bxPulse{0%,100%{box-shadow:0 0 0 0 rgba(31,164,99,.45)}50%{box-shadow:0 0 0 9px rgba(31,164,99,0)}}
+.bx-cb{flex:none;height:36px;min-width:36px;border-radius:18px;border:0;display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:0 10px;background:rgba(17,18,20,.08);color:#141416;font:600 12.5px Inter,sans-serif;cursor:pointer}
+.bx-cb:hover{background:rgba(17,18,20,.14)}.bx-cb.on{background:#141416;color:#fff}
+.bx-cb.end{background:#E5283F;color:#fff}.bx-cb.end:hover{background:#C81E33}.bx-cb.ok{background:#1F9D57;color:#fff}.bx-cb.ok:hover{background:#178248}
+.bx-cb.wide{padding:0 14px}
+.bp-row{display:flex;align-items:center;gap:4px;max-width:100%}.bp-m.mine .bp-row{flex-direction:row-reverse}
+.bp-react{flex:none;width:28px;height:28px;border-radius:50%;border:0;background:transparent;color:#8A8C93;display:grid;place-items:center;cursor:pointer;opacity:0;transition:opacity .15s;padding:0}
+.bp-react svg{width:16px;height:16px}.bp-react:hover{background:rgba(17,18,20,.07);color:#141416}
+.bp-m:hover .bp-react,.bp-m.act .bp-react,.bp-react:focus-visible{opacity:1}
+@media (hover:none){.bp-react{opacity:.55}}
+.bp-meta{display:flex;flex-direction:column;align-items:flex-start}.bp-m.mine .bp-meta{align-items:flex-end}
+.bp-meta small.bp-at{margin:2px 6px 0;font-size:10.5px;color:#8A8C93}
+.bx-rxs{display:flex;flex-wrap:wrap;gap:3px;margin:-6px 4px 0;position:relative;z-index:1}
+.bx-rx{border:1px solid rgba(17,18,20,.08);background:#fff;border-radius:999px;padding:1px 7px;font-size:13px;line-height:20px;cursor:pointer;box-shadow:0 2px 6px -2px rgba(17,18,20,.25)}
+.bx-rx b{font:700 11px Inter,sans-serif;color:#55575E}.bx-rx.mine{border-color:#F2B440;background:#FFF6E3}
+.bp-b.media{padding:0;background:transparent!important;box-shadow:none!important}
+.bp-b .bx-txt{display:block}
+.bx-att{display:flex;flex-direction:column;gap:6px;margin-top:4px}.bp-b > .bx-att:first-child{margin-top:0}
+.bx-imgs{display:grid;gap:4px;grid-template-columns:1fr;max-width:240px}.bx-imgs.n2,.bx-imgs.n3{grid-template-columns:1fr 1fr}
+.bx-im{position:relative;display:block;border-radius:14px;overflow:hidden;background:rgba(17,18,20,.06);min-height:60px}
+.bx-im img{display:block;width:100%;max-height:240px;object-fit:cover;cursor:zoom-in}
+.bx-imgs.n1 .bx-im img{object-fit:contain;background:rgba(17,18,20,.04)}
+.bx-dl{flex:none;width:30px;height:30px;border-radius:50%;border:0;display:grid;place-items:center;cursor:pointer;background:rgba(17,18,20,.07);color:inherit;padding:0}
+.bx-dl:hover{background:rgba(17,18,20,.14)}
+.bx-dl.over{position:absolute;right:6px;bottom:6px;background:rgba(17,18,20,.6);color:#fff;opacity:0;transition:opacity .15s}
+.bx-im:hover .bx-dl.over,.bx-dl.over:focus-visible{opacity:1}@media (hover:none){.bx-dl.over{opacity:.9}}
+.bx-vid{max-width:250px}.bx-vid video{display:block;width:100%;max-height:220px;border-radius:14px;background:#000}
+.bx-cap{display:flex;align-items:center;gap:6px;margin-top:3px;font-size:11.5px;opacity:.85}.bx-cap span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bx-doc{display:flex;align-items:center;gap:6px;min-width:200px;max-width:260px;padding:6px;border-radius:12px;background:rgba(17,18,20,.05)}
+.bp-m.mine .bx-doc{background:rgba(255,255,255,.12)}
+.bx-dopen{flex:1;min-width:0;display:flex;align-items:center;gap:8px;border:0;background:transparent;color:inherit;text-align:left;cursor:pointer;padding:0;font:inherit}
+.bx-dico{flex:none;width:36px;height:40px;border-radius:7px;display:grid;place-items:center;background:var(--c);color:#fff;font:800 10px Inter,sans-serif;letter-spacing:.03em}
+.bx-dn{min-width:0;display:flex;flex-direction:column}.bx-dn b{font-size:12.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.bx-dn small{font-size:11px;opacity:.7}
+.bx-voice{display:flex;align-items:center;gap:8px;min-width:200px;padding:2px 0}
+.bx-vp,.bx-dp{flex:none;width:34px;height:34px;border-radius:50%;border:0;display:grid;place-items:center;cursor:pointer;background:#141416;color:#fff;padding:0}
+.bp-m.mine .bx-vp{background:#F2B440;color:#1A1206}
+.bx-bars{flex:1;display:flex;align-items:center;gap:2px;height:28px;cursor:pointer;min-width:90px}
+.bx-bars i{flex:1;min-width:2px;border-radius:2px;background:currentColor;opacity:.28;transition:opacity .12s}.bx-bars i.on{opacity:1}
+.bp-m.mine .bx-bars i.on{background:#F6C766}
+.bx-vt,.bx-rt{flex:none;font:600 11.5px Inter,sans-serif;font-variant-numeric:tabular-nums;min-width:32px;text-align:right}
+.bp-callc{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:16px;background:rgba(255,255,255,.95);box-shadow:0 0 0 1px rgba(17,18,20,.06);min-width:230px;max-width:290px}
+.bp-cw{align-self:center;margin:4px 0}
+.bp-callc .bx-cico{width:32px;height:32px}.bp-callc.missed .bx-cico{background:#E5283F}.bp-callc.live .bx-cico{animation:bxPulse 1.6s ease-in-out infinite}
+.bp-callc:not(.live):not(.missed) .bx-cico{background:#55575E}
+.bx-cbtn{flex:none;border:0;border-radius:14px;padding:6px 11px;font:600 12px Inter,sans-serif;background:#1F9D57;color:#fff;cursor:pointer}.bx-cbtn.ghost{background:rgba(17,18,20,.07);color:#141416}
+.bp-tray{display:flex;gap:6px;overflow-x:auto;padding:8px 10px 0;border-top:1px solid rgba(17,18,20,.07)}.bp-tray[hidden]{display:none}
+.bx-pf{flex:none;position:relative;display:flex;align-items:center;gap:8px;width:210px;padding:6px 30px 6px 6px;border-radius:12px;background:rgba(255,255,255,.95);box-shadow:0 0 0 1px rgba(17,18,20,.08)}
+.bx-pf.err{box-shadow:0 0 0 1.5px #E5283F}
+.bx-pth{position:relative;flex:none;width:40px;height:40px;border-radius:8px;overflow:hidden;display:grid;place-items:center;background:rgba(17,18,20,.06)}
+.bx-pth img,.bx-pth video{width:100%;height:100%;object-fit:cover}.bx-pth .bx-dico{width:40px;height:40px}.bx-pplay{position:absolute;color:#fff;font-size:12px;text-shadow:0 1px 3px #000}
+.bx-pn{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}.bx-pn b{font-size:12px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.bx-pn small{font-size:11px;color:#6E7078;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bx-bad{color:#C81E33;font-weight:600}
+.bx-bar{display:block;height:4px;border-radius:2px;background:rgba(17,18,20,.1);overflow:hidden}.bx-bar i{display:block;height:100%;background:linear-gradient(90deg,#F2B440,#E39312);transition:width .2s}
+.bx-pf.done .bx-bar i{background:#1F9D57}.bx-pf.err .bx-bar i{background:#E5283F}
+.bx-px{position:absolute;top:5px;right:5px;width:22px;height:22px;border-radius:50%;border:0;background:rgba(17,18,20,.08);font-size:11px;cursor:pointer;color:#141416}
+.bx-err{display:flex;align-items:flex-start;gap:6px;margin:6px 10px 0;padding:8px 10px;border-radius:12px;background:#FDECEE;color:#9B1C2C;font-size:12.5px;line-height:1.4}
+.bx-err button{border:0;background:transparent;color:inherit;cursor:pointer;font-size:12px}
+.bp-rec{display:flex;align-items:center;gap:6px;padding:8px 8px 6px;border-top:1px solid rgba(17,18,20,.07)}.bp-rec[hidden]{display:none}
+.bx-recording > .bp-f,.cp-chat.bx-recording > .chat-input{display:none!important}
+.bx-del{color:#C81E33}
+.bx-rdot{flex:none;width:10px;height:10px;border-radius:50%;background:#E5283F;animation:bxBlink 1s steps(2) infinite}.bx-rdot.paused{animation:none;background:#8A8C93}
+@keyframes bxBlink{50%{opacity:.25}}
+.bx-lv{flex:1;display:flex;align-items:center;gap:2px;height:28px;min-width:40px}.bx-lv i{flex:1;min-width:2px;border-radius:2px;background:#E5283F;opacity:.75}
+.bx-rs{font:600 11px Inter,sans-serif;color:#6E7078;white-space:nowrap}
+.bp-rec .bx-bars{color:#141416}
+.bx-rsend{width:42px;height:42px;display:grid!important}.bx-rsend.busy{background:conic-gradient(#F2B440 var(--p,0%),#141416 0)!important}
+.bub-panel.bx-drop::after,.cp-chat.bx-drop::after{content:"Drop to attach";position:absolute;inset:8px;border:2px dashed #E39312;border-radius:18px;background:rgba(255,246,227,.85);display:grid;place-items:center;font:600 15px Sora,Inter,sans-serif;color:#8A5200;pointer-events:none;z-index:5}
+.cp-chat{position:relative}
+.bub-ring{position:absolute;left:-6px;bottom:-4px;width:26px;height:26px;border-radius:50%;background:#1F9D57;color:#fff;display:grid;place-items:center;box-shadow:0 0 0 2px #fff;animation:bxPulse 1.2s ease-in-out infinite}
+.bub-ring svg{width:14px;height:14px}
+.bub-ring-t{font:700 12px Inter,sans-serif;color:#1F7A4D}
+#callRing .bx-answer{background:#1F9D57!important;border-color:#1F9D57!important;color:#fff!important;display:inline-flex;gap:6px;align-items:center}
+#callRing .bx-decline{background:#E5283F!important;border-color:#E5283F!important;color:#fff!important;display:inline-flex;gap:6px;align-items:center}
+#callRing .bx-answer svg,#callRing .bx-decline svg{width:15px;height:15px}
+.call-panel.voice .cp-grid .tile video{display:none}
+.bx-del-t{opacity:.7}.bx-ed{opacity:.6;font-size:10.5px}
+.cp-calls{display:flex;gap:8px;flex-wrap:wrap}
+.cp-rx{display:flex;align-items:center;gap:4px;margin-top:2px}.cp-rx .bx-rxs{margin:0}
+.cp-msg:hover .bp-react{opacity:1}
+.cp-callm > div{background:transparent!important;padding:0!important}
+.cp-chat .chat-input .bx-clip,.cp-chat .chat-input .bx-mic{padding:6px 9px;display:grid;place-items:center}
+.cp-chat .chat-input.bx-has .bx-mic{display:none}
+.cp-tray{border-top:1px solid var(--line)}.cp-rec{border-top:1px solid var(--line)}
+@media (pointer:coarse){.bx-ib{width:40px;height:44px}.bx-cb{height:40px;min-width:40px}}
+@media (max-width:640px){.bub-panel.bub-glass{background:rgba(255,255,255,.97)}[data-theme="dark"] .bub-panel.bub-glass{background:rgba(28,29,34,.98)}.bp-h .bp-ib{width:36px;height:40px}.bp-h{padding:8px 4px 8px 10px}.bx-pf{width:190px}.bx-imgs,.bx-vid{max-width:220px}}
+[data-theme="dark"] .bx-ib,[data-theme="dark"] .bp-react{color:#C9CACE}[data-theme="dark"] .bx-ib:hover{background:rgba(255,255,255,.08);color:#fff}
+[data-theme="dark"] .bp-callc,[data-theme="dark"] .bx-pf{background:rgba(255,255,255,.08);color:#F2F2F0}
+[data-theme="dark"] .bx-rx{background:#2A2B30;border-color:rgba(255,255,255,.1);color:#fff}[data-theme="dark"] .bx-rx.mine{background:#4A3712;border-color:#F2B440}
+[data-theme="dark"] .bx-ct small,[data-theme="dark"] .bx-pn small{color:#A6A7AE}[data-theme="dark"] .bx-cb{background:rgba(255,255,255,.1);color:#fff}
+[data-theme="dark"] .bx-vp{background:#F2F2F0;color:#141416}[data-theme="dark"] .bp-m.mine .bx-vp{background:#1A1206;color:#F2B440}[data-theme="dark"] .bp-m.mine .bx-bars i.on{background:#1A1206}
+[data-theme="dark"] .bp-rec .bx-bars{color:#F2F2F0}[data-theme="dark"] .bx-doc{background:rgba(255,255,255,.07)}[data-theme="dark"] .bp-m.mine .bx-doc{background:rgba(26,18,6,.12)}
+[data-theme="dark"] .bp-tray,[data-theme="dark"] .bp-rec,[data-theme="dark"] .bp-call-s{border-color:rgba(255,255,255,.08)}
+[data-theme="dark"] .bx-err{background:#3A1418;color:#FFB4BD}
+`; document.head.appendChild(st); })();
 </script>
 </body>
 </html>

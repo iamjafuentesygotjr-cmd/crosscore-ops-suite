@@ -20914,7 +20914,7 @@ async function cooPostFromModal(){ const ch = CHATS.find(c=>c.id===el('paPostC')
    The footer shows which build is running ("Build 2026-10-07 · 1"), and every open portal checks every few minutes
    (and whenever it comes back to the foreground) whether a newer build has been published. If so it shows
    "New version available — Update now" instead of quietly running old code. */
-const BUILD_ID = '2026-10-20 · 1';
+const BUILD_ID = '2026-10-20 · 3';
 function verStamp(){ const f = el('footNote'); if(f && !f.dataset.v){ f.dataset.v = 1; f.textContent = `Cross Core Ops Suite v8 · Build ${BUILD_ID}`; } }
 async function verCheck(){
   if(!/^https?:/.test(location.protocol)) return;
@@ -25668,9 +25668,11 @@ syncCatchUp = async function(reason){
       RG.stats.found += rows.length; from = all[all.length-1].updated_at; CU.since = Math.max(CU.since, Date.parse(from)||0);
       if(all.length < 1000) break;
     }
-    if(RG.tomb){ const d = await BACKEND.sb.from('cc_deleted').select('collection,id,deleted_at').gt('deleted_at', since).order('deleted_at', {ascending:true}).limit(1000);
+    if(RG.tomb){ let dFrom = since, dAll = [], d = null;
+      for(let pg=0; pg<10; pg++){ d = await BACKEND.sb.from('cc_deleted').select('collection,id,deleted_at').gt('deleted_at', dFrom).order('deleted_at', {ascending:true}).limit(1000);   /* paged: more than 1000 deletions are not cut off */
+        if(d.error) break; const L = d.data||[]; dAll.push(...L); if(L.length < 1000) break; dFrom = L[L.length-1].deleted_at; }
       if(d.error){ if(/cc_deleted|does not exist|schema cache|42P01|PGRST205/i.test((d.error.message||'')+(d.error.code||''))) RG.tomb = false; }
-      else { const D = (d.data||[]).filter(x=>COLL[x.collection] && (COLL[x.collection].get()||[]).some(o=>String(o.id)===x.id) && !((SG.srvAt.get(rgKey(x.collection, x.id))||0) > Date.parse(x.deleted_at)) && !SYNC.pending.has(rgKey(x.collection, x.id)));
+      else { const D = dAll.filter(x=>COLL[x.collection] && (COLL[x.collection].get()||[]).some(o=>String(o.id)===x.id) && !((SG.srvAt.get(rgKey(x.collection, x.id))||0) > Date.parse(x.deleted_at)) && !SYNC.pending.has(rgKey(x.collection, x.id)));
         if(D.length){ RG.applying = true; try{ SYNC.applyRemote([], D.map(x=>({collection:x.collection, id:x.id}))); } finally { RG.applying = false; } } } }
     RG.lastOk = Date.now(); RG.fail = 0;
     if(missed){ RG.stats.missed += missed; RG.misses++; RG.lossyUntil = Date.now() + 3*60e3;
@@ -27156,8 +27158,9 @@ function mtCanEdit(m){ return !!m && (m.organizer===PERSON || ROLE==='hr' || isH
     if(typeof mkKeys==='function'){ const mk = mkKeys().filter(k=>act.has(k) && k!==PERSON); if(mk.length && !has('Marketing Department')) G.push(['Marketing Department', mk]); }
     CLIENTS.filter(c=>!isEnded(c) && c.status==='Active' && (c.team||[]).length).sort((a,b)=>a.name.localeCompare(b.name)).forEach(c=>{ const t = (c.team||[]).filter(k=>act.has(k) && k!==PERSON); if(t.length) G.push([`${c.name} team`, t]); });
     return G; }; }
-{ const _ms = mtSave; mtSave = function(id){ const m = id ? MEETINGS.find(x=>x.id===id) : null; const org = m?.organizer; const r = _ms.apply(this, arguments);
-    if(m && org && org!==PERSON && MEETINGS.find(x=>x.id===id)) notify([org], 'meeting', `✏️ <b>${esc(first(PERSON))}</b> updated your event <b>${esc(m.title)}</b> — ${esc(mtDate(m.start))} · ${esc(mtTime(m.start))}`, {view:'schedule', meeting:m.id});
+{ const _ms = mtSave; mtSave = function(id){ const m = id ? MEETINGS.find(x=>x.id===id) : null; const org = m?.organizer; const h0 = (m?.history||[]).length, u0 = m?.updatedAt; const r = _ms.apply(this, arguments);
+    const saved = m && ((m.history||[]).length!==h0 || m.updatedAt!==u0);   /* not when the save stopped on a check (no title, no participants…) */
+    if(saved && org && org!==PERSON && MEETINGS.find(x=>x.id===id)) notify([org], 'meeting', `✏️ <b>${esc(first(PERSON))}</b> updated your event <b>${esc(m.title)}</b> — ${esc(mtDate(m.start))} · ${esc(mtTime(m.start))}`, {view:'schedule', meeting:m.id});
     return r; }; }
 { const _mc = mtCancel; mtCancel = function(id){ const m = MEETINGS.find(x=>x.id===id); const r = _mc.apply(this, arguments);
     if(m && m.organizer!==PERSON){ const t = setInterval(()=>{ if(m.status==='cancelled'){ clearInterval(t); notify([m.organizer], 'meeting', `❌ <b>${esc(first(PERSON))}</b> cancelled your event <b>${esc(m.title)}</b>`, {view:'schedule', meeting:m.id}); recordChange(); } }, 500); setTimeout(()=>clearInterval(t), 60000); }
@@ -27217,9 +27220,11 @@ if(typeof mpItem==='function'){ const _mi = mpItem; mpItem = function(c, lastMsg
     catch(e){ chatSafeLog('conversation', want, e);
       if(el('chatScroll')?.dataset.chat===want && CHAT_OPEN===want) return;   /* the conversation is on screen; only an add-on failed */
       CHAT_SAFE.simple = true;
-      try{ CHAT_OPEN = want; return _rc.call(this, true); }
+      try{ CHAT_OPEN = want; const r = _rc.call(this, true);
+        /* drawn in the simple view: let the next update redraw every message in full (images, files, polls, calls) */
+        el('chatScroll')?.querySelectorAll('.mwrap').forEach(n=>{ n.dataset.sig = ''; }); return r; }
       catch(e2){ chatSafeLog('conversation (simple)', want, e2);
-        const v = el('v-chat'); const c = CHATS.find(x=>x.id===want);
+        const v = el('v-chat'); const c = myChats().find(x=>x.id===want) || myChats().find(x=>x.id===CHAT_OPEN); if(c) CHAT_OPEN = c.id;   /* the pane and Send always use the same chat */
         if(v && c){ const M = MESSAGES.filter(m=>m.chat===c.id && !m.thread).slice(-200);
           v.innerHTML = `<div class="page-head"><div><h2>Messages</h2></div></div><div class="card"><div class="chat-wrap"><div class="chat-list" id="chatList">${(()=>{ try{ return chatListHTML(); }catch(_){ return ''; } })()}</div>
             <div class="chat-pane" id="chatPane"><div class="card-h" id="chatHead"><h3>${esc(c.name||'Conversation')}</h3></div><div class="chat-scroll" id="chatScroll" data-chat="${esc(c.id)}">${M.map((m,i)=>`<div class="mwrap" id="mw-${esc(m.id)}">${chatSafeBubble(m, M[i-1])}</div>`).join('')}</div>
@@ -27255,7 +27260,7 @@ const VSOP_FIELDS = [
   ['formality','Casual ↔ formal','text','vpForm'], ['humor','Humor','text','vpHum'], ['emoji','Emoji use','text','vpEmo'], ['punctuation','Punctuation & capitalization','text','vpPun'],
   ['instructions','Standing voice instructions','list','vpIns']];
 const VSOP_LABEL = Object.fromEntries(VSOP_FIELDS.map(f=>[f[0], f[1]]));
-const VSOP = {busy:false, t:null, notified:new Set()};
+const VSOP = {busy:false, t:null, notified:new Set(), fails:new Map()};
 
 /* ---------- reading / writing one field ---------- */
 function vsopGetF(p, k){ if(k.startsWith('how.')) return (p.how||{})[k.slice(4)] || ''; return p[k]; }
@@ -27279,7 +27284,9 @@ function vsopText(c){
   const sec = c.sop.sections||{}; const labels = Object.fromEntries((typeof SOP_SECTIONS!=='undefined'?SOP_SECTIONS:[]));
   let t = Object.keys(sec).filter(k=>String(sec[k]||'').trim()).map(k=>`${(labels[k]||k).toUpperCase()}\n${sec[k]}`).join('\n\n');
   const s = typeof sopFor==='function' ? sopFor(c.id) : null; const files = c.sop.files||[];
-  if(s?.extracts) files.forEach(f=>{ const x = s.extracts[f.path||f.name]; if(x) t += `\n\nATTACHED DOCUMENT — ${f.name||'file'}\n${String(x).slice(0, 8000)}`; });
+  /* the attachments' text as it was when the SOP was published — draft edits (a removed or re-uploaded file) don't count until published */
+  const X = s?.pubExtracts || s?.extracts;
+  if(X) files.forEach(f=>{ const x = X[f.path||f.name]; if(x) t += `\n\nATTACHED DOCUMENT — ${f.name||'file'}\n${String(x).slice(0, 8000)}`; });
   return vsopClean(t).slice(0, 16000);
 }
 const vsopHash = s => { let h = 5381; for(let i=0;i<s.length;i++) h = ((h<<5)+h+s.charCodeAt(i))|0; return (h>>>0).toString(36); };
@@ -27322,11 +27329,11 @@ function vsopLocal(text){
   const out = {}; const lines = String(text||'').split('\n'); const add = (k, v) => { v = String(v||'').trim(); if(!v) return; (out[k] = out[k] || []).push(v); };
   for(let i=0; i<lines.length; i++){
     const raw = lines[i]; const line = vsopStrip(raw); if(!line) continue;
-    const m = line.match(/^([^:–—]{2,60})\s*[:–—]\s*(.*)$/);
+    const m = line.match(/^((?:[^:–—]|(?<=\d\s*)[–—](?=\s*\d)){2,60}?)(?:\s*:|(?<!\d\s*)\s*[–—]|\s*[–—](?!\s*\d))\s*(.*)$/);   /* "10–20 words" is a range, not a label */
     if(m){ const k = vsopLineField(m[1]); if(!k) continue;
       if(m[2].trim()) { add(k, m[2]); continue; }
       /* a heading: take the bullet lines under it */
-      for(let j=i+1; j<lines.length; j++){ const l = lines[j]; if(!l.trim()) { if(j>i+1) break; else continue; } if(!vsopBullet(l) && /[:]\s*$/.test(l)) break; if(!vsopBullet(l) && j>i+1 && !/^\s/.test(l)) break; add(k, vsopStrip(l)); i = j; }
+      const h = i; for(let j=h+1; j<lines.length; j++){ const l = lines[j]; if(!l.trim()) { if(j>h+1) break; else continue; } if(!vsopBullet(l) && /[:]\s*$/.test(l)) break; if(!vsopBullet(l) && j>h+1 && !/^\s/.test(l)) break; add(k, vsopStrip(l)); i = j; }
       continue; }
     /* a heading line without a colon followed by bullets ("Words to avoid") */
     if(!vsopBullet(raw) && line.split(/\s+/).length <= 6 && vsopBullet(lines[i+1]||'')){ const k = vsopLineField(line); if(!k) continue;
@@ -27370,6 +27377,9 @@ async function vsopRead(c){
   let ai = null;
   if(BACKEND?.mode==='live' && typeof aiChatCore==='function'){
     const r = await aiChatCore(VSOP_SYS, `CLIENT: ${c.name}\nSOP (version ${c.sop.version||1}):\n${text}`, {ms:60000});
+    /* the AI didn't answer (time-out, connection): try again later instead of saving a rules-only profile — after 3 tries, use the rules */
+    const fk = c.id+'|'+vsopSig(c);
+    if(r?.err && (VSOP.fails.get(fk)||0) < 3){ VSOP.fails.set(fk, (VSOP.fails.get(fk)||0) + 1); throw new Error('AI unavailable — will retry: '+(r.note||'')); }
     if(r?.text){ try{ const m = String(r.text).match(/\{[\s\S]*\}/); const j = m ? JSON.parse(m[0]) : null; if(j){ const f = vsopFilterAI(j, text); ai = f.out; dropped = f.dropped; via = 'ai'; } }catch(e){} } }
   /* the SOP's "Important client instructions" section is the standing instructions, line by line */
   const ins = vsopClean(c.sop.sections?.instructions||'').split('\n').map(vsopStrip).filter(l=>l && l.length>3).slice(0, 25);
@@ -27387,7 +27397,13 @@ function vsopApply(cid, read, sig){
   /* a client tone that was never filled in ("To be defined") is not a tone */
   if(Array.isArray(r.tone)) r.tone = r.tone.filter(vsopNoTbd);
   const changed = [];
+  const prevItems = r.sopItems || {}; const items = {};
   VSOP_FIELDS.forEach(([k,,kind])=>{ const v = read.ext[k]; const cur = vsopGetF(r, k);
+    if(kind==='list') items[k] = (v!=null && !vsopEmpty(kind, v)) ? vcA(v) : [];
+    /* lists the PM (or the curated profile) filled: keep their entries on every SOP version, follow only the SOP's own items */
+    if(kind==='list' && !isFirst && src[k] && src[k]!=='sop'){
+      const was = prevItems[k] || []; const keep = vcA(cur).filter(x=>!was.includes(x)); const m = uniq([...keep, ...items[k]]);
+      if(JSON.stringify(m)!==JSON.stringify(vcA(cur))){ vsopSetF(r, k, m); changed.push(k); } return; }
     if(v!=null && !vsopEmpty(kind, v)){
       if(isFirst && src[k] && src[k]!=='sop' && !vsopEmpty(kind, cur)){            /* first time: keep the PM's / curated wording, add what the SOP lists */
         if(kind==='list'){ const m = uniq([...vcA(cur), ...vcA(v)]); if(m.length!==vcA(cur).length){ vsopSetF(r, k, m); changed.push(k); } }
@@ -27401,7 +27417,7 @@ function vsopApply(cid, read, sig){
   if(src.sop==='sop'){ r.sop = ''; src.sop = ''; }
   const missing = VSOP_FIELDS.filter(([k,,kind])=>vsopEmpty(kind, vsopGetF(r, k))).map(f=>f[0]);
   const prev = r.sopSync || null;
-  r.src = src; r.sopSync = {sig, version:c.sop.version||1, sopAt:c.sop.at||'', at:nowISO(), by:PERSON, via:read.via, missing, changed, dropped:read.dropped||[]};
+  r.sopItems = items; r.src = src; r.sopSync = {sig, version:c.sop.version||1, sopAt:c.sop.at||'', at:nowISO(), by:PERSON, via:read.via, missing, changed, dropped:read.dropped||[]};
   r.updatedAt = nowISO(); r.updatedBy = PERSON; delete r.sopLease;
   if(typeof audit==='function') audit(`${prev?'Updated':'Set up'} ${c.name}’s Marcus voice profile from the SOP (v${c.sop.version||1})`);
   recordChange();
@@ -27430,6 +27446,8 @@ async function vsopTick(force){
     VOICES.forEach(v=>{ if(v?.src?.sop==='sop' && vcCanEdit(v.id)){ v.sop = ''; v.src = {...v.src, sop:''}; recordChange(); } });   /* SOP text copied by an earlier test build */
     for(const c of CLIENTS){
       if(!vsopEligible(c) || !vcCanEdit(c.id)) continue;
+      { const so = typeof sopFor==='function' ? SOPS.find(x=>x.client===c.id) : null;   /* published before this update: keep the attachments' text as published */
+        if(so && !so.pubExtracts && so.extracts && so.status==='Published' && typeof sopSig==='function' && so.publishedSig===sopSig(so)){ so.pubExtracts = vsopPubX(so, c); recordChange(); } }
       const sig = vsopSig(c); if(!sig) continue; const r = vcRec(c.id);
       if(r?.sopSync?.sig===sig && !force) continue;
       const mine = (typeof pmsOf==='function' ? pmsOf(c.id) : []).includes(PERSON);
@@ -27447,7 +27465,10 @@ async function vsopTick(force){
 function vsopSoon(ms=4000){ clearTimeout(VSOP.t); VSOP.t = setTimeout(()=>vsopTick().catch(e=>console.warn(e)), ms); }
 async function vsopNow(cid){ const c = client(cid); if(!c || !vcCanEdit(cid)) return;
   if(!vsopDone(c)) return toast(`${c.name} has no completed SOP yet — publish the SOP first (client page → SOP tab)`);
-  toast('Reading the SOP…'); const sig = vsopSig(c); const read = await vsopRead(c); vsopApply(cid, read, sig);
+  const sig = vsopSig(c); if(!sig) return toast(`${c.name}’s SOP has no voice details to read (only logins or empty sections)`);
+  toast('Reading the SOP…'); let read;
+  try{ read = await vsopRead(c); }catch(e){ return toast('The AI service didn’t answer — try again in a minute (it will also retry by itself).'); }
+  vsopApply(cid, read, sig);
   toast(`Voice profile updated from the SOP${vcRec(cid).sopSync.missing.length?` — ${vcRec(cid).sopSync.missing.length} details for the PM to complete`:''}`);
   vcProfileModal(cid); if(CURRENT==='marcus') RENDER.marcus(); }
 { const _sp = setPerson; setPerson = function(p){ const r = _sp.apply(this, arguments); setTimeout(()=>vsopSoon(0), 8000); return r; }; }
@@ -27500,6 +27521,11 @@ function vsopBanner(cid){ const c = client(cid); const p = vcGet(cid); const y =
 .vsop-missing{border-color:rgba(227,147,18,.6)!important;background:rgba(242,180,64,.07)!important}
 .vsop-chip{border:0;cursor:pointer;margin-left:6px;padding:2px 9px;border-radius:999px;background:rgba(227,147,18,.18);color:#8a5200;font-weight:700;font-size:11.5px}
 [data-theme="dark"] .vsop-flag,[data-theme="dark"] .vsop-chip{color:#ffc977} [data-theme="dark"] .vsop-tag{color:#8fe0b0}`; document.head.appendChild(st); })();
+
+/* publishing the SOP keeps the attachments' text as published */
+function vsopPubX(so, c){ const X = {}; (c?.sop?.files||[]).forEach(f=>{ const k = f.path||f.name; if(so.extracts?.[k]) X[k] = String(so.extracts[k]).slice(0, 8000); }); return X; }
+{ const _pub = sopPublish; sopPublish = function(cid){ const c = client(cid); const v0 = c?.sop?.version; const r = _pub.apply(this, arguments);
+    const so = SOPS.find(x=>x.client===cid); if(so && c?.sop && c.sop.version!==v0){ so.pubExtracts = vsopPubX(so, c); recordChange(); } return r; }; }
 /* ===== e0_team.js ===== */
 /* ================= TEAM DIRECTORY · ALL VAs · CHAT MEMBERS · HR INVITES (Oct 17 2026) =================
    Cause of "VAs missing from All VAs" and "HR can only invite Yam and Tricia": a portal that counted only a few people
@@ -27533,7 +27559,9 @@ async function tmDirReload(why){
   finally{ TEAMX.loading = false; } }
 
 /* ---------- chat members: add freely, remove only on purpose ---------- */
-function tmWanted(ch){ const c = ch.kind==='client' && ch.client ? client(ch.client) : null; if(!c) return null;
+function tmWanted(ch){ const c = ['client','clientline'].includes(ch.kind) && ch.client ? client(ch.client) : null; if(!c) return null;
+  /* the client-portal chat: the client's portal logins + the client's team, PMs and lead-gen VAs (exactly what ensureClientLines builds) */
+  if(ch.kind==='clientline') return uniq([...(lcfg(c.id).clientUsers||[]), ...(c.team||[]), ...pmsOf(c.id), ...(typeof lgVAs==='function' ? lgVAs(c.id) : [])].filter(Boolean));
   return uniq([...(c.team||[]), ...(c.pms||[]), c.mgr, ...HEADS, ...(c.chatExtra||[]), ...(typeof clientVAs==='function' ? clientVAs(c.id) : [])].filter(Boolean)); }
 { const _ec = ensureChats; ensureChats = function(){
     const before = new Map(CHATS.map(c=>[c.id, [...(c.members||[])]]));
@@ -27545,7 +27573,7 @@ function tmWanted(ch){ const c = ch.kind==='client' && ch.client ? client(ch.cli
       const lost = was.filter(k=>!now.includes(k)); if(!lost.length) return;
       const wanted = tmWanted(c);
       /* a removal stands only for someone who left, or (with a complete directory) someone known and no longer on the client's team */
-      const ok = lost.filter(k=>tmGone(k) || (!partial && wanted && PEOPLE[k] && !wanted.includes(k)));
+      const ok = lost.filter(k=>tmGone(k) || (!partial && wanted && (PEOPLE[k] || c.kind==='clientline') && !wanted.includes(k)));
       const back = lost.filter(k=>!ok.includes(k));
       if(back.length) c.members = uniq([...now, ...back]).sort();
       const purposeful = ok.filter(k=>!tmGone(k));
@@ -27592,7 +27620,7 @@ setInterval(()=>{ if(BACKEND?.mode==='live' && Date.now() - TEAMX.at > 14*60e3) 
    • A copy older than 3 days is not trusted: the portal does a full refresh first and shows "Updating your portal…".
    • Client assignments, Marcus and the menus redraw as soon as an assignment changes. */
 
-const VSYNC = {cacheAt:0, cacheSince:0, okAt:0, failed:new Set(), retryT:null, tries:0, banner:false};
+const VSYNC = {cacheAt:0, cacheSince:0, okAt:0, fresh:0, failed:new Set(), retryT:null, tries:0, banner:false, lowered:false};
 const VSYNC_FIRST = ['employees','clients','leadcfg','chats','chatreads','prefs','settings','meetings','sops','voices','teamreqs'];
 
 /* the saved copy carries how far it was synced */
@@ -27603,9 +27631,9 @@ SYNC.saveCache = function(now){ if(BACKEND?.mode!=='live' || !PERSON) return;
 { const _rc = SYNC.readCache.bind(SYNC); SYNC.readCache = async function(){ const c = await _rc();
     if(c?.rows?.length){ VSYNC.cacheAt = c.at||0; VSYNC.cacheSince = c.since||0; VSYNC.okAt = c.okAt||0; } return c; }; }
 /* opening from the saved copy: catch up from where it was synced, not from "10 minutes ago" */
-const vsyncStart = () => { if(!VSYNC.cacheAt) return 0; const base = VSYNC.cacheSince || (VSYNC.cacheAt - 15*60e3); return Math.max(base - 3*60e3, Date.now() - 45*864e5); };
-{ const _sp = setPerson; setPerson = function(){ const r = _sp.apply(this, arguments); const s = vsyncStart(); if(s && (!CU.since || s < CU.since)) CU.since = s; return r; }; }
-{ const _cu = syncCatchUp; syncCatchUp = async function(){ const s = vsyncStart(); if(s && VSYNC.cacheAt && !VSYNC.caught && (!CU.since || s < CU.since)) CU.since = s;
+const vsyncStart = () => { if(!VSYNC.cacheAt) return 0; const base = VSYNC.cacheSince || (VSYNC.cacheAt - 15*60e3); return Math.max(base - 3*60e3, Date.now() - 13*864e5); };   /* deletions are kept 14 days on the server; older copies rely on the full refresh */
+{ const _sp = setPerson; setPerson = function(){ const r = _sp.apply(this, arguments); const s = vsyncStart(); if(s && (!CU.since || s < CU.since)){ CU.since = s; VSYNC.lowered = true; } return r; }; }
+{ const _cu = syncCatchUp; syncCatchUp = async function(){ const s = vsyncStart(); if(s && VSYNC.cacheAt && !VSYNC.lowered && (!CU.since || s < CU.since)){ CU.since = s; VSYNC.lowered = true; }   /* once: after a partial run it continues from where it got to */
     const r = await _cu.apply(this, arguments); if(RG.lastOk && RG.lastOk >= Date.now() - 2000) VSYNC.caught = true; return r; }; }
 
 /* the full refresh, one collection at a time; what fails is retried */
@@ -27615,7 +27643,7 @@ async function vsyncLoad(colls, t0){
       try{ await BACKEND.loadColl(c, d=>rows.push(...d)); }
       catch(e){ out.failed.push(c); continue; }
       const server = {}; rows.forEach(r=>{ server[r.id] = r; });
-      const ups = rows.map(r=>({collection:c, id:r.id, data:r.data, _snap:t0})); const dels = [];
+      const ups = rows.map(r=>({collection:c, id:r.id, data:r.data, updated_at:r.updated_at, _snap:t0})); const dels = [];
       (SYNC.last[c]||new Map()).forEach((_, id)=>{ const k = sgKey(c, id); if(!(id in server) && !SYNC.pending.has(SYNC.key(c, id)) && (SG.localAt.get(k)||0) < t0) dels.push({collection:c, id, _snap:t0}); });
       try{ SYNC.applyRemote(ups, dels); out.ok.push(c); }catch(e){ console.warn('refresh apply', c, e); out.failed.push(c); } } }));
   return out;
@@ -27628,15 +27656,20 @@ async function vsyncLoad(colls, t0){
       const a = await vsyncLoad(first, t0); if(a.ok.length) scheduleRender?.();
       const b = await vsyncLoad(rest, t0);
       const failed = [...a.failed, ...b.failed];
-      if(!failed.length){ VSYNC.okAt = Date.now(); VSYNC.tries = 0; VSYNC.failed.clear(); vsyncBanner(false); SYNC.saveCache(true); }
+      if(!failed.length){ VSYNC.okAt = VSYNC.fresh = Date.now(); VSYNC.tries = 0; VSYNC.failed.clear(); vsyncBanner(false); SYNC.saveCache(true); }
       else { failed.forEach(c=>VSYNC.failed.add(c)); vsyncRetry(); console.warn('Refresh incomplete — will retry:', failed.join(', ')); }
     } finally { this._resyncing = false; if(this._resyncAgain){ this._resyncAgain = false; setTimeout(()=>SYNC.resync(), 1000); } }
   }; }
 function vsyncRetry(){ clearTimeout(VSYNC.retryT); const wait = Math.min(5*60e3, 15e3 * Math.pow(2, VSYNC.tries++));
   VSYNC.retryT = setTimeout(async ()=>{ if(!navigator.onLine || !VSYNC.failed.size) return; const L = [...VSYNC.failed]; VSYNC.failed.clear();
     const r = await vsyncLoad(L, Date.now()); r.failed.forEach(c=>VSYNC.failed.add(c));
-    if(VSYNC.failed.size) vsyncRetry(); else { VSYNC.okAt = Date.now(); VSYNC.tries = 0; vsyncBanner(false); SYNC.saveCache(true); scheduleRender?.(); } }, wait); }
+    if(VSYNC.failed.size) vsyncRetry(); else { VSYNC.okAt = VSYNC.fresh = Date.now(); VSYNC.tries = 0; vsyncBanner(false); SYNC.saveCache(true); scheduleRender?.(); } }, wait); }
 window.addEventListener('online', ()=>{ if(VSYNC.failed.size){ VSYNC.tries = 0; vsyncRetry(); } });
+/* a first sign-in on this device downloads everything straight from the server: that counts as a full refresh too */
+{ const _lb = liveBackground; liveBackground = async function(){ let ok = true; const own = Object.prototype.hasOwnProperty.call(BACKEND, 'loadSet'); const ls = BACKEND.loadSet;
+    BACKEND.loadSet = async function(){ try{ return await ls.apply(this, arguments); }catch(e){ ok = false; throw e; } };
+    try{ return await _lb.apply(this, arguments); }
+    finally{ if(own) BACKEND.loadSet = ls; else delete BACKEND.loadSet; if(ok && !VSYNC.failed.size){ VSYNC.fresh = VSYNC.fresh || Date.now(); VSYNC.okAt = VSYNC.okAt || Date.now(); } } }; }
 
 /* the background refresh after an instant open: if anything in it fails, still refresh (and keep retrying) */
 { const _lr = liveRefresh; liveRefresh = async function(user, known){
@@ -27666,7 +27699,7 @@ function vsyncAliases(k){ const em = String(PEOPLE[k]?.email||'').trim().toLower
 let SYNCSTAT = [];
 COLL.syncstat = {get:()=>SYNCSTAT, set:v=>SYNCSTAT=v, aud:r=>uniq([r.person, ...HEADS, ...HR_KEYS()].filter(Boolean))};
 function vsyncDev(){ try{ let d = localStorage.getItem('cc-dev-id'); if(!d){ d = Math.random().toString(36).slice(2, 10); localStorage.setItem('cc-dev-id', d); } return d; }catch(e){ return 'nodev'; } }
-function vsyncReport(){ if(BACKEND?.mode!=='live' || !SYNC?.ready || !PEOPLE[PERSON] || ROLE==='client') return;
+function vsyncReport(){ if(BACKEND?.mode!=='live' || !SYNC?.ready || !PEOPLE[PERSON] || ['client','applicant'].includes(ROLE)) return;
   const id = PERSON+'|'+vsyncDev(); let r = SYNCSTAT.find(x=>x.id===id); const ua = navigator.userAgent||'';
   const dev = /iPhone|iPad/.test(ua) ? 'iPhone / iPad' : /Android/.test(ua) ? 'Android' : /Mac/.test(ua) ? 'Mac' : /Windows/.test(ua) ? 'Windows' : 'Other';
   const v = {id, person:PERSON, build:BUILD_ID, device:dev, app:matchMedia?.('(display-mode: standalone)').matches ? 'installed app' : 'browser',
@@ -28326,7 +28359,7 @@ function cphRefreshClients(){ CPH.clients = cphClientsFor(cphSelAccounts()); ret
 const cphShown = () => new Set(CPH.clients.map(c=>c.id));
 const cphPostLike = t => !t.core && !t.archived && (t.hubPost || ['Caption','Design','Video / reel','Theme / idea','Campaign'].includes(t.type));
 function cphCanManage(cid){ return isExec() || isFullAccess() || ROLE==='hr' || pmsOf(cid).includes(PERSON); }
-function cphAud(d){ const cids = d?.acct ? [d.acct] : d?.client && d.client!=='all' ? [cphSplit(d.client).cid] : CLIENTS.filter(cphEligible).map(c=>c.id);
+function cphAud(d){ const cids = Array.isArray(d?.accts) && d.accts.length ? d.accts : d?.acct ? [d.acct] : d?.client && d.client!=='all' ? [cphSplit(d.client).cid] : CLIENTS.filter(cphEligible).map(c=>c.id);
   return uniq([...cids.flatMap(cid=>{ const c = client(cid); return [...(c?.team||[]), ...pmsOf(cid), c?.mgr]; }), ...HEADS, ...HR_KEYS(), PERSON].filter(Boolean)); }
 
 /* ---------- posts <-> Content Board items ---------- */
@@ -28338,7 +28371,9 @@ const cphBoardType = ty => /reel|video/i.test(ty||'') ? 'Video / reel' : /carous
 const cphHubType = t => t.hubType ?? (t.type==='Video / reel' ? 'Reel' : t.type==='Design' ? 'Still Image' : '');
 const cphPlatKey = p => /facebook/i.test(p||'') ? 'fb' : /instagram/i.test(p||'') ? 'ig' : /linkedin/i.test(p||'') ? 'li' : '';
 const cphFirstUrl = L => ((L||[]).find(f=>f && (f.url||f.link)) || {}).url || '';
-const cphDate = t => t.postDate || (t.due ? iso(t.due) : t.createdAt ? iso(t.createdAt) : manilaDate());
+/* the post date as YYYY-MM-DD: the classic board and Marketing save it as a date/time (e.g. "2026-10-19T16:00:00.000Z" after syncing) */
+const cphYmd = v => !v ? '' : /^\d{4}-\d{2}-\d{2}$/.test(String(v)) ? String(v) : iso(new Date(v));
+const cphDate = t => cphYmd(t.postDate) || (t.due ? iso(t.due) : t.createdAt ? iso(t.createdAt) : manilaDate());
 function cphToHub(t){ return {client:cphHid(t), date:cphDate(t), title:t.title||'(untitled)', type:cphHubType(t), bucket:t.bucket||'', platforms:t.platforms || (t.plat ? PLATS[t.plat]||'' : ''),
   sourceLink:t.sourceLink||'', topicCaption:t.topicCaption||'', caption:t.caption||'', outputLink:t.outputLink || cphFirstUrl(t.outputs), photoLink:t.photoLink||'', status:cphStatusOf(t),
   editedAt:t.updatedAt||t.createdAt||'', editedById:t.updatedBy||t.createdBy||'', owner:t.assignee||'', ownerName:t.assignee && PEOPLE[t.assignee] ? first(t.assignee) : '', boardStatus:t.status}; }
@@ -28349,6 +28384,7 @@ const cphDeny = m => { const e = new Error(m); e.code = 'denied'; return e; };
 function cphCheckStatus(t, s){
   const appr = canApproveTask(t); const b = CPH_TO_BOARD[s] ?? 'Draft'; const cur = t.status;
   if(!canEditContent(t)) throw cphDeny('You can only change posts for clients you work on.');
+  if(['Approved','For Revision'].includes(s) && typeof PCA!=='undefined' && cur===PCA) return;   /* logging the client's decision — the same people as “Client approved / Client requested changes” on the Content Board */
   if(['Approved','For Revision'].includes(s) && !appr) throw cphDeny(`Only ${cphApprovers(t)} can ${s==='Approved'?'approve this post':'request changes'}.`);
   if(b==='Completed' && !appr){ if(typeof PCA!=='undefined' && cur===PCA) throw cphDeny(`This post is waiting for ${cname(t.client)}’s approval — it can be scheduled once the client approves.`);
     if(!['Approved','Completed'].includes(cur)) throw cphDeny('Posts are approved before they are scheduled, queued or posted.'); }
@@ -28356,7 +28392,9 @@ function cphCheckStatus(t, s){
 }
 const cphApprovers = t => { const a = taskApprovers(t).filter(k=>PEOPLE[k]).map(first); return a.length ? `${a.join(' or ')} (PM) or a company head` : 'the client’s PM or a company head'; };
 function cphApplyStatus(t, s, note){ const b0 = CPH_TO_BOARD[s] ?? 'Draft';
-  const b = b0==='Approved' && typeof ctNeedsClient==='function' && ctNeedsClient(t.client) && t.status!=='Approved' && t.status!=='Completed' ? PCA : b0;
+  const fromPCA = b0==='Approved' && typeof PCA!=='undefined' && t.status===PCA;   /* waiting for the client → the client approved */
+  const b = !fromPCA && b0==='Approved' && typeof ctNeedsClient==='function' && ctNeedsClient(t.client) && t.status!=='Approved' && t.status!=='Completed' ? PCA : b0;
+  if(fromPCA && !note) note = 'Client approved';
   t.hubStatus = s;
   if(b!==t.status){ if(b==='Revisions Needed' && !note){ const f = HUBDOCS.filter(d=>d.col==='feedback' && d.d?.contentId===t.id && d.d?.kind==='changes').sort((x,y)=>String(y.d.createdAt).localeCompare(String(x.d.createdAt)))[0]; note = f ? `${f.d.author}: ${f.d.note}` : 'Changes requested in the Content Planning Hub'; }
     setTaskStatus(t, b, note); }
@@ -28401,15 +28439,23 @@ function cphDelete(id){ const i = TASKS.findIndex(x=>x.id===id); if(i<0) return;
 const cphDocId = (col, id) => `${col}|${id}`;
 const cphDocs = col => HUBDOCS.filter(d=>d.col===col && !d.deleted);
 function cphVisibleDoc(d){ const S = cphShown(); const accts = new Set(cphSelAccounts().map(a=>a.id));
-  if(d.col==='activity') return !d.acct || accts.has(d.acct);
+  if(d.col==='activity') return Array.isArray(d.accts) && d.accts.length ? d.accts.some(a=>accts.has(a)) : !d.acct || accts.has(d.acct);
   if(d.col==='events') return !d.d?.client || d.d.client==='all' || S.has(d.d.client);
   return !d.d?.client || S.has(d.d.client); }
 function cphSetDoc(col, id, data, merge){ const key = cphDocId(col, id); let r = HUBDOCS.find(x=>x.id===key);
   if(!r){ r = {id:key, col, did:id, d:{}}; HUBDOCS.push(r); }
   const d = merge ? {...(r.d||{}), ...JSON.parse(JSON.stringify(data))} : JSON.parse(JSON.stringify(data));
   r.d = d; r.deleted = false; r.at = nowISO(); r.by = PERSON;
-  r.acct = col==='activity' ? (CPH.sel && CPH.sel!=='all' ? CPH.sel : cphSelAccounts()[0]?.id || null) : d.client && d.client!=='all' ? cphSplit(d.client).cid : null;
+  if(col==='activity'){ const A = cphActAccts(d); r.accts = A; r.acct = A.length===1 ? A[0] : null; }   /* "All my clients": the clients the entry is about, not just the first */
+  else r.acct = d.client && d.client!=='all' ? cphSplit(d.client).cid : null;
   return r; }
+function cphActAccts(d){ if(CPH.sel && CPH.sel!=='all') return [CPH.sel];
+  const own = new Set(cphSelAccounts().map(a=>a.id)); const hit = new Set();
+  const add = cid => { if(cid && own.has(cid)) hit.add(cid); };
+  if(CPH.touch && Date.now() - CPH.touch.at < 8000) add(CPH.touch.cid);   /* the hub logs right after the change it describes */
+  [d?.contentId, d?.postId, d?.id, d?.targetId].forEach(x=>{ const t = x && TASKS.find(y=>y.id===x); if(t) add(t.client); });
+  [d?.client, d?.clientId].forEach(x=>{ if(x && x!=='all') add(cphSplit(x).cid); });
+  return hit.size ? [...hit] : [...own]; }
 function cphDelDoc(col, id){ const i = HUBDOCS.findIndex(x=>x.id===cphDocId(col, id)); if(i>=0) HUBDOCS.splice(i, 1); }
 /* resources: one record per client (only the people on that client see its links) */
 function cphResources(){ const out = {}; CPH.clients.forEach(c=>{ const r = HUBDOCS.find(x=>x.id===cphDocId('res', c.id)); if(r && r.d) out[c.id] = r.d; }); return out; }
@@ -28431,15 +28477,20 @@ function cphQuerySnap(col, order, lim){ let L = cphCollData(col).map(([id, d])=>
 function cphListen(make, next, err){ const l = {make, next, err, sig:null}; CPH.listeners.add(l); setTimeout(()=>cphFire(l), 0); return ()=>CPH.listeners.delete(l); }
 function cphFire(l){ try{ const s = l.make(); const sig = JSON.stringify(s.docs ? s.docs.map(d=>[d.id, d.data()]) : [s.exists, s.data()]); if(sig===l.sig) return; l.sig = sig; l.next(s); }catch(e){ console.warn('content hub', e); } }
 function cphBump(ms=60){ clearTimeout(CPH.t); CPH.t = setTimeout(()=>{ cphRefreshClients(); CPH.listeners.forEach(cphFire); }, ms); }
+function cphTouch(col, id, d){ let cid = null;
+  if(col==='content'){ const t = TASKS.find(x=>x.id===id); cid = t ? t.client : d?.client ? cphSplit(d.client).cid : null; }
+  else if(['feedback','backlog'].includes(col)){ const r = HUBDOCS.find(x=>x.id===cphDocId(col, id)); const c = d?.client || r?.d?.client; cid = c && c!=='all' ? cphSplit(c).cid : null;
+    if(!cid && (d?.contentId || r?.d?.contentId)) cid = TASKS.find(x=>x.id===(d?.contentId || r?.d?.contentId))?.client || null; }
+  if(cid) CPH.touch = {cid, at:Date.now()}; }
 async function cphWrite(fn){ if(!PEOPLE[PERSON] || ROLE==='client') throw cphDeny('Sign in to make changes.'); const r = fn(); recordChange(); cphBump(10); return r; }
 function cphDocRef(path){ const [col, id] = path.split('/');
   return {id, path,
     get: async ()=>cphSnapDoc(id, cphDocData(path)),
-    set: d => cphWrite(()=>{ if(col==='content'){ if(TASKS.some(t=>t.id===id)) cphUpdate(id, d); else cphCreate(id, d); return; }
-      if(col==='meta' && id==='resources'){ const C = (d||{}).clients||{}; CPH.clients.forEach(c=>{ if(C[c.id]) cphSetDoc('res', c.id, {...C[c.id], client:c.id}); }); return; }
+    set: d => cphWrite(()=>{ cphTouch(col, id, d); if(col==='content'){ if(TASKS.some(t=>t.id===id)) cphUpdate(id, d); else cphCreate(id, d); return; }
+      if(col==='meta' && id==='resources'){ const C = (d||{}).clients||{}; CPH.clients.forEach(c=>{ if(C[c.id]) cphSetDoc('res', c.id, {...C[c.id], client:c.id}); else cphDelDoc('res', c.id); }); return; }   /* "Reset to defaults" removes a client's links */
       cphSetDoc(col, id, d); if(col==='feedback') cphFeedbackToBoard(d); }),
-    update: d => cphWrite(()=>{ if(col==='content') return cphUpdate(id, d); const r = HUBDOCS.find(x=>x.id===cphDocId(col, id)); if(!r) throw Object.assign(new Error('Document does not exist'), {code:'invalid_argument'}); cphSetDoc(col, id, d, true); }),
-    delete: () => cphWrite(()=>{ if(col==='content') return cphDelete(id); cphDelDoc(col, id); }),
+    update: d => cphWrite(()=>{ cphTouch(col, id, d); if(col==='content') return cphUpdate(id, d); const r = HUBDOCS.find(x=>x.id===cphDocId(col, id)); if(!r) throw Object.assign(new Error('Document does not exist'), {code:'invalid_argument'}); cphSetDoc(col, id, d, true); }),
+    delete: () => cphWrite(()=>{ cphTouch(col, id); if(col==='content') return cphDelete(id); cphDelDoc(col, id); }),
     onSnapshot: (next, err) => cphListen(()=>cphSnapDoc(id, cphDocData(path)), next, err)};
 }
 function cphQuery(col, order, lim){ return {
@@ -28451,6 +28502,8 @@ function cphCollection(col){ const q = cphQuery(col); q.path = col;
 const CPH_DB = {collection:cphCollection, doc:cphDocRef};
 /* hub feedback is also written into the item's history on the Content Board, and the owner is told */
 function cphFeedbackToBoard(d){ const t = TASKS.find(x=>x.id===d?.contentId); if(!t) return;
+  /* the client's approval logged on a post that is waiting for the client: final approval (the hub shows it as Approved already) */
+  if(d.kind==='approval' && d.author==='Client' && typeof PCA!=='undefined' && t.status===PCA && canEditContent(t)){ t.hubStatus = 'Approved'; setTaskStatus(t, 'Approved', `Client approved (logged by ${first(PERSON)} in the Content Planning Hub)`); }
   t.history = [...(t.history||[]), {by:pname(PERSON), who:PERSON, act:d.kind==='changes'?'Feedback — changes requested':d.kind==='approval'?'Feedback — approved':'Feedback', note:`${d.author||first(PERSON)}: ${d.note||''}`, when:dtstr(nowISO()), at:nowISO()}];
   const to = uniq([t.assignee, t.createdBy]).filter(k=>k && k!==PERSON);
   if(to.length) notify(to, d.kind==='changes'?'revision':'assignment', `💬 ${esc(first(PERSON))} left feedback on <b>${esc(t.title)}</b> · ${esc(cname(t.client))}: “${esc(String(d.note||'').slice(0,140))}”`, {view:'cphub', task:t.id}); }
@@ -28555,7 +28608,11 @@ const CPH_MKT_BRANDS = [
   {id:'colorado', name:'Colorado Roofing', short:'Colorado', color:'#2563C9', platforms:'Facebook & Instagram', pillars:['Social Proof','Educate','FAQs'], website:'https://coloradosuperiorroofing.com/', instagram:'https://www.instagram.com/coloradoroofingteam/', instaHandle:'@coloradoroofingteam', canva:'https://www.canva.com/design/DAHDdt1FPbg/CMeuMV9CS_YK7JTocNFhPg/edit', photos:'OneDrive / Teams (stock as fallback only)'},
   {id:'newview', name:'New View Roofing', short:'New View', color:'#22307A', platforms:'Facebook, LinkedIn & Instagram', pillars:['Before & After','Educate','Social Proof'], website:'https://newviewroofing.com/', instagram:'https://www.instagram.com/newviewroofing/', instaHandle:'@newviewroofing', canva:'https://www.canva.com/design/DAG4nAqTKn4/D0kR2rCJLmFyf7o0k-zK2w/edit', photos:'Acculynx'},
   {id:'elevated', name:'Elevated Roofing', short:'Elevated', color:'#D19A1E', platforms:'Facebook', pillars:['Testimonial','Team in Action','Educate'], website:'https://elevatedroofing.com/', instagram:'https://www.instagram.com/elevatedroofing/', instaHandle:'@elevatedroofing', canva:'https://www.canva.com/design/DAFqVdEJtCA/Fg_SHrMQdaE3faJRd88OpA/edit', photos:'SharePoint / Teams'}];
+/* only once this portal has fully downloaded the posts and hub records — an instant open from a saved copy could
+   otherwise think the plan was never imported and import it again over the live posts */
+const cphLoaded = () => BACKEND?.mode!=='live' || (typeof VSYNC!=='undefined' && VSYNC.fresh && !VSYNC.failed.has('tasks') && !VSYNC.failed.has('hubdocs') && !(typeof LIVE_BG!=='undefined' && LIVE_BG.on));
 function cphSeedTick(){ if(!SYNC?.ready || !PEOPLE[PERSON] || ROLE==='client' || typeof CPHUB_SEED==='undefined') return;
+  if(!cphLoaded()){ if((CPH.seedTries = (CPH.seedTries||0) + 1) < 40) setTimeout(()=>{ try{ cphSeedTick(); }catch(e){} }, 15000); return; }
   CLIENTS.filter(c=>/market\s*crest/i.test(c.name||'') && cphEligible(c) && cphCanManage(c.id)).forEach(c=>{ let ch = false;
     if(!Array.isArray(c.hubBrands)){ c.hubBrands = CPH_MKT_BRANDS.map(b=>({...b})); ch = true; }
     const flag = cphDocId('meta', 'seeded-'+c.id);
@@ -28592,7 +28649,7 @@ function cphSeedTick(){ if(!SYNC?.ready || !PEOPLE[PERSON] || ROLE==='client' ||
      tablets too, where dragging isn't possible); approving, requesting changes and reopening approved work stay with the
      client's PM and company heads exactly as on the board.
    • Content Planner (Jira-style): every card has a ⇄ "Move to" button (phones / tablets / keyboard), and a card whose
-     column was renamed on another portal is put back into the first column instead of being stuck. */
+     column was renamed on another portal shows in the first column instead of disappearing. */
 
 /* who may move an item where (same rules as dragging on the board) */
 const cbAppr = t => canApproveTask(t);
@@ -28606,9 +28663,12 @@ const cbWhy = (t, to) => !canEditContent(t) ? 'You can only move items for clien
   : to==='Completed' ? 'Items must be approved before they are completed' : 'Only the client’s PM or a company head can reopen approved content';
 function cbMove(id, to){ const t = TASKS.find(x=>x.id===id); if(!t || to===t.status) return;
   if(!cbAllowed(t, to)){ toast(cbWhy(t, to)); RENDER[CURRENT]?.(); return; }
-  if(to==='Revisions Needed') return reviewModal(id, 'revise');
-  if(to==='Approved' && t.status==='For Approval') return approveTask(id);
+  /* save what was typed in the open item first — approving / the review window replace it */
   if(el('teTitle') && !el('teTitle').disabled && el('modalBody')?.contains(el('teTitle'))) saveTaskEdits(id, true);
+  if(to==='Revisions Needed'){ RENDER[CURRENT]?.(); return reviewModal(id, 'revise'); }
+  /* "Approved" is the final approval (labelled "Approved (final)"); "Pending Client Approval" is the PM's approval */
+  if(to==='Approved' && t.status==='For Approval') return approveTask(id, true);
+  if(typeof PCA!=='undefined' && to===PCA && t.status==='For Approval') return approveTask(id);
   const reopen = ['Approved','Completed', typeof PCA!=='undefined'?PCA:'-'].includes(t.status) && ['Draft','In Progress','For Approval'].includes(to);
   setTaskStatus(t, to, reopen ? 'Reopened by '+first(PERSON) : '');
   recordChange(); RENDER[CURRENT]?.(); buildNav(); if(el('teTitle')) openTask(id);
@@ -28636,11 +28696,8 @@ function jpMovePop(a, id){ const c = PLANNER.find(x=>x.id===id); if(!c) return; 
   jpPop(a, 'Move to', cols.map((col, i)=>`<div class="opt" role="button" tabindex="0" ${col===c.bucket?'aria-current="true" style="font-weight:700"':''} onclick="jpPopClose();jpMoveTo('${id}',${i})" onkeydown="if(event.key==='Enter'){jpPopClose();jpMoveTo('${id}',${i})}">${col===c.bucket?'✓ ':''}${esc(col)}</div>`).join('')); }
 function jpMoveTo(id, i){ const c = PLANNER.find(x=>x.id===id); const col = jpCols()[i]; if(!c || !col) return; if(c.bucket===col) return; c.order = Date.now(); jpMove(c, col); toast(`${jpKey(c)} moved to ${col}`); }
 { const _jc = jpCardHTML; jpCardHTML = function(c){ return _jc.apply(this, arguments).replace('<div class="jp-meta">', `<div class="jp-meta"><button class="jp-mv" title="Move to another column" aria-label="Move ${esc(jpKey(c))}" onclick="event.stopPropagation();jpMovePop(this,'${c.id}')" onkeydown="event.stopPropagation()">⇄</button>`); }; }
-/* a card whose column no longer exists goes back to the first column (once, by a team member's portal) */
-{ const _rp = RENDER.planner; RENDER.planner = function(){ if(plCan() && SYNC?.ready){ const cols = jpCols(); let ch = false;
-      jpCards().forEach(c=>{ if(!cols.includes(c.bucket)){ const was = c.bucket; c.bucket = cols[0]; jpLog(c, `moved from ${was||'no column'} to ${cols[0]} (its column no longer exists)`); ch = true; } });
-      if(ch) recordChange(); }
-    return _rp.apply(this, arguments); }; }
+/* a card whose column no longer exists is SHOWN in the first column (jpColumnHTML) — never re-saved there: a column rename
+   arriving before its cards (or the reverse) would otherwise send every card to the first column on every open portal */
 /* the status list in a card always includes where the card is */
 { const _jr = jpRender; jpRender = function(){ const r = _jr.apply(this, arguments); const c = jpCur?.(); const s = document.querySelector('.jp-status');
     if(c && s && ![...s.options].some(o=>o.value===c.bucket)) s.insertAdjacentHTML('afterbegin', `<option selected disabled>${esc(c.bucket||'—')}</option>`); return r; }; }
@@ -28649,6 +28706,537 @@ function jpMoveTo(id, i){ const c = PLANNER.find(x=>x.id===id); const col = jpCo
 .kmove{margin-top:8px;width:100%;font-size:12px;padding:5px 8px;border-radius:9px}
 .jp-mv{border:1px solid var(--line);background:var(--card,#fff);border-radius:7px;font-size:12px;line-height:1;padding:3px 6px;cursor:pointer;color:var(--ink-2,inherit)}
 .jp-mv:hover{border-color:var(--ink-3,#999)}`; document.head.appendChild(st); })();
+/* ===== j0_premium.js ===== */
+/* ================= PREMIUM LOOK (Oct 20 2026) =================
+   The redesign from the "Ops Suite Premium UI" mockup, for every portal: frosted white glass on a soft amber-and-sky
+   light, a smoked-graphite glass sidebar, Sora headings with a tighter type scale, consistent radii and spacing, and the
+   Cross Core amber as the single accent. Visual only — layout, features and data are unchanged.
+   Default for everyone; "Classic look" in My profile & settings switches back on this device. */
+
+const PM_KEY = 'cc-look';
+function pmOn(){ try{ return localStorage.getItem(PM_KEY)!=='classic'; }catch(e){ return true; } }
+function pmApply(){ document.documentElement.classList.toggle('pm', pmOn()); }
+function pmSet(on){ try{ localStorage.setItem(PM_KEY, on ? 'premium' : 'classic'); }catch(e){} pmApply(); try{ renderAll?.(); }catch(e){}
+  toast(on ? 'Premium look on' : 'Classic look on — switch back any time in My profile & settings'); if(typeof accountModal==='function' && el('modal')?.classList.contains('open')) accountModal(); }
+pmApply();
+if(typeof accountModal==='function'){ const _am = accountModal; accountModal = function(){ const r = _am.apply(this, arguments); const b = el('modalBody'); if(!b || b.querySelector('#pmLook')) return r;
+    const on = pmOn();
+    b.insertAdjacentHTML('beforeend', `<div id="pmLook" class="pm-look"><div><b>Look</b><div class="hint">Premium is the new frosted-glass design. Classic is the previous look. This choice is saved on this device.</div></div>
+      <div class="pm-seg" role="radiogroup" aria-label="Look"><button role="radio" aria-checked="${on}" class="${on?'on':''}" onclick="pmSet(true)">Premium</button><button role="radio" aria-checked="${!on}" class="${on?'':'on'}" onclick="pmSet(false)">Classic</button></div></div>`);
+    return r; }; }
+
+(function(){ const st = document.createElement('style'); st.id = 'pmCss'; st.textContent = `
+.pm-look{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:16px;padding-top:14px;border-top:1px solid var(--line)}
+.pm-look > div:first-child{flex:1;min-width:220px}
+.pm-seg{display:inline-flex;padding:4px;border-radius:999px;background:rgba(17,18,20,.06);gap:2px}
+.pm-seg button{border:0;border-radius:999px;padding:7px 16px;font:600 13px Inter,sans-serif;color:var(--ink-2);background:transparent;cursor:pointer}
+.pm-seg button.on{background:#141416;color:#fff}
+
+/* ---------- tokens ---------- */
+:root.pm{
+  --bg:#ECEAE5; --panel:#FFFFFF; --panel-2:rgba(255,255,255,.62);
+  --ink:#141416; --ink-2:#55575E; --ink-3:#7E8088;
+  --line:rgba(17,18,20,.10); --line-2:rgba(17,18,20,.06);
+  --shadow:0 1px 2px rgba(17,18,20,.04),0 12px 28px -18px rgba(17,18,20,.28);
+  --shadow-lg:0 30px 70px -28px rgba(17,18,20,.42);
+  --r:18px; --r-sm:10px;
+  --rg-fill:linear-gradient(180deg,rgba(255,255,255,.66) 0%,rgba(255,255,255,.50) 100%);
+  --rg-spec:linear-gradient(180deg,rgba(255,255,255,.55) 0%,rgba(255,255,255,0) 22%);
+  --rg-edge:1px solid rgba(255,255,255,.80);
+  --rg-lift:inset 0 1px 0 rgba(255,255,255,.75),0 0 0 1px rgba(17,18,20,.05),0 14px 34px -22px rgba(17,18,20,.32);
+  --rg-lift-h:inset 0 1px 0 rgba(255,255,255,.8),0 0 0 1px rgba(17,18,20,.06),0 20px 44px -22px rgba(17,18,20,.38);
+  --og-1:rgba(255,255,255,.55); --og-2:rgba(255,255,255,.42); --og-3:rgba(255,255,255,.72); --og-pop:rgba(255,255,255,.90);
+  --og-rim:rgba(255,255,255,.85); --og-hair:rgba(17,18,20,.07); --og-glow:inset 0 1px 0 rgba(255,255,255,.7);
+  --og-shadow:0 14px 34px -22px rgba(17,18,20,.32);
+  --gs-tint:var(--og-1); --gs-tint-2:var(--og-2); --gs-tint-3:var(--og-3); --gs-pop:var(--og-pop); --gs-hair:var(--og-hair); --gs-rim:var(--og-rim);
+  --gs-hover:rgba(255,255,255,.7); --gs-shadow:var(--og-shadow);
+  --pm-smoke:rgba(17,18,20,.84); --pm-smoke-solid:#16171A;
+}
+:root.pm[data-theme="dark"]{
+  --bg:#0E0F12; --panel:#1A1B20; --panel-2:rgba(255,255,255,.05);
+  --ink:#F2F2F0; --ink-2:#B0B2B8; --ink-3:#7C7E86;
+  --line:rgba(255,255,255,.09); --line-2:rgba(255,255,255,.05);
+  --rg-fill:linear-gradient(180deg,rgba(34,36,42,.72) 0%,rgba(26,27,32,.62) 100%);
+  --rg-spec:linear-gradient(180deg,rgba(255,255,255,.06) 0%,rgba(255,255,255,0) 22%);
+  --rg-edge:1px solid rgba(255,255,255,.08);
+  --rg-lift:inset 0 1px 0 rgba(255,255,255,.06),0 0 0 1px rgba(0,0,0,.3),0 24px 50px -26px rgba(0,0,0,.85);
+  --rg-lift-h:inset 0 1px 0 rgba(255,255,255,.08),0 0 0 1px rgba(0,0,0,.3),0 30px 60px -26px rgba(0,0,0,.9);
+  --og-1:rgba(34,36,42,.66); --og-2:rgba(28,30,35,.56); --og-3:rgba(40,42,48,.8); --og-pop:rgba(30,31,37,.95);
+  --og-rim:rgba(255,255,255,.08); --og-hair:rgba(255,255,255,.07); --og-glow:inset 0 1px 0 rgba(255,255,255,.05);
+  --og-shadow:0 24px 50px -26px rgba(0,0,0,.85); --gs-hover:rgba(255,255,255,.06);
+  --pm-smoke:rgba(10,11,13,.86); --pm-smoke-solid:#0B0C0E;
+}
+/* ---------- the light behind the glass ---------- */
+:root.pm body{background:
+  radial-gradient(900px 640px at 8% -12%,rgba(246,198,106,.55),transparent 62%),
+  radial-gradient(820px 620px at 100% 30%,rgba(157,184,240,.45),transparent 62%),
+  radial-gradient(760px 560px at 46% 112%,rgba(242,168,140,.38),transparent 62%),
+  radial-gradient(600px 420px at 55% 40%,rgba(255,255,255,.55),transparent 70%),
+  #ECEAE5!important;background-attachment:fixed!important}
+:root.pm[data-theme="dark"] body{background:
+  radial-gradient(900px 640px at 8% -12%,rgba(242,180,64,.16),transparent 62%),
+  radial-gradient(820px 620px at 100% 30%,rgba(90,120,200,.16),transparent 62%),
+  radial-gradient(760px 560px at 46% 112%,rgba(200,110,80,.12),transparent 62%),#0E0F12!important}
+:root.pm body{font-feature-settings:"cv11","ss01";-webkit-font-smoothing:antialiased;letter-spacing:-.003em}
+
+/* ---------- type ---------- */
+:root.pm h1,:root.pm h2,:root.pm h3{letter-spacing:-.02em}
+:root.pm .page-head{margin-bottom:22px}
+:root.pm .page-head h2{font-size:26px;font-weight:600;letter-spacing:-.025em;line-height:1.15}
+:root.pm .page-head p{font-size:14px;color:var(--ink-2);margin-top:4px}
+:root.pm .card-h h3,:root.pm .card h3{font-weight:600}
+:root.pm .topbar h1{font-size:17px;font-weight:600;letter-spacing:-.015em}
+
+/* ---------- smoked-glass sidebar ---------- */
+:root.pm .app .sidebar{background:var(--pm-smoke)!important;-webkit-backdrop-filter:blur(30px) saturate(140%)!important;backdrop-filter:blur(30px) saturate(140%)!important;
+  border:1px solid rgba(255,255,255,.06)!important;box-shadow:0 30px 60px -30px rgba(17,18,20,.6)!important;color:#E9E9EC}
+:root.pm body.nav-open .app .sidebar,:root.pm body.nav-collapsed .app .sidebar,:root.pm body.nav-collapsed.nav-peek .app .sidebar,:root.pm body.glass-lite .app .sidebar{background:var(--pm-smoke-solid)!important}
+:root.pm .app .sidebar::before,:root.pm .app .sidebar::after{display:none!important}
+:root.pm .sidebar .logo b{color:#FFFFFF;font-weight:600;letter-spacing:-.01em}
+:root.pm .sidebar .logo span{color:#8B8D95}
+:root.pm .sidebar .portal-tag{background:rgba(242,180,64,.12)!important;border:1px solid rgba(242,180,64,.22)!important;color:#F2C46A!important;box-shadow:none!important}
+:root.pm .sidebar .nav-label{color:#6C6E76;font-size:10.5px;font-weight:600;letter-spacing:.14em;padding:16px 12px 6px}
+:root.pm .sidebar .nav-item{color:#A3A5AC!important;background:transparent!important;box-shadow:none!important;border-radius:10px;padding:9px 12px;font-weight:500;font-size:13.5px}
+:root.pm .sidebar .nav-item:hover{background:rgba(255,255,255,.06)!important;color:#F1F1F3!important}
+:root.pm .sidebar .nav-item.active{background:rgba(255,255,255,.10)!important;color:#FFFFFF!important;font-weight:600}
+:root.pm .sidebar .nav-item.active svg{color:#F2B440}
+:root.pm .sidebar .nav-item .pill{background:#F2B440!important;color:#1A1206!important}
+:root.pm .sidebar .sidebar-foot{border-top:1px solid rgba(255,255,255,.08)!important;background:transparent!important}
+:root.pm .sidebar .btn{background:rgba(255,255,255,.06)!important;color:#E9E9EC!important;border:1px solid rgba(255,255,255,.10)!important;box-shadow:none!important}
+:root.pm .sidebar .btn:hover{background:rgba(255,255,255,.12)!important}
+:root.pm .sidebar .role-switch{background:rgba(255,255,255,.05)!important;border-color:rgba(255,255,255,.08)!important}
+:root.pm .sidebar .role-switch label{color:#8B8D95}
+:root.pm .sidebar select,:root.pm .sidebar input{background:rgba(255,255,255,.08)!important;color:#F1F1F3!important;border-color:rgba(255,255,255,.12)!important}
+:root.pm .sidebar .hint,:root.pm .sidebar small{color:#8B8D95!important}
+:root.pm .sidebar a{color:#F2C46A}
+:root.pm .sidebar ::-webkit-scrollbar-thumb{background:rgba(255,255,255,.14);border-color:transparent}
+:root.pm .sidebar .nav-item .avatar{box-shadow:0 0 0 2px rgba(255,255,255,.08)}
+
+/* ---------- glass top bar & controls ---------- */
+:root.pm .app .topbar{background:rgba(255,255,255,.46)!important;-webkit-backdrop-filter:blur(24px) saturate(160%)!important;backdrop-filter:blur(24px) saturate(160%)!important;
+  border:1px solid rgba(255,255,255,.75)!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.75),0 14px 34px -24px rgba(17,18,20,.32)!important}
+:root.pm[data-theme="dark"] .app .topbar{background:rgba(26,27,32,.66)!important;border-color:rgba(255,255,255,.07)!important;box-shadow:0 18px 40px -26px rgba(0,0,0,.8)!important}
+:root.pm .icon-btn,:root.pm .topbar .me,:root.pm .sync-pill{background:rgba(255,255,255,.62)!important;border:1px solid rgba(255,255,255,.85)!important;box-shadow:0 0 0 1px rgba(17,18,20,.05)}
+:root.pm .icon-btn{border-radius:12px;width:38px;height:38px}
+:root.pm[data-theme="dark"] .icon-btn,:root.pm[data-theme="dark"] .topbar .me,:root.pm[data-theme="dark"] .sync-pill{background:rgba(255,255,255,.06)!important;border-color:rgba(255,255,255,.08)!important}
+:root.pm input,:root.pm select,:root.pm textarea{background:rgba(255,255,255,.78);border:1px solid rgba(17,18,20,.10);border-radius:10px}
+:root.pm[data-theme="dark"] input,:root.pm[data-theme="dark"] select,:root.pm[data-theme="dark"] textarea{background:rgba(255,255,255,.05);border-color:rgba(255,255,255,.10)}
+:root.pm .search input{border-radius:12px;height:38px}
+:root.pm input:focus,:root.pm select:focus,:root.pm textarea:focus{border-color:#E39312;box-shadow:0 0 0 3px rgba(227,147,18,.16)}
+
+/* ---------- glass cards ---------- */
+:root.pm .card{border-radius:20px!important}
+:root.pm .card .card-h{border-bottom-color:rgba(17,18,20,.06)!important}
+:root.pm[data-theme="dark"] .card .card-h{border-bottom-color:rgba(255,255,255,.06)!important}
+:root.pm .stat,:root.pm .kpi,:root.pm .mk-kpi,:root.pm .dash-stat{border-radius:18px!important}
+:root.pm .kcard,:root.pm .list-row.kcard{background:rgba(255,255,255,.72)!important;border:1px solid rgba(255,255,255,.85)!important;box-shadow:0 0 0 1px rgba(17,18,20,.05),0 10px 22px -16px rgba(17,18,20,.3)!important;border-radius:14px}
+:root.pm[data-theme="dark"] .kcard{background:rgba(255,255,255,.05)!important;border-color:rgba(255,255,255,.07)!important}
+:root.pm .list-row{border-color:rgba(17,18,20,.06)!important}
+:root.pm .list-row:hover{background:rgba(255,255,255,.5)!important}
+:root.pm[data-theme="dark"] .list-row{border-color:rgba(255,255,255,.06)!important}
+:root.pm[data-theme="dark"] .list-row:hover{background:rgba(255,255,255,.04)!important}
+:root.pm .glass-card{background:var(--rg-spec),var(--rg-fill)!important;border:var(--rg-edge)!important;box-shadow:var(--rg-lift)!important}
+
+/* ---------- buttons: graphite primary, amber reserved for attention ---------- */
+:root.pm .btn{border-radius:12px;font-weight:600}
+:root.pm .btn.primary{background:#141416!important;color:#FFFFFF!important;border-color:#141416!important;box-shadow:0 8px 18px -12px rgba(17,18,20,.6)!important}
+:root.pm .btn.primary:hover{background:#2A2B30!important}
+:root.pm[data-theme="dark"] .btn.primary{background:#F2F2F0!important;color:#141416!important;border-color:#F2F2F0!important}
+:root.pm .btn:not(.primary):not(.ghost):not(.danger){background:rgba(255,255,255,.66)!important;border:1px solid rgba(255,255,255,.9)!important;box-shadow:0 0 0 1px rgba(17,18,20,.07),0 6px 14px -10px rgba(17,18,20,.3)!important}
+:root.pm[data-theme="dark"] .btn:not(.primary):not(.ghost):not(.danger){background:rgba(255,255,255,.06)!important;border-color:rgba(255,255,255,.09)!important;box-shadow:none!important}
+
+/* ---------- pop-ups ---------- */
+:root.pm .modal .box{background:rgba(255,255,255,.86)!important;-webkit-backdrop-filter:blur(30px) saturate(170%);backdrop-filter:blur(30px) saturate(170%);border:1px solid rgba(255,255,255,.9)!important;border-radius:22px!important;
+  box-shadow:0 0 0 1px rgba(17,18,20,.06),0 50px 100px -30px rgba(17,18,20,.5)!important}
+:root.pm[data-theme="dark"] .modal .box{background:rgba(28,29,34,.92)!important;border-color:rgba(255,255,255,.08)!important}
+:root.pm .modal{background:rgba(17,18,20,.28)}
+:root.pm .drawer{background:rgba(255,255,255,.84)!important;-webkit-backdrop-filter:blur(30px) saturate(170%);backdrop-filter:blur(30px) saturate(170%)}
+:root.pm[data-theme="dark"] .drawer{background:rgba(24,25,30,.92)!important}
+
+/* ---------- Messages ---------- */
+:root.pm #v-chat .card:has(> .chat-wrap){background:var(--rg-spec),linear-gradient(180deg,rgba(255,255,255,.6),rgba(255,255,255,.44))!important}
+:root.pm[data-theme="dark"] #v-chat .card:has(> .chat-wrap){background:var(--rg-spec),var(--rg-fill)!important}
+:root.pm #v-chat .chat-list{background:rgba(255,255,255,.32)!important}
+:root.pm[data-theme="dark"] #v-chat .chat-list{background:rgba(255,255,255,.02)!important}
+:root.pm #v-chat .chat-pane > .card-h{background:rgba(255,255,255,.55)!important}
+:root.pm[data-theme="dark"] #v-chat .chat-pane > .card-h{background:rgba(255,255,255,.03)!important}
+:root.pm #v-chat .chat-item.on{background:rgba(255,242,214,.85)!important}
+:root.pm[data-theme="dark"] #v-chat .chat-item.on{background:rgba(242,180,64,.12)!important}
+
+/* phones & tablets: the slide-in menu is opaque smoked glass */
+@media (max-width:860px){:root.pm .app .sidebar{background:var(--pm-smoke-solid)!important}}
+@media (prefers-reduced-transparency:reduce){:root.pm .app .sidebar{background:var(--pm-smoke-solid)!important}:root.pm .app .topbar{background:var(--panel)!important}}
+`; document.head.appendChild(st); })();
+/* ===== k0_bubbles.js ===== */
+/* ================= FLOATING GLASS MESSAGE BUBBLES — chat heads (Oct 20 2026) =================
+   New personal and group messages appear as round chat heads at the right edge of the portal (the person's profile
+   photo; two overlapping photos for a group chat) with a red unread count, while someone is anywhere outside Messages,
+   on every portal (team, PMs, HR, heads, client portal). The newest shows a frosted-glass preview beside it.
+   • A head stays until the person closes it (no timer): ✕ on the head (hover, or press and hold on touch; or swipe it
+     sideways), "Close all", or ✕ in the open conversation. Closing only takes it off this screen — the conversation,
+     its messages and its unread count stay in Messages; a newer message brings the head back.
+   • Click / tap a head to open the conversation beside it and reply right there; "Open in Messages" jumps to the same
+     conversation in the main messaging section; "View all messages" opens the conversation list.
+   • One head per conversation (a second message bumps it and the count); more than five fold into "+N".
+   • Two-way, real time, every device: replies sent from a head are ordinary messages (same record, receipts,
+     notifications and @mentions); reading a conversation in a head marks it read everywhere (badges, list, "Seen"),
+     and reading or replying in Messages — here or on another device — clears or updates the head at once.
+   • Placement: right edge above Cora; pages keep a right-hand gutter so heads never cover content; phones: smaller
+     heads, the conversation opens across the bottom above the keyboard, and while typing elsewhere the heads move up. */
+
+const BUB = {items:new Map(), open:null, expanded:false, edit:false, dismissed:{}, readAt:'', layer:null, who:null, t:null, newKeys:new Set()};
+const bubLS = () => 'cc-bub-' + (PERSON||'');
+function bubLoad(){ BUB.items = new Map(); BUB.dismissed = {}; BUB.open = null; BUB.expanded = false; BUB.who = PERSON;
+  try{ const o = JSON.parse(localStorage.getItem(bubLS())||'{}'); const old = Date.now() - 14*864e5;
+    Object.entries(o.d||{}).forEach(([k, v])=>{ if(Date.parse(v||0) > old) BUB.dismissed[k] = v; });
+    (o.i||[]).forEach(x=>{ if(x && x.chat) BUB.items.set(x.chat, {chat:x.chat, at:x.at||'', mid:x.mid||''}); }); }catch(e){} }
+function bubSave(){ if(!PERSON) return; try{ localStorage.setItem(bubLS(), JSON.stringify({d:BUB.dismissed, i:[...BUB.items.values()].map(({chat, at, mid})=>({chat, at, mid}))})); }catch(e){} }
+const bubChat = id => CHATS.find(c=>c.id===id && (c.members||[]).includes(PERSON));
+const bubInMessages = () => CURRENT==='chat' || CURRENT==='cchat';
+const bubCountable = m => m && !m.thread && !m.sys && m.kind!=='call' && m.by!==PERSON;
+function bubUnread(id){ const lr = chatLastRead(id); return MESSAGES.filter(m=>m.chat===id && bubCountable(m) && m.at > lr).sort((a, b)=>a.at < b.at ? -1 : 1); }
+const bubMainView = () => ROLE==='client' ? 'cchat' : 'chat';
+
+/* ---------- new message → bubble ---------- */
+function bubAdd(m){
+  const c = bubChat(m.chat); if(!c) return;
+  const it = BUB.items.get(c.id) || {chat:c.id};
+  if(!(it.at && it.at > m.at)){ it.at = m.at; it.mid = m.id; }
+  BUB.items.set(c.id, it); BUB.newKeys.add(c.id);
+  if(BUB.items.size > 20){ const old = [...BUB.items.values()].sort((a, b)=>a.at < b.at ? -1 : 1)[0]; if(old && old.chat!==BUB.open) BUB.items.delete(old.chat); }
+  bubSave(); bubSync();
+}
+/* thread replies keep the existing top alert; messages in conversations become bubbles (outside Messages) */
+{ const _mt = msgToast; msgToast = function(m, kind){ if(!m || m.thread || bubInMessages() || !bubChat(m.chat)) return _mt.apply(this, arguments); bubAdd(m, kind); }; }
+
+/* ---------- keep bubbles in step with everything else ---------- */
+function bubSyncSoon(ms=60){ clearTimeout(BUB.t); BUB.t = setTimeout(bubSync, ms); }
+function bubSync(){
+  if(!PERSON || !PEOPLE[PERSON]) return bubRender();
+  if(BUB.who!==PERSON) bubLoad();
+  let ch = false;
+  BUB.items.forEach((it, id)=>{
+    if(!bubChat(id)){ BUB.items.delete(id); ch = true; return; }
+    const U = bubUnread(id);
+    if(id===BUB.open){ const last = MESSAGES.filter(m=>m.chat===id && !m.thread).map(m=>m.at).sort().pop() || it.at; if(last!==it.at){ it.at = last; ch = true; } return; }
+    if(!U.length){ if(typeof LIVE_BG!=='undefined' && LIVE_BG.on && !MESSAGES.some(m=>m.id===it.mid)) return;   /* history still loading */
+      BUB.items.delete(id); ch = true; return; }                                      /* read here, in Messages or on another device */
+    const L = U[U.length-1]; if(L.id!==it.mid){ it.mid = L.id; it.at = L.at; ch = true; }
+    if((BUB.dismissed[id]||'') >= it.at){ BUB.items.delete(id); ch = true; }
+  });
+  if(BUB.open && !bubChat(BUB.open)) BUB.open = null;
+  if(ch) bubSave();
+  if(BUB.open) bubMarkRead(BUB.open);
+  bubRender();
+}
+{ const _ore = onRemoteEvent; onRemoteEvent = function(ev){ const r = _ore.apply(this, arguments);
+    if(['messages','chatreads','prefs','chats','avatars'].includes(ev?.coll)) bubSyncSoon(ev.coll==='messages' ? 30 : 80);
+    return r; }; }
+if(typeof rcSeenUpTo==='function'){ const _rs = rcSeenUpTo; rcSeenUpTo = function(){ const r = _rs.apply(this, arguments); bubSyncSoon(); return r; }; }
+{ const _mr = markChatRead; markChatRead = function(){ const r = _mr.apply(this, arguments); bubSyncSoon(); return r; }; }
+{ const _sc = sendChat; sendChat = function(){ const r = _sc.apply(this, arguments); if(r && typeof r.then==='function') r.then(()=>bubSyncSoon()); else bubSyncSoon(); return r; }; }
+if(typeof cpSend==='function'){ const _cs = cpSend; cpSend = function(){ const r = _cs.apply(this, arguments); bubSyncSoon(); return r; }; }
+{ const _go = go; go = function(id){ if(BUB.open && (id==='chat' || id==='cchat')) BUB.open = null; const r = _go.apply(this, arguments);
+    document.body.classList.toggle('view-cchat', CURRENT==='cchat'); bubSyncSoon(10); return r; }; }
+{ const _sp = setPerson; setPerson = function(){ const r = _sp.apply(this, arguments); bubLoad(); bubSyncSoon(1500); return r; }; }
+document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='visible' && BUB.open) bubSyncSoon(150); });
+
+/* ---------- actions ---------- */
+function bubDismiss(id){
+  const it = BUB.items.get(id); const last = MESSAGES.filter(m=>m.chat===id && !m.thread).map(m=>m.at).sort().pop() || it?.at || nowISO();
+  BUB.dismissed[id] = last > (it?.at||'') ? last : (it?.at||last);
+  if(BUB.open===id) BUB.open = null;
+  const n = BUB.layer?.querySelector(`.bub[data-chat="${CSS.escape(id)}"]`);
+  const done = () => { BUB.items.delete(id); bubSave(); bubRender(); };
+  if(n && !matchMedia('(prefers-reduced-motion: reduce)').matches){ n.classList.add('out'); setTimeout(done, 190); } else done();
+}
+function bubDismissAll(){ [...BUB.items.keys()].forEach(id=>{ BUB.dismissed[id] = BUB.items.get(id).at || nowISO(); }); BUB.items.clear(); BUB.open = null; BUB.expanded = false; bubSave(); bubRender(); }
+function bubOpen(id){
+  if(!bubChat(id)) return; BUB.open = id; BUB.expanded = false; BUB.readAt = chatLastRead(id);
+  if(!BUB.items.has(id)){ const last = MESSAGES.filter(m=>m.chat===id && !m.thread).map(m=>m.at).sort().pop() || nowISO(); BUB.items.set(id, {chat:id, at:last, mid:''}); }
+  bubMarkRead(id); bubRender();
+  if(!matchMedia('(pointer: coarse)').matches) setTimeout(()=>el('bubReply')?.focus(), 60);
+}
+function bubMinimize(){ BUB.open = null; bubSync(); }
+function bubToMessages(id){
+  BUB.open = null; const v = bubMainView();
+  if(id && v==='chat'){ CHAT_OPEN = id; if(typeof CHAT_MOB!=='undefined') CHAT_MOB = 'pane'; }
+  else if(v==='chat' && typeof CHAT_MOB!=='undefined') CHAT_MOB = 'list';
+  go(v); if(id && v==='chat' && typeof chatMobApply==='function') try{ chatMobApply(); }catch(e){}
+}
+function bubToggle(){ BUB.expanded = !BUB.expanded; bubRender(); }
+/* reading in a bubble = reading in Messages: read position, "Seen" receipts, badges, bell, phone notifications */
+function bubMarkRead(id){
+  if(document.visibilityState!=='visible') return;
+  const last = MESSAGES.filter(m=>m.chat===id && (!m.thread || inThread(m))).map(m=>m.at).sort().pop(); if(!last) return;
+  if(typeof rcSeenUpTo==='function'){ if(chatLastRead(id) < last) rcSeenUpTo(id, last); }
+  else { const p = myPrefs(); if((p.lastRead[id]||'') < last){ p.lastRead[id] = last; recordChange(); } }
+  let ch = false; NOTIFS2.forEach(n=>{ if(n.to===PERSON && !n.read && n.type==='message' && (n.link?.arg===id || n.chat===id)){ n.read = true; ch = true; } });
+  if(ch){ recordChange(); try{ updateBadges?.(); renderNotifs?.(); }catch(e){} }
+  try{ if(typeof closeSysNotifs==='function') closeSysNotifs(d=>d.chat===id || d.link?.arg===id); if(typeof pushClearRead==='function') pushClearRead(); }catch(e){}
+  try{ buildNav(); }catch(e){}
+}
+/* replying from a bubble sends an ordinary message: same record, notifications, @mentions, receipts and @Ops routing */
+function bubSend(){
+  const id = BUB.open; const c = bubChat(id); const inp = el('bubReply'); if(!c || !inp) return;
+  const t = inp.value.trim(); if(!t) return;
+  if(typeof chatReadOnly==='function' && chatReadOnly(c)) return toast('This chat is archived — read-only');
+  const mentions = c.kind==='dm' ? [] : (typeof findMentions==='function' ? findMentions(t, c) : []);
+  const nB = NOTIFS2.length;
+  const m = {id:uid('M'), chat:c.id, by:PERSON, text:t.slice(0, 4000), at:nowISO(), files:[], ...(mentions.length?{mentions}:{})};
+  MESSAGES.push(m);
+  const what = t.slice(0, 90);
+  if(ROLE==='client') notify(c.members.filter(k=>k!==PERSON), 'message', `💬 <b>${esc(pname(PERSON))}</b> (client portal${typeof myClientId==='function'?' · '+esc(cname(myClientId())):''}): ${esc(t.slice(0,120))}`, {view:'chat', arg:c.id});
+  else if(c.kind==='dm') notify(c.members.filter(k=>k!==PERSON), 'message', `💬 <b>${esc(first(PERSON))}</b>: ${esc(what)}`, {view:'chat', arg:c.id});
+  else if(mentions.length) notify(mentions, 'message', `${esc(first(PERSON))} tagged you in <b>${esc(chatTitle(c))}</b>: ${esc(what)}`, {view:'chat', arg:c.id});
+  if(typeof tagMsgNotifs==='function') try{ tagMsgNotifs(nB, [m]); }catch(e){}
+  myPrefs().lastRead[c.id] = m.at; if(typeof rcBump==='function') rcBump(c.id, 'seen', m.at);
+  if(typeof OPS_RE!=='undefined' && OPS_RE.test(t) && typeof opsRoute==='function') try{ opsRoute(m, c, 'a message bubble'); }catch(e){}
+  recordChange();
+  inp.value = ''; bubGrow(inp); BUB.stick = true;
+  const it = BUB.items.get(c.id); if(it){ it.at = m.at; it.mid = m.id; }
+  try{ buildNav(); if(typeof mpRedrawList==='function') mpRedrawList(); }catch(e){}
+  if(CURRENT==='chat' && CHAT_OPEN===c.id) try{ updateMessages(c); }catch(e){}
+  bubRender(); inp.focus();
+}
+function bubKey(e){ if(e.key==='Enter' && !e.shiftKey && !matchMedia('(pointer: coarse)').matches){ e.preventDefault(); bubSend(); } if(e.key==='Escape'){ e.preventDefault(); bubMinimize(); } }
+function bubGrow(t){ if(!t) return; t.style.height = 'auto'; t.style.height = Math.min(120, t.scrollHeight) + 'px'; }
+
+/* ---------- drawing: chat heads ---------- */
+const BUB_GROUP_ICO = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 20v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 10a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM22 20v-2a4 4 0 0 0-3-3.9"/></svg>';
+const BUB_X = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>';
+const BUB_ALL = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/><path d="M8.5 10.5h7M8.5 13.5h4.5"/></svg>';
+const bubWhen = at => { const s = (Date.now() - Date.parse(at||0)) / 1000; return s < 60 ? 'now' : s < 3600 ? Math.floor(s/60)+'m' : clock(at); };
+const bubGroupName = c => c.kind==='dm' ? '' : chatTitle(c);
+/* a face: the profile photo, or initials on the person's colour */
+function bubFace(k, cls){ const e = P(k); const img = e && typeof avImg==='function' ? avImg(e) : '';
+  return `<span class="bub-ph ${cls||''}" style="${img ? '' : `background:${esc(e?.color||'#8A8C93')}`}">${img ? `<img src="${esc(img)}" alt="" loading="lazy">` : esc(initials(e?.name||'?'))}</span>`; }
+function bubFaces(c, m){
+  if(c.kind==='dm') return bubFace((c.members||[]).find(k=>k!==PERSON) || m.by);
+  const others = MESSAGES.filter(x=>x.chat===c.id && x.by!==m.by && x.by!==PERSON && !x.sys && PEOPLE[x.by]).sort((a, b)=>a.at < b.at ? 1 : -1);
+  const back = others[0]?.by || (c.members||[]).find(k=>k!==m.by && k!==PERSON && PEOPLE[k]) || m.by;
+  return bubFace(back, 'back') + bubFace(m.by, 'front');
+}
+function bubHeadHTML(it, newest){
+  const c = bubChat(it.chat); const m = MESSAGES.find(x=>x.id===it.mid) || MESSAGES.filter(x=>x.chat===it.chat && bubCountable(x)).sort((a, b)=>a.at < b.at ? -1 : 1).pop();
+  if(!c || !m) return '';
+  const n = bubUnread(c.id).length; const g = bubGroupName(c);
+  const pv = String(msgPreview(m) || m.text || '').replace(/\s+/g, ' ').slice(0, 140);
+  const who = c.kind==='dm' ? pname(m.by) : `${pname(m.by)} in ${g}`;
+  return `<button class="bub-main" onclick="bubOpen('${esc(c.id)}')" aria-label="Open conversation: ${esc(who)}${n?`, ${n} unread`:''}" title="${esc(c.kind==='dm'?chatTitle(c):g)}">
+      <span class="bub-face ${c.kind==='dm'?'':'grp'}">${bubFaces(c, m)}</span>${n?`<span class="bub-cnt" aria-hidden="true">${n>9?'9+':n}</span>`:''}</button>
+    <button class="bub-tag bub-glass" onclick="bubOpen('${esc(c.id)}')" tabindex="-1" aria-hidden="true">
+      <span class="bub-l1"><b class="bub-n">${esc(pname(m.by))}</b><span class="bub-when">${esc(bubWhen(m.at))}</span></span>${(m.mentions||[]).includes(PERSON)?'<span class="bub-at">@ mentioned you</span>':''}${g?`<span class="bub-in">${BUB_GROUP_ICO} ${esc(g)}</span>`:''}<span class="bub-pv">${esc(pv)}</span></button>
+    <button class="bub-x" onclick="bubDismiss('${esc(c.id)}')" aria-label="Close ${esc(who)} (the conversation stays in Messages)" title="Close (keeps the conversation)">${BUB_X}</button>`;
+}
+function bubMsgsHTML(id){
+  const c = bubChat(id); if(!c) return '';
+  const M = MESSAGES.filter(m=>m.chat===id && !m.thread).sort((a, b)=>a.at < b.at ? -1 : 1).slice(-40);
+  if(!M.length) return '<div class="bp-empty">No messages yet — say hello.</div>';
+  let out = '', prevBy = null, newShown = false;
+  M.forEach(m=>{
+    if(!newShown && BUB.readAt && m.at > BUB.readAt && m.by!==PERSON){ out += '<div class="bp-new"><span>New</span></div>'; newShown = true; prevBy = null; }
+    if(m.sys || m.kind==='call'){ out += `<div class="bp-sys">${esc(String(msgPreview(m)||'').slice(0, 160))}</div>`; prevBy = null; return; }
+    const me = m.by===PERSON; const head = !me && prevBy!==m.by;
+    const body = m.text ? linkify(String(m.text).slice(0, 2000)) : esc(msgPreview(m)||'');
+    const files = (m.files||[]).length && m.text ? `<span class="bp-file">📎 ${(m.files||[]).length===1 ? esc(m.files[0].name||'Attachment') : (m.files||[]).length+' attachments'}</span>` : '';
+    out += `<div class="bp-m ${me?'mine':''} ${head?'head':''}" data-mid="${esc(m.id)}">${head ? bubFace(m.by, 'mini') : ''}<div class="bp-col">${head && c.kind!=='dm' ? `<small>${esc(pname(m.by))}</small>` : ''}<div class="bp-b">${body}${files}</div><small class="bp-at">${esc(clock(m.at))}</small></div></div>`;
+    prevBy = m.by; });
+  return out;
+}
+function bubPanelHTML(id){
+  const c = bubChat(id); const g = c.kind!=='dm';
+  const other = c.kind==='dm' ? (c.members||[]).find(k=>k!==PERSON) : null;
+  const last = MESSAGES.filter(m=>m.chat===id && !m.thread && m.by!==PERSON && !m.sys).sort((a, b)=>a.at < b.at ? 1 : -1)[0];
+  const sub = c.kind==='dm' ? 'Private message' : c.kind==='clientline' ? 'Client portal chat' : `${c.kind==='client'?'Client group':'Group'} · ${(c.members||[]).length} members`;
+  const ro = typeof chatReadOnly==='function' && chatReadOnly(c);
+  return `<div class="bp-h"><span class="bub-face sm ${g?'grp':''}">${g ? bubFaces(c, last || {by:(c.members||[]).find(k=>k!==PERSON)||PERSON}) : bubFace(other)}</span>
+      <div class="bp-ttl"><b>${esc(chatTitle(c))}</b><small>${esc(sub)}</small></div>
+      <button class="bp-ib" onclick="bubToMessages('${esc(id)}')" title="Open in Messages" aria-label="Open this conversation in Messages"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg></button>
+      <button class="bp-ib" onclick="bubMinimize()" title="Minimise" aria-label="Minimise"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14"/></svg></button>
+      <button class="bp-ib" onclick="bubDismiss('${esc(id)}')" title="Close (keeps the conversation)" aria-label="Close this bubble (the conversation stays in Messages)">${BUB_X}</button></div>
+    <div class="bp-msgs" id="bubMsgs" aria-live="polite"></div>
+    ${ro ? '<div class="bp-ro">This chat is archived — read-only.</div>' : `<div class="bp-f"><textarea id="bubReply" rows="1" placeholder="Reply to ${esc(c.kind==='dm'?first(other||''):chatTitle(c))}…" aria-label="Reply" oninput="bubGrow(this)" onkeydown="bubKey(event)"></textarea><button class="bp-send" onclick="bubSend()" aria-label="Send" title="Send"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4z"/></svg></button></div>`}
+    <div class="bp-all"><button onclick="bubToMessages()">View all messages</button></div>`;
+}
+function bubLayer(){ let L = el('bubLayer'); if(!L){ L = document.createElement('div'); L.id = 'bubLayer'; L.setAttribute('role','region'); L.setAttribute('aria-label','New messages');
+    L.innerHTML = '<div class="bub-heads"></div><div class="bub-ctl"></div>'; document.body.appendChild(L); } BUB.layer = L; return L; }
+const BUB_MAX = 5;
+function bubRender(){
+  const L = bubLayer();
+  const list = [...BUB.items.values()].sort((a, b)=>a.at > b.at ? -1 : 1).filter(it=>it.chat===BUB.open || bubHeadHTML(it));
+  const show = !!PERSON && !!PEOPLE[PERSON] && !bubInMessages() && (list.length || BUB.open);
+  document.body.classList.toggle('bub-on', !!show);
+  if(!show){ document.body.classList.remove('bub-open'); L.hidden = true; L.querySelector('.bub-heads').innerHTML = ''; L.querySelector('.bub-ctl').innerHTML = ''; L.querySelector('.bub-panel')?.remove(); bubPlace(); return; }
+  L.hidden = false; L.classList.toggle('has-panel', !!BUB.open); document.body.classList.toggle('bub-open', !!BUB.open); L.classList.toggle('edit', !!BUB.edit);
+  /* the heads, newest on top */
+  const H = L.querySelector('.bub-heads');
+  const heads = list.filter(it=>it.chat!==BUB.open || !matchMedia('(max-width:640px)').matches);
+  const vis = BUB.expanded ? heads : heads.slice(0, heads.length > BUB_MAX ? BUB_MAX - 1 : BUB_MAX);
+  const have = new Map([...H.querySelectorAll('.bub')].map(x=>[x.dataset.chat, x]));
+  vis.forEach((it, i)=>{ let d = have.get(it.chat); const h = bubHeadHTML(it, i===0); if(!h){ d?.remove(); return; }
+    if(!d){ d = document.createElement('div'); d.className = 'bub in'; d.dataset.chat = it.chat; bubSwipe(d); }
+    else if(BUB.newKeys.has(it.chat)){ d.classList.remove('bump'); void d.offsetWidth; d.classList.add('bump'); }
+    if(d._h!==h){ d.innerHTML = h; d._h = h; } d.dataset.mid = it.mid || '';
+    d.classList.toggle('newest', i===0 && !BUB.open); d.classList.toggle('on', it.chat===BUB.open);
+    if(H.children[i]!==d) H.insertBefore(d, H.children[i] || null); have.delete(it.chat); });
+  have.forEach(x=>x.remove());
+  let more = H.querySelector('.bub-more'); const hidden = heads.length - vis.length;
+  if(hidden > 0){ if(!more){ more = document.createElement('button'); more.className = 'bub-more bub-glass'; more.onclick = bubToggle; } more.textContent = '+' + hidden; more.setAttribute('aria-label', `Show ${hidden} more conversation${hidden>1?'s':''}`); H.appendChild(more); }
+  else if(BUB.expanded && heads.length > BUB_MAX){ if(!more){ more = document.createElement('button'); more.className = 'bub-more bub-glass'; more.onclick = bubToggle; } more.textContent = '−'; more.setAttribute('aria-label', 'Show fewer'); H.appendChild(more); }
+  else more?.remove();
+  H.classList.toggle('exp', !!BUB.expanded);
+  /* View all messages · Close all */
+  const C = L.querySelector('.bub-ctl'); const n = list.length;
+  const ctl = `<button class="bub-ctl-b bub-glass" onclick="bubToMessages()" aria-label="View all messages" title="View all messages">${BUB_ALL}<span class="bub-ctl-t">View all messages</span></button>${n>1?`<button class="bub-ctl-b bub-glass sm" onclick="bubDismissAll()" aria-label="Close all bubbles (conversations stay in Messages)" title="Close all (keeps the conversations)">${BUB_X}<span class="bub-ctl-t">Close all</span></button>`:''}`;
+  if(C._h!==ctl){ C.innerHTML = ctl; C._h = ctl; }
+  /* the open conversation */
+  let P_ = L.querySelector('.bub-panel');
+  if(BUB.open){
+    if(!P_ || P_.dataset.chat!==BUB.open){ P_?.remove(); L.insertAdjacentHTML('beforeend', `<section class="bub-panel bub-glass in" data-chat="${esc(BUB.open)}" aria-label="Conversation">${bubPanelHTML(BUB.open)}</section>`); P_ = L.querySelector('.bub-panel'); BUB.stick = true; }
+    const box = el('bubMsgs'); if(box){ const near = BUB.stick || box.scrollHeight - box.scrollTop - box.clientHeight < 80; const h = bubMsgsHTML(BUB.open); if(box._h!==h){ box.innerHTML = h; box._h = h; } if(near) box.scrollTop = box.scrollHeight; BUB.stick = false; }
+    const others = list.filter(it=>it.chat!==BUB.open && bubUnread(it.chat).length).length;
+    let o = P_.querySelector('.bp-others'); if(others && matchMedia('(max-width:640px)').matches){ if(!o){ o = document.createElement('button'); o.className = 'bp-others'; o.onclick = bubMinimize; P_.prepend(o); } o.textContent = `${others} other conversation${others>1?'s':''} waiting`; } else o?.remove();
+  } else P_?.remove();
+  BUB.newKeys.clear(); bubPlace();
+}
+/* touch: swipe a head sideways to close it; press and hold shows ✕ on every head */
+function bubSwipe(d){ let x0 = 0, y0 = 0, dx = 0, dy = 0, on = false, hold = null;
+  d.addEventListener('pointerdown', e=>{ if(e.pointerType==='mouse' || e.target.closest('.bub-x')) return; on = true; x0 = e.clientX; y0 = e.clientY; dx = dy = 0;
+    clearTimeout(hold); hold = setTimeout(()=>{ if(on && Math.abs(dx) < 8 && Math.abs(dy) < 8){ BUB.edit = true; BUB.skipClick = true; bubRender(); try{ navigator.vibrate?.(12); }catch(_){} } }, 450); });
+  d.addEventListener('pointermove', e=>{ if(!on) return; dx = e.clientX - x0; dy = e.clientY - y0; if(Math.abs(dx) > 8){ clearTimeout(hold); d.style.transition = 'none'; d.style.transform = `translateX(${dx}px)`; d.style.opacity = String(Math.max(.2, 1 - Math.abs(dx)/160)); } });
+  const end = () => { clearTimeout(hold); if(!on) return; on = false; d.style.transition = '';
+    if(Math.abs(dx) > 70){ d.addEventListener('click', ev=>{ ev.stopPropagation(); ev.preventDefault(); }, {capture:true, once:true}); bubDismiss(d.dataset.chat); }
+    else { d.style.transform = ''; d.style.opacity = ''; } };
+  d.addEventListener('pointerup', end); d.addEventListener('pointercancel', end);
+  d.addEventListener('click', ev=>{ if(BUB.skipClick && !ev.target.closest('.bub-x')){ BUB.skipClick = false; ev.stopPropagation(); ev.preventDefault(); } }, true); }
+document.addEventListener('pointerdown', e=>{ if(BUB.edit && !e.target.closest('#bubLayer .bub')){ BUB.edit = false; bubRender(); } });
+
+/* ---------- placement: right edge, above Cora and the keyboard; pages keep a gutter so nothing is covered ---------- */
+function bubPlace(){
+  const L = BUB.layer; const root = document.documentElement; if(!L) return;
+  const vv = window.visualViewport; const kb = vv ? Math.max(0, innerHeight - vv.height - vv.offsetTop) : 0;
+  const typingHere = L.contains(document.activeElement);
+  const typingElsewhere = kb > 120 && !typingHere && /INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName||'');
+  document.body.classList.toggle('bub-kbd', typingElsewhere);
+  root.style.setProperty('--bub-kb', (typingHere && kb > 120 ? kb : 0) + 'px');
+}
+addEventListener('resize', ()=>bubPlace());
+window.visualViewport?.addEventListener('resize', ()=>bubPlace());
+document.addEventListener('focusin', ()=>setTimeout(bubPlace, 250)); document.addEventListener('focusout', ()=>setTimeout(bubPlace, 250));
+
+/* the notification settings speak about bubbles */
+if(typeof pushSettings==='function'){ const _ps = pushSettings; pushSettings = function(){ const r = _ps.apply(this, arguments); const s = el('mpSec'); if(s){ const b = s.querySelector('b'); if(b) b.textContent = 'Message bubbles';
+    const h = s.querySelector('.push-row .hint'); if(h) h.textContent = 'Chat bubbles on the side of the portal when a message arrives — the sender’s photo and an unread count. Open one to read and reply; it stays until you close it.'; } return r; }; }
+
+(function(){ const st = document.createElement('style'); st.id = 'bubCss'; st.textContent = `
+#bubLayer{position:fixed;z-index:59;right:calc(18px + env(safe-area-inset-right,0px));bottom:calc(92px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;align-items:flex-end;gap:14px;font-family:Inter,system-ui,sans-serif;color:#141416}
+#bubLayer[hidden]{display:none}
+.bub-glass{background:rgba(255,255,255,.78);-webkit-backdrop-filter:blur(30px) saturate(180%);backdrop-filter:blur(30px) saturate(180%);border:1px solid rgba(255,255,255,.82);box-shadow:0 0 0 1px rgba(17,18,20,.06),0 18px 40px -18px rgba(17,18,20,.42),0 3px 10px -4px rgba(17,18,20,.14)}
+body.glass-lite .bub-glass{-webkit-backdrop-filter:none;backdrop-filter:none;background:rgba(255,255,255,.97)}
+.bub-heads{display:flex;flex-direction:column;align-items:flex-end;gap:14px}
+.bub-heads.exp{max-height:calc(100dvh - 260px);overflow-y:auto;overflow-x:visible;padding:8px 8px 8px 260px;margin:-8px -8px -8px -260px;overscroll-behavior:contain;pointer-events:none}
+.bub-heads.exp > *{pointer-events:auto}
+.bub{position:relative;width:60px;height:60px;transition:transform .3s cubic-bezier(.2,.8,.2,1),opacity .3s;touch-action:pan-y}
+.bub.in{animation:bubIn .38s cubic-bezier(.2,.9,.25,1.2) both}.bub.out{animation:bubOut .19s cubic-bezier(.4,0,1,1) both!important}
+.bub.bump .bub-main{animation:bubBump .5s cubic-bezier(.2,.8,.2,1)}
+@keyframes bubIn{from{opacity:0;transform:translateX(24px) scale(.6)}to{opacity:1;transform:none}}
+@keyframes bubOut{to{opacity:0;transform:translateX(30px) scale(.7)}}
+@keyframes bubBump{0%{transform:scale(1)}35%{transform:scale(1.12)}100%{transform:scale(1)}}
+.bub-main{position:relative;width:60px;height:60px;padding:0;border:0;border-radius:50%;background:transparent;cursor:pointer;display:block;transition:transform .18s}
+.bub-main:hover{transform:scale(1.06)}.bub-main:active{transform:scale(.95)}
+.bub-main:focus-visible{outline:3px solid #E39312;outline-offset:3px}
+.bub-face{position:relative;display:block;width:60px;height:60px}
+.bub-ph{position:absolute;inset:0;border-radius:50%;overflow:hidden;display:grid;place-items:center;color:#fff;font:600 19px/1 Sora,Inter,sans-serif;
+  box-shadow:0 0 0 2px rgba(255,255,255,.9),0 10px 24px -10px rgba(17,18,20,.55),0 2px 6px rgba(17,18,20,.18)}
+.bub-ph img{width:100%;height:100%;object-fit:cover;display:block}
+.bub-face.grp .bub-ph{width:42px;height:42px;font-size:14px}
+.bub-face.grp .bub-ph.back{left:auto;top:0;right:0;bottom:auto}
+.bub-face.grp .bub-ph.front{left:0;bottom:0;top:auto;right:auto}
+.bub-cnt{position:absolute;top:-4px;right:-6px;min-width:24px;height:24px;padding:0 6px;border-radius:999px;background:#E5283F;color:#fff;font:700 12px/24px Inter,sans-serif;text-align:center;box-shadow:0 2px 6px rgba(229,40,63,.45);pointer-events:none}
+.bub.on .bub-ph{box-shadow:0 0 0 3px #F2B440,0 10px 24px -10px rgba(17,18,20,.55)}
+.bub-tag.bub-glass,.bub-panel.bub-glass{background:rgba(255,255,255,.9)}
+[data-theme="dark"] .bub-tag.bub-glass,[data-theme="dark"] .bub-panel.bub-glass{background:rgba(28,29,34,.92)}
+.bub-tag{position:absolute;right:calc(100% + 12px);top:50%;transform:translateY(-50%) translateX(6px);width:max-content;max-width:min(260px,calc(100vw - 110px));display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:9px 13px;border-radius:16px;text-align:left;cursor:pointer;color:inherit;font:inherit;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s}
+.bub.newest .bub-tag,.bub:hover .bub-tag,.bub-main:focus-visible + .bub-tag{opacity:1;transform:translateY(-50%);pointer-events:auto}
+.bub-heads.exp .bub-tag{opacity:1;transform:translateY(-50%);pointer-events:auto}
+.bub-l1{display:flex;align-items:baseline;gap:8px;max-width:100%}
+.bub-n{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bub-when{font-size:11px;color:#6E7078;flex:none}
+.bub-in{display:flex;align-items:center;gap:4px;font-size:11.5px;color:#55575E;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.bub-at{font:700 11px Inter,sans-serif;color:#B26A00;letter-spacing:.02em}
+.bub-pv{font-size:12.5px;line-height:1.35;color:#2E3036;max-width:100%;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.bub-x{position:absolute;top:-6px;left:-6px;width:24px;height:24px;border-radius:50%;border:0;background:rgba(20,21,24,.82);color:#fff;display:grid;place-items:center;cursor:pointer;opacity:0;transform:scale(.7);transition:opacity .15s,transform .15s;box-shadow:0 2px 6px rgba(0,0,0,.3)}
+.bub-x svg{width:12px;height:12px}
+.bub-x::after{content:"";position:absolute;inset:-9px 0 0 -9px}
+.bub:hover .bub-x,.bub.newest .bub-x,.bub-x:focus-visible,#bubLayer.edit .bub-x{opacity:1;transform:none}
+.bub-x:hover{background:#E5283F}
+.bub-more{width:46px;height:46px;margin-right:7px;border-radius:50%;font:700 14px Inter,sans-serif;color:#3A3C42;cursor:pointer}
+.bub-ctl{display:flex;flex-direction:column;align-items:flex-end;gap:8px}
+.bub-ctl-b{position:relative;width:44px;height:44px;margin-right:8px;border-radius:50%;display:grid;place-items:center;color:#3A3C42;cursor:pointer}
+.bub-ctl-b.sm{width:34px;height:34px;margin-right:13px}.bub-ctl-b.sm svg{width:14px;height:14px}
+.bub-ctl-b:hover{color:#141416;background:rgba(255,255,255,.95)}
+.bub-ctl-t{position:absolute;right:calc(100% + 10px);top:50%;transform:translateY(-50%);white-space:nowrap;font:600 12px Inter,sans-serif;padding:6px 10px;border-radius:10px;background:#141416;color:#fff;opacity:0;pointer-events:none;transition:opacity .15s}
+.bub-ctl-b:hover .bub-ctl-t,.bub-ctl-b:focus-visible .bub-ctl-t{opacity:1}
+/* the open conversation, beside the heads */
+.bub-panel{position:absolute;right:calc(100% + 16px);bottom:0;width:380px;height:min(540px,calc(100dvh - 140px - var(--bub-kb,0px)));display:flex;flex-direction:column;border-radius:22px;overflow:hidden}
+.bub-panel.in{animation:bubPanelIn .28s cubic-bezier(.2,.8,.2,1) both}
+@keyframes bubPanelIn{from{opacity:0;transform:translateX(16px) scale(.97)}to{opacity:1;transform:none}}
+#bubLayer.has-panel .bub-tag{display:none}
+.bp-others{border:0;width:100%;padding:8px 14px;font:600 12.5px Inter,sans-serif;color:#8A5200;background:rgba(242,180,64,.14);cursor:pointer}
+.bp-h{display:flex;align-items:center;gap:8px;padding:10px 8px 10px 12px;border-bottom:1px solid rgba(17,18,20,.07)}
+.bub-face.sm{width:40px;height:40px;flex:none}.bub-face.sm .bub-ph{font-size:13px;box-shadow:0 0 0 2px rgba(255,255,255,.9)}
+.bub-face.sm.grp .bub-ph{width:28px;height:28px;font-size:10px}
+.bp-ttl{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;margin-left:4px}
+.bp-ttl b{font:600 15px/1.2 Sora,Inter,sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.bp-ttl small{font-size:12px;color:#6E7078}
+.bp-ib{flex:none;width:36px;height:36px;border-radius:10px;border:0;background:transparent;color:#55575E;display:grid;place-items:center;cursor:pointer}
+.bp-ib:hover{background:rgba(17,18,20,.07);color:#141416}
+.bp-msgs{flex:1;overflow-y:auto;padding:14px 12px 8px;display:flex;flex-direction:column;gap:4px;overscroll-behavior:contain}
+.bp-m{display:flex;align-items:flex-end;gap:8px;max-width:88%;padding-left:36px}.bp-m.head{padding-left:0;margin-top:6px}
+.bp-m.mine{align-self:flex-end;padding-left:0;flex-direction:row-reverse}
+.bp-ph,.bub-ph.mini{position:relative;width:28px;height:28px;flex:none;font-size:10px;box-shadow:none;align-self:flex-start;margin-top:16px}
+.bp-col{display:flex;flex-direction:column;align-items:flex-start;min-width:0}.bp-m.mine .bp-col{align-items:flex-end}
+.bp-col > small{font-size:11px;color:#6E7078;margin:0 6px 2px}.bp-col > small.bp-at{margin:2px 6px 0;font-size:10.5px;color:#8A8C93}
+.bp-b{padding:8px 12px;border-radius:18px;background:rgba(255,255,255,.95);box-shadow:0 0 0 1px rgba(17,18,20,.06);font-size:13.5px;line-height:1.45;word-break:break-word;color:#141416}
+.bp-b a{color:#B26A00}.bp-m.mine .bp-b{background:#141416;color:#fff;box-shadow:none}.bp-m.mine .bp-b a{color:#F6C66A}
+.bp-file{display:block;margin-top:4px;font-size:12px;opacity:.8}
+.bp-sys{align-self:center;font-size:11.5px;color:#6E7078;padding:2px 10px}
+.bp-new{display:flex;align-items:center;gap:8px;margin:8px 0;color:#B26A00;font:700 10.5px Inter,sans-serif;letter-spacing:.12em;text-transform:uppercase}
+.bp-new::before,.bp-new::after{content:"";flex:1;height:1px;background:rgba(227,147,18,.35)}
+.bp-empty{margin:auto;color:#6E7078;font-size:13px}
+.bp-f{display:flex;align-items:flex-end;gap:8px;padding:10px 10px 6px;border-top:1px solid rgba(17,18,20,.07)}
+.bp-f textarea{flex:1;resize:none;min-height:42px;max-height:120px;border-radius:21px;padding:10px 14px;font:400 14px/1.4 Inter,sans-serif;background:rgba(255,255,255,.92);border:1px solid rgba(17,18,20,.1);color:#141416}
+.bp-f textarea:focus{border-color:#E39312;box-shadow:0 0 0 3px rgba(227,147,18,.18)}
+.bp-send{flex:none;width:42px;height:42px;border-radius:50%;border:0;background:#141416;color:#fff;display:grid;place-items:center;cursor:pointer}.bp-send:hover{background:#2A2B30}
+.bp-ro{padding:12px;text-align:center;font-size:12.5px;color:#6E7078;border-top:1px solid rgba(17,18,20,.07)}
+.bp-all{display:flex;justify-content:center;padding:2px 10px 8px}.bp-all button{border:0;background:transparent;font:600 12.5px Inter,sans-serif;color:#8A5200;padding:6px 10px;border-radius:8px;cursor:pointer}.bp-all button:hover{background:rgba(227,147,18,.1)}
+body.view-chat #bubLayer,body.view-cchat #bubLayer{display:none}
+body.nav-open #bubLayer{visibility:hidden}
+@media (min-width:861px){body.bub-on .content{padding-right:96px}}
+@media (pointer:coarse){.bp-ib{width:44px;height:44px}.bp-send{width:46px;height:46px}.bub-x{width:26px;height:26px}}
+/* phones: smaller heads at the right edge; the open conversation takes the bottom of the screen */
+@media (max-width:640px){
+  #bubLayer{right:calc(10px + env(safe-area-inset-right,0px));bottom:calc(84px + env(safe-area-inset-bottom,0px));gap:12px}
+  .bub,.bub-main,.bub-face{width:52px;height:52px}.bub-face.grp .bub-ph{width:36px;height:36px}.bub-ph{font-size:16px}
+  .bub-heads{gap:12px}.bub-tag{max-width:calc(100vw - 96px)}
+  .bub-panel{position:fixed;left:8px;right:8px;bottom:calc(8px + var(--bub-kb,0px) + env(safe-area-inset-bottom,0px));width:auto;height:min(600px,calc(100dvh - 90px - var(--bub-kb,0px)));border-radius:22px}
+  #bubLayer.has-panel .bub-heads,#bubLayer.has-panel .bub-ctl{display:none}
+  body.bub-on .cora-fab,body.bub-open .cap-fab,body.bub-open .big-tray{display:none!important}
+  .bub-ctl-t{display:none}
+}
+/* typing somewhere else on a phone: the heads move up, out of the keyboard's way */
+body.bub-kbd #bubLayer{top:calc(env(safe-area-inset-top,0px) + 70px);bottom:auto}
+body.bub-kbd .bub-tag,body.bub-kbd .bub-ctl,body.bub-kbd .bub-heads .bub:nth-child(n+3),body.bub-kbd .bub-more{display:none}
+[data-theme="dark"] #bubLayer{color:#F2F2F0}
+[data-theme="dark"] .bub-glass{background:rgba(28,29,34,.82);border-color:rgba(255,255,255,.10);box-shadow:0 0 0 1px rgba(0,0,0,.35),0 18px 40px -18px rgba(0,0,0,.8)}
+[data-theme="dark"] .bub-ph{box-shadow:0 0 0 2px rgba(28,29,34,.9),0 10px 24px -10px rgba(0,0,0,.8)}
+[data-theme="dark"] .bub-in,[data-theme="dark"] .bub-when,[data-theme="dark"] .bp-ttl small,[data-theme="dark"] .bp-col > small{color:#A6A7AE}[data-theme="dark"] .bub-pv{color:#D7D8DC}
+[data-theme="dark"] .bub-ctl-b,[data-theme="dark"] .bub-more,[data-theme="dark"] .bp-ib{color:#D7D8DC}
+[data-theme="dark"] .bp-b{background:rgba(255,255,255,.08);color:#F2F2F0;box-shadow:none}[data-theme="dark"] .bp-m.mine .bp-b{background:#F2B440;color:#1A1206}
+[data-theme="dark"] .bp-f textarea{background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.12);color:#F2F2F0}[data-theme="dark"] .bp-send{background:#F2B440;color:#1A1206}
+[data-theme="dark"] .bp-h,[data-theme="dark"] .bp-f{border-color:rgba(255,255,255,.08)}
+@media (prefers-reduced-motion:reduce){.bub.in,.bub.bump .bub-main,.bub-panel.in{animation:none!important}.bub.out{animation:none!important;opacity:0}}
+`; document.head.appendChild(st); })();
 </script>
 </body>
 </html>

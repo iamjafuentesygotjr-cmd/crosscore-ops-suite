@@ -4825,7 +4825,7 @@ function empDashboard(){
         ${open.sort((a,b)=>(a.due||0)-(b.due||0)).slice(0,6).map(t=>`<div class="list-row" style="cursor:pointer" onclick="openTask('${t.id}')"><div style="flex:1"><b style="font-size:12.5px">${esc(t.title)}</b><div class="hint">${esc(cname(t.client))} · ${badge(t.status)}</div></div><span class="hint" style="${taskLate(t)?'color:var(--bad);font-weight:600':''}">${taskLate(t)?'Overdue':t.due?'Due '+fmt(t.due):''}</span></div>`).join('') || '<div class="empty">No open items — great job!</div>'}</div></div>
       ${portalCard}
       <div class="card"><div class="card-h"><h3>Your clients</h3></div><div class="card-b" style="padding-top:6px">
-        ${myClients.map(c=>`<div class="list-row" style="cursor:pointer" onclick="openClient('${c.id}')"><span class="avatar" style="background:linear-gradient(135deg,${c.colors[0]},${c.colors[1]||c.colors[0]})">${esc(c.name[0])}</span><div style="flex:1"><b style="font-size:12.5px">${esc(c.name)}</b><div class="hint">${esc(c.resp?.[PERSON]||c.industry)}</div></div><span class="hint">Open →</span></div>`).join('') || '<div class="empty">No client workspaces yet.</div>'}</div></div>
+        ${myClients.map(c=>`<div class="list-row" style="cursor:pointer" onclick="openClient('${c.id}')"><span class="avatar" style="background:linear-gradient(135deg,${(c.colors||[])[0]||"#E39312"},${(c.colors||[])[1]||(c.colors||[])[0]||"#E39312"})">${esc((c.name||"?")[0])}</span><div style="flex:1"><b style="font-size:12.5px">${esc(c.name)}</b><div class="hint">${esc(c.resp?.[PERSON]||c.industry)}</div></div><span class="hint">Open →</span></div>`).join('') || '<div class="empty">No client workspaces yet.</div>'}</div></div>
     </div>
     <div class="grid cols-2">${recentNotifsCard(6)}
       <div class="card"><div class="card-h"><h3>Messages</h3><button class="btn ghost" onclick="go('chat')">Inbox →</button></div><div class="card-b" style="padding-top:6px">
@@ -4914,7 +4914,7 @@ function execDashboard(){
       <div class="card"><div class="card-h"><h3>PM workloads</h3></div><div class="card-b" style="padding-top:6px">
         ${pms.map(k=>`<div class="list-row">${av(P(k))}<div style="flex:1"><b style="font-size:12.5px">${esc(pname(k))}</b><div class="hint">${TASKS.filter(t=>t.status==='For Approval'&&pmsOf(t.client).includes(k)).length} waiting approval · ${overseenBy(k).length} people</div></div><b style="font-family:Sora">${clientIdsFor(k).length}</b>&nbsp;<span class="hint">clients</span></div>`).join('')}</div></div>
       <div class="card"><div class="card-h"><h3>Schedule health</h3><button class="btn ghost" onclick="go('schedules')">Details →</button></div><div class="card-b" style="padding-top:6px">
-        ${CLIENTS.filter(c=>c.status==='Active').map(c=>({c, w:weekStats(c)})).filter(x=>x.w.missed).slice(0,5).map(({c,w})=>`<div class="list-row"><span class="avatar" style="background:var(--bad)">${esc(c.name[0])}</span><div style="flex:1"><b style="font-size:12.5px">${esc(c.name)}</b><div class="hint">PM: ${pmsOf(c.id).map(first).join(', ')||'—'}</div></div><span class="badge b-missed">${w.missed} missed</span></div>`).join('') || '<div class="empty">All clients on schedule this week. 🎉</div>'}</div></div>
+        ${CLIENTS.filter(c=>c.status==='Active').map(c=>({c, w:weekStats(c)})).filter(x=>x.w.missed).slice(0,5).map(({c,w})=>`<div class="list-row"><span class="avatar" style="background:var(--bad)">${esc((c.name||"?")[0])}</span><div style="flex:1"><b style="font-size:12.5px">${esc(c.name)}</b><div class="hint">PM: ${pmsOf(c.id).map(first).join(', ')||'—'}</div></div><span class="badge b-missed">${w.missed} missed</span></div>`).join('') || '<div class="empty">All clients on schedule this week. 🎉</div>'}</div></div>
       <div class="card"><div class="card-h"><h3>Pending across the company</h3></div><div class="card-b" style="padding-top:6px">
         <div class="list-row" style="cursor:pointer" onclick="OSTAB='reg';go('orgsetup')"><div style="flex:1;font-size:12.5px">Client registrations waiting for HR onboarding</div><b>${regEndorsed().length}</b></div>
         <div class="list-row" style="cursor:pointer" onclick="go('orgsetup')"><div style="flex:1;font-size:12.5px">Client briefs waiting for HR</div><b>${BRIEFS.filter(b=>b.status==='New').length}</b></div>
@@ -12057,7 +12057,7 @@ RENDER.cchat = () => {
   if(!ch){ el('v-cchat').innerHTML = '<div class="empty">Your chat with the team opens as soon as your account is set up.</div>'; return; }
   CHAT_OPEN = id; const M = MESSAGES.filter(m=>m.chat===id);
   el('v-cchat').innerHTML = `<div class="page-head"><div><h2>Messages</h2><p>Chat with your Cross Core team — your VA and project manager.</p></div></div>
-    <div class="card cp-chat"><div class="cp-msgs" id="cpMsgs">${M.map(m=>`<div class="cp-msg ${m.by===PERSON?'me':''}"><small>${esc(m.by===PERSON?'You':pname(m.by))} · ${dtstr(m.at)}</small><div>${linkify(m.text)}</div></div>`).join('')||'<div class="empty">Say hello to your team 👋</div>'}</div>
+    <div class="card cp-chat"><div class="cp-msgs" id="cpMsgs">${M.map(m=>`<div class="cp-msg ${m.by===PERSON?'me':''}" data-mid="${esc(m.id)}"><small>${esc(m.by===PERSON?'You':pname(m.by))} · ${dtstr(m.at)}${m.by===PERSON?` <span class="rcpt" data-rc="${esc(m.id)}"></span>`:''}</small><div>${linkify(m.text)}</div></div>`).join('')||'<div class="empty">Say hello to your team 👋</div>'}</div>
       <div class="chat-input" style="display:flex;gap:8px;padding:10px;border-top:1px solid var(--line)">${emojiBtn('cpMsg')}<input id="cpMsg" style="flex:1" placeholder="Message your team…" onkeydown="if(event.key==='Enter'){event.preventDefault();cpSend()}"><button class="btn primary" onclick="cpSend()">Send</button></div></div>`;
   const b = el('cpMsgs'); if(b) b.scrollTop = b.scrollHeight;
   if(typeof markChatRead==='function') markChatRead(id);
@@ -20914,7 +20914,7 @@ async function cooPostFromModal(){ const ch = CHATS.find(c=>c.id===el('paPostC')
    The footer shows which build is running ("Build 2026-10-07 · 1"), and every open portal checks every few minutes
    (and whenever it comes back to the foreground) whether a newer build has been published. If so it shows
    "New version available — Update now" instead of quietly running old code. */
-const BUILD_ID = '2026-10-20 · 3';
+const BUILD_ID = '2026-10-21 · 1';
 function verStamp(){ const f = el('footNote'); if(f && !f.dataset.v){ f.dataset.v = 1; f.textContent = `Cross Core Ops Suite v8 · Build ${BUILD_ID}`; } }
 async function verCheck(){
   if(!/^https?:/.test(location.protocol)) return;
@@ -28926,7 +28926,6 @@ function bubSync(){
   });
   if(BUB.open && !bubChat(BUB.open)) BUB.open = null;
   if(ch) bubSave();
-  if(BUB.open) bubMarkRead(BUB.open);
   bubRender();
 }
 { const _ore = onRemoteEvent; onRemoteEvent = function(ev){ const r = _ore.apply(this, arguments);
@@ -28954,7 +28953,7 @@ function bubDismissAll(){ [...BUB.items.keys()].forEach(id=>{ BUB.dismissed[id] 
 function bubOpen(id){
   if(!bubChat(id)) return; BUB.open = id; BUB.expanded = false; BUB.readAt = chatLastRead(id);
   if(!BUB.items.has(id)){ const last = MESSAGES.filter(m=>m.chat===id && !m.thread).map(m=>m.at).sort().pop() || nowISO(); BUB.items.set(id, {chat:id, at:last, mid:''}); }
-  bubMarkRead(id); bubRender();
+  bubRender();
   if(!matchMedia('(pointer: coarse)').matches) setTimeout(()=>el('bubReply')?.focus(), 60);
 }
 function bubMinimize(){ BUB.open = null; bubSync(); }
@@ -28966,9 +28965,14 @@ function bubToMessages(id){
 }
 function bubToggle(){ BUB.expanded = !BUB.expanded; bubRender(); }
 /* reading in a bubble = reading in Messages: read position, "Seen" receipts, badges, bell, phone notifications */
+/* "seen" = the newest message actually on screen in the open bubble (never because a head or a notification appeared) */
+function bubVisibleUpTo(id){ const box = el('bubMsgs'); if(!box || BUB.open!==id || !box.offsetParent || !box.clientHeight) return null;
+  const bot = box.getBoundingClientRect().bottom - 6; let best = '';
+  box.querySelectorAll('.bp-m[data-mid]').forEach(w=>{ if(w.getBoundingClientRect().top < bot){ const m = MESSAGES.find(x=>x.id===w.dataset.mid); if(m && m.at > best) best = m.at; } });
+  return best || null; }
 function bubMarkRead(id){
-  if(document.visibilityState!=='visible') return;
-  const last = MESSAGES.filter(m=>m.chat===id && (!m.thread || inThread(m))).map(m=>m.at).sort().pop(); if(!last) return;
+  if(document.visibilityState!=='visible' || BUB.open!==id) return;
+  const last = bubVisibleUpTo(id); if(!last) return;
   if(typeof rcSeenUpTo==='function'){ if(chatLastRead(id) < last) rcSeenUpTo(id, last); }
   else { const p = myPrefs(); if((p.lastRead[id]||'') < last){ p.lastRead[id] = last; recordChange(); } }
   let ch = false; NOTIFS2.forEach(n=>{ if(n.to===PERSON && !n.read && n.type==='message' && (n.link?.arg===id || n.chat===id)){ n.read = true; ch = true; } });
@@ -29033,14 +29037,14 @@ function bubMsgsHTML(id){
   const c = bubChat(id); if(!c) return '';
   const M = MESSAGES.filter(m=>m.chat===id && !m.thread).sort((a, b)=>a.at < b.at ? -1 : 1).slice(-40);
   if(!M.length) return '<div class="bp-empty">No messages yet — say hello.</div>';
-  let out = '', prevBy = null, newShown = false;
+  let out = '', prevBy = null, newShown = false; const lastMine = [...M].reverse().find(m=>m.by===PERSON && !m.sys)?.id;
   M.forEach(m=>{
     if(!newShown && BUB.readAt && m.at > BUB.readAt && m.by!==PERSON){ out += '<div class="bp-new"><span>New</span></div>'; newShown = true; prevBy = null; }
     if(m.sys || m.kind==='call'){ out += `<div class="bp-sys">${esc(String(msgPreview(m)||'').slice(0, 160))}</div>`; prevBy = null; return; }
     const me = m.by===PERSON; const head = !me && prevBy!==m.by;
     const body = m.text ? linkify(String(m.text).slice(0, 2000)) : esc(msgPreview(m)||'');
     const files = (m.files||[]).length && m.text ? `<span class="bp-file">📎 ${(m.files||[]).length===1 ? esc(m.files[0].name||'Attachment') : (m.files||[]).length+' attachments'}</span>` : '';
-    out += `<div class="bp-m ${me?'mine':''} ${head?'head':''}" data-mid="${esc(m.id)}">${head ? bubFace(m.by, 'mini') : ''}<div class="bp-col">${head && c.kind!=='dm' ? `<small>${esc(pname(m.by))}</small>` : ''}<div class="bp-b">${body}${files}</div><small class="bp-at">${esc(clock(m.at))}</small></div></div>`;
+    out += `<div class="bp-m ${me?'mine':''} ${head?'head':''}" data-mid="${esc(m.id)}">${head ? bubFace(m.by, 'mini') : ''}<div class="bp-col">${head && c.kind!=='dm' ? `<small>${esc(pname(m.by))}</small>` : ''}<div class="bp-b">${body}${files}</div><small class="bp-at">${esc(clock(m.at))}${me && typeof bubRcpt==='function' ? bubRcpt(m, m.id===lastMine) : ''}</small></div></div>`;
     prevBy = m.by; });
   return out;
 }
@@ -29094,7 +29098,9 @@ function bubRender(){
   let P_ = L.querySelector('.bub-panel');
   if(BUB.open){
     if(!P_ || P_.dataset.chat!==BUB.open){ P_?.remove(); L.insertAdjacentHTML('beforeend', `<section class="bub-panel bub-glass in" data-chat="${esc(BUB.open)}" aria-label="Conversation">${bubPanelHTML(BUB.open)}</section>`); P_ = L.querySelector('.bub-panel'); BUB.stick = true; }
-    const box = el('bubMsgs'); if(box){ const near = BUB.stick || box.scrollHeight - box.scrollTop - box.clientHeight < 80; const h = bubMsgsHTML(BUB.open); if(box._h!==h){ box.innerHTML = h; box._h = h; } if(near) box.scrollTop = box.scrollHeight; BUB.stick = false; }
+    const box = el('bubMsgs'); if(box){ const near = BUB.stick || box.scrollHeight - box.scrollTop - box.clientHeight < 80; const h = bubMsgsHTML(BUB.open); if(box._h!==h){ box.innerHTML = h; box._h = h; } if(near) box.scrollTop = box.scrollHeight; BUB.stick = false;
+      if(!box._rd){ box._rd = true; box.addEventListener('scroll', ()=>{ clearTimeout(box._rt); box._rt = setTimeout(()=>bubMarkRead(BUB.open), 200); }, {passive:true}); }
+      const oid = BUB.open; requestAnimationFrame(()=>bubMarkRead(oid)); }
     const others = list.filter(it=>it.chat!==BUB.open && bubUnread(it.chat).length).length;
     let o = P_.querySelector('.bp-others'); if(others && matchMedia('(max-width:640px)').matches){ if(!o){ o = document.createElement('button'); o.className = 'bp-others'; o.onclick = bubMinimize; P_.prepend(o); } o.textContent = `${others} other conversation${others>1?'s':''} waiting`; } else o?.remove();
   } else P_?.remove();
@@ -29237,6 +29243,209 @@ body.bub-kbd .bub-tag,body.bub-kbd .bub-ctl,body.bub-kbd .bub-heads .bub:nth-chi
 [data-theme="dark"] .bp-h,[data-theme="dark"] .bp-f{border-color:rgba(255,255,255,.08)}
 @media (prefers-reduced-motion:reduce){.bub.in,.bub.bump .bub-main,.bub-panel.in{animation:none!important}.bub.out{animation:none!important;opacity:0}}
 `; document.head.appendChild(st); })();
+/* ===== l0_receipts2.js ===== */
+/* ================= SENT · DELIVERED · SEEN — exact times, chat bubbles, group "Seen by / Delivered to" (Oct 21 2026) =================
+   Builds on the existing receipts (51_receipts.js: one small read record per chat and person, live on every device).
+   • ✓ Sent — saved by the server · ✓✓ Delivered — reached one of the recipient's signed-in portals · coloured ✓✓ Seen —
+     the message was on screen in an open conversation (Messages or an open chat bubble) while the portal was visible.
+     A chat head, a notification or a pop-up appearing never counts as seen.
+   • Every delivered / seen step now keeps the moment it happened, so each message shows its own exact time
+     ("Seen 8:58 PM"), and Message info lists every group member under Seen by / Delivered to with their time.
+   • Chat bubbles show the same status on your own messages; tap it for Message info. */
+
+/* clearer ticks: ✓ sent · ✓✓ delivered · coloured ✓✓ seen */
+RC_ICON.sent = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8.6l3.2 3.2L13 4.6" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+RC_ICON.dlv = RC_ICON.seen = '<svg viewBox="0 0 22 16" aria-hidden="true" class="rc-dbl"><path d="M1.8 8.6l3.2 3.2L11.8 4.6" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/><path d="M9.6 11.2l.6.6 6.8-7.2" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+/* each step of a read record keeps when it happened (the last 15 steps) */
+const RC_LOGN = 15;
+{ const _rb = rcBump; rcBump = function(chat, field, at){
+    const ch = _rb.apply(this, arguments); if(!ch) return ch;
+    const r = CHATREADS.find(x=>x.id===rcId(chat, PERSON)); if(!r) return ch;
+    const now = nowISO(); const add = f => { const L = Array.isArray(r[f+'Log']) ? r[f+'Log'].filter(e=>Array.isArray(e) && e[0] < (r[f]||'')) : []; L.push([r[f], now]); r[f+'Log'] = L.slice(-RC_LOGN); };
+    add(field); if(field==='seen' && r.dlv===r.seen) add('dlv');
+    return ch; }; }
+/* when did person k get to message m (field: 'dlv' | 'seen')? */
+function rcWhen(r, field, at){
+  if(!r || (r[field]||'') < at) return null;
+  const L = Array.isArray(r[field+'Log']) ? r[field+'Log'] : [];   /* kept in order, oldest first */
+  for(let i=0;i<L.length;i++){ const e = L[i]; if(Array.isArray(e) && e[0] >= at) return e[1]; }
+  return r[field+'At'] || null;
+}
+const rcT = iso => { if(!iso) return ''; const d = dstr(iso), t = clock(iso); return d===dstr(nowISO()) ? t : `${d} · ${t}`; };
+{ const _st = rcStatus; rcStatus = function(m, M){
+    const st = _st.apply(this, arguments); if(!st) return st;
+    M = M || rcMap(); const r = k => M.get(rcId(m.chat, k));
+    st.sentAt = m.at;
+    /* per-person times: only what is shown (one-to-one label); Message info asks for everyone's */
+    st.timesFor = () => { const T = {}; (st.others||[]).forEach(k=>{ T[k] = {dlv:rcWhen(r(k), 'dlv', m.at), seen:rcWhen(r(k), 'seen', m.at)}; }); return T; };
+    if(!st.group && (st.others||[]).length===1){ const k0 = st.others[0]; const t = {dlv:rcWhen(r(k0), 'dlv', m.at), seen:rcWhen(r(k0), 'seen', m.at)}; st.times = {[k0]:t};
+      if(st.k==='seen' && t.seen){ st.when = t.seen; st.label = 'Seen ' + clock(t.seen); }
+      else if(st.k==='dlv' && t.dlv){ st.label = 'Delivered ' + clock(t.dlv); } }
+    if(st.k==='sent' && !st.group) st.label = 'Sent ' + clock(m.at);
+    return st; }; }
+/* Message info: Seen by · Delivered to · Not delivered yet — with every person's time */
+rcInfo = function(mid){
+  const m = MESSAGES.find(x=>x.id===mid); if(!m) return; const c = CHATS.find(x=>x.id===m.chat); const st = rcStatus(m, rcMap()); if(!st) return;
+  const row = (k, sub) => `<div class="list-row">${av(P(k))}<div style="flex:1"><b style="font-size:13px">${esc(pname(k))}</b><div class="hint">${sub}</div></div></div>`;
+  const notYet = (st.others||[]).filter(k=>!st.seen.includes(k) && !st.dlv.includes(k));
+  const TT = st.timesFor(); const T = k => TT[k] || {};
+  const sending = st.k==='sending';
+  openModal('Message info', `<div class="rc-quote">${esc(msgPreview(m).slice(0,160)||'Message')}<div class="hint">${sending ? 'Sending…' : `✓ Sent ${esc(rcT(m.at))}`}${c?' · '+esc(chatTitle(c)):''}</div></div>
+    <div class="nav-label rc-h seen" style="padding:12px 0 4px">✓✓ Seen by · ${st.seen.length}</div>${st.seen.map(k=>row(k, `Seen ${esc(rcT(T(k).seen)||'')}${T(k).dlv?` · delivered ${esc(rcT(T(k).dlv))}`:''}`)).join('')||'<div class="hint">No one yet</div>'}
+    <div class="nav-label rc-h" style="padding:12px 0 4px">✓✓ Delivered to · ${st.dlv.length}</div>${st.dlv.map(k=>row(k, `Delivered ${esc(rcT(T(k).dlv)||'')} · not opened yet`)).join('')||'<div class="hint">—</div>'}
+    ${notYet.length?`<div class="nav-label rc-h" style="padding:12px 0 4px">✓ Not delivered yet · ${notYet.length}</div>${notYet.map(k=>row(k, 'Their portal hasn’t received it yet (signed out or offline)')).join('')}`:''}`);
+};
+/* the status under your own messages in a chat bubble */
+let RC_BM = null, RC_BT = 0;
+function bubRcpt(m, last){
+  if(!RC_BM || Date.now() - RC_BT > 40){ RC_BM = rcMap(); RC_BT = Date.now(); }
+  const st = rcStatus(m, RC_BM); if(!st) return '';
+  const tip = st.k==='sending' ? 'Sending…' : st.group ? `${st.label} — tap for who has seen it` : st.label;
+  return ` <button type="button" class="bp-rc rc-${st.k}" title="${esc(tip)}" aria-label="${esc(tip)}" onclick="event.stopPropagation();rcInfo('${esc(m.id)}')">${RC_ICON[st.k]||''}${last ? `<span>${esc(st.label)}</span>` : ''}</button>`;
+}
+/* the client portal chat shows the same status on the client's own messages */
+if(RENDER.cchat){ const _cc = RENDER.cchat; RENDER.cchat = function(){ const r = _cc.apply(this, arguments); rcPaintSoon(); return r; }; }
+/* Sending → Sent as soon as the server confirms, everywhere it is shown */
+{ const _fl = SYNC.flush.bind(SYNC); SYNC.flush = async function(){ const r = await _fl.apply(SYNC, arguments); if(typeof bubSyncSoon==='function' && BUB.open) bubSyncSoon(20); return r; }; }
+
+(function(){ const st = document.createElement('style'); st.id = 'rc2Css'; st.textContent = `
+.bp-rc{display:inline-flex;align-items:center;gap:3px;margin-left:4px;padding:0 2px;border:0;background:none;font:600 10.5px Inter,sans-serif;color:#8A8C93;cursor:pointer;vertical-align:middle}
+.bp-rc svg{width:14px;height:12px}.bp-rc svg.rc-dbl,.rc svg.rc-dbl{width:19px;height:13px}.bp-rc.rc-sending svg{width:11px;height:11px}
+.bp-rc.rc-seen{color:#2F80ED}.bp-rc.rc-dlv{color:#6E7078}
+.rc-seen{color:#2F80ED!important}[data-theme="dark"] .rc-seen,[data-theme="dark"] .bp-rc.rc-seen{color:#6FA8FF!important}
+.rc-h.seen{color:#2F80ED}
+`; document.head.appendChild(st); })();
+/* ===== m0_typing.js ===== */
+/* ================= TYPING INDICATORS — Messages, chat bubbles, client portal (Oct 21 2026) =================
+   "Kiara is typing…" with animated dots while someone composes a message; in groups the names of everyone typing
+   ("Kiara and Tricia are typing…", "Kiara, Tricia and 2 others are typing…").
+   • Works across the main Messages section, the open chat bubble and the chat heads, and the client portal chat:
+     typing in a bubble shows in Messages on the other side, and the other way round.
+   • Sent over a small real-time channel per conversation that only the conversation's members may join
+     (supabase/update-oct21.sql); nothing is stored. Until that file has been run it uses a plain broadcast channel.
+   • The indicator goes away when the person stops typing (5 s without a keystroke), clears the box, sends, leaves the
+     conversation or disconnects (no update for 6 s) — it can never get stuck. */
+
+const TY = {chans:new Map(), who:new Map(), sent:new Map(), idle:new Map(), dev:Math.random().toString(36).slice(2, 9), priv:true};
+const tyTopic = chat => 'cc:t:' + chat;
+const tyLive = () => BACKEND?.mode==='live' && BACKEND.sb && PEOPLE[PERSON];
+/* the conversations this screen shows: open in Messages / client portal, open in a bubble, the chat heads */
+function tyWanted(){ const S = new Set();
+  if(CURRENT==='chat' && CHAT_OPEN) S.add(CHAT_OPEN);
+  if(CURRENT==='cchat' && typeof clientLineId==='function' && typeof myClientId==='function') S.add(clientLineId(myClientId()));
+  if(typeof BUB!=='undefined'){ if(BUB.open) S.add(BUB.open); if(!document.body.classList.contains('view-chat')) [...BUB.items.keys()].slice(0, 6).forEach(k=>S.add(k)); }
+  return [...S].filter(id=>CHATS.some(c=>c.id===id && (c.members||[]).includes(PERSON))); }
+function tyJoin(chat){
+  if(TY.chans.has(chat) || !tyLive()) return TY.chans.get(chat);
+  const sb = BACKEND.sb; const mk = priv => { const ch = sb.channel(priv ? tyTopic(chat) : 'cc-typing-'+chat, {config:{private:priv, broadcast:{self:false, ack:false}}});
+    const o = {ch, chat, ok:false, priv, at:Date.now()};
+    ch.on('broadcast', {event:'ty'}, ({payload})=>tyOn(chat, payload));
+    ch.subscribe((st, err)=>{ o.ok = st==='SUBSCRIBED'; if(o.ok && o.pend && Date.now() - o.pend.at < 4000){ try{ ch.send({type:'broadcast', event:'ty', payload:o.pend}); }catch(e){} o.pend = null; }
+      if(st==='CHANNEL_ERROR' && priv && /unauthori|not allowed|denied|permission|policy/i.test(String(err?.message||err||''))){   /* the policy isn't installed yet */
+        TY.priv = false; try{ sb.removeChannel(ch); }catch(e){} TY.chans.delete(chat); tyJoin(chat); } });
+    return o; };
+  const o = mk(TY.priv); TY.chans.set(chat, o); return o; }
+function tyLeave(chat){ const o = TY.chans.get(chat); if(!o) return; tyStop(chat); try{ BACKEND.sb.removeChannel(o.ch); }catch(e){} TY.chans.delete(chat); TY.who.delete(chat); }
+function tyChannels(){ if(!tyLive()) return; const want = new Set(tyWanted());
+  want.forEach(c=>tyJoin(c));
+  TY.chans.forEach((o, c)=>{ if(!want.has(c) && Date.now() - o.at > 20000) tyLeave(c); }); }
+let TY_T = null; const tyChannelsSoon = () => { clearTimeout(TY_T); TY_T = setTimeout(tyChannels, 300); };
+
+/* ---------- sending: while the box has text, at most every 2.5 s; stop on pause, clear, send, leave ---------- */
+function tySend(chat, t){ const o = tyJoin(chat); if(!o) return; const payload = {t, who:PERSON, dev:TY.dev, at:Date.now()};
+  if(!o.ok){ o.pend = payload; return; }   /* still joining: sent the moment the channel is ready */
+  try{ o.ch.send({type:'broadcast', event:'ty', payload}); }catch(e){} }
+function tyInput(chat, val){
+  if(!chat || !tyLive()) return;
+  if(!String(val||'').trim()) return tyStop(chat);
+  const last = TY.sent.get(chat) || 0; if(Date.now() - last > 2500){ TY.sent.set(chat, Date.now()); tySend(chat, 'typing'); }
+  clearTimeout(TY.idle.get(chat)); TY.idle.set(chat, setTimeout(()=>tyStop(chat), 5000));
+}
+function tyStop(chat){ clearTimeout(TY.idle.get(chat)); if(!TY.sent.get(chat)) return; TY.sent.delete(chat); tySend(chat, 'stop'); }
+const tyBoxChat = t => !t ? null : t.id==='chatMsg' ? CHAT_OPEN : t.id==='bubReply' ? (typeof BUB!=='undefined' ? BUB.open : null)
+  : t.id==='cpMsg' && typeof clientLineId==='function' ? clientLineId(myClientId()) : null;
+document.addEventListener('input', e=>{ const c = tyBoxChat(e.target); if(c) tyInput(c, e.target.value); }, true);
+document.addEventListener('focusout', e=>{ const c = tyBoxChat(e.target); if(c) setTimeout(()=>{ if(document.activeElement!==e.target) tyStop(c); }, 400); }, true);
+addEventListener('pagehide', ()=>{ [...TY.sent.keys()].forEach(tyStop); });
+{ const _sc = sendChat; sendChat = function(){ const c = CHAT_OPEN; tyStop(c); return _sc.apply(this, arguments); }; }
+if(typeof bubSend==='function'){ const _bs = bubSend; bubSend = function(){ const c = BUB.open; tyStop(c); return _bs.apply(this, arguments); }; }
+if(typeof cpSend==='function'){ const _cs = cpSend; cpSend = function(){ try{ tyStop(clientLineId(myClientId())); }catch(e){} return _cs.apply(this, arguments); }; }
+
+/* ---------- receiving ---------- */
+function tyOn(chat, p){
+  if(!p || !p.who || p.who===PERSON || !PEOPLE[p.who]) return;
+  const c = CHATS.find(x=>x.id===chat); if(!c || !(c.members||[]).includes(p.who)) return;
+  let M = TY.who.get(chat); if(!M){ M = new Map(); TY.who.set(chat, M); }
+  const key = p.who + '|' + (p.dev||'');
+  if(p.t==='stop') M.delete(key); else M.set(key, Date.now() + 6000);
+  tyDraw(); }
+function tyNames(chat){ const M = TY.who.get(chat); if(!M) return []; const now = Date.now(); const out = new Set();
+  M.forEach((exp, key)=>{ if(exp < now) M.delete(key); else out.add(key.split('|')[0]); }); return [...out]; }
+function tyText(chat){ const N = tyNames(chat).map(first); if(!N.length) return '';
+  const c = CHATS.find(x=>x.id===chat);
+  if(c?.kind==='dm') return `${N[0]} is typing`;
+  if(N.length===1) return `${N[0]} is typing`;
+  if(N.length===2) return `${N[0]} and ${N[1]} are typing`;
+  return `${N[0]}, ${N[1]} and ${N.length-2} other${N.length>3?'s':''} are typing`; }
+const TY_DOTS = '<span class="ty-dots" aria-hidden="true"><i></i><i></i><i></i></span>';
+/* a message from someone ends their indicator at once */
+{ const _ore = onRemoteEvent; onRemoteEvent = function(ev){ const r = _ore.apply(this, arguments);
+    if(!ev?.deleted && ev.coll==='messages' && ev.isNew && ev.obj){ const M = TY.who.get(ev.obj.chat); if(M){ [...M.keys()].forEach(k=>{ if(k.startsWith(ev.obj.by+'|')) M.delete(k); }); tyDraw(); } }
+    if(['chats'].includes(ev?.coll)) tyChannelsSoon();
+    return r; }; }
+/* the indicator floats over the bottom edge of the message list, so showing it never moves the conversation */
+function tyRowFor(host, scroller, chat, cls){
+  if(!host || !scroller) return; let r = host.querySelector(':scope > .ty-row');
+  if(!r){ r = document.createElement('div'); r.className = 'ty-row ' + (cls||''); r.setAttribute('role','status'); r.setAttribute('aria-live','polite'); host.appendChild(r); }
+  if(getComputedStyle(host).position==='static') host.style.position = 'relative';
+  const t = tyText(chat); const h = t ? `${TY_DOTS}<span>${esc(t)}…</span>` : '';
+  if(r._h!==h){ r.innerHTML = h; r._h = h; r.classList.toggle('on', !!t); }
+  /* while it shows, the list gets room underneath it so the last message and its status stay readable */
+  const gap = scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight; const want = t ? '30px' : '';
+  if(scroller.style.paddingBottom!==want){ scroller.style.paddingBottom = want; if(gap < 90) scroller.scrollTop = scroller.scrollHeight; }
+  if(t){ const hb = host.getBoundingClientRect(), sb = scroller.getBoundingClientRect(); r.style.top = Math.round(sb.bottom - hb.top - 26) + 'px'; r.style.left = Math.round(sb.left - hb.left) + 'px'; r.style.width = Math.round(sb.width) + 'px'; }
+}
+function tyDraw(){
+  /* main Messages */
+  if(CURRENT==='chat' && CHAT_OPEN) tyRowFor(el('chatPane'), el('chatScroll'), CHAT_OPEN);
+  /* client portal */
+  const cv = el('v-cchat'); if(cv && CURRENT==='cchat' && typeof clientLineId==='function') tyRowFor(cv.querySelector('.cp-chat'), el('cpMsgs'), clientLineId(myClientId()));
+  /* the open bubble */
+  const P_ = document.querySelector('#bubLayer .bub-panel'); if(P_) tyRowFor(P_, el('bubMsgs'), P_.dataset.chat, 'bp');
+  /* chat heads: dots on the head */
+  document.querySelectorAll('#bubLayer .bub[data-chat]').forEach(d=>{ const on = tyNames(d.dataset.chat).length > 0; d.classList.toggle('typing', on);
+    let b = d.querySelector('.bub-ty'); if(on && !b){ b = document.createElement('span'); b.className = 'bub-ty bub-glass'; b.innerHTML = TY_DOTS; d.appendChild(b); } else if(!on) b?.remove(); });
+}
+setInterval(()=>{ if(TY.who.size) tyDraw(); }, 1000);
+/* keep the indicator in place when a view redraws */
+{ const _rc = RENDER.chat; RENDER.chat = function(){ const r = _rc.apply(this, arguments); tyChannelsSoon(); tyDraw(); return r; }; }
+if(RENDER.cchat){ const _cc = RENDER.cchat; RENDER.cchat = function(){ const r = _cc.apply(this, arguments); tyChannelsSoon(); tyDraw(); return r; }; }
+if(typeof bubRender==='function'){ const _br = bubRender; bubRender = function(){ const r = _br.apply(this, arguments); tyChannelsSoon(); tyDraw(); return r; }; }
+{ const _go = go; go = function(){ const old = CHAT_OPEN; const r = _go.apply(this, arguments); if(CURRENT!=='chat' && old) tyStop(old); tyChannelsSoon(); return r; }; }
+{ const _sp = setPerson; setPerson = function(){ TY.chans.forEach((o, c)=>tyLeave(c)); const r = _sp.apply(this, arguments); setTimeout(tyChannels, 2000); return r; }; }
+
+(function(){ const st = document.createElement('style'); st.id = 'tyCss'; st.textContent = `
+.ty-row{position:absolute;z-index:3;display:flex;align-items:center;gap:7px;height:26px;padding:0 18px;font:500 12px Inter,sans-serif;color:var(--ink-2,#55575E);opacity:0;pointer-events:none;transition:opacity .2s;background:linear-gradient(180deg,rgba(255,255,255,0),rgba(255,255,255,.85) 45%)}
+[data-theme="dark"] .ty-row{background:linear-gradient(180deg,rgba(20,21,24,0),rgba(20,21,24,.85) 45%)}
+.ty-row.on{opacity:1}.ty-row span:last-child{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ty-row.bp{padding:0 14px}
+.ty-dots{display:inline-flex;align-items:center;gap:3px;padding:5px 8px;border-radius:999px;background:rgba(17,18,20,.06)}
+.ty-dots i{width:5px;height:5px;border-radius:50%;background:currentColor;opacity:.35;animation:tyDot 1.2s infinite ease-in-out}
+.ty-dots i:nth-child(2){animation-delay:.15s}.ty-dots i:nth-child(3){animation-delay:.3s}
+@keyframes tyDot{0%,60%,100%{opacity:.3;transform:translateY(0)}30%{opacity:1;transform:translateY(-3px)}}
+[data-theme="dark"] .ty-dots{background:rgba(255,255,255,.08)}
+.bub-ty{position:absolute;left:50%;bottom:-6px;transform:translateX(-50%);padding:0;border-radius:999px;color:#55575E;pointer-events:none}
+.bub-ty .ty-dots{background:transparent;padding:4px 7px}
+@media (prefers-reduced-motion:reduce){.ty-dots i{animation:none;opacity:.7}}
+`; document.head.appendChild(st); })();
+/* ===== n0_fixes.js ===== */
+/* ================= small safety fixes (Oct 21 2026) =================
+   A client created without brand colours (e.g. by a quick setup) made the VA dashboard, the content pages and the client
+   workspace stop drawing ("Cannot read properties of undefined (reading '0')"). Every client now has colours to show. */
+function fxClientColours(){ (typeof CLIENTS!=='undefined' ? CLIENTS : []).forEach(c=>{ if(c && (!Array.isArray(c.colors) || !c.colors.length)) c.colors = ['#E39312', '#F2B440']; }); }
+{ const _go = go; go = function(){ fxClientColours(); return _go.apply(this, arguments); }; }
+{ const _ra = renderAll; renderAll = function(){ fxClientColours(); return _ra.apply(this, arguments); }; }
+{ const _ore = onRemoteEvent; onRemoteEvent = function(ev){ if(ev?.coll==='clients') fxClientColours(); return _ore.apply(this, arguments); }; }
 </script>
 </body>
 </html>

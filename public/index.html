@@ -31990,7 +31990,12 @@ function appHrMessage(id){ const a = recApp(id); if(!a) return; if(!a.account) r
 
 /* ---------- applicant side: floating “Message HR”, Messages opens HR, shortcuts ---------- */
 const appHrUnread = () => { const c = appHrChat(); if(!c) return 0; const lr = chatLastRead(c.id); return MESSAGES.filter(m=>m.chat===c.id && !m.thread && !m.sys && m.by!==PERSON && m.at > lr).length; };
-function appHrOpen(){ const c = appHrChat(); if(!c) return toast('Your HR conversation is being set up — please try again in a minute, or check Messages');
+/* the applicant opens the conversation themselves if no HR portal has created it yet (the database checks every member is HR / a head) */
+function appHrSelf(){ if(!isApplicant()) return null; let c = appHrChat(); if(c) return c; const a = myApp(); if(!a) return null;
+  const hr = (a.hrKeys||[]).length ? a.hrKeys : HEADS; const names = {...(a.names||{})}; names[PERSON] = a.name;
+  c = {id:appHrChatId(PERSON), kind:'group', name:`${a.name} · applicant`, hrchat:true, app:PERSON, appName:a.name, members:uniq([PERSON, ...hr]), names, at:nowISO(), by:PERSON};
+  CHATS.push(c); recordChange(); try{ SYNC.flush(true); }catch(e){} return c; }
+function appHrOpen(){ const c = appHrChat() || appHrSelf(); if(!c) return toast('Your application is still loading — please try again in a moment');
   if(window.innerWidth < 700 || typeof bubOpen!=='function'){ CHAT_OPEN = c.id; return go('chat'); } bubOpen(c.id); }
 function appHrFab(){ let b = el('appHrFab'); const show = isApplicant() && PEOPLE[PERSON] && !['chat','cora'].includes(CURRENT);
   if(!show){ if(b) b.style.display = 'none'; return; }
@@ -31999,7 +32004,7 @@ function appHrFab(){ let b = el('appHrFab'); const show = isApplicant() && PEOPL
   b.style.display = ''; const cf = el('coraFab'); const r = cf && cf.style.display!=='none' && cf.offsetWidth ? cf.getBoundingClientRect() : null;
   b.style.right = r ? Math.round(innerWidth - r.left + 10) + 'px' : ''; b.style.bottom = r ? Math.round(innerHeight - r.bottom) + 'px' : ''; }
 setInterval(appHrFab, 1500);
-{ const _go = go; go = function(id){ if(isApplicant() && id==='chat' && !CHAT_OPEN){ const c = appHrChat(); if(c) CHAT_OPEN = c.id; } const r = _go.apply(this, arguments); appHrFab(); return r; }; }
+{ const _go = go; go = function(id){ if(isApplicant() && id==='chat' && !CHAT_OPEN){ const c = appHrChat() || appHrSelf(); if(c) CHAT_OPEN = c.id; } const r = _go.apply(this, arguments); appHrFab(); return r; }; }
 { const _ore = onRemoteEvent; onRemoteEvent = function(ev){ _ore(ev); if(isApplicant() && ['messages','chats','chatreads'].includes(ev?.coll)) appHrFab(); }; }
 { const _ah = RENDER.apphome; RENDER.apphome = function(){ const r = _ah.apply(this, arguments); const v = el('v-apphome');
     if(v && isApplicant() && !v.querySelector('.app-help')){ const n = appHrUnread();
@@ -32017,6 +32022,8 @@ body:not(.applicant-mode) .app-hr-fab{display:none!important}
 `; document.head.appendChild(st); })();
 /* applicant portals don't file a device/build report (the database refuses it, which showed “1 change not saved”) */
 { const _vr = verReport; verReport = function(){ if(typeof isApplicant==='function' && isApplicant()) return; return _vr.apply(this, arguments); }; }
+/* as soon as an applicant portal has loaded, make sure the HR conversation exists */
+setInterval(()=>{ if(isApplicant() && SYNC.ready && !(typeof LIVE_BG!=='undefined' && LIVE_BG.on) && myApp() && !appHrChat()) appHrSelf(); }, 5000);
 </script>
 </body>
 </html>

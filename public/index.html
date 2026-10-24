@@ -20914,7 +20914,7 @@ async function cooPostFromModal(){ const ch = CHATS.find(c=>c.id===el('paPostC')
    The footer shows which build is running ("Build 2026-10-07 · 1"), and every open portal checks every few minutes
    (and whenever it comes back to the foreground) whether a newer build has been published. If so it shows
    "New version available — Update now" instead of quietly running old code. */
-const BUILD_ID = '2026-10-25 · 1';
+const BUILD_ID = '2026-10-25 · 2';
 function verStamp(){ const f = el('footNote'); if(f && !f.dataset.v){ f.dataset.v = 1; f.textContent = `Cross Core Ops Suite v8 · Build ${BUILD_ID}`; } }
 async function verCheck(){
   if(!/^https?:/.test(location.protocol)) return;
@@ -34060,7 +34060,9 @@ const dkNarrow = () => matchMedia('(max-width:760px)').matches;
 const dkTouch = () => matchMedia('(hover:none), (pointer:coarse)').matches;
 function dkMore(){ const hid = dkNarrow() ? DK_NARROW_HIDE : []; const used = new Set(dkItems().filter(x=>!hid.includes(x.key)).map(x=>x.id)); return NAV.filter(n=>n.id && !used.has(n.id) && navAllowed(n)); }
 
-const DK = {open:false, hover:false, hideT:null, autoT:null, cur:[], vel:[], tgt:[], base:[], raf:0, sig:'', mx:0};
+const DK = {open:false, hover:false, hideT:null, autoT:null, cur:[], vel:[], tgt:[], base:[], raf:0, sig:'', mx:0, my:-1};
+/* a pointer resting in the reveal strip at the bottom edge keeps the dock open (like the macOS Dock) */
+const dkInZone = () => !dkTouch() && DK.my >= innerHeight - 30 && DK.mx > innerWidth*0.22 && DK.mx < innerWidth*0.78;
 function dkBuild(){
   let d = el('ccDock'); const show = dkShown(); document.body.classList.toggle('has-dock', !!show);
   if(!show){ if(d) d.style.display = 'none'; el('dkHandle') && (el('dkHandle').style.display = 'none'); return; }
@@ -34095,13 +34097,13 @@ function dkCreate(){
   d.addEventListener('pointerdown', ()=>{ if(dkTouch()) dkAutoHide(); });
   /* reveal when the cursor approaches the bottom edge (middle of the screen, so corner buttons aren't hijacked) */
   document.addEventListener('mousemove', e=>{
-    if(dkTouch() || !dkShown() || e.buttons) return; const vw = innerWidth, vh = innerHeight; DK.mx = e.clientX;
+    if(dkTouch() || !dkShown() || e.buttons) return; const vw = innerWidth, vh = innerHeight; DK.mx = e.clientX; DK.my = e.clientY;
     const zone = e.clientY >= vh - 30 && e.clientX > vw*0.22 && e.clientX < vw*0.78;
     if(zone){ dkShow(); return; }
     if(DK.open){ const r = d.querySelector('.dk-bar').getBoundingClientRect(); const near = e.clientY > r.top - 70 && e.clientX > r.left - 40 && e.clientX < r.right + 40; if(near) { clearTimeout(DK.hideT); if(e.clientY >= r.top - 20) dkMagnify(e.clientX); else dkMagReset(); } else dkHideSoon(); }
   }, {passive:true});
-  document.documentElement.addEventListener('mouseleave', ()=>{ DK.hover = false; dkHideSoon(250); });
-  window.addEventListener('blur', ()=>dkHideSoon(250));
+  document.documentElement.addEventListener('mouseleave', ()=>{ DK.hover = false; DK.my = -1; dkHideSoon(250); });
+  window.addEventListener('blur', ()=>{ DK.my = -1; dkHideSoon(250); });
   /* touch: swipe up from the bottom edge, swipe down on the dock, tap elsewhere */
   let ty = null, tOnDock = false;
   document.addEventListener('touchstart', e=>{ const t = e.touches[0]; ty = t.clientY; tOnDock = !!e.target.closest?.('#ccDock'); if(DK.open && !tOnDock && !e.target.closest?.('#dkHandle,#dkMore')) dkHide(true); }, {passive:true});
@@ -34114,7 +34116,7 @@ function dkCreate(){
 function dkShow(){ const d = el('ccDock'); if(!d) return; clearTimeout(DK.hideT); if(DK.open) return; DK.open = true; d.classList.add('show'); document.body.classList.add('dock-open'); el('dkHandle')?.setAttribute('aria-expanded','true'); dkMeasure(); }
 function dkHideSoon(ms=520){ clearTimeout(DK.hideT); DK.hideT = setTimeout(()=>dkHide(), ms); }
 function dkKeepOpen(){ const d = el('ccDock'); const ae = document.activeElement; return DK.hover || !!el('dkMore') || (d && ae && d.contains(ae) && ae.matches?.(':focus-visible')) || ae===el('dkHandle') && ae.matches?.(':focus-visible'); }
-function dkHide(force){ clearTimeout(DK.hideT); clearTimeout(DK.autoT); if(!force && dkKeepOpen()) return; const d = el('ccDock'); if(!d) return; DK.open = false; dkCloseMore(); d.classList.remove('show'); document.body.classList.remove('dock-open'); el('dkHandle')?.setAttribute('aria-expanded','false'); dkMagReset(); }
+function dkHide(force){ clearTimeout(DK.hideT); clearTimeout(DK.autoT); if(!force && (dkKeepOpen() || dkInZone())) return; const d = el('ccDock'); if(!d) return; DK.open = false; dkCloseMore(); d.classList.remove('show'); document.body.classList.remove('dock-open'); el('dkHandle')?.setAttribute('aria-expanded','false'); dkMagReset(); }
 function dkAutoHide(ms=4800){ clearTimeout(DK.autoT); DK.autoT = setTimeout(()=>dkHide(true), ms); }
 function dkNav(id){ go(id); if(dkTouch()) setTimeout(()=>dkHide(true), 220); else document.activeElement?.blur?.(); }
 
@@ -34208,114 +34210,316 @@ body.dock-open.view-chat .cora-fab{bottom:calc(104px + env(safe-area-inset-botto
 @media(prefers-reduced-motion:reduce){.cc-dock,.cc-dock.show,.dk-t,.dk-dot,.dk-pop{transition:opacity .15s!important;animation:none!important}.cc-dock{transform:none}.dk-i::before{transition:opacity .1s}}
 @media print{.cc-dock,.dk-pop,.dk-handle{display:none!important}}`; document.head.appendChild(st); })();
 
-/* ===== t5_clientboard.js — clients open their own Content Planning Board from a private link =====
-   Internal side : "🔗 Client access" in each client's Content Planning Hub — create / revoke / replace links, see and answer client feedback.
-   Client side   : opening  …/index.html#cb=<link id>.<secret>  shows ONLY that client's board (no sign-in, no Ops Suite).
-                   Live portals talk to two guarded database functions (cc_cb_load / cc_cb_act); the client never touches the tables.
-   Demo mode     : the same rules are mirrored here so the feature can be tried in one browser (see cbDemo). */
-let CBLINKS = [], CBMSG = [];
-const cbAudFor = cid => uniq([...(client(cid)?.team||[]), ...pmsOf(cid), ...HEADS, ...HR_KEYS()]);
+/* ===== t5_clientboard.js — the Client Portal (every client, every service) =====
+   One private link per authorized REPRESENTATIVE of a client (name · email · role · services). The portal shows only the services in the client's package
+   and reads the SAME records the team works in (Content Board items, leads, ICPs, publishing schedule, released performance reports) — nothing is copied
+   into a separate database. Live portals call guarded database functions (cc_cb_load / cc_cb_act / cc_cb_note); the client never touches the tables.
+   Internal side: Client Portal (menu) and the hub's "🔗 Client access" → representatives, services, approvals, activity.
+   Demo mode: every server rule is mirrored here (cbDemo) so the whole feature can be tried in one browser. The client UI is in t5b_clientportal.js. */
+let CBLINKS = [], CBMSG = [], CBLOG = [];
+const cbAudFor = cid => uniq([...(client(cid)?.team||[]), ...pmsOf(cid), ...HEADS, ...HR_KEYS(), ...Object.keys(PEOPLE).filter(k=>PEOPLE[k].mkHead||PEOPLE[k].lgHead)]);
 COLL.cblinks = {get:()=>CBLINKS, set:v=>CBLINKS=v, aud:l=>uniq([...cbAudFor(l.client), l.createdBy])};
 COLL.cbmsg   = {get:()=>CBMSG,   set:v=>CBMSG=v,   aud:m=>cbAudFor(m.client)};
+COLL.cblog   = {get:()=>CBLOG,   set:v=>CBLOG=v,   aud:m=>cbAudFor(m.client)};
 const CB_STAGE = {review:['Awaiting your review','b-pending'], revision:['Changes requested','b-missed'], approved:['Approved','b-approved'], scheduled:['Scheduled','b-scheduled'], published:['Published','b-approved'], planned:['Planned','b-draft']};
 const CB_INVALID = 'This link is not valid any more. Please ask your Cross Core contact for a new one.';
+const CB_MODS = {content:{name:'Content Planning', ico:'🗓'}, design:{name:'Graphic Design', ico:'🎨'}, video:{name:'Video Editing', ico:'🎬'}, leadgen:{name:'Lead Generation', ico:'🎯'}, social:{name:'Social Media', ico:'📣'}};
+const CB_ROLES = {viewer:['Viewer','Can see everything in their services'], reviewer:['Reviewer','Can also comment and request changes'], approver:['Approver','Can also approve or reject']};
+const CB_MARKETING = ['content','design','video','social'];
 
-/* ===================== internal: create and manage links ===================== */
-const cbCan = cid => isHead(PERSON) || pmsOf(cid).includes(PERSON);
+/* ---------- which services a client's package includes (same rules as the database) ---------- */
+function cbModulesFor(c){
+  if(!c) return [];
+  const s = ([...(c.services||[])].join(' | ') + ' | ' + (c.package||'')).toLowerCase(), m = [];
+  if(/content|caption|copywrit|full/.test(s)) m.push('content'); if(/graphic|design|full/.test(s)) m.push('design'); if(/video/.test(s)) m.push('video');
+  if(/lead ?gen|icp|outreach|community|prospect|full/.test(s)) m.push('leadgen'); if(/social/.test(s)) m.push('social');
+  (c.services||[]).forEach(v=>{ if(!/content|caption|copywrit|graphic|design|video|lead ?gen|icp|outreach|community|prospect|social|^marketing$|^reporting$|report/i.test(v)) m.push('svc:'+String(v).toLowerCase().replace(/[^a-z0-9]+/g,'-')); });   /* a service added in future gets its own module */
+  return m;
+}
+const cbModName = (id, c) => CB_MODS[id]?.name || ((c?.services||[]).find(v=>'svc:'+String(v).toLowerCase().replace(/[^a-z0-9]+/g,'-')===id) || id);
+const cbModList = c => cbModulesFor(c).map(id=>({id, name:cbModName(id, c)}));
+const cbEffFor = (l, c) => cbModulesFor(c).filter(m=>!Array.isArray(l?.modules) || !l.modules.length || l.modules.includes(m));
+
+/* ---------- who may manage a client's portal: its PMs, company heads, and the department head for those services ---------- */
+const cbDeptOk = (cid, k=PERSON) => { const p = PEOPLE[k], c = client(cid); if(!p || !c) return false; const m = cbModulesFor(c); return (!!p.mkHead && m.some(x=>CB_MARKETING.includes(x))) || (!!p.lgHead && m.includes('leadgen')); };
+const cbCan = (cid, k=PERSON) => isHead(k) || pmsOf(cid).includes(k) || cbDeptOk(cid, k);
+const cbManageable = () => CLIENTS.filter(c=>!isEnded(c) && c.status==='Active' && !c.internal && cbModulesFor(c).length && cbCan(c.id)).sort((a,b)=>a.name.localeCompare(b.name));
+
+/* ---------- deliverables: Content Board items shown to the client ---------- */
+const cbPostLike = t => !t.core && !t.archived && (t.hubPost || t.clientFacing || ['Caption','Design','Video','Video / reel','Theme / idea','Campaign'].includes(t.type));
+const cbTaskModule = t => (t.hubPost || ['Caption','Theme / idea','Campaign'].includes(t.type)) ? 'content' : t.type==='Design' ? 'design' : ['Video','Video / reel'].includes(t.type) ? 'video' : 'svc:'+String(t.type||'').toLowerCase().replace(/[^a-z0-9]+/g,'-');
+const cbSent = t => (t.history||[]).some(h=>h.act==='Pending Client Approval' || h.cv===true);
+function cbStage(t){ if(t.status==='Pending Client Approval') return 'review'; if(t.status==='Completed') return ['Scheduled','Queued'].includes(t.hubStatus||'') ? 'scheduled' : 'published'; if(t.status==='Approved') return 'approved'; if(t.status==='Revisions Needed' && cbSent(t)) return 'revision'; return 'planned'; }
+
+/* ===================== internal: representatives, services, approvals, activity ===================== */
 const cbB64u = a => btoa(String.fromCharCode(...a)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
 const cbSha = async s => [...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s)))].map(b=>b.toString(16).padStart(2,'0')).join('');
 const cbBase = () => location.href.split('#')[0].split('?')[0];
 const cbRandId = () => 'CB-' + [...crypto.getRandomValues(new Uint8Array(6))].map(b=>b.toString(16).padStart(2,'0')).join('');
-const CBU = {cid:null, fresh:null};
-const cbState = l => l.revoked ? 'Revoked' : new Date(l.expiresAt) <= new Date() ? 'Expired' : 'Active';
-async function cbCreateLink({client:cid, brand, label, days}){
-  if(!cbCan(cid)) throw new Error('Only the client’s Project Manager or a company head can create client access links.');
+const CBU = {cid:null, fresh:null, tab:'reps'};
+const cbState = l => l.revoked ? 'Revoked' : l.paused ? 'Deactivated' : new Date(l.expiresAt) <= new Date() ? 'Expired' : 'Active';
+const cbLogEv = (cid, l, ev, detail='') => CBLOG.unshift({id:uid('CL'), client:cid, link:l?.id||null, rep:l?.name||l?.label||'', role:l?.role||'approver', event:ev, detail, at:nowISO(), by:PERSON});
+async function cbCreateLink({client:cid, brand, label, days, name='', email='', role='reviewer', modules=null}){
+  if(!cbCan(cid)) throw new Error('Only the client’s Project Manager, a department head or a company head can manage client access.');
+  const pk = cbModulesFor(client(cid)); if(!pk.length) throw new Error('This client has no services in their package yet.');
+  if(modules && modules.some(m=>!pk.includes(m))) throw new Error('That service is not part of this client’s package.');
+  if(email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) throw new Error('Check the email address.');
   const secret = cbB64u(crypto.getRandomValues(new Uint8Array(32))), id = cbRandId();   /* 256 random bits; only their SHA-256 is stored */
-  const l = {id, client:cid, brand:brand||null, label:label||`${cname(cid)} — client board`, secretHash:await cbSha(secret), createdBy:PERSON, createdAt:nowISO(), expiresAt:new Date(Date.now()+days*864e5).toISOString(), revoked:false, uses:0, lastUsedAt:null};
-  CBLINKS.unshift(l); audit(`Created a client access link for ${cname(cid)}${brand?' · '+brand:''}`); recordChange();
+  const l = {id, client:cid, brand:brand||null, label:label||name||`${cname(cid)} — client portal`, name:name.trim(), email:email.trim(), role, modules:modules&&modules.length&&modules.length<pk.length?modules:null, secretHash:await cbSha(secret), createdBy:PERSON, createdAt:nowISO(), expiresAt:new Date(Date.now()+days*864e5).toISOString(), revoked:false, paused:false, uses:0, lastUsedAt:null};
+  CBLINKS.unshift(l); cbLogEv(cid, l, 'invited'); audit(`Invited ${name||'a representative'} to the ${cname(cid)} client portal`); recordChange();
   return {link:l, url:`${cbBase()}#cb=${id}.${secret}`};
 }
-function cbRevoke(id){ const l = CBLINKS.find(x=>x.id===id); if(!l || !cbCan(l.client)) return; l.revoked = true; l.revokedBy = PERSON; l.revokedAt = nowISO(); audit(`Revoked a client access link for ${cname(l.client)}`); recordChange(); }
-function cbAccessModal(cid){
-  const A = cphAccounts().filter(a=>cbCan(a.id)); if(!A.length) return toast('Client links are created by the client’s Project Manager or a company head');
-  cid = cid || CBU.cid || (CPH.sel && CPH.sel!=='all' && A.some(a=>a.id===CPH.sel) ? CPH.sel : A[0].id); CBU.cid = cid; const c = client(cid), B = cphBrands(c);
-  const L = CBLINKS.filter(l=>l.client===cid).sort((a,b)=>(b.createdAt||'').localeCompare(a.createdAt||''));
-  const M = CBMSG.filter(m=>m.client===cid).sort((a,b)=>(b.at||'').localeCompare(a.at||'')).slice(0,25);
-  const fresh = CBU.fresh && CBU.fresh.link.client===cid ? CBU.fresh : null;
-  openModal(`Client access — ${c.name}`, `
-    <div class="hint" style="margin-bottom:10px">Your client opens <b>their own</b> Content Planning Board from a private link — no Cross Core sign-in. They see their calendar, planned posts, drafts waiting for review, scheduled and published content, and can comment, approve, request changes or reject. They never see internal notes, other clients, or your team's details. Everything they do appears here and in the hub straight away.</div>
-    ${fresh?`<div class="end-banner" style="margin-bottom:12px"><b>✅ Link ready — copy it now and send it to the client.</b>
-      <div style="display:flex;gap:6px;margin-top:6px"><input id="cbUrl" readonly value="${esc(fresh.url)}" style="flex:1;font-size:12px" onclick="this.select()"><button class="btn primary" onclick="cbCopy()">Copy link</button><button class="btn" onclick="window.open(el('cbUrl').value,'_blank')">Preview as client</button></div>
-      <div class="hint" style="margin-top:6px">For security the full link is shown only now (we keep a one-way fingerprint, not the link). Lost it? Use <b>Replace</b> below. Anyone with the link can review this board until it expires — you can revoke it any time.</div></div>`:''}
-    <div class="card" style="margin-bottom:12px"><div class="card-b"><b style="font-size:13px">Generate Client Access Link</b>
-      <div class="grid cols-3" style="margin-top:8px"><div class="field"><label>Client</label><select id="cbClient" onchange="CBU.cid=this.value;CBU.fresh=null;cbAccessModal(this.value)">${A.map(a=>`<option value="${a.id}" ${a.id===cid?'selected':''}>${esc(a.name)}</option>`).join('')}</select></div>
-        <div class="field"><label>What the link shows</label><select id="cbBrand"><option value="">The whole account${B.length?' (all brands)':''}</option>${B.map(b=>`<option value="${esc(b.id)}">${esc(b.name)} only</option>`).join('')}</select></div>
-        <div class="field"><label>Expires after</label><select id="cbDays">${[[7,'7 days'],[14,'14 days'],[30,'30 days'],[60,'60 days'],[90,'90 days'],[180,'180 days']].map(([d,l])=>`<option value="${d}" ${d===30?'selected':''}>${l}</option>`).join('')}</select></div></div>
-      <div class="field"><label>Label <span class="hint">(only you see it)</span></label><input id="cbLabel" placeholder="e.g. ${esc(c.name)} — October review"></div>
-      <button class="btn primary" onclick="cbGenerate()">🔗 Generate client access link</button></div></div>
-    <div class="nav-label" style="padding:0 0 6px">Links for ${esc(c.name)}</div>
-    ${L.length?`<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Label</th><th>Shows</th><th>Expires</th><th>Last opened</th><th>Status</th><th></th></tr></thead><tbody>${L.map(l=>{ const s = cbState(l); return `<tr><td><b>${esc(l.label)}</b><div class="hint">by ${esc(first(l.createdBy))} · ${esc(ago(l.createdAt))}</div></td><td>${l.brand?esc((B.find(b=>b.id===l.brand)||{}).name||l.brand):'Whole account'}</td><td class="hint">${esc(dShort(String(l.expiresAt).slice(0,10)))}</td><td class="hint">${l.lastUsedAt?esc(ago(l.lastUsedAt))+' · '+(l.uses||0)+'×':'not opened yet'}</td><td><span class="badge ${s==='Active'?'b-approved':'b-draft'}">${s}</span></td>
-        <td style="white-space:nowrap">${s==='Active'?`<button class="btn" style="padding:3px 9px;font-size:12px" onclick="cbReplace('${l.id}')">Replace</button> <button class="btn ghost" style="padding:3px 9px;font-size:12px" onclick="cbRevokeClick('${l.id}')">Revoke</button>`:''}</td></tr>`; }).join('')}</tbody></table></div>`:'<div class="hint">No links yet.</div>'}
-    <div class="nav-label" style="padding:14px 0 6px">What the client has said</div>
-    ${M.length?M.map(m=>{ const t = TASKS.find(x=>x.id===m.task); const tag = {approval:['Approved','b-approved'],revision:['Changes requested','b-missed'],rejection:['Rejected','b-missed'],comment:['Comment','b-new'],reply:['Our reply','b-draft']}[m.kind]||['Note','b-draft'];
-      return `<div class="list-row" style="align-items:flex-start;font-size:12.5px"><div style="flex:1"><span class="badge ${tag[1]}">${tag[0]}</span> <b>${esc(t?.title||'a post')}</b> <span class="hint">· ${esc(m.name||'')} · ${esc(ago(m.at))}</span><div style="margin-top:3px">${esc(m.text||'')}</div></div>${t?`<button class="btn ghost" style="padding:3px 9px;font-size:12px" onclick="closeModal();cphOpen('${t.id}')">Open post</button>`:''}</div>`; }).join('')
-      + `<div class="field" style="margin-top:10px"><label>Reply to the client <span class="hint">(they see it signed “Cross Core team”)</span></label><div style="display:flex;gap:6px"><select id="cbReplyTask" style="max-width:260px">${[...new Set(M.map(m=>m.task))].map(id=>`<option value="${id}">${esc(TASKS.find(x=>x.id===id)?.title||id)}</option>`).join('')}</select><input id="cbReplyTxt" placeholder="Write a reply…" style="flex:1"><button class="btn" onclick="cbReply()">Send</button></div></div>`
-      :'<div class="hint">Nothing yet — comments, approvals and change requests appear here.</div>'}`, true);
-}
-async function cbGenerate(){
-  try{ const days = +el('cbDays').value, r = await cbCreateLink({client:el('cbClient').value, brand:el('cbBrand').value, label:el('cbLabel').value.trim(), days}); CBU.fresh = r; cbAccessModal(r.link.client); toast('Link created — copy it and send it to the client'); }catch(e){ toast(e.message); } }
-async function cbReplace(id){ const o = CBLINKS.find(x=>x.id===id); if(!o) return; try{ const r = await cbCreateLink({client:o.client, brand:o.brand, label:o.label, days:Math.max(1, Math.min(180, Math.round((new Date(o.expiresAt)-Date.now())/864e5)||30))}); cbRevoke(id); CBU.fresh = r; cbAccessModal(o.client); toast('New link created — the old one no longer works'); }catch(e){ toast(e.message); } }
-const cbRevokeClick = id => confirmModal('Revoke this link?', '<p>The client will no longer be able to open or use it. You can create a new one at any time.</p>', 'Revoke link', ()=>{ cbRevoke(id); cbAccessModal(CBU.cid); toast('Link revoked'); });
-async function cbCopy(){ const u = el('cbUrl').value; try{ await navigator.clipboard.writeText(u); }catch(e){ el('cbUrl').select(); document.execCommand('copy'); } toast('Link copied'); }
-function cbReply(){ const task = el('cbReplyTask')?.value, text = el('cbReplyTxt')?.value.trim(); if(!task || !text) return toast('Write a reply first'); const t = TASKS.find(x=>x.id===task); if(!t || !cbCan(t.client)) return toast('Only the client’s Project Manager or a company head can reply');
-  CBMSG.push({id:uid('CM'), task, client:t.client, by:PERSON, name:'Cross Core team', kind:'reply', text, at:nowISO()}); recordChange(); cbAccessModal(CBU.cid); toast('Reply sent — the client sees it on their board'); }
-/* the button in each client's hub, with a count of what is waiting */
-{ const _h = cphHeadHTML; cphHeadHTML = function(){ let h = _h.apply(this, arguments); const A = cphAccounts().filter(a=>cbCan(a.id)); if(!A.length) return h;
-    const cur = A.find(a=>a.id===CPH.sel); const pending = HUBDOCS.filter(d=>d.col==='feedback' && d.d?.viaClient && d.d?.status==='Pending' && (!cur || d.acct===cur.id)).length;
-    return h.replace('<button class="btn ghost" onclick="go(\'tasks\')"', `<button class="btn" onclick="cbAccessModal('${cur?cur.id:''}')" title="Give the client their own board">🔗 Client access${pending?` <span class="badge b-missed">${pending}</span>`:''}</button><button class="btn ghost" onclick="go('tasks')"`); }; }
+function cbSet(id, patch, ev){ const l = CBLINKS.find(x=>x.id===id); if(!l || !cbCan(l.client)) return null; Object.assign(l, patch); if(ev) cbLogEv(l.client, l, ev); recordChange(); return l; }
+const cbRevoke = id => { const l = cbSet(id, {revoked:true, revokedBy:PERSON, revokedAt:nowISO()}, 'revoked'); if(l) audit(`Revoked client portal access for ${l.name||l.label} (${cname(l.client)})`); };
+const cbMailto = (l, url) => { const c = client(l.client); const body = `Hello ${l.name||''},\n\nHere is your private link to the ${c.name} client portal. You can review ${cbEffFor(l, c).map(m=>cbModName(m, c)).join(', ')}${l.role==='viewer'?'':', and leave feedback'}${l.role==='approver'?' or approve deliverables':''} — no sign-in needed:\n\n${url}\n\nThe link is private to you and expires on ${dLong(String(l.expiresAt).slice(0,10))}. Please don’t forward it.\n\nThe Cross Core team`; return `mailto:${encodeURIComponent(l.email||'')}?subject=${encodeURIComponent(`Your ${c.name} client portal — Cross Core`)}&body=${encodeURIComponent(body)}`; };
+const cbItems = cid => TASKS.filter(t=>t.client===cid && cbPostLike(t));
 
-/* ===================== the client's board ===================== */
-const CB = {link:null, secret:null, data:null, sig:'', view:'review', cal:null, open:null, name:'', timer:null, sb:null, files:{}};
+function cbAccessModal(cid, tab){
+  const A = cbManageable(); if(!A.length) return toast('Client access is managed by the client’s Project Manager, a department head or a company head');
+  cid = cid || CBU.cid || (typeof CPH!=='undefined' && CPH.sel && CPH.sel!=='all' && A.some(a=>a.id===CPH.sel) ? CPH.sel : A[0].id); if(!A.some(a=>a.id===cid)) cid = A[0].id; CBU.cid = cid; if(tab) CBU.tab = tab;
+  const c = client(cid), pk = cbModList(c), tabs = [['reps','Representatives'],['services','Services'],['approvals','Approvals'],['activity','Activity log']];
+  const items = cbItems(cid), pend = items.filter(t=>cbStage(t)==='review').length, rev = items.filter(t=>cbStage(t)==='revision').length;
+  openModal(`Client portal — ${c.name}`, `
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:8px"><select id="cbClient" onchange="CBU.cid=this.value;CBU.fresh=null;cbAccessModal(this.value)" style="max-width:260px">${A.map(a=>`<option value="${a.id}" ${a.id===cid?'selected':''}>${esc(a.name)}</option>`).join('')}</select>
+      <span class="hint">Package includes:</span>${pk.map(m=>`<span class="badge b-approved">${esc(m.name)}</span>`).join(' ')||'<span class="badge b-missed">no services</span>'}${pend?`<span class="badge b-pending">${pend} awaiting client</span>`:''}${rev?`<span class="badge b-missed">${rev} change request${rev>1?'s':''}</span>`:''}</div>
+    <div class="tabs" style="margin-bottom:12px">${tabs.map(([k,l])=>`<button class="tab ${CBU.tab===k?'on':''}" onclick="CBU.tab='${k}';cbAccessModal('${cid}')">${l}</button>`).join('')}</div>
+    ${CBU.tab==='services' ? cbTabServices(c, pk) : CBU.tab==='approvals' ? cbTabApprovals(c, items) : CBU.tab==='activity' ? cbTabActivity(c) : cbTabReps(c, pk)}`, true);
+}
+function cbTabReps(c, pk){
+  const cid = c.id, B = typeof cphBrands==='function' ? cphBrands(c) : [], L = CBLINKS.filter(l=>l.client===cid).sort((a,b)=>(b.createdAt||'').localeCompare(a.createdAt||''));
+  const fresh = CBU.fresh && CBU.fresh.link.client===cid ? CBU.fresh : null;
+  return `${fresh?`<div class="end-banner" style="margin-bottom:12px"><b>✅ Invitation ready${fresh.link.name?' for '+esc(fresh.link.name):''} — copy the link or email it now.</b>
+      <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap"><input id="cbUrl" readonly value="${esc(fresh.url)}" style="flex:1;min-width:220px;font-size:12px" onclick="this.select()"><button class="btn primary" onclick="cbCopy()">Copy link</button>${fresh.link.email?`<a class="btn" href="${esc(cbMailto(fresh.link, fresh.url))}">✉ Email invitation</a>`:''}<button class="btn" onclick="window.open(el('cbUrl').value,'_blank')">Preview as this person</button></div>
+      <div class="hint" style="margin-top:6px">The full link is shown only now — we keep a one-way fingerprint, not the link. Lost it? Use <b>Resend</b> below to issue a fresh one (the old one stops working).</div></div>`:''}
+    <div class="card" style="margin-bottom:12px"><div class="card-b"><b style="font-size:13px">Invite a representative — Generate Client Access Link</b>
+      <div class="grid cols-3" style="margin-top:8px"><div class="field"><label>Name</label><input id="cbName2" placeholder="e.g. Dana Reyes" maxlength="80"></div><div class="field"><label>Email <span class="hint">(optional — for the invitation)</span></label><input id="cbEmail" type="email" placeholder="dana@client.com"></div>
+        <div class="field"><label>Role</label><select id="cbRole" onchange="cbRoleHint()">${Object.entries(CB_ROLES).map(([k,[n]])=>`<option value="${k}" ${k==='reviewer'?'selected':''}>${n}</option>`).join('')}</select><div class="hint" id="cbRoleTxt">${CB_ROLES.reviewer[1]}</div></div></div>
+      <div class="field"><label>Services they can open <span class="hint">(only services in the package can be switched on)</span></label><div style="display:flex;gap:12px;flex-wrap:wrap">${pk.map(m=>`<label style="display:flex;gap:6px;align-items:center;font-size:13px"><input type="checkbox" class="cbMod" value="${esc(m.id)}" checked style="width:auto"> ${esc(m.name)}</label>`).join('')}</div></div>
+      <div class="grid cols-3"><div class="field"><label>What the link shows</label><select id="cbBrand"><option value="">The whole account${B.length?' (all brands)':''}</option>${B.map(b=>`<option value="${esc(b.id)}">${esc(b.name)} only (content services)</option>`).join('')}</select></div>
+        <div class="field"><label>Expires after</label><select id="cbDays">${[[7,'7 days'],[14,'14 days'],[30,'30 days'],[60,'60 days'],[90,'90 days'],[180,'180 days']].map(([d,l])=>`<option value="${d}" ${d===30?'selected':''}>${l}</option>`).join('')}</select></div><div class="field"><label>Label <span class="hint">(only you see it)</span></label><input id="cbLabel" placeholder="optional"></div></div>
+      <button class="btn primary" onclick="cbGenerate()">🔗 Generate client access link</button></div></div>
+    <div class="nav-label" style="padding:0 0 6px">Representatives and links for ${esc(c.name)}</div>
+    ${L.length?`<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Representative</th><th>Role</th><th>Services</th><th>Expires</th><th>Last opened</th><th>Status</th><th></th></tr></thead><tbody>${L.map(l=>{ const s = cbState(l), eff = cbEffFor(l, c); return `<tr><td><b>${esc(l.name||l.label)}</b>${l.name&&l.label&&l.label!==l.name?`<div class="hint">${esc(l.label)}</div>`:''}<div class="hint">${esc(l.email||'')}${l.email?' · ':''}by ${esc(first(l.createdBy))} · ${esc(ago(l.createdAt))}${l.brand?' · '+esc((B.find(b=>b.id===l.brand)||{}).name||l.brand):''}</div></td>
+        <td>${esc((CB_ROLES[l.role||'approver']||CB_ROLES.approver)[0])}${l.role?'':'<div class="hint">shared link</div>'}</td><td class="hint">${eff.map(m=>esc(cbModName(m, c))).join(', ')||'—'}</td><td class="hint">${esc(dShort(String(l.expiresAt).slice(0,10)))}</td><td class="hint">${l.lastUsedAt?esc(ago(l.lastUsedAt))+' · '+(l.uses||0)+'×':'not opened yet'}</td>
+        <td><span class="badge ${s==='Active'?'b-approved':s==='Deactivated'?'b-scheduled':'b-draft'}">${s}</span></td>
+        <td style="white-space:nowrap">${s==='Revoked'?'':`<button class="btn" style="padding:3px 9px;font-size:12px" onclick="cbEditRep('${l.id}')">Edit</button> <button class="btn" style="padding:3px 9px;font-size:12px" onclick="cbResend('${l.id}')">Resend</button> <button class="btn ghost" style="padding:3px 9px;font-size:12px" onclick="cbTogglePause('${l.id}')">${l.paused?'Reactivate':'Deactivate'}</button> <button class="btn ghost" style="padding:3px 9px;font-size:12px" onclick="cbRevokeClick('${l.id}')">Revoke</button>`}</td></tr>`; }).join('')}</tbody></table></div>`:'<div class="hint">No representatives invited yet.</div>'}`;
+}
+const cbRoleHint = () => { const e = el('cbRoleTxt'); if(e) e.textContent = CB_ROLES[el('cbRole').value][1]; };
+function cbTabServices(c, pk){
+  const all = Object.entries(CB_MODS).map(([id,m])=>({id, name:m.name})), has = new Set(pk.map(m=>m.id)), eff = CBLINKS.filter(l=>l.client===c.id && cbState(l)==='Active');
+  return `<div class="hint" style="margin-bottom:10px">Services follow the <b>client’s package</b> (${esc((c.services||[]).join(', ')||c.package||'none listed')}). They are worked out automatically when a client is registered or its package is updated — you can narrow what each representative sees, but you cannot switch on a service the client hasn’t contracted. To add a service, update the client’s package through management.</div>
+    <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Service</th><th>In the package</th><th>Where the client's view comes from</th><th>Representatives with access</th></tr></thead><tbody>${[...all, ...pk.filter(m=>m.id.startsWith('svc:'))].map(m=>{ const src = {content:'Content Planning Hub posts once sent for client approval', design:'Graphic items on the Content Board once sent for client approval', video:'Video items on the Content Board once sent for client approval', leadgen:'Lead tracker (client-visible prospects), ideal-customer targets, released performance reports', social:'Publishing schedule (scheduled and posted) and released performance reports'}[m.id] || 'Content Board items marked client-facing'; const n = eff.filter(l=>cbEffFor(l, c).includes(m.id)).length;
+      return `<tr style="${has.has(m.id)?'':'opacity:.5'}"><td><b>${esc(m.name)}</b></td><td>${has.has(m.id)?'<span class="badge b-approved">Included</span>':'<span class="badge b-draft">Not in package</span>'}</td><td class="hint">${has.has(m.id)?src:'—'}</td><td>${has.has(m.id)?n:'—'}</td></tr>`; }).join('')}</tbody></table></div>
+    <div class="hint" style="margin-top:8px">Only released work is shared: deliverables you have sent for client approval, performance reports you have shared, prospects not hidden from the client, and scheduled or published posts. Internal notes, drafts, team members, rates, payroll and contracts are never part of the portal.</div>`;
+}
+function cbTabApprovals(c, items){
+  const sent = t => ([...(t.history||[])].reverse().find(h=>h.act==='Pending Client Approval')||{}).at;
+  const row = t => `<tr><td><b>${esc(t.title)}</b><div class="hint">${esc(cbModName(cbTaskModule(t), c))}${t.hubBrand?' · '+esc(((c.hubBrands||[]).find(b=>b.id===t.hubBrand)||{}).name||t.hubBrand):''}</div></td><td class="hint">${sent(t)?esc(ago(sent(t))):'—'}</td><td class="hint">${esc(fmtD((t.postDate||'').slice(0,10)||iso(t.due||t.createdAt)))}</td><td><button class="btn ghost" style="padding:3px 9px;font-size:12px" onclick="closeModal();cbOpenItem('${t.id}')">Open</button></td></tr>`;
+  const pend = items.filter(t=>cbStage(t)==='review'), rev = items.filter(t=>cbStage(t)==='revision');
+  const hist = items.flatMap(t=>(t.history||[]).filter(h=>h.cv===true && ['Client approved','Client requested changes','Client rejected'].includes(h.act)).map(h=>({t, h}))).sort((a,b)=>String(b.h.at).localeCompare(String(a.h.at))).slice(0,40);
+  const T = (title, body, empty, cols) => `<div class="nav-label" style="padding:10px 0 6px">${title}</div>${body?`<div class="tbl-wrap"><table class="tbl"><thead><tr>${cols.map(x=>`<th>${x}</th>`).join('')}</tr></thead><tbody>${body}</tbody></table></div>`:`<div class="hint">${empty}</div>`}`;
+  return T(`Waiting for the client (${pend.length})`, pend.map(row).join(''), 'Nothing is waiting for the client.', ['Item','Sent for review','Date',''])
+    + T(`Change requests to action (${rev.length})`, rev.map(t=>row(t)).join(''), 'No open change requests.', ['Item','Sent for review','Date',''])
+    + T('Approval history', hist.map(({t,h})=>`<tr><td><b>${esc(t.title)}</b><div class="hint">${esc(cbModName(cbTaskModule(t), c))}</div></td><td>${esc(h.act.replace('Client ',''))}</td><td class="hint">${esc(String(h.by).replace(/^Client \(|\)$/g,''))}</td><td class="hint">${esc(dtstr(h.at))}${h.note?`<div>“${esc(h.note)}”</div>`:''}</td></tr>`).join(''), 'No client decisions yet.', ['Item','Decision','By','When'])
+    + (CBMSG.some(m=>m.client===c.id && m.task) ? `<div class="field" style="margin-top:12px"><label>Reply to the client about an item <span class="hint">(they see it signed “Cross Core team”)</span></label><div style="display:flex;gap:6px"><select id="cbReplyTask" style="max-width:260px">${[...new Set(CBMSG.filter(m=>m.client===c.id&&m.task).map(m=>m.task))].map(id=>`<option value="${id}">${esc(TASKS.find(x=>x.id===id)?.title||id)}</option>`).join('')}</select><input id="cbReplyTxt" placeholder="Write a reply…" style="flex:1"><button class="btn" onclick="cbReply()">Send</button></div></div>` : '');
+}
+function cbTabActivity(c){
+  const ev = [...CBLOG.filter(x=>x.client===c.id).map(x=>({at:x.at, who:x.rep||(x.by&&pname(x.by)), role:x.role, what:x.event, detail:x.detail})),
+    ...CBMSG.filter(m=>m.client===c.id).map(m=>({at:m.at, who:m.name, role:'', what:({approval:'approved',revision:'requested changes',rejection:'rejected',comment:'commented',reply:'replied'})[m.kind]||m.kind, detail:`${m.task?TASKS.find(t=>t.id===m.task)?.title||'':m.item||''}${m.text?': “'+m.text+'”':''}`}))].sort((a,b)=>String(b.at).localeCompare(String(a.at))).slice(0,80);
+  return ev.length ? `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>When</th><th>Who</th><th>What</th></tr></thead><tbody>${ev.map(e=>`<tr><td class="hint" style="white-space:nowrap">${esc(dtstr(e.at))}</td><td><b>${esc(e.who||'')}</b>${e.role?`<div class="hint">${esc((CB_ROLES[e.role]||[e.role])[0])}</div>`:''}</td><td>${esc(e.what)}${e.detail?`<div class="hint">${esc(e.detail)}</div>`:''}</td></tr>`).join('')}</tbody></table></div>` : '<div class="hint">Nothing yet — invitations, visits, decisions and feedback are recorded here with timestamps.</div>';
+}
+function cbOpenItem(id){ const t = TASKS.find(x=>x.id===id); if(!t) return; if(t.hubPost && typeof cphOpen==='function') return cphOpen(id); followLink({view:'tasks', task:id}); }
+async function cbGenerate(){
+  try{ const mods = [...document.querySelectorAll('.cbMod:checked')].map(x=>x.value); if(!mods.length) return toast('Choose at least one service');
+    const r = await cbCreateLink({client:el('cbClient').value, brand:el('cbBrand').value, label:el('cbLabel').value.trim(), days:+el('cbDays').value, name:el('cbName2').value, email:el('cbEmail').value, role:el('cbRole').value, modules:mods}); CBU.fresh = r; CBU.tab = 'reps'; cbAccessModal(r.link.client); toast('Invitation created — copy the link or email it'); }catch(e){ toast(e.message); } }
+function cbEditRep(id){
+  const l = CBLINKS.find(x=>x.id===id); if(!l) return; const c = client(l.client), pk = cbModList(c), eff = cbEffFor(l, c);
+  openModal(`Edit — ${l.name||l.label}`, `<div class="grid cols-2"><div class="field"><label>Name</label><input id="ceName" value="${esc(l.name||'')}" maxlength="80"></div><div class="field"><label>Email</label><input id="ceEmail" value="${esc(l.email||'')}"></div></div>
+    <div class="field"><label>Role</label><select id="ceRole">${Object.entries(CB_ROLES).map(([k,[n,d]])=>`<option value="${k}" ${(l.role||'approver')===k?'selected':''}>${n} — ${d}</option>`).join('')}</select></div>
+    <div class="field"><label>Services</label><div style="display:flex;gap:12px;flex-wrap:wrap">${pk.map(m=>`<label style="display:flex;gap:6px;align-items:center;font-size:13px"><input type="checkbox" class="ceMod" value="${esc(m.id)}" ${eff.includes(m.id)?'checked':''} style="width:auto"> ${esc(m.name)}</label>`).join('')}</div></div>
+    <div class="field"><label>Extend the link until</label><input id="ceExp" type="date" value="${esc(String(l.expiresAt).slice(0,10))}" max="${new Date(Date.now()+179*864e5).toISOString().slice(0,10)}"></div>
+    <button class="btn primary" style="width:100%" onclick="cbSaveRep('${id}')">Save</button><div class="hint" style="margin-top:6px">Changes apply the next time the person opens or refreshes their portal.</div>`);
+}
+function cbSaveRep(id){
+  const l = CBLINKS.find(x=>x.id===id), c = client(l.client), pk = cbModulesFor(c), mods = [...document.querySelectorAll('.ceMod:checked')].map(x=>x.value), email = el('ceEmail').value.trim();
+  if(!mods.length) return toast('Choose at least one service'); if(email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return toast('Check the email address'); const exp = el('ceExp').value;
+  const role0 = l.role||'approver', role = el('ceRole').value; const patch = {name:el('ceName').value.trim(), email, role, modules:mods.length<pk.length?mods:null, ...(exp?{expiresAt:new Date(exp+'T23:59:59').toISOString()}:{})};
+  cbSet(id, patch, role!==role0 ? `role changed to ${role}` : 'updated'); closeModal(); cbAccessModal(l.client); toast('Saved'); }
+async function cbResend(id){ const o = CBLINKS.find(x=>x.id===id); if(!o) return;
+  try{ const days = Math.max(1, Math.min(180, Math.round((new Date(o.expiresAt)-Date.now())/864e5)||30)); const pk = cbModulesFor(client(o.client)), mods = Array.isArray(o.modules) && o.modules.length ? o.modules.filter(m=>pk.includes(m)) : null;   /* only services still in the package carry over — never more */
+    if(mods && !mods.length) return toast('None of this person’s services are in the package any more — invite them again with the services they should have');
+    const r = await cbCreateLink({client:o.client, brand:o.brand, label:o.label, days, name:o.name||'', email:o.email||'', role:o.role||'approver', modules:mods}); cbRevoke(id); CBU.fresh = r; CBU.tab = 'reps'; cbAccessModal(o.client); toast('A fresh invitation was created — the old link no longer works'); }catch(e){ toast(e.message); } }
+const cbTogglePause = id => { const l = CBLINKS.find(x=>x.id===id); if(!l) return; const was = l.paused; cbSet(id, {paused:!was}, was?'reactivated':'deactivated'); cbAccessModal(l.client); toast(was?'Reactivated':'Deactivated — they can’t open the portal until you reactivate'); };
+const cbRevokeClick = id => confirmModal('Revoke this link?', '<p>The person will no longer be able to open or use it, ever. To give them access again, send a new invitation.</p>', 'Revoke access', ()=>{ const l = CBLINKS.find(x=>x.id===id); cbRevoke(id); cbAccessModal(l?.client); toast('Access revoked'); });
+async function cbCopy(){ const u = el('cbUrl').value; try{ await navigator.clipboard.writeText(u); }catch(e){ el('cbUrl').select(); document.execCommand('copy'); } toast('Link copied'); }
+function cbReply(){ const task = el('cbReplyTask')?.value, text = el('cbReplyTxt')?.value.trim(); if(!task || !text) return toast('Write a reply first'); const t = TASKS.find(x=>x.id===task); if(!t || !cbCan(t.client)) return toast('Only the client’s Project Manager, a department head or a company head can reply');
+  CBMSG.push({id:uid('CM'), task, client:t.client, by:PERSON, name:'Cross Core team', kind:'reply', text, at:nowISO()}); recordChange(); cbAccessModal(CBU.cid, 'approvals'); toast('Reply sent — the client sees it in their portal'); }
+/* the button in each client's hub, with a count of what is waiting; and a "Client Portal" menu page for PMs and department heads */
+{ const _h = cphHeadHTML; cphHeadHTML = function(){ let h = _h.apply(this, arguments); const A = cbManageable(); if(!A.length) return h;
+    const cur = A.find(a=>a.id===CPH.sel); const pending = HUBDOCS.filter(d=>d.col==='feedback' && d.d?.viaClient && d.d?.status==='Pending' && (!cur || d.acct===cur.id)).length;
+    return h.replace('<button class="btn ghost" onclick="go(\'tasks\')"', `<button class="btn" onclick="cbAccessModal('${cur?cur.id:''}')" title="Give the client their own portal">🔗 Client access${pending?` <span class="badge b-missed">${pending}</span>`:''}</button><button class="btn ghost" onclick="go('tasks')"`); }; }
+RENDER.clientaccess = function(){ const v = el('v-clientaccess'); if(!v) return; const A = cbManageable();
+  v.innerHTML = `<div class="page-head"><div><h2>Client Portal <span class="badge b-new">New</span></h2><p>Every client has a private portal showing the services in their package — Content Planning, Graphic Design, Video Editing, Lead Generation, Social Media and more. Invite representatives, set their roles, and follow approvals and feedback.</p></div></div>
+  ${A.length ? `<div class="grid cols-2">${A.map(c=>{ const items = cbItems(c.id), L = CBLINKS.filter(l=>l.client===c.id), act = L.filter(l=>cbState(l)==='Active'), pend = items.filter(t=>cbStage(t)==='review').length, rev = items.filter(t=>cbStage(t)==='revision').length, last = CBMSG.filter(m=>m.client===c.id&&m.by==='client').sort((a,b)=>String(b.at).localeCompare(String(a.at)))[0];
+    return `<div class="card"><div class="card-b"><div style="display:flex;gap:8px;align-items:flex-start"><div style="flex:1"><b style="font-size:15px">${esc(c.name)}</b><div class="hint">${cbModList(c).map(m=>esc(m.name)).join(' · ')}</div></div><button class="btn primary" onclick="cbAccessModal('${c.id}')">Manage access</button></div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px"><span class="badge ${act.length?'b-approved':'b-draft'}">${act.length} active representative${act.length===1?'':'s'}</span>${pend?`<span class="badge b-pending">${pend} awaiting client</span>`:''}${rev?`<span class="badge b-missed">${rev} change request${rev>1?'s':''}</span>`:''}</div>
+      <div class="hint" style="margin-top:8px">${last?`Last client activity: ${esc(last.name)} ${esc(ago(last.at))}`:'No client activity yet'}</div></div></div>`; }).join('')}</div>` : '<div class="empty">No clients to manage yet.</div>'}`; };
+{ const at = NAV.findIndex(n=>n.id==='cphub'); if(!NAV.some(n=>n.id==='clientaccess')) NAV.splice(at>=0?at+1:NAV.length, 0, {id:'clientaccess', name:'Client Portal', roles:ALLR, ico:'M12 12a4 4 0 100-8 4 4 0 000 8zM4 20c0-4 3.6-6 8-6s8 2 8 6'}); }
+{ const _na = navAllowed; navAllowed = function(n){ if(n?.id==='clientaccess') return ROLE!=='client' && !!PEOPLE[PERSON] && cbManageable().length>0; return _na.apply(this, arguments); }; }
+if(!el('v-clientaccess')){ const v = document.createElement('div'); v.id = 'v-clientaccess'; v.className = 'view'; (el('v-cphub')||el('v-tasks')||document.querySelector('.content .view'))?.after(v); }
+{ const _fl = followLink; followLink = function(link){ if(link?.view==='clientaccess'){ closeOverlays?.(); go('clientaccess'); if(link.client) setTimeout(()=>cbAccessModal(link.client,'activity'), 150); return; } return _fl.apply(this, arguments); }; }
+
+/* ===================== demo mode: the same rules, mirrored for one browser (live portals use the database functions) ===================== */
+const cbScrub = j => Array.isArray(j) ? j.map(cbScrub) : (j && typeof j==='object') ? Object.fromEntries(Object.entries(j).filter(([k])=>!/(salary|payroll|wage|payout|compensation|agreedrate|hourlyrate|va_?rate|va_?pay|va_?cost|internal|private|confidential)/i.test(k)).map(([k,v])=>[k, cbScrub(v)])) : j;
+const cbCmp = (a,b) => a<b ? -1 : a>b ? 1 : 0;
+function cbPostOut(t, c, thread){
+  const stg = cbStage(t), full = stg!=='planned', brand = (c.hubBrands||[]).find(b=>b.id===t.hubBrand);
+  const rounds = Math.max(0, (t.history||[]).filter(h=>h.act==='Pending Client Approval').length - 1);
+  const hist = !full ? [] : (t.history||[]).filter(h=>h.cv===true || ['Pending Client Approval','Approved','Completed','Scheduled','Queued','Posted'].includes(h.act)).map(h=>({at:h.at, act:h.cv===true ? h.act : h.act==='Pending Client Approval' ? 'Sent for your review' : h.act==='Approved' ? 'Approved' : 'Scheduled', note:h.cv===true ? h.note : null, you:h.cv===true}));
+  return {id:t.id, module:cbTaskModule(t), title:t.title||'(untitled)', date:String(t.postDate||t.due||t.createdAt||'').slice(0,10), type:t.hubType||t.type, platforms:t.platforms||'', bucket:t.bucket||'', brand:brand?.name||null, stage:stg,
+    caption:full?(t.caption||''):null, topicCaption:full?(t.topicCaption||''):null, outputLink:full?(t.outputLink||''):null, photoLink:full?(t.photoLink||''):null,
+    files:full?(t.outputs||[]).map(f=>({name:f.name, type:f.type, size:f.size, path:f.path, data:f.data, url:f.url})):[], rounds, history:hist,
+    thread:thread.filter(m=>m.task===t.id).sort((a,b)=>String(a.at).localeCompare(String(b.at))).map(m=>({id:m.id, kind:m.kind, name:m.name, text:m.text, at:m.at, you:m.by==='client'}))};
+}
+async function cbDemoLink(db){ const l = (db.cblinks||{})[CB.link]; if(!l) return null; if(l.secretHash !== await cbSha(CB.secret) || l.revoked || l.paused || new Date(l.expiresAt) <= new Date() || !(db.clients||{})[l.client]) return null; return l; }
+const cbDemoNotifyKeys = (db, c, md) => uniq([...(c.pms||[]), c.mgr, ...Object.entries(db.employees||{}).filter(([k,e])=>(CB_MARKETING.includes(md) && e.mkHead) || (md==='leadgen' && e.lgHead)).map(([k,e])=>e.key||k)].filter(Boolean));
+function cbDemoLog(l, who, ev, detail){ const id = 'CL-'+Math.random().toString(36).slice(2,12); return {collection:'cblog', id, data:{id, client:l.client, link:l.id, rep:who, role:l.role||'approver', event:ev, detail:detail||'', at:nowISO(), by:'client'}}; }
+async function cbDemo(action, a){
+  const db = DemoBackend.read(); const bad = {ok:false, error:CB_INVALID}; if(!db) return bad; const l = await cbDemoLink(db); if(!l) return bad;
+  const c = db.clients[l.client], thread = Object.values(db.cbmsg||{}), eff = cbEffFor(l, c), role = l.role||'approver', nobrand = !l.brand, who0 = l.name || '';
+  const mine = t => t.client===l.client && (nobrand || (t.hubBrand||'')===l.brand) && cbPostLike(t) && eff.includes(cbTaskModule(t));
+  if(action==='load'){
+    const L = Object.values(db.leads||{}).filter(x=>x.client===l.client && !x.archived && !/disqualif|spam|duplicate|lost/i.test(x.status||'') && !x.hideFromClient), stageOf = x => x.outreach || x.status || 'New';
+    const leadgen = eff.includes('leadgen') && nobrand ? {funnel:Object.entries(L.reduce((o,x)=>(o[stageOf(x)]=(o[stageOf(x)]||0)+1,o),{})).map(([stage,n])=>({stage,n})).sort((x,y)=>y.n-x.n || cbCmp(String(x.stage),String(y.stage))),
+      activities:Object.entries(L.flatMap(x=>x.activities||[]).reduce((o,y)=>(o[y.kind]=(o[y.kind]||0)+1,o),{})).map(([kind,n])=>({kind,n})).sort((x,y)=>y.n-x.n || cbCmp(String(x.kind),String(y.kind))),
+      prospects:L.map(x=>({id:x.id, name:x.name, title:x.title||'', company:x.company||'', location:x.location||'', category:x.category||'', fit:x.fit||'', stage:stageOf(x), last:(x.activities||[]).slice(-1)[0]?.when, source:x.source||''})).sort((x,y)=>String(x.name).localeCompare(String(y.name))),
+      targets:Object.values(db.icps||{}).filter(x=>x.client===l.client).map(x=>({id:x.id, company:x.company||'', industry:x.industry||'', size:x.size||'', market:x.market||'', titles:x.titles||'', decision:x.decision||'', pains:x.pains||'', goals:x.goals||'', priority:x.priority||''}))} : null;
+    const PL = {ig:'Instagram', fb:'Facebook', li:'LinkedIn', tt:'TikTok', x:'X'};
+    const social = eff.includes('social') && nobrand ? {schedule:Object.values(db.posts||{}).filter(x=>x.client===l.client && ['Scheduled','Posted','Published','Queued'].includes(x.status||'')).map(x=>({id:x.id, platform:PL[x.plat]||String(x.plat||'').toUpperCase(), title:x.title, date:String(x.when||'').slice(0,10), time:x.time||'', status:x.status||''})).sort((x,y)=>x.date.localeCompare(y.date))} : null;
+    const reports = (eff.includes('leadgen') || eff.includes('social')) && nobrand ? Object.values(db.perfshare||{}).filter(x=>x.client===l.client).sort((x,y)=>String(y.to).localeCompare(String(x.to))).slice(0,24).map(x=>cbScrub({id:x.id, label:x.label, kind:x.kind, from:x.from, to:x.to, status:x.status, rev:x.rev, sharedAt:x.sharedAt, snap:x.snap})) : [];
+    const ups = []; const now = Date.now();
+    if(!l.lastUsedAt || now - new Date(l.lastUsedAt) > 6e4){ ups.push({collection:'cblinks', id:l.id, data:{...l, lastUsedAt:nowISO(), uses:(l.uses||0)+1}});
+      if(!Object.values(db.cblog||{}).some(g=>g.link===l.id && g.event==='opened' && now-new Date(g.at) < 18e5)) ups.push(cbDemoLog(l, who0||l.label, 'opened')); }
+    if(ups.length) await DemoBackend.write(ups, []);
+    const bn = (c.hubBrands||[]).find(b=>b.id===l.brand)?.name;
+    return {ok:true, client:{name:bn||c.name, account:c.name, color:(c.colors||[])[0]}, me:{name:l.name||null, role}, link:{label:l.label, expiresAt:l.expiresAt}, modules:cbModList(c).filter(m=>eff.includes(m.id)), serverTime:nowISO(),
+      posts:Object.values(db.tasks||{}).filter(mine).map(t=>cbPostOut(t,c,thread)).sort((x,y)=>x.date.localeCompare(y.date)||x.title.localeCompare(y.title)), leadgen, social, reports,
+      feedback:thread.filter(m=>m.client===l.client && m.item).sort((x,y)=>String(x.at).localeCompare(String(y.at))).map(m=>({id:m.id, item:m.item, kind:m.kind, name:m.name, text:m.text, at:m.at, you:m.by==='client'}))};
+  }
+  const fail = error => ({ok:false, error}), at = nowISO(), esc2 = s => String(s).replace(/</g,'&lt;'), txt = String(a.text||'').trim(), nm = String(a.name||'').replace(/[<>]/g,'').trim().slice(0,60), who = who0 || nm || 'Client', cn = c.name||'The client';
+  const hourly = thread.filter(m=>m.link===l.id && Date.now()-new Date(m.at) < 36e5).length;
+  if(role==='viewer') return fail('Your access is view-only. Ask your Cross Core contact if you need to comment or approve.');
+  if(action==='note'){
+    if(txt.length<1 || txt.length>2000) return fail('Write a comment (up to 2,000 characters).'); if(!nobrand) return fail('This link does not include that service.');
+    let r = null, md = null, ttl = '';
+    if(a.kind==='lead' && eff.includes('leadgen')){ r = (db.leads||{})[a.ref]; if(r && (r.client!==l.client || r.archived)) r = null; md = 'leadgen'; ttl = r?.name||'a prospect'; }
+    else if(a.kind==='report' && (eff.includes('leadgen')||eff.includes('social'))){ r = (db.perfshare||{})[a.ref]; if(r && r.client!==l.client) r = null; md = eff.includes('leadgen')?'leadgen':'social'; ttl = r?.label||'a report'; }
+    else if(a.kind==='post' && eff.includes('social')){ r = (db.posts||{})[a.ref]; if(r && r.client!==l.client) r = null; md = 'social'; ttl = r?.title||'a post'; }
+    else if(a.kind==='module' && eff.includes(a.ref)){ r = {}; md = a.ref; ttl = cbModName(a.ref, c); }
+    if(!r) return fail('That item was not found on your portal.'); if(hourly>=60) return fail('Too many actions in a short time — please try again in a little while.');
+    const mid = 'CM-'+Math.random().toString(36).slice(2,14), entry = {id:mid, link:l.id, task:null, item:`${a.kind}:${a.ref}`, client:l.client, by:'client', name:who, kind:'comment', text:txt, at, module:md};
+    const ups = [{collection:'cbmsg', id:mid, data:entry}, {collection:'cblinks', id:l.id, data:{...l, lastUsedAt:at}}, cbDemoLog(l, who, 'feedback', ttl)];
+    uniq([...cbDemoNotifyKeys(db, c, md), r.am, r.mgr, r.sharedBy, r.by].filter(Boolean)).forEach(k=>{ const nid = 'N-'+Math.random().toString(36).slice(2,12); ups.push({collection:'notifs', id:nid, data:{id:nid, to:k, type:'assignment', text:`💬 <b>${cn}</b> (${who}) left feedback on ${{lead:'prospect',report:'report',post:'publishing slot',module:'service'}[a.kind]} <b>${esc2(ttl)}</b>: “${esc2(txt.slice(0,140))}”`, link:{view:'clientaccess', client:l.client}, by:'client-board', at, read:false}}); });
+    await DemoBackend.write(ups, []); return {ok:true, entry:{id:mid, item:entry.item, kind:'comment', name:who, text:txt, at, you:true}};
+  }
+  if(role==='reviewer' && ['approve','reject'].includes(a.action)) return fail('Your role can comment and request changes. Only an approver can approve or reject — please ask one of your colleagues.');
+  const t = (db.tasks||{})[a.task];
+  if(!['comment','approve','revise','reject'].includes(a.action)) return fail('Unknown action'); if(!t || !mine(t)) return fail('That item was not found on your portal.');
+  const stg = cbStage(t), md = cbTaskModule(t);
+  if(stg==='planned') return fail('This item is not ready for your review yet.'); if(txt.length>2000) return fail('Please keep the message under 2,000 characters.');
+  if(a.action==='comment' && !txt) return fail('Write a comment first.'); if(['revise','reject'].includes(a.action) && txt.length<3) return fail('Please tell us what you would like changed.');
+  if(['approve','revise','reject'].includes(a.action) && stg!=='review') return fail(stg==='approved' ? 'This item is already approved.' : stg==='revision' ? 'You already asked for changes — we will send it back for your review.' : 'This item is not waiting for your decision.');
+  if(hourly>=60) return fail('Too many actions in a short time — please try again in a little while.');
+  const prev = t.status, kind = {approve:'approval', comment:'comment', revise:'revision', reject:'rejection'}[a.action], act = {approve:'Client approved', comment:'Client comment', revise:'Client requested changes', reject:'Client rejected'}[a.action];
+  const when = new Date().toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit',timeZone:'Asia/Manila'});
+  const t2 = {...t, status:a.action==='approve'?'Approved':a.action==='comment'?prev:'Revisions Needed', hubStatus:a.action==='approve'?'Approved':a.action==='comment'?(t.hubStatus||''):'For Revision', updatedAt:at, updatedBy:'client',
+    history:[...(t.history||[]), {by:`Client (${who})`, who:null, act, from:prev, note:txt, when, at, cv:true, client:true}]};
+  if(a.action!=='comment') t2.clientDecision = {kind, at, name:who, note:txt, role};
+  const mid = 'CM-'+Math.random().toString(36).slice(2,14), hid = t.client + (t.hubBrand ? '~'+t.hubBrand : '');
+  const ups = [{collection:'tasks', id:t.id, data:t2}, {collection:'cbmsg', id:mid, data:{id:mid, link:l.id, task:t.id, client:l.client, brand:l.brand||null, by:'client', name:who, kind, text:txt, at, module:md}},
+    {collection:'hubdocs', id:'feedback|CB-'+mid, data:{id:'feedback|CB-'+mid, col:'feedback', did:'CB-'+mid, d:{contentId:t.id, client:hid, author:'Client', note:txt||'Approved', kind:a.action==='approve'?'approval':a.action==='comment'?'note':'changes', status:a.action==='approve'?'Addressed':'Pending', createdAt:at, viaClient:true, clientName:who}, at, by:'client', acct:t.client, deleted:false}},
+    {collection:'cblinks', id:l.id, data:{...l, lastUsedAt:at}}, cbDemoLog(l, who, {approve:'approved', comment:'commented', revise:'requested changes', reject:'rejected'}[a.action], t.title)];
+  const tt = esc2(t.title||'an item');
+  const text = {approve:`✅ <b>${cn}</b> (${who}) approved <b>${tt}</b>${txt?` — “${esc2(txt.slice(0,140))}”`:''}`, comment:`💬 <b>${cn}</b> (${who}) commented on <b>${tt}</b>: “${esc2(txt.slice(0,140))}”`, revise:`✏️ <b>${cn}</b> (${who}) requested changes on <b>${tt}</b>: “${esc2(txt.slice(0,140))}”`, reject:`⛔ <b>${cn}</b> (${who}) rejected <b>${tt}</b>: “${esc2(txt.slice(0,140))}”`}[a.action];
+  uniq([...cbDemoNotifyKeys(db, c, md), t.assignee, t.createdBy].filter(Boolean)).forEach(k=>{ const nid = 'N-'+Math.random().toString(36).slice(2,12); ups.push({collection:'notifs', id:nid, data:{id:nid, to:k, type:a.action==='approve'?'approval':a.action==='comment'?'assignment':'revision', text, link:{view:'cphub', task:t.id}, by:'client-board', at, read:false}}); });
+  await DemoBackend.write(ups, []); return {ok:true, post:cbPostOut(t2, c, [...thread, ups[1].data])};
+}
+
+/* ===== t5b_clientportal.js — what a client's representative sees (no sign-in; only their own services) ===== */
+const CB = {link:null, secret:null, data:null, sig:'', view:'overview', tab:{}, cal:null, open:null, name:'', timer:null, sb:null, files:{}, q:'', st:'all', rep:null, busy:false};
 function cbEarly(){ const m = /^#cb=([A-Za-z0-9_-]+)\.([A-Za-z0-9_-]+)$/.exec(location.hash||''); if(!m) return false; setTimeout(()=>cbBoot(m[1], m[2]), 0); return true; }   /* before the normal sign-in starts */
 function cbBoot(link, secret){
   CB.link = link; CB.secret = secret; try{ CB.name = localStorage.getItem('cc-cb-name')||''; }catch(e){}
-  document.body.classList.add('cb-mode'); document.title = 'Content Planning Board'; const mr = document.createElement('meta'); mr.name = 'robots'; mr.content = 'noindex,nofollow'; document.head.appendChild(mr);
-  const app = document.createElement('div'); app.id = 'cbApp'; document.body.appendChild(app); app.innerHTML = '<div class="cb-load">Opening your content board…</div>';
+  document.body.classList.add('cb-mode'); document.title = 'Client Portal · Cross Core'; const mr = document.createElement('meta'); mr.name = 'robots'; mr.content = 'noindex,nofollow'; document.head.appendChild(mr);
+  const app = document.createElement('div'); app.id = 'cbApp'; document.body.appendChild(app); app.innerHTML = '<div class="cb-load">Opening your portal…</div>';
   cbRefresh(true); CB.timer = setInterval(()=>{ if(!document.hidden && !CB.busy) cbRefresh(); }, 12000);
   document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) cbRefresh(); });
   try{ const bc = new BroadcastChannel('cc-v8'); bc.onmessage = ()=>cbRefresh(); }catch(e){}
 }
 async function cbApi(action, a={}){
   if(LIVE){ try{ if(!CB.sb){ await loadScript('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js'); CB.sb = window.supabase.createClient(CC_CONFIG.SUPABASE_URL, CC_CONFIG.SUPABASE_ANON_KEY, {auth:{persistSession:false, autoRefreshToken:false}}); }
-      const r = action==='load' ? await CB.sb.rpc('cc_cb_load', {p_link:CB.link, p_secret:CB.secret}) : await CB.sb.rpc('cc_cb_act', {p_link:CB.link, p_secret:CB.secret, p_task:a.task, p_action:a.action, p_text:a.text||'', p_name:a.name||''});
+      const r = action==='load' ? await CB.sb.rpc('cc_cb_load', {p_link:CB.link, p_secret:CB.secret})
+        : action==='note' ? await CB.sb.rpc('cc_cb_note', {p_link:CB.link, p_secret:CB.secret, p_kind:a.kind, p_ref:a.ref, p_text:a.text||'', p_name:a.name||''})
+        : await CB.sb.rpc('cc_cb_act', {p_link:CB.link, p_secret:CB.secret, p_task:a.task, p_action:a.action, p_text:a.text||'', p_name:a.name||''});
       if(r.error) return {ok:false, error:'We could not reach Cross Core. Please check your connection and try again.', net:true}; return r.data; }catch(e){ return {ok:false, error:'We could not reach Cross Core. Please check your connection and try again.', net:true}; } }
   return cbDemo(action, a);
 }
 async function cbRefresh(first){
   const r = await cbApi('load'); const app = el('cbApp'); if(!app) return;
-  if(!r.ok){ if(first || !r.net){ clearInterval(CB.timer); app.innerHTML = `<div class="cb-bad"><img src="${LOGO_B64}" alt="" style="height:54px;border-radius:10px"><h2>We couldn’t open this board</h2><p>${esc(r.error||CB_INVALID)}</p></div>`; } return; }
-  const sig = JSON.stringify(r.posts); if(!first && sig===CB.sig) return; CB.sig = sig; CB.data = r; cbRender();
+  if(!r.ok){ if(first || !r.net){ clearInterval(CB.timer); app.innerHTML = `<div class="cb-bad"><img src="${LOGO_B64}" alt="" style="height:54px;border-radius:10px"><h2>We couldn’t open this portal</h2><p>${esc(r.error||CB_INVALID)}</p></div>`; } return; }
+  const sig = JSON.stringify([r.posts, r.leadgen, r.social, r.reports, r.feedback, r.modules, r.me]); if(!first && sig===CB.sig) return; CB.sig = sig; CB.data = r;
+  if(CB.view!=='overview' && CB.view!=='reports' && !(r.modules||[]).some(m=>m.id===CB.view)) CB.view = 'overview'; cbRender();
 }
 const cbPosts = () => CB.data?.posts || [];
+const cbRole = () => CB.data?.me?.role || 'approver';
+const cbMods = () => CB.data?.modules || [];
 const cbSafe = u => /^https?:\/\//i.test(String(u||'').trim()) ? String(u).trim() : '';
 const cbFmt = d => { try{ return new Date(d+'T00:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'}); }catch(e){ return d; } };
-const cbAgo = iso => { const s = (Date.now()-new Date(iso))/1000; return s<90?'just now':s<3600?Math.round(s/60)+' min ago':s<86400?Math.round(s/3600)+' h ago':Math.round(s/86400)+' d ago'; };
+const cbFmtL = d => { try{ return new Date(String(d).slice(0,10)+'T00:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}); }catch(e){ return d; } };
+const cbAgo = iso => { const s = (Date.now()-new Date(iso))/1000; return isNaN(s)?'':s<90?'just now':s<3600?Math.round(s/60)+' min ago':s<86400?Math.round(s/3600)+' h ago':Math.round(s/86400)+' d ago'; };
 const cbTag = p => { const [l,c] = CB_STAGE[p.stage]||CB_STAGE.planned; return `<span class="badge ${c}">${l}</span>`; };
-function cbThumb(p){ const u = cbSafe(p.photoLink)||cbSafe(p.outputLink); const f = (p.files||[]).find(x=>/^image\//.test(x.type||'') && (x.data||x.url)); const src = f ? (f.data||f.url) : (/\.(png|jpe?g|gif|webp|avif)(\?|$)/i.test(u) ? u : ''); return src ? `<img src="${esc(src)}" alt="" loading="lazy" onerror="this.parentNode.innerHTML='<div class=&quot;cb-ph&quot;>🖼</div>'">` : `<div class="cb-ph">${/reel|video/i.test(p.type||'')?'🎬':/design|still|image|carousel/i.test(p.type||'')?'🖼':'✍️'}</div>`; }
+const cbModLabel = id => cbMods().find(m=>m.id===id)?.name || id;
+const cbModIco = id => CB_MODS[id]?.ico || '📦';
+function cbThumb(p){ const u = cbSafe(p.photoLink)||cbSafe(p.outputLink); const f = (p.files||[]).find(x=>/^image\//.test(x.type||'') && (x.data||x.url)); const src = f ? (f.data||f.url) : (/\.(png|jpe?g|gif|webp|avif)(\?|$)/i.test(u) ? u : ''); return src ? `<img src="${esc(src)}" alt="" loading="lazy" onerror="this.parentNode.innerHTML='<div class=&quot;cb-ph&quot;>🖼</div>'">` : `<div class="cb-ph">${p.module==='video'||/reel|video/i.test(p.type||'')?'🎬':p.module==='design'||/design|still|image|carousel/i.test(p.type||'')?'🖼':'✍️'}</div>`; }
+
+/* ---------- shell ---------- */
 function cbRender(){
-  const app = el('cbApp'); const P = cbPosts(), d = CB.data, today = new Date().toISOString().slice(0,10); const by = s => P.filter(p=>p.stage===s);
-  const tabs = [['review','Needs your review',by('review').length],['calendar','Calendar',null],['upcoming','Scheduled',by('scheduled').length+by('approved').length],['revision','Changes requested',by('revision').length],['published','Published',by('published').length],['all','All posts',P.length]];
-  const list = {review:by('review'), revision:by('revision'), upcoming:[...by('approved'),...by('scheduled')].sort((a,b)=>a.date.localeCompare(b.date)), published:by('published').sort((a,b)=>b.date.localeCompare(a.date)), all:P}[CB.view];
-  const days = Math.ceil((new Date(d.link.expiresAt)-Date.now())/864e5);
-  app.innerHTML = `<header class="cb-head"><div class="cb-brand"><img src="${LOGO_B64}" alt="Cross Core"><div><b>${esc(d.client.name)}</b><span>Content Planning Board · prepared by Cross Core</span></div></div>
-      <div class="cb-note">🔒 Private link${days<=7?` · expires in ${Math.max(0,days)} day${days===1?'':'s'}`:''}</div></header>
-    <main class="cb-main"><section class="cb-sum">${[['review','Needs your review','var(--warn)'],['revision','Changes requested','var(--bad)'],['approved','Approved','var(--ok)'],['scheduled','Scheduled',''],['published','Published','']].map(([s,l,c])=>`<button class="cb-k" onclick="CB.view='${s==='approved'||s==='scheduled'?'upcoming':s}';cbRender()"><span>${l}</span><b ${c?`style="color:${c}"`:''}>${by(s).length}</b></button>`).join('')}</section>
-      <nav class="cb-tabs" role="tablist">${tabs.map(([k,l,n])=>`<button role="tab" aria-selected="${CB.view===k}" class="${CB.view===k?'on':''}" onclick="CB.view='${k}';cbRender()">${l}${n!=null?` <i>${n}</i>`:''}</button>`).join('')}</nav>
-      ${CB.view==='calendar' ? cbCalendarHTML(P, today) : (list.length ? `<div class="cb-grid">${list.map(p=>cbCard(p)).join('')}</div>` : `<div class="cb-empty">${CB.view==='review'?'🎉 Nothing is waiting for you right now. We’ll let you know when new content is ready.':'Nothing here yet.'}</div>`)}
-    </main><footer class="cb-foot">This board is private to ${esc(d.client.account||d.client.name)}. Please don’t forward the link.</footer><div id="cbModal"></div>`;
-  if(CB.open) cbOpenPost(CB.open, true);
+  CB.keep = el('cbText')?.value || '';   /* a refresh must never wipe what someone is typing, or close the dialog they have open */
+  const app = el('cbApp'), d = CB.data, mods = cbMods(), P = cbPosts(), need = P.filter(p=>p.stage==='review').length, days = Math.ceil((new Date(d.link.expiresAt)-Date.now())/864e5);
+  const nav = [['overview','Overview','🏠',need||null], ...mods.map(m=>[m.id, m.name, cbModIco(m.id), m.id==='leadgen'||m.id==='social' ? null : P.filter(p=>p.module===m.id&&p.stage==='review').length||null]), ...(d.reports && (mods.some(m=>m.id==='leadgen'||m.id==='social')) ? [['reports','Reports','📊',null]] : [])];
+  const body = CB.view==='overview' ? cbOverview() : CB.view==='reports' ? cbReports() : CB.view==='leadgen' ? cbLeadgen() : CB.view==='social' ? cbSocial() : cbDeliverables(CB.view);
+  app.innerHTML = `<div class="cb-shell"><aside class="cb-side"><div class="cb-logo"><img src="${LOGO_B64}" alt="Cross Core"><div><b>Cross Core</b><span>Client Portal</span></div></div>
+      <div class="cb-cli"><i style="background:${esc(d.client.color||'#E39312')}">${esc((d.client.name||'?')[0])}</i><div><b>${esc(d.client.name)}</b><span>${mods.length} service${mods.length===1?'':'s'}</span></div></div>
+      <nav class="cb-nav">${nav.map(([id,l,ic,n])=>`<button class="${CB.view===id?'on':''}" onclick="CB.view='${id}';CB.q='';CB.st='all';cbClose();cbRender();scrollTo(0,0)"><span>${ic}</span>${esc(l)}${n?`<i>${n}</i>`:''}</button>`).join('')}</nav>
+      <div class="cb-me"><b>${esc(d.me.name||'Guest')}</b><span class="cb-role r-${cbRole()}">${esc((CB_ROLES[cbRole()]||CB_ROLES.approver)[0])}</span><small>🔒 Private link${days<=7?` · expires in ${Math.max(0,days)} day${days===1?'':'s'}`:''}</small></div></aside>
+    <div class="cb-main"><header class="cb-top"><h1>${esc(CB.view==='overview'?'Overview':CB.view==='reports'?'Reports':cbModLabel(CB.view))}</h1><div>${need?`<button class="cb-pill" onclick="CB.view='overview';cbRender()">${need} awaiting your review</button>`:'<span class="cb-pill ok">All caught up</span>'}</div></header>
+      ${cbRole()==='viewer'?'<div class="cb-note">👁 You have view-only access. If you’d like to comment or approve, ask your Cross Core contact to update your role.</div>':cbRole()==='reviewer'?'<div class="cb-note">💬 You can comment and request changes. Approvals and rejections are made by an approver on your team.</div>':''}
+      <div class="cb-body">${body}</div><footer class="cb-foot">This portal is private to ${esc(d.client.account||d.client.name)}. Please don’t forward your link.</footer></div></div><div id="cbModal"></div>`;
+  if(CB.open) cbOpenPost(CB.open, true); else if(CB.rep) cbOpenReport(CB.rep, true); else if(CB.note) cbNoteOpen(CB.note.kind, CB.note.ref, CB.note.title, true);
 }
-function cbCard(p){ return `<article class="cb-card" tabindex="0" onclick="cbOpenPost('${p.id}')" onkeydown="if(event.key==='Enter')cbOpenPost('${p.id}')"><div class="cb-thumb">${cbThumb(p)}</div><div class="cb-cbody"><div class="cb-top">${cbTag(p)}${p.rounds?`<span class="cb-round">Revision ${p.rounds}</span>`:''}</div><h3>${esc(p.title)}</h3><div class="cb-meta">${esc(cbFmt(p.date))}${p.platforms?' · '+esc(p.platforms):''}${p.brand?' · '+esc(p.brand):''}</div>${p.caption?`<p>${esc(p.caption.slice(0,130))}${p.caption.length>130?'…':''}</p>`:'<p class="cb-dim">Planned — details will appear when it’s ready for review.</p>'}</div></article>`; }
+function cbKpis(P){ const by = s => P.filter(p=>p.stage===s).length; return `<section class="cb-sum">${[['review','Needs your review','var(--warn)',by('review')],['revision','Changes requested','var(--bad)',by('revision')],['approved','Approved','var(--ok)',by('approved')],['scheduled','Scheduled','',by('scheduled')],['published','Published','',by('published')]].map(([s,l,c,n])=>`<div class="cb-k"><span>${l}</span><b ${c?`style="color:${c}"`:''}>${n}</b></div>`).join('')}</section>`; }
+function cbCard(p, showMod){ return `<article class="cb-card" tabindex="0" onclick="cbOpenPost('${p.id}')" onkeydown="if(event.key==='Enter')cbOpenPost('${p.id}')"><div class="cb-thumb">${cbThumb(p)}</div><div class="cb-cbody"><div class="cb-top2">${cbTag(p)}${p.rounds?`<span class="cb-round">Revision ${p.rounds}</span>`:''}${showMod?`<span class="cb-mod">${cbModIco(p.module)} ${esc(cbModLabel(p.module))}</span>`:''}</div><h3>${esc(p.title)}</h3><div class="cb-meta">${esc(cbFmt(p.date))}${p.platforms?' · '+esc(p.platforms):''}${p.brand?' · '+esc(p.brand):''}</div>${p.caption?`<p>${esc(p.caption.slice(0,130))}${p.caption.length>130?'…':''}</p>`:'<p class="cb-dim">Planned — details will appear when it’s ready for review.</p>'}</div></article>`; }
+/* ---------- overview: everything across the services in one place ---------- */
+function cbOverview(){
+  const d = CB.data, P = cbPosts(), today = new Date().toISOString().slice(0,10), need = P.filter(p=>p.stage==='review'), soon = P.filter(p=>['approved','scheduled'].includes(p.stage) && p.date>=today).sort((a,b)=>a.date.localeCompare(b.date)).slice(0,6);
+  const act = P.flatMap(p=>(p.history||[]).filter(h=>h.you).map(h=>({at:h.at, t:`You ${String(h.act||'').replace(/^Client /,'').toLowerCase()} “${p.title}”`})).concat((p.thread||[]).filter(m=>!m.you).map(m=>({at:m.at, t:`Cross Core replied on “${p.title}”: ${m.text}`})))).sort((a,b)=>String(b.at).localeCompare(String(a.at))).slice(0,6);
+  const lg = d.leadgen, rep = (d.reports||[])[0], nm = d.me.name ? d.me.name.split(' ')[0] : '';
+  return `<div class="cb-hello"><h2>Hello${nm?', '+esc(nm):''} 👋</h2><p>Here’s where things stand across ${cbMods().map(m=>esc(m.name)).join(', ')||'your services'}.</p></div>${P.length?cbKpis(P):''}
+    ${need.length?`<div class="cb-sec2"><h3>Waiting for you</h3><div class="cb-grid">${need.slice(0,8).map(p=>cbCard(p,true)).join('')}</div></div>`:`<div class="cb-empty">🎉 Nothing is waiting for your review right now. We’ll notify the team of any feedback you leave.</div>`}
+    <div class="cb-two">${soon.length?`<div class="cb-panel"><h3>Coming up</h3>${soon.map(p=>`<button class="cb-row" onclick="cbOpenPost('${p.id}')"><span>${cbModIco(p.module)}</span><div><b>${esc(p.title)}</b><small>${esc(cbFmt(p.date))} · ${esc(cbModLabel(p.module))}</small></div>${cbTag(p)}</button>`).join('')}</div>`:''}
+      ${lg?`<div class="cb-panel"><h3>Lead generation snapshot</h3><div class="cb-snap"><div><b>${lg.prospects.length}</b><small>prospects</small></div><div><b>${(lg.funnel[0]||{}).n||0}</b><small>${esc((lg.funnel[0]||{}).stage||'top stage')}</small></div><div><b>${lg.activities.reduce((s,a)=>s+a.n,0)}</b><small>activities</small></div></div><button class="cb-link" onclick="CB.view='leadgen';cbRender()">Open Lead Generation →</button></div>`:''}
+      ${rep?`<div class="cb-panel"><h3>Latest report</h3><div class="cb-rowl"><b>${esc(rep.label)}</b><small>${esc(rep.kind||'')} · shared ${esc(cbFmtL(rep.sharedAt||rep.to))}</small></div><button class="cb-link" onclick="CB.view='reports';CB.rep='${esc(rep.id)}';cbRender()">Open report →</button></div>`:''}
+      ${act.length?`<div class="cb-panel"><h3>Recent activity</h3>${act.map(a=>`<div class="cb-act2"><span>${esc(a.t)}</span><small>${esc(cbAgo(a.at))}</small></div>`).join('')}</div>`:''}</div>`;
+}
+/* ---------- a deliverable service (Content Planning · Graphic Design · Video Editing · future services) ---------- */
+function cbDeliverables(mod){
+  const P = cbPosts().filter(p=>p.module===mod), by = s => P.filter(p=>p.stage===s), today = new Date().toISOString().slice(0,10);
+  const tabs = [['review','Needs your review',by('review').length],['calendar','Calendar',null],['upcoming','Scheduled',by('scheduled').length+by('approved').length],['revision','Changes requested',by('revision').length],['published','Published',by('published').length],['all','All',P.length]];
+  const cur = CB.tab[mod] || (by('review').length ? 'review' : 'all');
+  const list = {review:by('review'), revision:by('revision'), upcoming:[...by('approved'),...by('scheduled')].sort((a,b)=>a.date.localeCompare(b.date)), published:by('published').sort((a,b)=>b.date.localeCompare(a.date)), all:P}[cur];
+  return `${cbKpis(P)}<nav class="cb-tabs" role="tablist">${tabs.map(([k,l,n])=>`<button role="tab" aria-selected="${cur===k}" class="${cur===k?'on':''}" onclick="CB.tab['${mod}']='${k}';cbRender()">${l}${n!=null?` <i>${n}</i>`:''}</button>`).join('')}</nav>
+    ${cur==='calendar' ? cbCalendarHTML(P, today) : (list.length ? `<div class="cb-grid">${list.map(p=>cbCard(p)).join('')}</div>` : `<div class="cb-empty">${cur==='review'?'🎉 Nothing is waiting for you right now.':'Nothing here yet.'}</div>`)}`;
+}
 function cbCalendarHTML(P, today){
   const base = CB.cal || today.slice(0,7), [Y,M] = base.split('-').map(Number), first = new Date(Y, M-1, 1), last = new Date(Y, M, 0).getDate(), lead = first.getDay();
   const cells = []; for(let i=0;i<lead;i++) cells.push(''); for(let d=1; d<=last; d++){ const iso = `${Y}-${String(M).padStart(2,'0')}-${String(d).padStart(2,'0')}`; cells.push({d, iso, posts:P.filter(p=>p.date===iso)}); }
@@ -34324,7 +34528,55 @@ function cbCalendarHTML(P, today){
     <div class="cb-dow">${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(x=>`<span>${x}</span>`).join('')}</div><div class="cb-days">${cells.map(c=>c==='' ? '<div class="cb-day off"></div>' : `<div class="cb-day ${c.iso===today?'today':''}"><i>${c.d}</i>${c.posts.map(p=>`<button class="cb-chip s-${p.stage}" onclick="cbOpenPost('${p.id}')" title="${esc(p.title)}">${esc(p.title)}</button>`).join('')}</div>`).join('')}</div>
     <div class="cb-legend">${Object.entries(CB_STAGE).map(([k,[l]])=>`<span><i class="cb-chip s-${k}"></i>${l}</span>`).join('')}</div></div>`;
 }
-/* ---- one post: preview, caption, history, conversation, and the client's decision ---- */
+/* ---------- lead generation ---------- */
+const cbFbFor = item => (CB.data.feedback||[]).filter(f=>f.item===item);
+function cbLeadgen(){
+  const lg = CB.data.leadgen; if(!lg) return '<div class="cb-empty">Lead generation isn’t part of this portal.</div>'; const max = Math.max(1, ...lg.funnel.map(f=>f.n)), stages = [...new Set(lg.prospects.map(p=>p.stage))];
+  const rows = lg.prospects.filter(p=>(CB.st==='all'||p.stage===CB.st) && (!CB.q || (p.name+' '+p.company+' '+p.title).toLowerCase().includes(CB.q.toLowerCase())));
+  const can = cbRole()!=='viewer';
+  return `<section class="cb-sum">${[['Prospects',lg.prospects.length],[(lg.funnel[0]||{}).stage||'Top stage',(lg.funnel[0]||{}).n||0],['Activities completed',lg.activities.reduce((s,a)=>s+a.n,0)],['Target profiles',lg.targets.length]].map(([l,n])=>`<div class="cb-k"><span>${esc(l)}</span><b>${n}</b></div>`).join('')}</section>
+    <div class="cb-two"><div class="cb-panel"><h3>Campaign progress</h3>${lg.funnel.length?lg.funnel.map(f=>`<div class="cb-bar"><span>${esc(f.stage)}</span><div><i style="width:${Math.max(4, Math.round(f.n/max*100))}%"></i></div><b>${f.n}</b></div>`).join(''):'<div class="cb-dim">No prospects yet.</div>'}</div>
+      <div class="cb-panel"><h3>Completed activities</h3>${lg.activities.length?`<div class="cb-chips">${lg.activities.map(a=>`<span class="cb-ch"><b>${a.n}</b> ${esc(a.kind||'Activity')}</span>`).join('')}</div>`:'<div class="cb-dim">Activity will appear as outreach is completed.</div>'}${can?`<button class="cb-link" onclick="cbNoteOpen('module','leadgen','Lead Generation')">💬 Share feedback on lead generation</button>`:''}</div></div>
+    ${lg.targets.length?`<div class="cb-sec2"><h3>Who we’re targeting</h3><div class="cb-grid sm">${lg.targets.map(t=>`<div class="cb-tgt"><b>${esc(t.industry||t.company)}</b>${t.priority?`<span class="cb-round">${esc(t.priority)}</span>`:''}<small>${esc([t.size&&'Size '+t.size, t.market].filter(Boolean).join(' · '))}</small>${t.titles?`<p><u>Titles</u> ${esc(t.titles)}</p>`:''}${t.pains?`<p><u>Pain points</u> ${esc(t.pains)}</p>`:''}${t.goals?`<p><u>Goals</u> ${esc(t.goals)}</p>`:''}</div>`).join('')}</div></div>`:''}
+    <div class="cb-sec2"><div class="cb-toolbar"><h3>Prospects <small>${rows.length}</small></h3><div><input placeholder="Search prospects…" value="${esc(CB.q)}" oninput="CB.q=this.value;cbRender();const i=document.querySelector('.cb-toolbar input');i&&(i.focus(),i.setSelectionRange(99,99))"><select onchange="CB.st=this.value;cbRender()"><option value="all">All stages</option>${stages.map(s=>`<option ${CB.st===s?'selected':''}>${esc(s)}</option>`).join('')}</select></div></div>
+      <div class="cb-tbl"><table><thead><tr><th>Prospect</th><th>Company</th><th>Stage</th><th>Fit</th><th>Last activity</th><th></th></tr></thead><tbody>${rows.map(p=>{ const n = cbFbFor('lead:'+p.id).length; return `<tr><td><b>${esc(p.name)}</b><small>${esc(p.title||'')}</small></td><td>${esc(p.company||'—')}<small>${esc(p.location||'')}</small></td><td><span class="cb-st">${esc(p.stage)}</span></td><td>${esc(p.fit||'—')}</td><td>${esc(p.last||'—')}</td><td>${can?`<button class="cb-mini" onclick="cbNoteOpen('lead','${esc(p.id)}','${esc(p.name).replace(/'/g,'&#39;')}')">💬${n?' '+n:''}</button>`:n?`<span class="cb-dim">💬 ${n}</span>`:''}</td></tr>`; }).join('')||'<tr><td colspan="6" class="cb-dim" style="padding:18px">No prospects match.</td></tr>'}</tbody></table></div></div>`;
+}
+/* ---------- social media ---------- */
+function cbSocial(){
+  const sc = CB.data.social; if(!sc) return '<div class="cb-empty">Social media isn’t part of this portal.</div>'; const today = new Date().toISOString().slice(0,10), can = cbRole()!=='viewer';
+  const groups = sc.schedule.reduce((o,s)=>((o[s.date]=o[s.date]||[]).push(s), o), {}), dates = Object.keys(groups).sort(); const up = dates.filter(x=>x>=today), past = dates.filter(x=>x<today).reverse();
+  const col = ds => ds.map(dt=>`<div class="cb-day2"><h4>${esc(cbFmt(dt))}</h4>${groups[dt].map(s=>`<div class="cb-slot"><span class="cb-plat">${esc(s.platform)}</span><div><b>${esc(s.title)}</b><small>${esc(s.time||'')} · ${esc(s.status)}</small></div>${can?`<button class="cb-mini" onclick="cbNoteOpen('post','${esc(s.id)}','${esc(s.title).replace(/'/g,'&#39;')}')">💬${cbFbFor('post:'+s.id).length?' '+cbFbFor('post:'+s.id).length:''}</button>`:''}</div>`).join('')}</div>`).join('') || '<div class="cb-dim">Nothing here.</div>';
+  return `<section class="cb-sum">${[['Scheduled',sc.schedule.filter(s=>s.status==='Scheduled'||s.status==='Queued').length],['Published',sc.schedule.filter(s=>/posted|published/i.test(s.status)).length],['Platforms',new Set(sc.schedule.map(s=>s.platform)).size]].map(([l,n])=>`<div class="cb-k"><span>${l}</span><b>${n}</b></div>`).join('')}</section>
+    <div class="cb-two"><div class="cb-panel"><h3>Coming up</h3>${col(up)}</div><div class="cb-panel"><h3>Recently published</h3>${col(past.slice(0,10))}</div></div>
+    ${can?`<button class="cb-link" onclick="cbNoteOpen('module','social','Social Media')">💬 Share feedback on social media</button>`:''}${CB.data.reports?.length?`<button class="cb-link" onclick="CB.view='reports';cbRender()">📊 See performance reports →</button>`:''}`;
+}
+/* ---------- performance reports (the team's released, client-safe copies) ---------- */
+function cbReports(){
+  const R = CB.data.reports||[];
+  return R.length ? `<div class="cb-panel"><h3>Performance reports</h3><div class="cb-rl">${R.map(r=>`<button class="cb-row" onclick="cbOpenReport('${esc(r.id)}')"><span>📊</span><div><b>${esc(r.label)}</b><small>${esc(r.kind||'')} · ${esc(cbFmtL(r.from||''))} – ${esc(cbFmtL(r.to||''))} · shared ${esc(cbFmtL(r.sharedAt||r.to))}${(r.rev||1)>1?' · revision '+r.rev:''}</small></div><span class="badge b-approved">${esc(r.status||'')}</span></button>`).join('')}</div></div>` : '<div class="cb-empty">No reports have been shared yet. Your project manager shares each report once it has been reviewed and approved.</div>';
+}
+function cbOpenReport(id, keep){
+  const r = (CB.data.reports||[]).find(x=>x.id===id); if(!r) return; CB.rep = id; CB.open = null; CB.note = null; const can = cbRole()!=='viewer'; let html = '';
+  try{ html = typeof rpReportHTML==='function' ? rpReportHTML(r.snap, 'client') : ''; }catch(e){ html = ''; }
+  if(!html){ const t = r.snap?.totals || {}; html = `<div class="cb-snap">${Object.entries(t).slice(0,8).map(([k,v])=>`<div><b>${esc(typeof v==='number'?v:String(v))}</b><small>${esc(k)}</small></div>`).join('')||'<div class="cb-dim">This report has no summary figures.</div>'}</div>`; }
+  el('cbModal').innerHTML = `<div class="cb-back" onclick="if(event.target===this)cbClose()"><div class="cb-dlg wide" role="dialog" aria-modal="true" aria-label="${esc(r.label)}"><button class="cb-x" onclick="cbClose()" aria-label="Close">✕</button><h2>${esc(r.label)}</h2><div class="cb-meta">${esc(r.kind||'')} report · ${esc(cbFmtL(r.from||''))} – ${esc(cbFmtL(r.to||''))}</div><div class="cb-rep">${html}</div>
+    ${can?`<div class="cb-act"><div class="cb-sec"><label>Feedback on this report</label>${cbFbFor('report:'+id).map(f=>`<div class="cb-msg you"><b>${esc(f.name)}</b><span>${esc(cbAgo(f.at))}</span><p>${esc(f.text)}</p></div>`).join('')}</div><textarea id="cbText" rows="2" placeholder="Leave feedback for the team…">${esc(keep?CB.keep:'')}</textarea><div id="cbErr" class="cb-err" role="alert"></div><div class="cb-btns"><button class="cb-b" onclick="cbNoteSend('report','${esc(id)}')">💬 Send feedback</button></div></div>`:''}</div></div>`;
+  try{ if(typeof rpDraw==='function') rpDraw(r.snap, 'client'); }catch(e){}
+}
+/* ---------- feedback on a prospect / report / publishing slot / whole service ---------- */
+function cbNoteOpen(kind, ref, title, keep){
+  CB.note = {kind, ref, title}; CB.open = null; CB.rep = null; const item = kind+':'+ref;
+  el('cbModal').innerHTML = `<div class="cb-back" onclick="if(event.target===this)cbClose()"><div class="cb-dlg" role="dialog" aria-modal="true" aria-label="Feedback"><button class="cb-x" onclick="cbClose()" aria-label="Close">✕</button><h2>Feedback — ${esc(title)}</h2>
+    <div class="cb-thread">${cbFbFor(item).map(f=>`<div class="cb-msg you"><b>${esc(f.name)}</b><span>${esc(cbAgo(f.at))}</span><p>${esc(f.text)}</p></div>`).join('')||'<div class="cb-dim">No feedback yet.</div>'}</div>
+    <div class="cb-act">${CB.data.me.name?'':`<div class="cb-nm"><input id="cbName" value="${esc(CB.name)}" placeholder="Your name" maxlength="60"></div>`}<textarea id="cbText" rows="3" placeholder="What would you like the team to know?">${esc(keep?CB.keep:'')}</textarea><div id="cbErr" class="cb-err" role="alert"></div><div class="cb-btns"><button class="cb-b" onclick="cbNoteSend('${kind}','${esc(ref)}')">💬 Send feedback</button></div></div></div></div>`;
+}
+async function cbNoteSend(kind, ref){
+  const text = (el('cbText')?.value||'').trim(), name = (el('cbName')?.value||CB.name||'').trim(), err = el('cbErr'); err.textContent = ''; if(!text) return err.textContent = 'Write a comment first.';
+  CB.busy = true; document.querySelectorAll('.cb-b').forEach(b=>b.disabled = true); const r = await cbApi('note', {kind, ref, text, name}); CB.busy = false; document.querySelectorAll('.cb-b').forEach(b=>b.disabled = false);
+  if(!r.ok){ err.textContent = r.error||'Something went wrong — please try again.'; return; } (CB.data.feedback = CB.data.feedback||[]).push(r.entry); CB.sig = ''; cbToast('Thank you — your feedback was sent to the team.');
+  if(kind==='report') cbOpenReport(ref); else cbNoteOpen(kind, ref, CB.note.title);
+}
+/* ---------- one deliverable: preview, caption, progress, conversation, and the representative's decision ---------- */
 function cbEmbed(u){ u = cbSafe(u); if(!u) return ''; let m;
   if(/\.(png|jpe?g|gif|webp|avif)(\?|$)/i.test(u)) return `<img class="cb-img" src="${esc(u)}" alt="Creative preview" data-fb="${esc(`<a class='cb-open' href='${esc(u)}' target='_blank' rel='noopener noreferrer'>↗ Open the design <span>${esc(new URL(u).hostname.replace(/^www\./,''))}</span></a>`)}" onerror="this.outerHTML=this.dataset.fb">`;
   if(/\.(mp4|webm|mov)(\?|$)/i.test(u)) return `<video class="cb-vid" src="${esc(u)}" controls playsinline></video>`;
@@ -34340,102 +34592,78 @@ async function cbFillFiles(p){ const box = el('cbFiles'); if(!box) return; for(c
     if(el('cbFiles')===box) box.appendChild(cell); } }
 function cbOpenPost(id, keep){
   const p = cbPosts().find(x=>x.id===id); if(!p){ CB.open = null; el('cbModal').innerHTML = ''; return; }
-  const keepTxt = keep ? el('cbText')?.value : ''; CB.open = id; const canDecide = p.stage==='review';
+  const keepTxt = keep ? CB.keep : ''; CB.open = id; CB.rep = null; CB.note = null; const role = cbRole(), canDecide = p.stage==='review' && role==='approver', canAsk = p.stage==='review' && role!=='viewer', canComment = role!=='viewer' && p.stage!=='planned';
   el('cbModal').innerHTML = `<div class="cb-back" onclick="if(event.target===this)cbClose()"><div class="cb-dlg" role="dialog" aria-modal="true" aria-label="${esc(p.title)}"><button class="cb-x" onclick="cbClose()" aria-label="Close">✕</button>
-    <div class="cb-top">${cbTag(p)}${p.rounds?`<span class="cb-round">Revision round ${p.rounds}</span>`:''}</div><h2>${esc(p.title)}</h2><div class="cb-meta">${esc(cbFmt(p.date))}${p.type?' · '+esc(p.type):''}${p.platforms?' · '+esc(p.platforms):''}${p.brand?' · '+esc(p.brand):''}</div>
-    ${p.stage==='planned' ? `<div class="cb-empty" style="margin:14px 0">This post is planned for ${esc(cbFmt(p.date))}. You’ll be asked to review it once the caption and creative are ready.</div>` : `
+    <div class="cb-top2">${cbTag(p)}${p.rounds?`<span class="cb-round">Revision round ${p.rounds}</span>`:''}<span class="cb-mod">${cbModIco(p.module)} ${esc(cbModLabel(p.module))}</span></div><h2>${esc(p.title)}</h2><div class="cb-meta">${esc(cbFmt(p.date))}${p.type?' · '+esc(p.type):''}${p.platforms?' · '+esc(p.platforms):''}${p.brand?' · '+esc(p.brand):''}</div>
+    ${p.stage==='planned' ? `<div class="cb-empty" style="margin:14px 0">This item is planned for ${esc(cbFmt(p.date))}. You’ll be asked to review it once it’s ready.</div>` : `
       <div class="cb-prev">${cbEmbed(p.outputLink)}${p.photoLink&&p.photoLink!==p.outputLink?cbEmbed(p.photoLink):''}<div id="cbFiles"></div></div>
       ${p.topicCaption?`<div class="cb-sec"><label>Text on the graphic</label><div>${esc(p.topicCaption)}</div></div>`:''}
-      <div class="cb-sec"><label>Caption</label><div class="cb-cap">${p.caption?esc(p.caption).replace(/\n/g,'<br>'):'<span class="cb-dim">No caption yet.</span>'}</div></div>`}
+      <div class="cb-sec"><label>${p.module==='content'?'Caption':'Notes'}</label><div class="cb-cap">${p.caption?esc(p.caption).replace(/\n/g,'<br>'):'<span class="cb-dim">No notes yet.</span>'}</div></div>`}
     ${(p.history||[]).length?`<div class="cb-sec"><label>Progress</label><div class="cb-tl">${p.history.map(h=>`<div class="${h.you?'you':''}"><b>${esc(h.act||'')}</b><span>${esc(cbAgo(h.at))}</span>${h.note?`<p>“${esc(h.note)}”</p>`:''}</div>`).join('')}</div></div>`:''}
-    <div class="cb-sec"><label>Conversation</label><div class="cb-thread">${(p.thread||[]).map(m=>`<div class="cb-msg ${m.you?'you':''}"><b>${esc(m.you?(m.name&&m.name!=='Client'?m.name:'You'):m.name||'Cross Core team')}${m.kind==='approval'?' · approved':m.kind==='revision'?' · asked for changes':m.kind==='rejection'?' · rejected':''}</b><span>${esc(cbAgo(m.at))}</span><p>${esc(m.text||'')}</p></div>`).join('') || '<div class="cb-dim">No comments yet.</div>'}</div></div>
-    ${p.stage==='planned' ? '' : `<div class="cb-act"><div class="cb-nm"><input id="cbName" value="${esc(CB.name)}" placeholder="Your name (so we know who replied)" maxlength="60" onchange="CB.name=this.value.trim();try{localStorage.setItem('cc-cb-name',CB.name)}catch(e){}"></div>
-      <textarea id="cbText" rows="3" placeholder="${canDecide?'Add a comment — required if you ask for changes or reject':'Leave a comment for the team…'}">${esc(keepTxt||'')}</textarea><div id="cbErr" class="cb-err" role="alert"></div>
-      <div class="cb-btns">${canDecide?`<button class="cb-b ok" onclick="cbDo('${p.id}','approve')">✓ Approve</button><button class="cb-b chg" onclick="cbDo('${p.id}','revise')">✎ Request changes</button><button class="cb-b no" onclick="cbDo('${p.id}','reject')">✕ Reject</button>`:''}<button class="cb-b" onclick="cbDo('${p.id}','comment')">💬 Send comment</button></div>
-      ${canDecide?'':`<div class="cb-dim" style="margin-top:6px">${p.stage==='approved'?'You approved this post.':p.stage==='revision'?'You asked for changes — we’ll send it back for your review.':p.stage==='scheduled'?'This post is scheduled.':'This post is published.'}</div>`}</div>`}</div></div>`;
+    ${p.stage==='planned'?'':`<div class="cb-sec"><label>Conversation</label><div class="cb-thread">${(p.thread||[]).map(m=>`<div class="cb-msg ${m.you?'you':''}"><b>${esc(m.you?(m.name&&m.name!=='Client'?m.name:'You'):m.name||'Cross Core team')}${m.kind==='approval'?' · approved':m.kind==='revision'?' · asked for changes':m.kind==='rejection'?' · rejected':''}</b><span>${esc(cbAgo(m.at))}</span><p>${esc(m.text||'')}</p></div>`).join('') || '<div class="cb-dim">No comments yet.</div>'}</div></div>`}
+    ${!canComment ? (role==='viewer'&&p.stage!=='planned'?'<div class="cb-dim" style="margin-top:12px">You have view-only access to this item.</div>':'') : `<div class="cb-act">${CB.data.me.name?`<div class="cb-dim" style="margin-bottom:6px">Replying as <b>${esc(CB.data.me.name)}</b></div>`:`<div class="cb-nm"><input id="cbName" value="${esc(CB.name)}" placeholder="Your name (so we know who replied)" maxlength="60" onchange="CB.name=this.value.trim();try{localStorage.setItem('cc-cb-name',CB.name)}catch(e){}"></div>`}
+      <textarea id="cbText" rows="3" placeholder="${canAsk?'Add a comment — required if you ask for changes or reject':'Leave a comment for the team…'}">${esc(keepTxt||'')}</textarea><div id="cbErr" class="cb-err" role="alert"></div>
+      <div class="cb-btns">${canDecide?`<button class="cb-b ok" onclick="cbDo('${p.id}','approve')">✓ Approve</button>`:''}${canAsk?`<button class="cb-b chg" onclick="cbDo('${p.id}','revise')">✎ Request changes</button>`:''}${canDecide?`<button class="cb-b no" onclick="cbDo('${p.id}','reject')">✕ Reject</button>`:''}<button class="cb-b" onclick="cbDo('${p.id}','comment')">💬 Send comment</button></div>
+      ${p.stage==='review'&&role==='reviewer'?'<div class="cb-dim" style="margin-top:6px">Only an approver on your team can approve or reject this item.</div>':p.stage==='approved'?'<div class="cb-dim" style="margin-top:6px">This item is approved.</div>':p.stage==='revision'?'<div class="cb-dim" style="margin-top:6px">You asked for changes — we’ll send it back for your review.</div>':p.stage==='scheduled'?'<div class="cb-dim" style="margin-top:6px">This item is scheduled.</div>':p.stage==='published'?'<div class="cb-dim" style="margin-top:6px">This item is published.</div>':''}</div>`}</div></div>`;
   cbFillFiles(p);
 }
-function cbClose(){ CB.open = null; el('cbModal').innerHTML = ''; }
+function cbClose(){ CB.open = null; CB.rep = null; CB.note = null; const m = el('cbModal'); if(m) m.innerHTML = ''; }
 async function cbDo(id, action){
   const text = (el('cbText')?.value||'').trim(), name = (el('cbName')?.value||CB.name||'').trim(), err = el('cbErr'); err.textContent = '';
   if(action!=='approve' && action!=='comment' && text.length<3) return err.textContent = action==='reject' ? 'Please tell us why, so we can fix it.' : 'Please tell us what you would like changed.';
   if(action==='comment' && !text) return err.textContent = 'Write a comment first.';
-  if(action==='approve' && !confirm('Approve this post? Our team will schedule it for publishing.')) return; if(action==='reject' && !confirm('Reject this post? We’ll rework it and send it back to you.')) return;
+  if(action==='approve' && !confirm('Approve this item? Our team will schedule it for publishing.')) return; if(action==='reject' && !confirm('Reject this item? We’ll rework it and send it back to you.')) return;
   CB.busy = true; document.querySelectorAll('.cb-b').forEach(b=>b.disabled = true);
   const r = await cbApi('act', {task:id, action, text, name}); CB.busy = false; document.querySelectorAll('.cb-b').forEach(b=>b.disabled = false);
   if(!r.ok){ err.textContent = r.error || 'Something went wrong — please try again.'; if(!r.net) cbRefresh(true); return; }
-  CB.name = name; try{ localStorage.setItem('cc-cb-name', name); }catch(e){} const p = r.post; const i = CB.data.posts.findIndex(x=>x.id===id); if(i>=0) CB.data.posts[i] = p; CB.sig = JSON.stringify(CB.data.posts);
+  if(name){ CB.name = name; try{ localStorage.setItem('cc-cb-name', name); }catch(e){} } const p = r.post; const i = CB.data.posts.findIndex(x=>x.id===id); if(i>=0) CB.data.posts[i] = p; CB.sig = '';
   CB.open = action==='comment' ? id : null; cbRender(); if(action!=='comment') cbToast({approve:'Approved — thank you! Our team has been notified.', revise:'Thanks — we’ve sent your changes to the team.', reject:'Thanks — we’ll rework it and send it back.'}[action]); else cbToast('Comment sent');
 }
 function cbToast(t){ let e = el('cbToast'); if(!e){ e = document.createElement('div'); e.id = 'cbToast'; e.setAttribute('role','status'); document.body.appendChild(e); } e.textContent = t; e.className = 'on'; clearTimeout(cbToast.t); cbToast.t = setTimeout(()=>e.className = '', 3200); }
 
-/* ===================== demo mode: the same rules, mirrored for one browser (live portals use the database functions) ===================== */
-const cbPostLike = t => !t.core && !t.archived && (t.hubPost || ['Caption','Design','Video / reel','Theme / idea','Campaign'].includes(t.type));
-const cbSent = t => (t.history||[]).some(h=>h.act==='Pending Client Approval' || h.cv===true);
-function cbStage(t){ if(t.status==='Pending Client Approval') return 'review'; if(t.status==='Completed') return ['Scheduled','Queued'].includes(t.hubStatus||'') ? 'scheduled' : 'published'; if(t.status==='Approved') return 'approved'; if(t.status==='Revisions Needed' && cbSent(t)) return 'revision'; return 'planned'; }
-function cbPostOut(t, c, thread){
-  const stg = cbStage(t), full = stg!=='planned', brand = (c.hubBrands||[]).find(b=>b.id===t.hubBrand);
-  const rounds = Math.max(0, (t.history||[]).filter(h=>h.act==='Pending Client Approval').length - 1);
-  const hist = !full ? [] : (t.history||[]).filter(h=>h.cv===true || ['Pending Client Approval','Approved','Completed','Scheduled','Queued','Posted'].includes(h.act)).map(h=>({at:h.at, act:h.cv===true ? h.act : h.act==='Pending Client Approval' ? 'Sent for your review' : h.act==='Approved' ? 'Approved' : 'Scheduled', note:h.cv===true ? h.note : null, you:h.cv===true}));
-  return {id:t.id, title:t.title||'(untitled)', date:String(t.postDate||t.due||t.createdAt||'').slice(0,10), type:t.hubType||t.type, platforms:t.platforms||'', bucket:t.bucket||'', brand:brand?.name||null, stage:stg,
-    caption:full?(t.caption||''):null, topicCaption:full?(t.topicCaption||''):null, outputLink:full?(t.outputLink||''):null, photoLink:full?(t.photoLink||''):null,
-    files:full?(t.outputs||[]).map(f=>({name:f.name, type:f.type, size:f.size, path:f.path, data:f.data, url:f.url})):[], rounds, history:hist,
-    thread:thread.filter(m=>m.task===t.id).sort((a,b)=>String(a.at).localeCompare(String(b.at))).map(m=>({id:m.id, kind:m.kind, name:m.name, text:m.text, at:m.at, you:m.by==='client'}))};
-}
-async function cbDemoLink(db){ const l = (db.cblinks||{})[CB.link]; if(!l) return null; if(l.secretHash !== await cbSha(CB.secret) || l.revoked || new Date(l.expiresAt) <= new Date() || !(db.clients||{})[l.client]) return null; return l; }
-async function cbDemo(action, a){
-  const db = DemoBackend.read(); const bad = {ok:false, error:CB_INVALID}; if(!db) return bad; const l = await cbDemoLink(db); if(!l) return bad;
-  const c = db.clients[l.client], thread = Object.values(db.cbmsg||{}); const mine = t => t.client===l.client && (!l.brand || (t.hubBrand||'')===l.brand) && cbPostLike(t);
-  if(action==='load') return {ok:true, client:{name:(c.hubBrands||[]).find(b=>b.id===l.brand)?.name||c.name, account:c.name, color:(c.colors||[])[0]}, link:{label:l.label, expiresAt:l.expiresAt}, serverTime:nowISO(), posts:Object.values(db.tasks||{}).filter(mine).map(t=>cbPostOut(t,c,thread)).sort((x,y)=>x.date.localeCompare(y.date)||x.title.localeCompare(y.title))};
-  const t = (db.tasks||{})[a.task]; const fail = error => ({ok:false, error});
-  if(!['comment','approve','revise','reject'].includes(a.action)) return fail('Unknown action'); if(!t || !mine(t)) return fail('That post was not found on your board.');
-  const stg = cbStage(t), txt = String(a.text||'').trim(), nm = String(a.name||'').replace(/[<>]/g,'').trim().slice(0,60), who = nm || 'Client';
-  if(stg==='planned') return fail('This post is not ready for your review yet.'); if(txt.length>2000) return fail('Please keep the message under 2,000 characters.');
-  if(a.action==='comment' && !txt) return fail('Write a comment first.'); if(['revise','reject'].includes(a.action) && txt.length<3) return fail('Please tell us what you would like changed.');
-  if(['approve','revise','reject'].includes(a.action) && stg!=='review') return fail(stg==='approved' ? 'This post is already approved.' : stg==='revision' ? 'You already asked for changes — we will send it back for your review.' : 'This post is not waiting for your decision.');
-  if(thread.filter(m=>m.link===l.id && Date.now()-new Date(m.at) < 36e5).length >= 60) return fail('Too many actions in a short time — please try again in a little while.');
-  const at = nowISO(), prev = t.status, kind = {approve:'approval', comment:'comment', revise:'revision', reject:'rejection'}[a.action], act = {approve:'Client approved', comment:'Client comment', revise:'Client requested changes', reject:'Client rejected'}[a.action];
-  const when = new Date().toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit',timeZone:'Asia/Manila'});
-  const t2 = {...t, status:a.action==='approve'?'Approved':a.action==='comment'?prev:'Revisions Needed', hubStatus:a.action==='approve'?'Approved':a.action==='comment'?(t.hubStatus||''):'For Revision', updatedAt:at, updatedBy:'client',
-    history:[...(t.history||[]), {by:`Client (${who})`, who:null, act, from:prev, note:txt, when, at, cv:true, client:true}]};
-  if(a.action!=='comment') t2.clientDecision = {kind, at, name:who, note:txt};
-  const mid = 'CM-'+Math.random().toString(36).slice(2,14), hid = t.client + (t.hubBrand ? '~'+t.hubBrand : '');
-  const audience = uniq([...(c.team||[]), ...(c.pms||[]), c.mgr].filter(Boolean));
-  const ups = [{collection:'tasks', id:t.id, data:t2}, {collection:'cbmsg', id:mid, data:{id:mid, link:l.id, task:t.id, client:l.client, brand:l.brand||null, by:'client', name:who, kind, text:txt, at}},
-    {collection:'hubdocs', id:'feedback|CB-'+mid, data:{id:'feedback|CB-'+mid, col:'feedback', did:'CB-'+mid, d:{contentId:t.id, client:hid, author:'Client', note:txt||'Approved', kind:a.action==='approve'?'approval':a.action==='comment'?'note':'changes', status:a.action==='approve'?'Addressed':'Pending', createdAt:at, viaClient:true, clientName:who}, at, by:'client', acct:t.client, deleted:false}},
-    {collection:'cblinks', id:l.id, data:{...l, lastUsedAt:at}}];
-  const esc2 = s => String(s).replace(/</g,'&lt;'), tt = esc2(t.title||'a post'), cn = c.name||'The client';
-  const text = {approve:`✅ <b>${cn}</b> approved <b>${tt}</b>${txt?` — “${esc2(txt.slice(0,140))}”`:''}`, comment:`💬 <b>${cn}</b> commented on <b>${tt}</b>: “${esc2(txt.slice(0,140))}”`, revise:`✏️ <b>${cn}</b> requested changes on <b>${tt}</b>: “${esc2(txt.slice(0,140))}”`, reject:`⛔ <b>${cn}</b> rejected <b>${tt}</b>: “${esc2(txt.slice(0,140))}”`}[a.action];
-  uniq([...(c.pms||[]), c.mgr, t.assignee, t.createdBy].filter(Boolean)).forEach(k=>{ const nid = 'N-'+Math.random().toString(36).slice(2,12); ups.push({collection:'notifs', id:nid, data:{id:nid, to:k, type:a.action==='approve'?'approval':a.action==='comment'?'assignment':'revision', text, link:{view:'cphub', task:t.id}, by:'client-board', at, read:false}}); });
-  await DemoBackend.write(ups, []); return {ok:true, post:cbPostOut(t2, c, [...thread, ups[1].data])};
-}
-
 (function(){ const st = document.createElement('style'); st.textContent = `
-body.cb-mode>*:not(#cbApp):not(#cbToast):not(script):not(style){display:none!important}body.cb-mode{background:#faf7f0;overflow:auto}
-#cbApp{--ink:#1b1812;--dim:#7b7468;--line:#e6dfd0;--amb:#e39312;font-family:Inter,system-ui,sans-serif;color:var(--ink);min-height:100vh;background:linear-gradient(180deg,#fff8e8,#faf7f0 260px)}
+body.cb-mode>*:not(#cbApp):not(#cbToast):not(script):not(style){display:none!important}body.cb-mode{background:#f7f3ea;overflow:auto}
+#cbApp{--ink:#17140e;--dim:#7b7468;--line:#e8e1d2;--amb:#E39312;--amb2:#F2B440;--warn:#b9750a;--bad:#c0392b;--ok:#17803d;font-family:Inter,system-ui,sans-serif;color:var(--ink);min-height:100vh}
 #cbApp *{box-sizing:border-box}.cb-load,.cb-bad{max-width:520px;margin:18vh auto;text-align:center;padding:0 20px;color:var(--dim)}.cb-bad h2{color:var(--ink);font-family:Sora,sans-serif;margin:14px 0 6px}
-.cb-head{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;padding:16px clamp(14px,4vw,40px);border-bottom:1px solid var(--line);background:rgba(255,255,255,.7);backdrop-filter:blur(10px);position:sticky;top:0;z-index:5}
-.cb-brand{display:flex;gap:12px;align-items:center}.cb-brand img{height:44px;border-radius:9px}.cb-brand b{display:block;font:700 18px Sora,sans-serif}.cb-brand span{font-size:12px;color:var(--dim)}.cb-note{font-size:12px;color:var(--dim);background:#fff;border:1px solid var(--line);border-radius:99px;padding:5px 12px}
-.cb-main{max-width:1180px;margin:0 auto;padding:20px clamp(14px,4vw,40px) 40px}.cb-sum{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:16px}
-.cb-k{background:#fff;border:1px solid var(--line);border-radius:14px;padding:12px 14px;text-align:left;cursor:pointer;display:flex;flex-direction:column;gap:2px;box-shadow:0 2px 8px -6px rgba(40,26,6,.3)}.cb-k span{font-size:12px;color:var(--dim)}.cb-k b{font:700 26px Sora,sans-serif}
+.cb-shell{display:grid;grid-template-columns:262px minmax(0,1fr);min-height:100vh}
+.cb-side{background:linear-gradient(180deg,#17140e,#1f1a10);color:#f4efe2;padding:20px 14px;display:flex;flex-direction:column;gap:16px;position:sticky;top:0;height:100vh;overflow:auto}
+.cb-logo{display:flex;gap:10px;align-items:center;padding:0 6px}.cb-logo img{height:38px;border-radius:9px}.cb-logo b{display:block;font:700 15px Sora,sans-serif}.cb-logo span{font-size:11px;color:#b8ae98;letter-spacing:.06em;text-transform:uppercase}
+.cb-cli{display:flex;gap:10px;align-items:center;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:10px 12px}.cb-cli i{width:36px;height:36px;border-radius:10px;display:grid;place-items:center;font:700 16px Sora,sans-serif;font-style:normal;color:#fff}.cb-cli b{display:block;font:600 14px Inter}.cb-cli span{font-size:11.5px;color:#b8ae98}
+.cb-nav{display:flex;flex-direction:column;gap:3px}.cb-nav button{display:flex;gap:10px;align-items:center;background:none;border:0;color:#d8d0bd;padding:10px 12px;border-radius:11px;font:600 13.5px Inter,sans-serif;cursor:pointer;text-align:left}.cb-nav button span{font-size:16px;width:22px}.cb-nav button:hover{background:rgba(255,255,255,.06)}
+.cb-nav button.on{background:linear-gradient(135deg,rgba(242,180,64,.22),rgba(242,180,64,.08));color:#fff;box-shadow:inset 3px 0 0 var(--amb2)}.cb-nav i{margin-left:auto;background:var(--amb2);color:#2a1d04;font-style:normal;font-size:11px;font-weight:800;border-radius:99px;padding:1px 8px}
+.cb-me{margin-top:auto;border-top:1px solid rgba(255,255,255,.1);padding:12px 6px 0;display:flex;flex-direction:column;gap:5px}.cb-me b{font:600 14px Inter}.cb-me small{font-size:11px;color:#a29a86}.cb-role{align-self:flex-start;font-size:10.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;border-radius:99px;padding:3px 10px}.r-approver{background:rgba(23,128,61,.25);color:#7fe0a3}.r-reviewer{background:rgba(242,180,64,.22);color:#f6c964}.r-viewer{background:rgba(255,255,255,.12);color:#d8d0bd}
+.cb-main{min-width:0;display:flex;flex-direction:column}.cb-top{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;padding:20px clamp(16px,3vw,36px) 6px}.cb-top h1{font:700 24px Sora,sans-serif;margin:0}
+.cb-pill{background:#fff1d1;color:#8a5a06;border:1px solid #f0d9a6;border-radius:99px;padding:6px 14px;font:700 12.5px Inter,sans-serif;cursor:pointer}.cb-pill.ok{background:#dff3e6;color:#17803d;border-color:#bfe6cc;cursor:default}
+.cb-note{margin:8px clamp(16px,3vw,36px) 0;background:#fff;border:1px solid var(--line);border-left:4px solid var(--amb2);border-radius:12px;padding:10px 14px;font-size:13px;color:#4b463c}
+.cb-body{padding:14px clamp(16px,3vw,36px) 24px;max-width:1240px;width:100%}.cb-hello h2{font:700 22px Sora,sans-serif;margin:0 0 2px}.cb-hello p{color:var(--dim);margin:0 0 16px;font-size:14px}
+.cb-sum{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:18px}.cb-k{background:#fff;border:1px solid var(--line);border-radius:16px;padding:13px 15px;display:flex;flex-direction:column;gap:2px;box-shadow:0 2px 10px -8px rgba(40,26,6,.35)}.cb-k span{font-size:12px;color:var(--dim)}.cb-k b{font:700 27px Sora,sans-serif}
+.cb-sec2{margin:6px 0 18px}.cb-sec2>h3,.cb-panel h3{font:700 15px Sora,sans-serif;margin:0 0 10px}.cb-two{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px;margin-bottom:16px}.cb-panel{background:#fff;border:1px solid var(--line);border-radius:18px;padding:16px 18px;box-shadow:0 2px 12px -9px rgba(40,26,6,.4)}
 .cb-tabs{display:flex;gap:4px;overflow-x:auto;border-bottom:1px solid var(--line);margin-bottom:16px}.cb-tabs button{background:none;border:0;padding:10px 14px;font:600 13px Inter,sans-serif;color:var(--dim);cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent}.cb-tabs button.on{color:var(--ink);border-color:var(--amb)}.cb-tabs i{font-style:normal;font-size:11px;background:#f1ead9;border-radius:99px;padding:1px 7px;margin-left:3px}
-.cb-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:14px}.cb-card{background:#fff;border:1px solid var(--line);border-radius:16px;overflow:hidden;cursor:pointer;transition:transform .15s,box-shadow .15s;box-shadow:0 4px 14px -10px rgba(40,26,6,.4)}.cb-card:hover,.cb-card:focus-visible{transform:translateY(-2px);box-shadow:0 14px 30px -16px rgba(40,26,6,.45);outline:none}
-.cb-thumb{aspect-ratio:16/10;background:#f4efe3;display:grid;place-items:center;overflow:hidden}.cb-thumb img{width:100%;height:100%;object-fit:cover}.cb-ph{font-size:38px;opacity:.55}.cb-cbody{padding:12px 14px 14px}.cb-cbody h3{font:700 15px Sora,sans-serif;margin:6px 0 3px}.cb-cbody p{font-size:12.5px;color:#4b463c;margin:6px 0 0;line-height:1.45}.cb-dim{color:var(--dim);font-size:12.5px}
-.cb-top{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.cb-round{font-size:11px;font-weight:700;color:#8a5a06;background:#fff1d1;border-radius:99px;padding:2px 8px}.cb-meta{font-size:12px;color:var(--dim)}
+.cb-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:14px}.cb-grid.sm{grid-template-columns:repeat(auto-fill,minmax(240px,1fr))}.cb-card{background:#fff;border:1px solid var(--line);border-radius:18px;overflow:hidden;cursor:pointer;transition:transform .15s,box-shadow .15s;box-shadow:0 4px 14px -10px rgba(40,26,6,.4)}.cb-card:hover,.cb-card:focus-visible{transform:translateY(-2px);box-shadow:0 16px 32px -16px rgba(40,26,6,.45);outline:none}
+.cb-thumb{aspect-ratio:16/10;background:#f4efe3;display:grid;place-items:center;overflow:hidden}.cb-thumb img{width:100%;height:100%;object-fit:cover}.cb-ph{font-size:38px;opacity:.55}.cb-cbody{padding:12px 14px 15px}.cb-cbody h3{font:700 15px Sora,sans-serif;margin:7px 0 3px}.cb-cbody p{font-size:12.5px;color:#4b463c;margin:6px 0 0;line-height:1.45}.cb-dim{color:var(--dim);font-size:12.5px}
+.cb-top2{display:flex;gap:7px;align-items:center;flex-wrap:wrap}.cb-round{font-size:11px;font-weight:700;color:#8a5a06;background:#fff1d1;border-radius:99px;padding:2px 8px}.cb-mod{font-size:11px;font-weight:600;color:#5b5446;background:#f1ead9;border-radius:99px;padding:2px 9px}.cb-meta{font-size:12px;color:var(--dim)}
 #cbApp .badge{display:inline-block;font-size:11px;font-weight:700;border-radius:99px;padding:3px 10px;background:#eee}#cbApp .b-pending{background:#fff1d1;color:#8a5a06}#cbApp .b-missed{background:#fde3e0;color:#b3261e}#cbApp .b-approved{background:#dff3e6;color:#17803d}#cbApp .b-scheduled{background:#e1ecfb;color:#245aa8}#cbApp .b-draft{background:#efeae0;color:#6b6558}
-.cb-empty{background:#fff;border:1px dashed var(--line);border-radius:16px;padding:34px 20px;text-align:center;color:var(--dim)}.cb-foot{text-align:center;color:var(--dim);font-size:12px;padding:18px}
-.cb-cal{background:#fff;border:1px solid var(--line);border-radius:16px;padding:14px}.cb-calh{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;font:700 16px Sora,sans-serif}.cb-calh button{border:1px solid var(--line);background:#fff;border-radius:10px;padding:6px 12px;cursor:pointer}
+.cb-empty{background:#fff;border:1px dashed var(--line);border-radius:18px;padding:34px 20px;text-align:center;color:var(--dim);margin-bottom:16px}.cb-foot{text-align:center;color:var(--dim);font-size:12px;padding:18px;margin-top:auto}
+.cb-row{display:flex;gap:11px;align-items:center;width:100%;background:none;border:0;border-bottom:1px solid #f0eadb;padding:10px 2px;text-align:left;cursor:pointer;font-family:inherit;color:inherit}.cb-row:last-child{border:0}.cb-row>span:first-child{font-size:20px}.cb-row div{flex:1;min-width:0}.cb-row b{display:block;font-size:13.5px}.cb-row small,.cb-rowl small{color:var(--dim);font-size:12px;display:block}.cb-rowl{margin-bottom:8px}
+.cb-link{background:none;border:0;color:#9a6208;font:700 13px Inter,sans-serif;cursor:pointer;padding:8px 0 0}.cb-snap{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:6px}.cb-snap>div{flex:1;min-width:90px;background:#faf7f0;border-radius:12px;padding:10px 12px}.cb-snap b{display:block;font:700 22px Sora,sans-serif}.cb-snap small{color:var(--dim);font-size:11.5px}.cb-act2{display:flex;justify-content:space-between;gap:10px;font-size:12.5px;padding:7px 0;border-bottom:1px solid #f0eadb}.cb-act2 small{color:var(--dim);white-space:nowrap}
+.cb-bar{display:grid;grid-template-columns:120px 1fr 34px;gap:10px;align-items:center;font-size:12.5px;margin:7px 0}.cb-bar>div{background:#f1ead9;border-radius:99px;height:10px;overflow:hidden}.cb-bar i{display:block;height:100%;background:linear-gradient(90deg,var(--amb),var(--amb2));border-radius:99px}.cb-bar b{text-align:right}
+.cb-chips{display:flex;gap:7px;flex-wrap:wrap}.cb-ch{background:#faf7f0;border:1px solid var(--line);border-radius:99px;padding:5px 12px;font-size:12.5px}.cb-tgt{background:#fff;border:1px solid var(--line);border-radius:16px;padding:13px 15px}.cb-tgt b{font-size:14px}.cb-tgt small{display:block;color:var(--dim);font-size:12px;margin:2px 0 5px}.cb-tgt p{font-size:12.5px;margin:4px 0;color:#4b463c}.cb-tgt u{text-decoration:none;font-weight:700;color:#8a5a06;font-size:11px;text-transform:uppercase;letter-spacing:.05em;margin-right:4px}
+.cb-toolbar{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px}.cb-toolbar h3{margin:0}.cb-toolbar small{color:var(--dim);font-weight:500}.cb-toolbar input,.cb-toolbar select{border:1px solid var(--line);border-radius:10px;padding:8px 11px;font:13px Inter,sans-serif;background:#fff;margin-left:6px}
+.cb-tbl{background:#fff;border:1px solid var(--line);border-radius:16px;overflow:auto}.cb-tbl table{width:100%;border-collapse:collapse;font-size:13px}.cb-tbl th{text-align:left;font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--dim);padding:10px 14px;background:#faf7f0;white-space:nowrap}.cb-tbl td{padding:10px 14px;border-top:1px solid #f0eadb;vertical-align:top}.cb-tbl small{display:block;color:var(--dim);font-size:11.5px}.cb-st{background:#e1ecfb;color:#245aa8;border-radius:99px;padding:2px 10px;font-size:11.5px;font-weight:700;white-space:nowrap}.cb-mini{border:1px solid var(--line);background:#fff;border-radius:9px;padding:4px 10px;cursor:pointer;font-size:12px}
+.cb-day2 h4{font:700 12px Inter;color:var(--dim);margin:12px 0 6px;text-transform:uppercase;letter-spacing:.07em}.cb-slot{display:flex;gap:10px;align-items:center;background:#faf7f0;border-radius:12px;padding:9px 12px;margin-bottom:6px}.cb-slot>div{flex:1}.cb-slot b{font-size:13px;display:block}.cb-slot small{color:var(--dim);font-size:11.5px}.cb-plat{font-size:11px;font-weight:800;background:#fff;border:1px solid var(--line);border-radius:8px;padding:3px 8px}
+.cb-cal{background:#fff;border:1px solid var(--line);border-radius:18px;padding:14px}.cb-calh{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;font:700 16px Sora,sans-serif}.cb-calh button{border:1px solid var(--line);background:#fff;border-radius:10px;padding:6px 12px;cursor:pointer}
 .cb-dow,.cb-days{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}.cb-dow span{font-size:11px;color:var(--dim);text-align:center;padding:4px}.cb-day{min-height:88px;border:1px solid #efe9da;border-radius:10px;padding:4px;display:flex;flex-direction:column;gap:3px;overflow:hidden}.cb-day.off{border:0}.cb-day.today{border-color:var(--amb);background:#fffaf0}.cb-day i{font-style:normal;font-size:11px;color:var(--dim)}
 .cb-chip{border:0;border-radius:6px;padding:3px 6px;font:600 10.5px Inter,sans-serif;text-align:left;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;display:block}i.cb-chip{display:inline-block;width:12px;height:12px;padding:0;margin-right:5px;vertical-align:-2px}
 .s-review{background:#fff1d1;color:#8a5a06}.s-revision{background:#fde3e0;color:#b3261e}.s-approved{background:#dff3e6;color:#17803d}.s-scheduled{background:#e1ecfb;color:#245aa8}.s-published{background:#d4ebe0;color:#0f6b46}.s-planned{background:#efeae0;color:#6b6558}.cb-legend{display:flex;gap:14px;flex-wrap:wrap;margin-top:10px;font-size:11.5px;color:var(--dim)}
-.cb-back{position:fixed;inset:0;background:rgba(20,16,8,.5);backdrop-filter:blur(4px);z-index:20;display:flex;align-items:flex-start;justify-content:center;overflow:auto;padding:4vh 12px}.cb-dlg{background:#fff;border-radius:20px;max-width:760px;width:100%;padding:22px clamp(16px,3vw,28px) 24px;position:relative;box-shadow:0 30px 70px -20px rgba(0,0,0,.5)}.cb-dlg h2{font:700 21px Sora,sans-serif;margin:8px 0 3px;padding-right:34px}
+.cb-back{position:fixed;inset:0;background:rgba(20,16,8,.5);backdrop-filter:blur(4px);z-index:20;display:flex;align-items:flex-start;justify-content:center;overflow:auto;padding:4vh 12px}.cb-dlg{background:#fff;border-radius:22px;max-width:760px;width:100%;padding:22px clamp(16px,3vw,28px) 24px;position:relative;box-shadow:0 30px 70px -20px rgba(0,0,0,.5)}.cb-dlg.wide{max-width:980px}.cb-dlg h2{font:700 21px Sora,sans-serif;margin:8px 0 3px;padding-right:34px}
 .cb-x{position:absolute;right:14px;top:12px;border:0;background:#f4efe3;border-radius:50%;width:32px;height:32px;cursor:pointer;font-size:14px}.cb-prev{margin:14px 0;display:flex;flex-direction:column;gap:10px}.cb-img,.cb-vid{width:100%;max-height:520px;object-fit:contain;border-radius:12px;background:#f4efe3;display:block}.cb-frame{width:100%;aspect-ratio:16/9;border:0;border-radius:12px;background:#000}
-.cb-open{display:flex;justify-content:space-between;gap:10px;align-items:center;border:1px solid var(--line);border-radius:12px;padding:12px 14px;color:var(--ink);text-decoration:none;font-weight:700;font-size:13.5px;background:#fffaf0}.cb-open span{font-weight:500;color:var(--dim);font-size:12px}.cb-sec{margin-top:14px}.cb-sec label{display:block;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);font-weight:700;margin-bottom:4px}.cb-cap{font-size:14px;line-height:1.55;background:#faf7f0;border-radius:12px;padding:12px 14px}
+.cb-open{display:flex;justify-content:space-between;gap:10px;align-items:center;border:1px solid var(--line);border-radius:12px;padding:12px 14px;color:var(--ink);text-decoration:none;font-weight:700;font-size:13.5px;background:#fffaf0}.cb-open span{font-weight:500;color:var(--dim);font-size:12px}.cb-sec{margin-top:14px}.cb-sec label{display:block;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);font-weight:700;margin-bottom:4px}.cb-cap{font-size:14px;line-height:1.55;background:#faf7f0;border-radius:12px;padding:12px 14px}.cb-rep{margin-top:12px;max-height:60vh;overflow:auto}
 .cb-tl>div{border-left:3px solid #e9dfc9;padding:2px 0 8px 12px;font-size:12.5px}.cb-tl>div.you{border-color:var(--amb)}.cb-tl span{color:var(--dim);margin-left:8px;font-size:11.5px}.cb-tl p{margin:2px 0 0;color:#4b463c}.cb-thread{display:flex;flex-direction:column;gap:8px;max-height:260px;overflow:auto}.cb-msg{border:1px solid var(--line);border-radius:12px;padding:8px 12px;font-size:13px;background:#faf7f0;max-width:92%}.cb-msg.you{align-self:flex-end;background:#fff4dc;border-color:#f0d9a6}.cb-msg span{color:var(--dim);font-size:11px;margin-left:8px}.cb-msg p{margin:3px 0 0;white-space:pre-wrap}
 .cb-act{margin-top:16px;border-top:1px solid var(--line);padding-top:14px}.cb-nm input,.cb-act textarea{width:100%;border:1px solid var(--line);border-radius:12px;padding:10px 12px;font:14px Inter,sans-serif;background:#fff;margin-bottom:8px}.cb-act textarea{resize:vertical}.cb-err{color:#b3261e;font-size:12.5px;min-height:18px;font-weight:600}
 .cb-btns{display:flex;gap:8px;flex-wrap:wrap}.cb-b{border:1px solid var(--line);background:#fff;border-radius:12px;padding:11px 16px;font:700 13.5px Inter,sans-serif;cursor:pointer;flex:1 1 140px}.cb-b:disabled{opacity:.5}.cb-b.ok{background:#17803d;border-color:#17803d;color:#fff}.cb-b.chg{background:#fff1d1;border-color:#f0d9a6;color:#8a5a06}.cb-b.no{background:#fff;color:#b3261e;border-color:#f3c6c1}
-#cbToast{position:fixed;left:50%;bottom:24px;transform:translate(-50%,30px);background:#1b1812;color:#fff;padding:12px 18px;border-radius:12px;font:600 13.5px Inter,sans-serif;opacity:0;pointer-events:none;transition:.25s;z-index:30;max-width:92vw;text-align:center}#cbToast.on{opacity:1;transform:translate(-50%,0)}
-@media(max-width:640px){.cb-day{min-height:54px}.cb-chip{font-size:9.5px;padding:2px 3px}.cb-dlg{border-radius:16px;padding:18px 14px 20px}.cb-btns .cb-b{flex-basis:100%}.cb-head{position:static}}`; document.head.appendChild(st); })();
+#cbToast{position:fixed;left:50%;bottom:24px;transform:translate(-50%,30px);background:#17140e;color:#fff;padding:12px 18px;border-radius:12px;font:600 13.5px Inter,sans-serif;opacity:0;pointer-events:none;transition:.25s;z-index:30;max-width:92vw;text-align:center}#cbToast.on{opacity:1;transform:translate(-50%,0)}
+@media(max-width:860px){.cb-shell{grid-template-columns:1fr}.cb-side{position:static;height:auto;flex-direction:column;gap:10px;padding:14px 12px}.cb-nav{flex-direction:row;overflow-x:auto;gap:6px;padding-bottom:4px}.cb-nav button{white-space:nowrap;padding:8px 12px;flex:0 0 auto}.cb-nav button.on{box-shadow:none}.cb-me{flex-direction:row;align-items:center;flex-wrap:wrap;margin-top:0;gap:8px}.cb-bar{grid-template-columns:90px 1fr 30px}}
+@media(max-width:640px){.cb-day{min-height:54px}.cb-chip{font-size:9.5px;padding:2px 3px}.cb-dlg{border-radius:16px;padding:18px 14px 20px}.cb-btns .cb-b{flex-basis:100%}.cb-top h1{font-size:20px}}`; document.head.appendChild(st); })();
 
 /* ===== t4_demo.js — demo mode only: sample payroll data and a "try it" guide =====
    Appears only when the portal is NOT connected to the live database. Nothing here is ever shown or written in a live portal. */
@@ -34468,6 +34696,7 @@ const PVD_STEPS = [
   ['8','Alternate','Pau authorizes JA as the <b>alternate approver</b> for a few days — JA can then approve payroll on his behalf','paul','finance','ceo'],
   ['9','Rates','Cha opens <b>Client rates</b>: set a missing rate directly on an existing client, or send a change on a new client to the CEO','charisse','finance','rates'],
   ['10','Message','Cha writes a <b>general message</b> (or a personal one) — it travels with the payslip but is never printed on it','charisse','finance','payroll'],
+  ['11','Client portal','Yamille opens <b>Client Portal</b> and invites client representatives — each with a role (Viewer, Reviewer, Approver) and only the services in the package. Use “Preview as this person” to see their portal','yam','clientaccess',''],
 ];
 function pvDemoCard(){
   if(!pvIsDemo()) return '';

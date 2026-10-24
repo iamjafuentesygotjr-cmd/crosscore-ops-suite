@@ -9630,7 +9630,7 @@ function regFinFields(r){
   </div>`;
 }
 function regRmFinFile(i){ REG.fin.files.splice(i,1); el('rgFinFiles').innerHTML = fileChips(REG.fin.files,'regRmFinFile'); }
-const regRateInput = (k, rate) => `<input class="rgRate" data-id="${k}" type="number" min="0" step="0.01" value="${esc(rate??'')}" placeholder="Agreed ₱/mo" title="Agreed monthly rate — Finance and company heads only" style="width:118px;font-size:12px;padding:6px 8px">`;
+let regRateInput = (k, rate) => `<input class="rgRate" data-id="${k}" type="number" min="0" step="0.01" value="${esc(rate??'')}" placeholder="Agreed ₱/mo" title="Agreed monthly rate — Finance and company heads only" style="width:118px;font-size:12px;padding:6px 8px">`;
 function regSaveFinance(r){
   const amt = el('rgRateAmt')?.value;
   const rates = {}; document.querySelectorAll('.rgRate').forEach(i=>{ if(i.value!=='') rates[i.dataset.id] = +i.value; });
@@ -20914,7 +20914,7 @@ async function cooPostFromModal(){ const ch = CHATS.find(c=>c.id===el('paPostC')
    The footer shows which build is running ("Build 2026-10-07 · 1"), and every open portal checks every few minutes
    (and whenever it comes back to the foreground) whether a newer build has been published. If so it shows
    "New version available — Update now" instead of quietly running old code. */
-const BUILD_ID = '2026-10-24 · 1';
+const BUILD_ID = '2026-10-24 · 4';
 function verStamp(){ const f = el('footNote'); if(f && !f.dataset.v){ f.dataset.v = 1; f.textContent = `Cross Core Ops Suite v8 · Build ${BUILD_ID}`; } }
 async function verCheck(){
   if(!/^https?:/.test(location.protocol)) return;
@@ -32029,7 +32029,7 @@ setInterval(()=>{ if(isApplicant() && SYNC.ready && !(typeof LIVE_BG!=='undefine
    Pure functions only. They mirror supabase/update-oct24-1.sql (cc_pay_cfg_default, cc_pay_period, cc_pay_calc, cc_pay_totals)
    line for line; tests/parity.js runs both on the same inputs and compares every amount. */
 const PAY_CFG_DEFAULT = {
-  id:'global', ceoKey:'paul', cooKey:'ja', autoCutoff:true, daysPerMonth:21.75, contribSplit:'split', releaseTime:'09:00',
+  id:'global', ceoKey:'paul', cooKey:'ja', autoCutoff:true, daysPerMonth:21.75, contribSplit:'split', releaseTime:'09:00', statBase:'auto', hrAccess:'restricted', alt:{enabled:false},
   sss:{rate:0.05, minMSC:5000, maxMSC:35000, step:500},
   philhealth:{rate:0.05, floor:10000, ceil:100000, eeShare:0.5},
   pagibig:{rate:0.02, cap:10000},
@@ -32088,12 +32088,18 @@ function payTotals(lines){
 /* ===== t0b_core.js — payroll v2: collections, drafts, approval workflow, release engine =====
    The database enforces every rule below (supabase/update-oct24-1.sql). These functions apply the same rules first so people get
    a clear message instead of a refused save, and so demo mode (no database) behaves the same way. */
-let PAYV2 = [], PAYREL = [], RATECHG = [], PAYCFG = [], FINTIX = [], FINTIXMSG = [], ACCTANN = [], LEAVE2 = [], LVSIG = [], LVCFG = [], LVSYNC = [], LVCAL = [];
+let PAYV2 = [], PAYREL = [], RATECHG = [], PAYCFG = [], FINTIX = [], FINTIXMSG = [], ACCTANN = [], LEAVE2 = [], LVSIG = [], LVCFG = [], LVSYNC = [], LVCAL = [], PADJ = [], PAYVIEW = [];
 Object.assign(NTYPES, {payroll:'Payroll', leave:'Leave', ticket:'Finance concerns'});
 const pvLive = () => typeof BACKEND !== 'undefined' && BACKEND?.mode === 'live';
 const payCfg = () => ({...PAY_CFG_DEFAULT, ...(PAYCFG.find(x=>x.id==='global')||{})});
 const pvCeo = () => payCfg().ceoKey || 'paul', pvCoo = () => payCfg().cooKey || 'ja';
 const pvIsCeo = (k=PERSON) => k === pvCeo();
+/* executive approval: the CEO, or another head the CEO has authorized for a period while unavailable (payconfig.alt) */
+const pvAlt = () => payCfg().alt || {enabled:false};
+function pvAltOk(k=PERSON, on=manilaDate()){ const a = pvAlt(); return !!(a.enabled && a.key===k && k!==pvCeo() && isHead(k) && (!a.from || a.from<=on) && (!a.to || a.to>=on)); }
+const pvIsApprover = (k=PERSON) => k===pvCeo() || pvAltOk(k);
+const pvAltOn = () => { const a = pvAlt(); const on = manilaDate(); return !!(a.enabled && a.key && (!a.from || a.from<=on) && (!a.to || a.to>=on)); };
+const pvRun = pid => PAYRUNS.find(r=>r.id===pid);
 const pvFinAud = () => uniq([...financeKeys(), ...HEADS]);
 const pvAud = d => uniq([...pvFinAud(), ...(d.release && d.emp ? [d.emp] : [])]);
 const lvAud = d => uniq([...HR_KEYS(), ...HEADS, d.emp, d.pm, d.pmr?.replacement, ...(d.status==='Approved' ? financeKeys() : [])]);
@@ -32102,6 +32108,8 @@ COLL.payv2    = {get:()=>PAYV2,    set:v=>PAYV2=v,    aud:pvAud};
 COLL.payrel   = {get:()=>PAYREL,   set:v=>PAYREL=v,   aud:()=>pvFinAud()};
 COLL.ratechg  = {get:()=>RATECHG,  set:v=>RATECHG=v,  aud:()=>pvFinAud()};
 COLL.payconfig= {get:()=>PAYCFG,   set:v=>PAYCFG=v,   aud:()=>pvFinAud()};
+COLL.padj     = {get:()=>PADJ,     set:v=>PADJ=v,     aud:()=>pvFinAud()};
+COLL.payview  = {get:()=>PAYVIEW,  set:v=>PAYVIEW=v,  aud:v=>uniq([v.emp, ...pvFinAud()])};
 COLL.fintix   = {get:()=>FINTIX,   set:v=>FINTIX=v,   aud:tixAud};
 COLL.fintixmsg= {get:()=>FINTIXMSG,set:v=>FINTIXMSG=v,aud:m=>m.internal ? pvFinAud() : tixAud(FINTIX.find(x=>x.id===m.tix)||{})};
 COLL.acctann  = {get:()=>ACCTANN,  set:v=>ACCTANN=v,  aud:()=>null};
@@ -32131,35 +32139,71 @@ function payEligible(){
     .sort((a,b)=>a.name.localeCompare(b.name));
 }
 
+/* ---------- rate types & the agreed rates of every assignment ---------- */
+const RTYPES = {monthly:{label:'Monthly', short:'/month'}, semimonthly:{label:'Semi-monthly', short:'per cutoff'}, hourly:{label:'Hourly', short:'/hour'}, project:{label:'Project-based', short:'per project'}};
+const rtOf = x => RTYPES[x?.rateType || x?.type] ? (x.rateType || x.type) : 'monthly';
+const pvRateTxt = (amt, type, cur) => (amt==null || amt==='') ? 'Rate Not Configured' : `${money(amt, cur||'PHP')} ${RTYPES[type||'monthly'].short}`;
+const pvMonthlyEq = (amt, type) => (amt==null||amt==='') ? null : type==='monthly' ? +amt : type==='semimonthly' ? +amt*2 : null;   /* hourly / project have no fixed monthly equivalent */
+/* every agreed rate in force in a period: client assignments (stored under each client) + the person's own pay-profile lines */
+function pvRateLines(emp, start, end){
+  const out = [];
+  FINCLIENTS.filter(f=>f.status!=='Draft').forEach(f=>(f.assignments||[]).forEach(a=>{
+    if(a.emp!==emp || a.removed) return; const from = a.from || f.effective || start;
+    if(from>end || (a.to && a.to<start) || (a.to && a.to<from)) return;
+    out.push({label:`${f.clientName} — ${a.role||'Team member'}`, client:f.clientName, role:a.role||'Team member', amount:(a.rate==null||a.rate==='')?null:+a.rate, type:rtOf(a), cur:f.payCurrency||'PHP', from, to:a.to||null, src:'client', internal:false, fc:f.id, cid:f.client||null, aid:a.id, enhanced:!!f.enhanced, payEligible:a.payEligible!==false, cutoffs:a.cutoffs||'both'}); }));
+  (payProfile(emp)?.rates||[]).forEach(r=>{ if(r.from>end || (r.to && r.to<start)) return;
+    out.push({label:r.label||'Base rate', client:null, role:r.label||'Base rate', amount:+r.monthly, type:rtOf(r), cur:r.cur||'PHP', from:r.from||start, to:r.to||null, src:'profile', internal:true, aid:r.id, payEligible:r.payEligible!==false, cutoffs:r.cutoffs||'both'}); });
+  return out;
+}
+
 /* ---------- a draft for one person and one period (same steps as cc_pay_build_draft) ---------- */
 function pv2Draft(p, pid){
   const cfg = payCfg(), per = pv2Period(pid); const wd = workdaysOf(p.id);
   const days = datesBetween(per.start, per.end).filter(d=>wd.includes(dow(d)));
-  const rl = rateLines(p.id, per.start, per.end); let miss = !rl.length, cur = null, mixed = false, totM = 0, totA = 0; const lines = [];
+  const rl = pvRateLines(p.id, per.start, per.end); let miss = !rl.length, needIn = false, cur = null, mixed = false, totM = 0, totA = 0, intM = 0, intA = 0, hasInt = false, dup = 0, excl = 0; const lines = [], seen = new Set();
+  const kind = p.cls==='contractor' ? 'fee' : 'basic';
   rl.forEach((l,i) => {
-    if(l.monthly == null){ miss = true; return; }
+    const key = l.aid || ('L'+(i+1)); if(seen.has(key)){ dup++; return; } seen.add(key);   /* one compensation entry per assignment and period */
+    if(l.payEligible === false){ excl++; return; }                                           /* an operational assignment that carries no pay */
+    if((l.cutoffs==='1' && per.cut!==1) || (l.cutoffs==='2' && per.cut!==2)) return;          /* applies to the other cutoff only */
+    const pfx = p.cls==='contractor' ? 'Service fee — ' : l.internal ? 'Internal salary — ' : 'Client — ';
+    const id = 'L-r'+(i+1);
+    if(l.amount == null){ miss = true; lines.push({id, kind, label:pfx+l.label+' — Rate Not Configured', amount:0, auto:true, needs:'rate', client:l.client, role:l.role, aid:l.aid, src:l.src, internal:!!l.internal, note:'No agreed rate is on file for this assignment'}); return; }
     if(cur == null) cur = l.cur; else if(cur !== l.cur) mixed = true;
-    const inl = days.filter(d => d >= l.from && (!l.to || d <= l.to)).length, share = days.length ? inl / days.length : 0;
-    totM += l.monthly; totA += l.monthly * share;
-    lines.push({id:'L-r'+(i+1), kind:p.cls==='contractor'?'fee':'basic', label:(p.cls==='contractor'?'Service fee — ':'Salary — ')+l.label, amount:pvR2(l.monthly/2*share), auto:true,
-      note:`${l.monthly}/mo ÷ 2${share<1?` · ${inl}/${days.length} scheduled days`:''}`});
+    const inl = days.filter(d => d >= l.from && (!l.to || d <= l.to)).length, share = days.length ? inl / days.length : 0; let amt = 0, note, needs = null;
+    const part = share < 1 ? ` · ${inl}/${days.length} scheduled days` : '';
+    if(l.type==='semimonthly'){ amt = pvR2(l.amount * share); totM += l.amount*2; totA += l.amount*2*share; if(l.internal){ hasInt = true; intM += l.amount*2; intA += l.amount*2*share; } note = `${l.amount} per cutoff${part}`; }
+    else if(l.type==='hourly'){ needs = 'hours'; needIn = true; note = `${l.amount}/hour × hours worked (enter the hours)`; }
+    else if(l.type==='project'){ needs = 'deliverables'; needIn = true; note = `${l.amount} per project / deliverable (enter the approved count)`; }
+    else { amt = pvR2(l.amount/2*share); totM += l.amount; totA += l.amount*share; if(l.internal){ hasInt = true; intM += l.amount; intA += l.amount*share; } note = `${l.amount}/mo ÷ 2${part}`; }
+    lines.push({id, kind, label:pfx+l.label, amount:amt, auto:true, note, client:l.client, role:l.role, rt:l.type, rate:l.amount, qty:null, aid:l.aid, cid:l.cid||null, needs, src:l.src, internal:!!l.internal});
   });
+  /* adjustments Finance scheduled for this cutoff (each carries its reason) */
+  PADJ.filter(x=>x.emp===p.id && x.period===pid && (x.status||'Active')==='Active').sort((a,b)=>(a.at||'').localeCompare(b.at||'')).forEach(x=>
+    lines.push({id:'L-adj-'+x.id, kind:x.kind, label:x.label||PV_KIND_LABEL[x.kind], amount:+x.amount, manual:true, reason:x.reason, adjId:x.id, by:x.by, at:x.at}));
   /* approved leave inside the period (unpaid employee leave is deducted; contractor time off is only shown) */
   let unpaid = 0; const leave = [];
   LVSYNC.filter(s=>s.emp===p.id && s.status==='Approved' && s.start<=per.end && s.end>=per.start).forEach(s => {
     const d = days.filter(x=>x>=s.start && x<=s.end).length; if(s.paid==='unpaid' && s.class==='employee') unpaid += d;
     leave.push({req:s.req, no:s.no, start:s.start, end:s.end, days:d, paid:s.paid, class:s.class}); });
-  payCalc(p.cls, totM, per.cut, totM>0 ? totA/totM : 0, unpaid, cfg).filter(l=>!['basic','fee'].includes(l.kind)).forEach(l=>lines.push(l));
+  /* contributions and tax follow the internal salary when there is one (extra client income stays separate); otherwise all fixed pay */
+  const sb = cfg.statBase || 'auto', useInt = p.cls==='employee' && (sb==='internal' || (sb==='auto' && hasInt)), bM = useInt ? intM : totM, bA = useInt ? intA : totA;
+  payCalc(p.cls, bM, per.cut, bM>0 ? bA/bM : 0, unpaid, cfg).filter(l=>!['basic','fee'].includes(l.kind)).forEach(l=>lines.push(l));
+  const pendingRates = RATECHG.filter(r=>r.emp===p.id && r.status==='Pending CEO').map(r=>r.id);
   return {id:`PD|${pid}|${p.id}`, emp:p.id, empName:p.name, empRole:p.role, dept:p.dept, class:p.cls, period:per, lines, cur:cur||'PHP', ...payTotals(lines),
-    status:PV_ST.DRAFT, version:0, approval:null, release:null, pay:{status:'Unpaid'}, flags:{missingRate:miss, mixedCurrency:mixed}, leave, supporting:[], remarks:'', auto:true, createdAt:nowISO(),
-    history:[{at:nowISO(), by:'system', act:'Draft generated at payroll cutoff', note:p.cls==='contractor'?'Contractual fee — attendance logs are not used':'Salary, statutory contributions and approved leave applied'}]};
+    status:PV_ST.DRAFT, version:0, approval:null, release:null, pay:{status:'Unpaid'}, flags:{missingRate:miss, needsInput:needIn, mixedCurrency:mixed, duplicatesSkipped:dup, notPayrollEligible:excl, pendingRates}, leave, supporting:[], remarks:'', auto:true, createdAt:nowISO(),
+    history:[{at:nowISO(), by:'system', act:'Pre-generated automatically at the payroll cutoff', note:p.cls==='contractor'?'Agreed client rates applied — attendance logs are not used for fixed fees':'Internal salary and client rates calculated separately; statutory contributions and approved leave applied'}]};
+}
+/* hours worked from the attendance logs, offered as a suggestion for hourly lines (Finance confirms or changes it) */
+function pvSuggestHours(emp, per, cid){
+  return Math.round(ATTLOG.filter(r=>r.person===emp && r.date>=per.start && r.date<=per.end && r.in && r.out && (!cid || !r.client || r.client===cid)).reduce((s,r)=>s+Math.max(0, workedMins(r)),0)/60*100)/100;
 }
 let PV_NO = 0;
 function pvDocNo(pid){ const ym = pid.slice(0,7).replace('-',''); const n = PAYV2.filter(d=>d.docNo && d.docNo.includes('-'+ym+'-')).length + 1; return `CC-PS-${ym}-${String(n).padStart(4,'0')}`; }
 /* demo mode only — with a live database the server generates the drafts at the cutoff (pg_cron / cc_pay_tick) */
 function pv2GenerateLocal(pid){
   let n = 0;
-  payEligible().forEach(p => { const id = `PD|${pid}|${p.id}`; if(PAYV2.some(d=>d.id===id)) return; const d = pv2Draft(p, pid); d.docNo = pvDocNo(pid); PAYV2.push(d); n++; });
+  payEligible().forEach(p => { const id = `PD|${pid}|${p.id}`; if(PAYV2.some(d=>d.id===id)) return; const d = pv2Draft(p, pid); d.docNo = pvDocNo(pid); PAYV2.push(d); n++; PADJ.filter(x=>x.emp===p.id && x.period===pid && (x.status||'Active')==='Active').forEach(x=>{ x.status = 'Applied'; x.appliedTo = d.id; }); });
   let r = payrun(pid); if(!r){ r = {id:pid, ...payPeriod(pid), status:'Open', createdBy:PERSON, createdAt:nowISO()}; PAYRUNS.push(r); }
   r.gen = {at:nowISO(), count:(r.gen?.count||0)+n, by:PERSON, auto:false};
   if(n) pvEmit([...financeKeys(), ...HEADS], 'payroll', `🧾 <b>${n} draft payroll record${n===1?'':'s'}</b> generated for the ${dShort(pv2Period(pid).cutoff)} cutoff — Draft · Finance Review.`, finLink('payroll'));
@@ -32177,7 +32221,13 @@ async function pv2Generate(pid){
 const pvDoc = id => PAYV2.find(d=>d.id===id);
 const pvEditable = d => [PV_ST.DRAFT, PV_ST.RET].includes(d.status);
 const pvApprovedCurrent = d => d.status === PV_ST.OK && d.approval && d.approval.version === d.version;
-function pvRecalc(d){ Object.assign(d, payTotals(d.lines)); }
+function pvRecalc(d){ Object.assign(d, payTotals(d.lines)); d.flags = {...(d.flags||{}), needsInput:d.lines.some(l=>['hours','deliverables'].includes(l.needs)), missingRate:d.lines.some(l=>l.needs==='rate')}; }
+/* hours (hourly rates) or approved deliverables (project-based rates): amount = quantity × the agreed rate */
+function pvSetQty(id, lid, qty){
+  const d = pvDoc(id), l = d.lines.find(x=>x.id===lid); if(!l || !(l.rate>0)) return; if(qty==='' || isNaN(+qty) || +qty<0) throw new Error('Enter a number of '+(l.rt==='hourly'?'hours':'deliverables')+'.');
+  pvMaterialEdit(d, l.label); const before = l.amount; l.qty = +qty; l.amount = pvR2(l.qty * l.rate); delete l.needs;
+  pvRecalc(d); pvHist(d, l.rt==='hourly'?'Hours entered':'Deliverables entered', `${l.client||l.label}: ${l.qty} × ${l.rate} = ${l.amount}`, {prev:before, next:l.amount}); recordChange();
+}
 /* any change to the figures of an approved record needs fresh CEO approval and suspends its scheduled release */
 function pvMaterialEdit(d, why){
   if(d.status === PV_ST.REL) throw new Error('A released document can’t be changed — ask the CEO to approve a corrected version.');
@@ -32210,7 +32260,8 @@ function pvRemoveLine(id, lid){
 function pvRebuild(id){
   const d = pvDoc(id); const p = payEligible().find(x=>x.id===d.emp) || {id:d.emp, cls:d.class, name:d.empName, role:d.empRole, dept:d.dept};
   const fresh = pv2Draft({...p, cls:d.class}, d.period.id); pvMaterialEdit(d, 'Recalculated from the pay profile');
-  const keep = d.lines.filter(l=>!l.auto); d.lines = [...fresh.lines, ...keep]; d.leave = fresh.leave; d.flags = {...d.flags, ...fresh.flags}; d.cur = fresh.cur; pvRecalc(d);
+  const keep = d.lines.filter(l=>!l.auto); fresh.lines.forEach(n=>{ const o = d.lines.find(x=>x.aid && x.aid===n.aid && x.qty!=null); if(o && n.rate>0){ n.qty = o.qty; n.amount = pvR2(o.qty*n.rate); delete n.needs; } });
+  d.lines = [...fresh.lines, ...keep]; d.leave = fresh.leave; d.flags = {...d.flags, ...fresh.flags}; d.cur = fresh.cur; pvRecalc(d);
   pvHist(d, 'Recalculated from the pay profile', 'Automatic lines rebuilt; manual adjustments kept'); recordChange();
 }
 
@@ -32219,7 +32270,8 @@ function pvCanSubmit(d){
   if(![PV_ST.DRAFT, PV_ST.RET].includes(d.status)) return 'Only drafts and records returned for revision can be submitted.';
   if(!d.lines.length) return 'There are no earnings on this record.';
   if(d.lines.some(l=>l.manual && String(l.reason||'').trim().length < 3)) return 'Every manual adjustment needs a reason.';
-  if(d.flags?.missingRate && !d.flags?.rateConfirmed) return 'An agreed rate is missing — complete the pay profile, or confirm the record is correct without it.';
+  if(d.lines.some(l=>['hours','deliverables'].includes(l.needs))) return 'Enter the hours or approved deliverables for the hourly and project-based lines first.';
+  if(d.flags?.missingRate && !d.flags?.rateConfirmed) return 'A rate is Not Configured — add it in Client rates, or confirm the record is correct without it.';
   if(d.net < 0) return 'Net pay is negative — review the deductions.';
   return '';
 }
@@ -32228,7 +32280,8 @@ function pvSubmit(id){
   d.status = PV_ST.SUB; d.version = (d.version||0) + 1; d.approval = null; d.revision = null; d.submittedAt = nowISO(); d.submittedBy = PERSON;
   pvHist(d, 'Submitted to CEO', `version ${d.version}`);
   pvEmit([pvCeo()], 'approval', `🧾 Payroll for <b>${esc(d.empName)}</b> (${pvPeriodLabel(d.period)}) was submitted for your review.`, finLink('ceo', {slip:d.id}));
-  pvEmit([pvCoo()], 'payroll', `Payroll for <b>${esc(d.empName)}</b> was submitted to the CEO.`, finLink('oversight'));
+  if(pvAltOn()) pvEmit([pvAlt().key], 'approval', `🧾 Payroll for <b>${esc(d.empName)}</b> (${pvPeriodLabel(d.period)}) awaits approval — you are the authorized alternate approver while the CEO is unavailable.`, finLink('ceo', {slip:d.id}));
+  pvEmit([pvCoo()], 'payroll', `Payroll for <b>${esc(d.empName)}</b> was submitted for executive approval.`, finLink('oversight'));
   recordChange();
 }
 function pvRecall(id){ const d = pvDoc(id); if(![PV_ST.SUB, PV_ST.OK].includes(d.status)) return; 
@@ -32236,34 +32289,42 @@ function pvRecall(id){ const d = pvDoc(id); if(![PV_ST.SUB, PV_ST.OK].includes(d
   d.status = PV_ST.DRAFT; d.approval = null; pvHist(d, 'Recalled to draft'); recordChange(); }
 /* CEO */
 function pvCeoApprove(id, comment){
-  const d = pvDoc(id); if(!pvIsCeo()) throw new Error('Only the CEO approves payroll.'); if(![PV_ST.SUB, PV_ST.REV].includes(d.status)) throw new Error('This record is not waiting for approval.');
-  d.status = PV_ST.OK; d.approval = {by:PERSON, at:nowISO(), version:d.version, comment:comment||''}; d.revision = null; pvHist(d, 'CEO approved', `version ${d.version}${comment?' — '+comment:''}`);
-  pvEmit(financeKeys(), 'approval', `✅ <b>CEO Approved – Ready for Release:</b> ${esc(d.empName)} (${pvPeriodLabel(d.period)}).`, finLink('releases', {slip:d.id}));
-  pvEmit([pvCoo()], 'payroll', `CEO approved <b>${esc(d.empName)}</b>'s payroll.`, finLink('oversight')); recordChange();
+  const d = pvDoc(id); if(!pvIsApprover()) throw new Error('Only the CEO — or the alternate the CEO has authorized — approves payroll.'); if(![PV_ST.SUB, PV_ST.REV].includes(d.status)) throw new Error('This record is not waiting for approval.');
+  const alt = PERSON !== pvCeo();
+  d.status = PV_ST.OK; d.approval = {by:PERSON, at:nowISO(), version:d.version, comment:comment||'', alt, onBehalfOf:alt?pvCeo():undefined}; d.revision = null;
+  pvHist(d, alt ? `Approved by the authorized alternate (${pname(PERSON)}) for ${pname(pvCeo())}` : 'CEO approved', `version ${d.version}${comment?' — '+comment:''}`);
+  pvEmit(financeKeys(), 'approval', `✅ <b>CEO Approved – Ready for Release:</b> ${esc(d.empName)} (${pvPeriodLabel(d.period)})${alt?' — approved by the authorized alternate, '+esc(pname(PERSON)):''}.`, finLink('releases', {slip:d.id}));
+  pvEmit([pvCoo()], 'payroll', `${alt?esc(pname(PERSON)):'CEO'} approved <b>${esc(d.empName)}</b>'s payroll.`, finLink('oversight')); recordChange();
 }
 function pvCeoRevise(id, comment){
-  const d = pvDoc(id); if(!pvIsCeo()) throw new Error('Only the CEO requests revisions here.'); if(String(comment||'').trim().length < 3) throw new Error('A revision request needs a comment for Finance.');
+  const d = pvDoc(id); if(!pvIsApprover()) throw new Error('Only the CEO or the authorized alternate returns payroll for correction.'); if(String(comment||'').trim().length < 3) throw new Error('A revision request needs a comment for Finance.');
   if(![PV_ST.SUB, PV_ST.REV].includes(d.status)) throw new Error('This record is not waiting for approval.');
-  d.status = PV_ST.RET; d.approval = null; d.revision = {by:PERSON, at:nowISO(), comment:comment.trim()}; pvHist(d, 'CEO requested a revision', comment);
-  pvEmit(financeKeys(), 'revision', `↩️ The CEO requested a revision on <b>${esc(d.empName)}</b>'s payroll: ${esc(comment)}`, finLink('payroll', {slip:d.id})); recordChange();
+  d.status = PV_ST.RET; d.approval = null; d.revision = {by:PERSON, at:nowISO(), comment:comment.trim(), alt:PERSON!==pvCeo()}; pvHist(d, PERSON!==pvCeo() ? 'Returned for correction by the authorized alternate' : 'CEO returned it for correction', comment);
+  pvEmit(financeKeys(), 'revision', `↩️ Payroll for <b>${esc(d.empName)}</b> was returned for correction: ${esc(comment)}`, finLink('payroll', {slip:d.id})); recordChange();
 }
-function pvCeoOpen(id){ const d = pvDoc(id); if(pvIsCeo() && d.status === PV_ST.SUB){ d.status = PV_ST.REV; pvHist(d, 'CEO opened the record'); recordChange(); } }
+function pvCeoOpen(id){ const d = pvDoc(id); if(pvIsApprover() && d.status === PV_ST.SUB){ d.status = PV_ST.REV; pvHist(d, pvIsCeo() ? 'CEO opened the record' : 'The authorized alternate opened the record'); recordChange(); } }
 
 /* ---------- releasing (same checks as cc_pay_publish) ---------- */
 function pvPublishCheck(d, schedId){
   if(d.release) return {ok:true, duplicate:true};
   if(d.status !== PV_ST.OK) return {ok:false, error:`Not CEO-approved (status: ${d.status})`};
   if(!pvApprovedCurrent(d)) return {ok:false, error:'The approved version is no longer the current version'};
-  if(d.approval.by !== pvCeo()) return {ok:false, error:'Approval was not given by the CEO'};
+  if(d.approval.by !== pvCeo() && !d.approval.alt) return {ok:false, error:'Approval was not given by the CEO or the authorized alternate'};
   if(!PEOPLE[d.emp] || !activePeople().includes(d.emp)) return {ok:false, error:'Recipient has no active portal'};
   if(schedId){ const s = PAYREL.find(x=>x.id===schedId); if(!s || s.doc!==d.id || s.version!==d.version) return {ok:false, error:'Schedule does not match the approved version'}; }
   return {ok:true};
 }
 function pvPublishLocal(d, mode, schedId, by){
   const c = pvPublishCheck(d, schedId); if(!c.ok || c.duplicate) return c;
-  d.status = PV_ST.REL; d.release = {at:nowISO(), by, mode, sched:schedId||null, version:d.version}; pvHist(d, 'Released to recipient', mode);
+  const msg = (d.financeMsg && String(d.financeMsg).trim()) || (pvRun(d.period.id)?.message || '').trim() || '';   /* the message travels with the release; it is not part of the document */
+  d.status = PV_ST.REL; d.release = {at:nowISO(), by, mode, sched:schedId||null, version:d.version, message:msg, msgBy:d.msgBy||null}; pvHist(d, 'Released to recipient', mode);
+  if(schedId){ const s = PAYREL.find(x=>x.id===schedId); if(s) s.message = msg; }
   const lbl = d.class === 'employee' ? 'payslip' : 'payment statement';
-  NOTIFS2.unshift({id:uid('N'), to:d.emp, type:'payroll', text:`🧾 Your <b>${lbl}</b> for ${pvPeriodLabel(d.period)} is now available in Accounting.`, link:{view:'accounting', tab:'payslips', doc:d.id}, by:'finance-system', at:nowISO(), read:false});
+  NOTIFS2.unshift({id:uid('N'), to:d.emp, type:'payroll', text:`🧾 Your <b>${lbl}</b> for ${pvPeriodLabel(d.period)} is now available in <b>My Payslips & Payment History</b>.${msg?` <br>💬 <i>${esc(msg.slice(0,220))}</i>`:''}`, link:{view:'accounting', tab:'payslips', doc:d.id}, by:'finance-system', at:nowISO(), read:false});
+  /* filing: HR 201 → Payslips (employees) / the contractor's own records → Payments (VAs), by year · month · cutoff; one record per document */
+  if(!HRFILES.some(f=>f.id==='HF-PS-'+d.id)) HRFILES.push({id:'HF-PS-'+d.id, emp:d.emp, person:d.emp, share:true, folder:d.class==='employee'?'payslips':'payments', kind:'doc', source:'payroll', doc:d.id, recordClass:d.class, docNo:d.docNo, period:d.period.id,
+    year:d.period.start.slice(0,4), month:d.period.start.slice(5,7), cut:String(d.period.cut), restricted:true, name:`${d.class==='employee'?'Payslip':'Payment statement'} — ${pvPeriodLabel(d.period)}${d.correctionOf?' (corrected)':''}`, status:'Released', by:'system', at:nowISO(), version:d.version});
+  if(d.correctionOf){ const o = pvDoc(d.correctionOf); if(o){ o.supersededBy = d.id; o.supersededAt = nowISO(); } }
   pvEmit([...financeKeys(), ...HEADS], 'payroll', `✅ ${lbl[0].toUpperCase()+lbl.slice(1)} released to <b>${esc(d.empName)}</b> (${mode}).`, finLink('releases'));
   return {ok:true, at:d.release.at};
 }
@@ -32317,29 +32378,36 @@ async function pvTick(){
 }
 setInterval(pvTick, 60000); setTimeout(pvTick, 8000);
 
-/* ---------- rate changes: Finance proposes, the CEO decides ---------- */
-function pvProposeRate({emp, kind, current, proposed, effective, reason, support, target}){
+/* ---------- rate changes ----------
+   EXISTING clients (created before the enhancement): Finance configures and corrects rates directly — every change goes into the client's rate log.
+   NEW clients (registered under the enhanced workflow) and profile pay lines: Finance proposes, the CEO decides; a pending request never touches payroll. */
+const pvIsNewClient = f => !!f?.enhanced;
+function pvRateLog(f, e){ (f.rateLog = f.rateLog||[]).push({at:nowISO(), by:PERSON, ...e}); }
+function pvProposeRate({emp, kind, current, proposed, effective, reason, support, target, rateType, oldType, clientName, payEligible, cutoffs, until}){
   if(!(+proposed > 0)) throw new Error('Enter the proposed amount.'); if(String(reason||'').trim().length < 3) throw new Error('A reason is required.'); if(!effective) throw new Error('Choose the effective date.');
-  const r = {id:uid('RC'), emp, kind, current:current==null?null:+current, proposed:+proposed, effective, reason:reason.trim(), support:support||[], target:target||null, status:'Pending CEO', by:PERSON, at:nowISO(), history:[{at:nowISO(), by:PERSON, act:'Proposed'}]};
+  const r = {id:uid('RC'), emp, kind, current:current==null?null:+current, proposed:+proposed, rateType:rateType||'monthly', oldType:oldType||'monthly', clientName:clientName||'', payEligible:payEligible!==false, cutoffs:cutoffs||'both', until:until||null, effective, reason:reason.trim(), support:support||[], target:target||null, status:'Pending CEO', by:PERSON, at:nowISO(), history:[{at:nowISO(), by:PERSON, act:'Proposed'}]};
   RATECHG.unshift(r);
-  pvEmit([pvCeo()], 'approval', `💰 Rate change pending your approval: <b>${esc(pname(emp))}</b> — ${money(current||0)} → ${money(proposed)} (${esc(reason)}).`, finLink('ceo'));
-  pvEmit([pvCoo()], 'payroll', `Rate change pending CEO approval for <b>${esc(pname(emp))}</b>.`, finLink('oversight')); recordChange(); return r;
+  pvEmit([pvCeo()], 'approval', `💰 Rate change pending your approval: <b>${esc(pname(emp))}</b>${clientName?' · '+esc(clientName):''} — ${current==null?'Rate Not Configured':pvRateTxt(current, oldType, 'PHP')} → ${pvRateTxt(proposed, rateType, 'PHP')} (${esc(reason)}).`, finLink('ceo'));
+  pvEmit([pvCoo()], 'payroll', `Rate change pending CEO approval for <b>${esc(pname(emp))}</b>${clientName?' · '+esc(clientName):''}.`, finLink('oversight')); recordChange(); return r;
 }
-/* the CEO's decision also applies the approved rate (the original line is closed the day before, so earlier periods keep it) */
+/* the CEO's decision also applies the approved rate (the earlier rate is closed the day before, so earlier periods keep it) */
 function pvDecideRate(id, ok, comment){
   const r = RATECHG.find(x=>x.id===id); if(!r || r.status!=='Pending CEO') return; if(!pvIsCeo()) throw new Error('Only the CEO approves or rejects a rate change.');
   if(!ok && String(comment||'').trim().length < 3) throw new Error('Say why the change was rejected.');
   if(ok){
     const t = r.target||{}; const day = shiftDate(r.effective, -1);
     if(t.src==='client'){ const f = FINCLIENTS.find(x=>x.id===t.fc), a = f?.assignments.find(x=>x.id===t.aid);
-      if(a){ a.to = day; f.assignments.push({id:uid('AS'), emp:a.emp, role:a.role, isPm:a.isPm, rate:r.proposed, from:r.effective, to:null}); finHist(f, `${pname(a.emp)}: agreed rate changed (CEO approved)`, `${money(r.current, f.payCurrency)} → ${money(r.proposed, f.payCurrency)}/mo from ${dLong(r.effective)}`); } }
+      if(a){ if(a.rate==null){ a.rate = r.proposed; a.rateType = r.rateType; a.from = a.from || r.effective; a.payEligible = r.payEligible!==false; a.cutoffs = r.cutoffs||'both'; if(r.until) a.to = r.until; }
+        else { a.to = day; f.assignments.push({id:uid('AS'), emp:a.emp, role:a.role, isPm:a.isPm, rate:r.proposed, rateType:r.rateType, from:r.effective, to:r.until||null, payEligible:r.payEligible!==false, cutoffs:r.cutoffs||'both'}); }
+        pvRateLog(f, {kind:'ceo-approved', emp:a.emp, aid:a.id, old:r.current, oldType:r.oldType, new:r.proposed, newType:r.rateType, effective:r.effective, reason:r.reason, request:r.id, via:'CEO approval'});
+        finHist(f, `${pname(a.emp)}: agreed rate changed (CEO approved)`, `${r.current==null?'Rate Not Configured':pvRateTxt(r.current, r.oldType, f.payCurrency)} → ${pvRateTxt(r.proposed, r.rateType, f.payCurrency)} from ${dLong(r.effective)}`); } }
     else { const pp = ensureProfile(r.emp); const old = t.mode==='add' ? null : (pp.rates.find(x=>x.id===t.rid) || pp.rates.filter(x=>!x.to).slice(-1)[0]);
-      if(t.mode==='add') pp.rates.push({id:uid('PR'), label:t.label||'Additional pay', monthly:r.proposed, cur:t.cur||'PHP', from:r.effective, to:null});
-      else if(old){ old.to = day; pp.rates.push({id:uid('PR'), label:old.label, monthly:r.proposed, cur:old.cur, from:r.effective, to:null}); } else pp.rates.push({id:uid('PR'), label:r.kind==='fee'?'Service fee':'Base pay', monthly:r.proposed, cur:'PHP', from:r.effective, to:null});
-      finHist(pp, 'Rate changed (CEO approved)', `${money(r.current||0)} → ${money(r.proposed)} from ${dLong(r.effective)}`); }
+      if(t.mode==='add') pp.rates.push({id:uid('PR'), label:t.label||'Additional pay', monthly:r.proposed, type:r.rateType, cur:t.cur||'PHP', from:r.effective, to:null});
+      else if(old){ old.to = day; pp.rates.push({id:uid('PR'), label:old.label, monthly:r.proposed, type:r.rateType, cur:old.cur, from:r.effective, to:null}); } else pp.rates.push({id:uid('PR'), label:r.kind==='fee'?'Service fee':'Base pay', monthly:r.proposed, type:r.rateType, cur:'PHP', from:r.effective, to:null});
+      finHist(pp, 'Rate changed (CEO approved)', `${r.current==null?'—':money(r.current)} → ${pvRateTxt(r.proposed, r.rateType)} from ${dLong(r.effective)}`); }
   }
   r.status = ok ? 'Approved' : 'Rejected'; r.decision = {by:PERSON, at:nowISO(), comment:comment||''}; (r.history=r.history||[]).push({at:nowISO(), by:PERSON, act:r.status, note:comment||''});
-  pvEmit(financeKeys(), 'approval', `The CEO ${r.status.toLowerCase()} the rate change for <b>${esc(pname(r.emp))}</b>.`, finLink('profiles')); recordChange();
+  pvEmit(financeKeys(), 'approval', `The CEO ${r.status.toLowerCase()} the rate change for <b>${esc(pname(r.emp))}</b>${r.clientName?' · '+esc(r.clientName):''}.`, finLink('rates')); recordChange();
 }
 
 /* ===== t0c_finui.js — Finance portal v2: page shell, payroll tab, editor, premium payslip / payment statement ===== */
@@ -32357,6 +32425,7 @@ const pvName = d => pname(d.emp) !== '—' && PEOPLE[d.emp] ? pname(d.emp) : d.e
 
 /* ---------- page ---------- */
 let PVU = {sel:new Set(), cls:'all', rel:'', q:''};
+FIN.tab = 'payroll';   /* Finance opens on Payroll (it used to open on the older "New clients" tab) */
 const FIN_TABS = () => {
   const nCeo = PAYV2.filter(d=>[PV_ST.SUB, PV_ST.REV].includes(d.status)).length + RATECHG.filter(r=>r.status==='Pending CEO').length;
   const nRel = PAYV2.filter(d=>pvApprovedCurrent(d) && !d.release).length;
@@ -32364,12 +32433,12 @@ const FIN_TABS = () => {
   const nNew = FINCLIENTS.filter(f=>['New','Changed'].includes(f.status)).length;
   const nLv = LVSYNC.filter(s=>s.review && !s.reviewed).length;
   const bd = (n, c='b-new') => n ? ` <span class="badge ${c}">${n}</span>` : '';
-  return [['payroll','Payroll'], ['ceo', `CEO review${bd(nCeo,'b-missed')}`], ['releases', `Release scheduler${bd(nRel)}`], ['tickets', `Concerns${bd(nTix)}`], ['leave', `Leave & time off${bd(nLv)}`],
-    ...(isHead(PERSON) ? [['oversight','COO oversight']] : []), ['clients', `New clients${bd(nNew)}`], ['profiles','Pay profiles & rates'], ['settings','Payroll settings'], ['archive','Earlier payslips']];
+  return [['payroll','Pre-Generated Payroll & Payslips'], ['ceo', `CEO review${bd(nCeo,'b-missed')}`], ['releases', `Release scheduler${bd(nRel)}`], ['tickets', `Concerns${bd(nTix)}`], ['leave', `Leave & time off${bd(nLv)}`],
+    ...(isHead(PERSON) ? [['oversight','COO oversight']] : []), ['rates', `Client rates${bd(nNew + pvMissingRates().length, pvMissingRates().length?'b-missed':'b-new')}`], ['profiles','Pay profiles & rates'], ['settings','Payroll settings'], ['archive','Earlier payslips']];
 };
 RENDER.finance = () => {
   if(!finAuth()){ el('v-finance').innerHTML = '<div class="empty">Finance is available to the Finance team and company heads.</div>'; return; }
-  finReconcile(); FIN.period = FIN.period || defaultPayPeriod();
+  finReconcile(); FIN.period = FIN.period || defaultPayPeriod(); if(FIN.tab==='clients') FIN.tab = 'rates';
   if(!FIN_TABS().some(t=>t[0]===FIN.tab)) FIN.tab = 'payroll';
   el('v-finance').innerHTML = `
     <div class="page-head"><div><h2>Finance & Payroll</h2><p>Contractor payment statements and employee payslips — prepared at each cutoff, approved by the CEO, released on your schedule. 🔒 Visible only to Finance (${financeKeys().map(k=>esc(first(k))).join(', ')}) and the company heads.</p></div></div>
@@ -32379,7 +32448,7 @@ RENDER.finance = () => {
 function pvTabBody(){
   switch(FIN.tab){
     case 'payroll': return pvPayrollHTML(); case 'ceo': return pvCeoHTML(); case 'releases': return pvReleasesHTML(); case 'tickets': return typeof acAdminTicketsHTML==='function' ? acAdminTicketsHTML() : '';
-    case 'leave': return pvLeaveSyncHTML(); case 'oversight': return pvOversightHTML(); case 'clients': return finClientsHTML(); case 'profiles': return profilesHTML();
+    case 'leave': return pvLeaveSyncHTML(); case 'oversight': return pvOversightHTML(); case 'clients': case 'rates': return pvRatesHTML(); case 'profiles': return profilesHTML();
     case 'settings': return pvSettingsHTML(); case 'archive': return pvArchiveHTML(); default: return pvPayrollHTML(); }
 }
 const pvRefresh = () => { const b = el('finBody'); if(b && CURRENT==='finance') b.innerHTML = pvTabBody(); };
@@ -32395,11 +32464,11 @@ function pvPayrollHTML(){
       <span style="margin-left:auto;font-size:12.5px"><b>${money(tot)}</b> <span class="hint">net total</span></span></div>
       <div class="tbl-wrap"><table class="tbl"><thead><tr><th>${cls==='contractor'?'Contractor':'Employee'}</th><th>Gross</th><th>Deductions</th><th>Net payable</th><th>Status</th><th>Release</th><th>Notes</th><th></th></tr></thead><tbody>
       ${L.map(d=>`<tr style="cursor:pointer" onclick="openPv('${d.id}')"><td><b>${esc(pvName(d))}</b><div class="hint">${esc(d.empRole||'')}${d.docNo?' · '+esc(d.docNo):''}</div></td>
-        <td>${pvMoney(d.gross,d)}</td><td>${d.deductions?'−'+pvMoney(d.deductions,d):'—'}</td><td><b>${pvMoney(d.net,d)}</b></td><td>${pvBadge(d.status)}${d.version?`<div class="hint">v${d.version}</div>`:''}</td>
-        <td>${d.status===PV_ST.OK||d.release?pvBadge(pvRelStatus(d)):'<span class="hint">—</span>'}</td>
-        <td style="font-size:12px">${d.flags?.missingRate&&!d.flags?.rateConfirmed?'<span class="badge b-missed">rate needed</span> ':''}${d.lines.some(l=>l.manual)?'<span class="badge b-scheduled">adjusted</span> ':''}${(d.leave||[]).length?'<span class="badge b-new">leave</span>':''}${d.status===PV_ST.RET?'<span class="badge b-missed">revision</span>':''}</td>
+        <td>${pvMoney(d.gross,d)}</td><td>${d.deductions?'−'+pvMoney(d.deductions,d):'—'}</td><td><b>${pvMoney(d.net,d)}</b></td><td>${pvDispBadge(d)}${d.version?`<div class="hint">v${d.version}</div>`:''}${d.correctionOf?'<div class="hint">✏️ correction</div>':''}</td>
+        <td>${d.release?`<div class="hint">${esc(dtstr(d.release.at))}</div>${pvViewed(d)?`<div class="hint">viewed ${esc(ago(pvViewed(d).at))}</div>`:''}`:pvActiveRel(d)?`<div class="hint">${esc(dtstr(pvActiveRel(d).at))}</div>`:'<span class="hint">—</span>'}</td>
+        <td style="font-size:12px">${d.lines.some(l=>l.needs==='rate')?'<span class="badge b-missed">Rate Not Configured</span> ':''}${d.lines.some(l=>['hours','deliverables'].includes(l.needs))?'<span class="badge b-missed">hours / deliverables</span> ':''}${pvPendingFor(d.emp).length?'<span class="badge b-pending">pending CEO rate</span> ':''}${d.lines.some(l=>l.manual)?'<span class="badge b-scheduled">adjusted</span> ':''}${(d.leave||[]).length?'<span class="badge b-new">leave</span>':''}${d.status===PV_ST.RET?'<span class="badge b-missed">revision</span>':''}</td>
         <td><button class="btn" style="padding:4px 9px;font-size:12px">Open</button></td></tr>`).join('') || `<tr><td colspan="8" class="empty">No ${cls==='contractor'?'contractor statements':'payslips'} for this period yet.</td></tr>`}</tbody></table></div></div>`; };
-  return `<div class="card" style="margin-bottom:14px"><div class="card-b" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+  return `${pvDbWarning()}<div class="card" style="margin-bottom:14px"><div class="card-b" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
       <button class="btn" onclick="FIN.period=shiftPeriod(FIN.period,-1);RENDER.finance()" aria-label="Previous period">←</button>
       <div style="min-width:240px"><b style="font-size:15px">${esc(pvPeriodLabel(per))}</b>
         <div class="hint">Cutoff <b>${dLong(per.cutoff)}</b> · covers ${dShort(per.start)}–${dShort(per.end)} · payment date <b>${dLong(per.payout)}</b> · releases are scheduled separately</div></div>
@@ -32410,14 +32479,14 @@ function pvPayrollHTML(){
     </div>
     ${run?.gen?`<div class="card-b hint" style="padding-top:0">${run.gen.auto?'⚙️ Drafts were generated automatically at the cutoff':'Drafts generated by '+esc(pname(run.gen.by))} · ${esc(dtstr(run.gen.at))}${(function(){ const c = payCfg(); return c.autoCutoff?'':' · automatic cutoff generation is switched off in Payroll settings'; })()}</div>`:
       `<div class="card-b hint" style="padding-top:0">${due?'The cutoff has passed and no drafts exist yet — they are normally generated automatically (00:05 Philippine time). You can generate them now.':'Drafts are generated automatically on the cutoff date.'}</div>`}</div>
-    <div class="grid cols-4" style="margin-bottom:14px">
-      ${pvKpi('Draft · Finance review', cnt(d=>[PV_ST.DRAFT].includes(d.status)), `${cnt(d=>d.status===PV_ST.RET)} returned for revision`, cnt(d=>d.status===PV_ST.RET)?'var(--bad)':'')}
-      ${pvKpi('With the CEO', cnt(d=>[PV_ST.SUB,PV_ST.REV].includes(d.status)), 'submitted, waiting for a decision')}
-      ${pvKpi('Approved · ready to release', cnt(d=>pvApprovedCurrent(d)&&!d.release), `${cnt(d=>pvActiveRel(d))} scheduled`, 'var(--ok)')}
-      ${pvKpi('Released', `${cnt(d=>d.release)}/${D.length}`, `${cnt(d=>d.pay?.status==='Paid')} marked paid`)}</div>
+    ${pvExceptionsHTML(D)}
+    ${pvDashHTML(D)}
+    ${pvMsgPanel(pid, D)}${pvAdjPanel(pid, D)}
     ${sec('contractor')}${sec('employee')}`;
 }
-async function pvGenerateClick(){ try{ await pv2Generate(FIN.period); RENDER.finance(); }catch(e){ toast(e.message); } }
+async function pvGenerateClick(){ try{ await pv2Generate(FIN.period); RENDER.finance(); }
+  catch(e){ const m = String(e.message||e); toast(/cc_pay_generate_manual|could not find the function|schema cache|does not exist/i.test(m) ? 'The payroll database update has not been applied yet — run update-oct24-1.sql in Supabase (SQL Editor), then refresh.' : m); } }
+const pvDbWarning = () => (pvLive() && !PAYCFG.length) ? `<div class="end-banner urgent" style="margin-bottom:12px">⚠️ <b>The payroll database update was not found.</b> Ask your administrator to run <code>update-oct24-1.sql</code> once in Supabase (SQL Editor → New query → paste → Run), then refresh this page. Until then drafts cannot be generated and payslips cannot be released.</div>` : '';
 function pvSubmitBatch(){
   const L = pvDocs(FIN.period).filter(d=>!pvCanSubmit(d)); if(!L.length) return toast('Nothing is ready to submit');
   confirmModal(`Submit ${L.length} record${L.length===1?'':'s'} to the CEO?`, `<div class="hint" style="margin-bottom:8px">Each record keeps its own approval. Records with a missing rate or an adjustment without a reason are not included.</div>
@@ -32433,10 +32502,13 @@ async function pvExport(){
 /* ---------- the editor ---------- */
 let PV_OPEN = null;
 function openPv(id, keepScroll){
-  const d = pvDoc(id); PV_OPEN = id; if(!d) return toast('That record is not available');
+  const d = pvDoc(id); PV_OPEN = id;
+  if(d && pvCan() && d.status===PV_ST.DRAFT && !d.reviewAt){ d.reviewAt = nowISO(); d.reviewBy = PERSON; pvHist(d, 'Finance started the review'); recordChange(); } if(!d) return toast('That record is not available');
   const ed = pvCan() && pvEditable(d), per = d.period, relA = pvActiveRel(d); const box = el('modal')?.querySelector('.box'); const top = keepScroll && box ? box.scrollTop : 0;
   const lineRow = l => `<tr class="${l.manual?'pv-manual':''}"><td>${ed && l.manual ? `<input value="${esc(l.label)}" onchange="pvSetLine('${d.id}','${l.id}',{label:this.value});openPv('${d.id}',1)" style="width:100%">` : esc(l.label)}
-      <div class="hint">${esc(PV_KIND_LABEL[l.kind]||l.kind)}${l.note?' · '+esc(l.note):''}${l.auto&&!l.manual?' · automatic':''}${l.manual?' · manual':''}</div>
+      <div class="hint">${esc(PV_KIND_LABEL[l.kind]||l.kind)}${l.rt?' · '+esc(RTYPES[l.rt]?.label||''):''}${l.note?' · '+esc(l.note):''}${l.auto&&!l.manual?' · automatic':''}${l.manual?' · manual':''}</div>
+      ${l.needs==='rate'?`<div style="margin-top:3px"><span class="badge b-missed">Rate Not Configured</span> <button class="btn ghost" style="padding:2px 8px;font-size:11.5px" onclick="closeModal();FIN.tab='rates';RENDER.finance()">Set it in Client rates</button></div>`:''}
+      ${l.rt==='hourly'||l.rt==='project'?`<div style="margin-top:4px;display:flex;gap:6px;align-items:center;flex-wrap:wrap">${l.needs?`<span class="badge b-missed">${l.rt==='hourly'?'hours':'deliverables'} needed</span>`:''}${ed?`<input type="number" min="0" step="${l.rt==='hourly'?'0.25':'1'}" value="${l.qty??''}" placeholder="${l.rt==='hourly'?'hours worked':'approved deliverables'}" style="width:140px;font-size:12px;padding:4px 7px" onchange="pvQty('${d.id}','${l.id}',this.value)">${l.rt==='hourly'?`<button class="btn ghost" style="padding:2px 8px;font-size:11.5px" onclick="pvSuggest('${d.id}','${l.id}')">Suggest from attendance</button>`:''}`:`<span class="hint">${l.qty??0} ${l.rt==='hourly'?'hours':'deliverables'}</span>`}</div>`:''}
       ${l.manual||ed&&l.auto?`<div class="hint">${ed?`<input placeholder="Reason (required if changed)" value="${esc(l.reason||'')}" onchange="pvSetLine('${d.id}','${l.id}',{reason:this.value});openPv('${d.id}',1)" style="width:100%;margin-top:3px;font-size:12px;padding:4px 7px">`:esc(l.reason||'')}</div>`:''}</td>
       <td style="text-align:right;white-space:nowrap">${ed?`<input type="number" step="0.01" min="0" value="${l.amount}" style="width:110px;text-align:right" onchange="pvLineAmt('${d.id}','${l.id}',this.value)">`:`<b>${pvMoney(l.amount,d)}</b>`}</td>
       <td style="width:34px">${ed?`<button class="btn ghost" style="padding:2px 7px" title="Remove" onclick="pvLineDel('${d.id}','${l.id}')">✕</button>`:''}</td></tr>`;
@@ -32446,12 +32518,14 @@ function openPv(id, keepScroll){
       <span class="hint">${esc(d.docNo||'')} · ${esc(pvPeriodLabel(per))} · cutoff ${dLong(per.cutoff)} · payment date ${dLong(per.payout)}</span></div>
     ${d.status===PV_ST.RET&&d.revision?`<div class="end-banner urgent">↩️ <b>CEO requested a revision</b> (${esc(first(d.revision.by))}, ${esc(dtstr(d.revision.at))}): “${esc(d.revision.comment)}”. Correct it and submit again — it needs fresh approval.</div>`:''}
     ${relA&&relA.status==='Suspended'?`<div class="end-banner urgent">⏸ The scheduled release is <b>suspended</b>: ${esc(relA.suspendReason||'the record changed')}. Once the CEO approves this version, reinstate the schedule in the Release scheduler.</div>`:''}
+    ${d.correctionOf?`<div class="end-banner urgent">✏️ <b>Correction</b> of ${esc(pvDoc(d.correctionOf)?.docNo||d.correctionOf)} — once approved and released it supersedes the earlier document, which stays on file.</div>`:''}
+    ${d.supersededBy?`<div class="end-banner urgent">This document was <b>superseded</b> by a corrected one: <a href="#" onclick="event.preventDefault();openPv('${d.supersededBy}')">${esc(pvDoc(d.supersededBy)?.docNo||d.supersededBy)}</a>.</div>`:''}
     ${d.release?`<div class="end-banner">✅ Released ${esc(dtstr(d.release.at))} (${esc(d.release.mode)}). Releasing does not mean the compensation was paid — payment is confirmed separately below.</div>`:''}
     ${!ed&&!d.release&&[PV_ST.SUB,PV_ST.REV].includes(d.status)?`<div class="hint" style="margin-bottom:8px">With the CEO for review — figures are locked${pvCan()?'. Recall it to draft to edit.':'.'}</div>`:''}
     <div class="split"><div>
       <div class="pv-who">${av(P(d.emp))}<div><b>${esc(pvName(d))}</b><div class="hint">${esc(d.empRole||'')}${d.dept?' · '+esc(d.dept):''} · ${PV_CLASS[d.class].who} · ID ${esc(d.emp)}</div></div></div>
       <table class="tbl pv-lines"><thead><tr><th>${d.class==='contractor'?'Contractual fees & adjustments':'Earnings, contributions & adjustments'}</th><th style="text-align:right">Amount</th><th></th></tr></thead><tbody>
-        ${group(d.class==='contractor'?'Contractual service fee':'Earnings', l=>['basic','fee'].includes(l.kind))}
+        ${d.class==='employee' && d.lines.some(l=>l.internal) ? group('Cross Core internal salary', l=>['basic','fee'].includes(l.kind)&&l.internal) + group('Client assignments — additional compensation', l=>['basic','fee'].includes(l.kind)&&!l.internal) : group(d.class==='contractor'?'Contractual service fees, by client':'Earnings', l=>['basic','fee'].includes(l.kind))}
         ${group('Allowances, bonuses & incentives', l=>['allowance','bonus','leavepay'].includes(l.kind)||(l.kind==='adjust'&&l.sign==='+'))}
         ${group('Reimbursements', l=>l.kind==='reimb')}
         ${group('Employee statutory contributions & tax', l=>['sss','phic','hdmf','tax'].includes(l.kind))}
@@ -32467,7 +32541,9 @@ function openPv(id, keepScroll){
         <button class="btn" onclick="pvAddClick('${d.id}')">Add to this record</button>
         <div class="hint" style="margin-top:6px">${d.class==='contractor'?'Contractors: no statutory contributions or employee leave deductions are applied automatically. Any deduction needs an authorized reason.':'Deductions must be authorized and have a reason; statutory lines follow the tables in Payroll settings.'}</div></details>`:''}
       <div class="grid cols-2" style="margin-top:12px"><div class="field"><label>${d.class==='contractor'?'Deliverables / services covered':'Applicable days / notes'}</label><textarea rows="2" ${ed?'':'disabled'} onchange="pvDoc('${d.id}').${d.class==='contractor'?'deliverables':'applicable'}=this.value;recordChange()">${esc(d.class==='contractor'?d.deliverables||'':d.applicable||'')}</textarea></div>
-        <div class="field"><label>Finance remarks</label><textarea rows="2" ${pvCan()&&d.status!==PV_ST.REL?'':'disabled'} onchange="pvDoc('${d.id}').remarks=this.value;recordChange()">${esc(d.remarks||'')}</textarea></div></div>
+        <div class="field"><label>Finance remarks <span class="hint">(internal + shown on the document)</span></label><textarea rows="2" ${pvCan()&&d.status!==PV_ST.REL?'':'disabled'} onchange="pvDoc('${d.id}').remarks=this.value;recordChange()">${esc(d.remarks||'')}</textarea></div></div>
+      <div class="field"><label>💬 Message to Employee / VA <span class="hint">(delivered with the payslip, outside the document — leave as is to use the cutoff's general message)</span></label><textarea rows="3" ${pvCan()&&d.status!==PV_ST.REL?'':'disabled'} onchange="pvDoc('${d.id}').financeMsg=this.value;pvDoc('${d.id}').msgBy=PERSON;recordChange()">${esc(d.release ? pvMsgSent(d) : pvMsg(d))}</textarea></div>
+      <details class="pv-add" ontoggle="if(this.open)pvFillDocImgs()"><summary>👁 Payslip preview (what the recipient will receive)</summary><div class="pvd-img" data-pvimg="${esc(d.id)}" style="margin-top:8px"><div class="hint" style="padding:20px;text-align:center">Preparing the document…</div></div></details>
       <div class="field"><label>Supporting documents</label><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">${pvCan()&&d.status!==PV_ST.REL?`<button class="btn" onclick="pvAttach('${d.id}')">📎 Attach</button>`:''}<span id="pvFiles">${fileChips(d.supporting, pvCan()&&d.status!==PV_ST.REL?'pvRmFile':'')}</span></div></div>
     </div><div class="brand-panel">
       ${d.flags?.missingRate&&!d.flags?.rateConfirmed?`<div class="end-banner urgent" style="margin-bottom:8px">⚠️ <b>An agreed rate is missing.</b> Set it in Pay profiles & rates, then recalculate.${ed?` <label class="hint" style="display:block;margin-top:4px"><input type="checkbox" style="width:auto" onchange="pvDoc('${d.id}').flags.rateConfirmed=this.checked;recordChange()"> The record is correct without it</label>`:''}</div>`:''}
@@ -32486,11 +32562,14 @@ function openPv(id, keepScroll){
       ${pvCan()&&[PV_ST.SUB].includes(d.status)?`<button class="btn" onclick="pvRecall('${d.id}');openPv('${d.id}',1);toast('Recalled to draft')">Recall to draft</button>`:''}
       ${pvCan()&&d.status===PV_ST.OK&&!d.release?`<button class="btn" onclick="pvRecall('${d.id}');openPv('${d.id}',1);toast('Approval withdrawn — the record is a draft again')">Withdraw approval</button>`:''}
       ${pvCan()&&pvApprovedCurrent(d)&&!d.release&&!relA?`<button class="btn primary" onclick="pvReleaseClick('${d.id}')">Release now</button><button class="btn" onclick="pvScheduleModal(['${d.id}'])">🗓 Schedule release</button>`:''}
+      ${pvCan()&&d.release&&!d.supersededBy?`<button class="btn" onclick="pvCreateCorrection('${d.id}')" title="Starts a new, separately approved document; the released one stays on file">Create correction</button>`:''}
       ${pvCan()&&d.release&&d.pay?.status!=='Paid'?`<button class="btn" onclick="pvMarkPaid('${d.id}')">Mark as paid…</button>`:''}
       ${pvIsCeo()&&[PV_ST.SUB,PV_ST.REV].includes(d.status)?`<button class="btn primary" onclick="pvCeoReview('${d.id}')">Open for CEO decision</button>`:''}
     </div>`, true);
   if(box && keepScroll) el('modal').querySelector('.box').scrollTop = top;
 }
+const pvQty = (id, lid, v) => { try{ pvSetQty(id, lid, v); }catch(e){ toast(e.message); } openPv(id, 1); };
+const pvSuggest = (id, lid) => { const d = pvDoc(id), l = d.lines.find(x=>x.id===lid); const h = pvSuggestHours(d.emp, d.period, l.cid); if(!h) return toast('No attendance logs were found for this person in this period — enter the hours by hand'); pvQty(id, lid, h); toast(`${h} hours from the attendance logs — change it if needed`); };
 const pvLineAmt = (id, lid, v) => { try{ pvSetLine(id, lid, {amount:pvR2(v)}); }catch(e){ toast(e.message); } openPv(id, 1); };
 const pvLineDel = (id, lid) => { const l = pvDoc(id).lines.find(x=>x.id===lid); const why = (l.auto && !l.manual) ? prompt(`Why is “${l.label}” being removed? (required)`, '') : 'manual line removed'; if(why===null) return; if(String(why).trim().length<3) return toast('A reason is required');
   try{ pvRemoveLine(id, lid); const d = pvDoc(id); d.history[d.history.length-1].note += ` — ${why}`; recordChange(); }catch(e){ toast(e.message); } openPv(id, 1); };
@@ -32500,76 +32579,17 @@ function pvRmFile(i){ const id = PV_OPEN; if(!id) return; const d = pvDoc(id); c
 function pvRebuildClick(id){ try{ pvRebuild(id); toast('Recalculated'); }catch(e){ toast(e.message); } openPv(id, 1); }
 function pvSubmitClick(id){ try{ pvSubmit(id); closeModal(); RENDER.finance(); toast('Submitted to the CEO'); }catch(e){ toast(e.message); } }
 async function pvReleaseClick(id){ const d = pvDoc(id);
-  confirmModal('Release now?', `<p>${esc(pvName(d))} receives their ${PV_CLASS[d.class].short.toLowerCase()} for ${esc(pvPeriodLabel(d.period))} immediately, with a notification. The system re-checks CEO approval, the approved version and the recipient first.</p><p class="hint" style="margin-top:6px">Releasing does not mark the compensation as paid.</p>`, 'Release now', async()=>{
-    try{ await pv2ReleaseNow(id); closeModal(); RENDER.finance(); toast('Released'); }catch(e){ closeModal(); toast(e.message); } }, {primary:true}); }
+  confirmModal('Release now?', `<p>${esc(pvName(d))} receives their ${PV_CLASS[d.class].short.toLowerCase()} for ${esc(pvPeriodLabel(d.period))} immediately, with a notification. The system re-checks CEO approval, the approved version and the recipient first.</p>
+    <div class="field" style="margin-top:8px"><label>💬 Message from Finance <span class="hint">(printed on the payslip)</span></label><textarea id="rlMsg" rows="4">${esc(pvMsg(d))}</textarea></div>
+    <p class="hint" style="margin-top:6px">The release date and time (Philippine time) are stamped on the document. Releasing does not mark the compensation as paid.</p>`, 'Release now', async()=>{
+    try{ const m = el('rlMsg').value.trim(); if(m && m!==pvMsg(d)){ d.financeMsg = m; d.msgBy = PERSON; } else if(!d.financeMsg){ d.financeMsg = pvMsgDefault(d); d.msgBy = PERSON; } await lvSettle();
+      await pv2ReleaseNow(id); closeModal(); RENDER.finance(); toast('Released'); }catch(e){ closeModal(); toast(e.message); } }, {primary:true}); }
 function pvMarkPaid(id){ const ref = prompt('Mark as paid. Payment reference (optional, e.g. bank transfer no.):', ''); if(ref===null) return; const d = pvDoc(id);
   d.pay = {status:'Paid', at:manilaDate(), ref, by:PERSON}; pvHist(d, 'Payment confirmed', ref); recordChange(); openPv(id, 1); }
 
 /* ---------- the document: premium on-screen view, print and PDF ---------- */
 const pvRef = d => d.approval ? ('CC-' + String(d.approval.hash ? d.approval.hash.slice(0,10) : (d.docNo||d.id).replace(/[^A-Z0-9]/gi,'')+'V'+d.approval.version).toUpperCase()) : '';
-function pvDocHTML(d){
-  const emp = d.class === 'employee', per = d.period; const grp = f => d.lines.filter(f);
-  const rows = L => L.map(l=>`<tr><td>${esc(l.label)}${l.reason?`<span>${esc(l.reason)}</span>`:l.note?`<span>${esc(l.note)}</span>`:''}</td><td>${pvMoney(l.amount,d)}</td></tr>`).join('') || '<tr><td class="none" colspan="2">—</td></tr>';
-  return `<div class="pvd" id="pvdoc"><div class="pvd-top"><img src="${LOGO_B64}" alt="Cross Core"><div><b>The Cross Core OPC</b><span>Official payroll document · Confidential</span></div>
-      <div class="pvd-title"><small>${emp?'EMPLOYEE':'CONTRACTOR'}</small>${emp?'PAYSLIP':'PAYMENT STATEMENT'}<em>${esc(d.docNo||'')}</em></div></div>
-    <div class="pvd-grid"><div><label>Recipient</label><b>${esc(pvName(d))}</b><span>${esc(d.empRole||'')}${d.dept?' · '+esc(d.dept):''}</span><span>${emp?'Declared employee':'Independent contractor (VA)'} · ID ${esc(d.emp)}</span></div>
-      <div><label>Payroll cutoff</label><b>${dLong(per.cutoff)}</b><span>Covered period ${dLong(per.start)} – ${dLong(per.end)}</span><span>Payment date ${dLong(per.payout)}</span></div>
-      <div><label>Status</label><b>${d.release?'Released':esc(d.status)}</b><span>${d.release?'Released '+esc(dtstr(d.release.at)):'Not yet released'}</span><span>Payment: ${d.pay?.status==='Paid'?'Paid '+dLong(d.pay.at):'Pending confirmation'}</span></div></div>
-    <div class="pvd-cols"><div><h4>${emp?'Earnings':'Contractual fees'}</h4><table>${rows(grp(l=>['basic','fee','allowance','bonus','leavepay'].includes(l.kind)||(l.kind==='adjust'&&l.sign==='+')))}<tr class="t"><td>Gross</td><td>${pvMoney(d.gross,d)}</td></tr></table>
-      ${grp(l=>l.kind==='reimb').length?`<h4>Reimbursements</h4><table>${rows(grp(l=>l.kind==='reimb'))}</table>`:''}</div>
-      <div>${emp?`<h4>Employee statutory contributions</h4><table>${rows(grp(l=>['sss','phic','hdmf','tax'].includes(l.kind)))}</table>`:''}
-        <h4>Authorized deductions</h4><table>${rows(grp(l=>['deduction','unpaidleave'].includes(l.kind)||(l.kind==='adjust'&&l.sign==='-')))}<tr class="t"><td>Total deductions</td><td>−${pvMoney(d.deductions,d)}</td></tr></table></div></div>
-    <div class="pvd-net"><div><label>Net payable</label><small>${emp?'Gross + reimbursements − deductions and contributions':'Contractual fee + authorized adjustments'}</small></div><b>${pvMoney(d.net,d)}</b></div>
-    ${emp?'':`<p class="pvd-note">Issued to an independent contractor. Employee statutory contributions and employee leave deductions do not apply; any deduction shown is a specifically authorized adjustment.</p>`}
-    ${d.remarks?`<p class="pvd-note"><b>Finance remarks:</b> ${esc(d.remarks)}</p>`:''}
-    <div class="pvd-foot"><div><label>Approval</label>${d.approval?`<b>Approved by ${esc(pname(d.approval.by))}, CEO</b><span>${esc(esManila(d.approval.at))}</span><span>Version ${d.approval.version} · Verification ref. ${esc(pvRef(d))}</span>`:'<b>Pending CEO approval</b>'}</div>
-      <div><label>Issued by</label><b>Finance, The Cross Core OPC</b><span>This document is system-generated and valid without a signature.</span></div></div></div>`;
-}
-function pvView(id){
-  const d = pvDoc(id); if(!d) return;
-  openModal(`${PV_CLASS[d.class].doc} · ${d.docNo||''}`, `${pvDocHTML(d)}
-    <div class="pv-actions no-print"><button class="btn primary" onclick="pvDownload('${d.id}')">⬇ Download PDF</button><button class="btn" onclick="pvPrint()">🖨 Print</button>${pvCan()?`<button class="btn" onclick="openPv('${d.id}')">← Back to the editor</button>`:''}</div>`, true);
-}
-function pvPrint(){ const html = el('pvdoc')?.outerHTML; if(!html) return; const w = window.open('', '_blank'); if(!w) return toast('Allow pop-ups to print');
-  w.document.write(`<!doctype html><title>Cross Core payroll document</title><style>${PVD_CSS}body{margin:18px;font-family:Inter,system-ui,sans-serif}</style>${html}<script>onload=()=>setTimeout(()=>print(),300)<\/script>`); w.document.close(); }
-async function pvDownload(id){ const d = pvDoc(id); try{ (await pvPDF(d)).save(`${d.class==='employee'?'Payslip':'Payment-Statement'}-${(pvName(d)).replace(/[^\w]+/g,'-')}-${d.period.id}.pdf`); }catch(e){ toast('Could not create the PDF: '+e.message); } }
-async function pvPDF(d){
-  await loadScript(JSPDF_SRC); const emp = d.class === 'employee';
-  const doc = new window.jspdf.jsPDF({unit:'pt', format:'a4'}); const W = 595, H = 842, M = 44; let y = 0;
-  const T = (s, x, yy, o={}) => { doc.setFont('helvetica', o.b?'bold':'normal'); doc.setFontSize(o.s||9.5); doc.setTextColor(...(o.c||[30,30,34])); doc.text(String(s), x, yy, o.a?{align:o.a}:undefined); };
-  doc.setFillColor(20,20,22); doc.rect(0,0,W,96,'F'); doc.setFillColor(242,180,64); doc.rect(0,96,W,5,'F');
-  try{ doc.addImage(LOGO_B64, 'PNG', M, 20, 46, 56, 'cclogo', 'FAST'); }catch(e){}
-  T('The Cross Core OPC', M+60, 44, {b:1, s:15, c:[255,255,255]}); T('Official payroll document · Confidential', M+60, 60, {s:8.5, c:[200,200,205]});
-  T(emp?'EMPLOYEE':'CONTRACTOR', W-M, 34, {s:8.5, c:[242,180,64], a:'right', b:1}); T(emp?'PAYSLIP':'PAYMENT STATEMENT', W-M, 54, {b:1, s:17, c:[255,255,255], a:'right'}); T(d.docNo||'', W-M, 72, {s:9, c:[200,200,205], a:'right'});
-  y = 126; const colW = (W-2*M)/3;
-  [['RECIPIENT', pvName(d), `${d.empRole||''}${d.dept?' · '+d.dept:''}`, `${emp?'Declared employee':'Independent contractor (VA)'} · ID ${d.emp}`],
-   ['PAYROLL CUTOFF', dLong(d.period.cutoff), `Covered ${dLong(d.period.start)} – ${dLong(d.period.end)}`, `Payment date ${dLong(d.period.payout)}`],
-   ['STATUS', d.release?'Released':d.status, d.release?'Released '+dtstr(d.release.at):'Not yet released', `Payment: ${d.pay?.status==='Paid'?'Paid '+dLong(d.pay.at):'pending confirmation'}`]]
-   .forEach((c,i)=>{ const x = M+i*colW; T(c[0], x, y, {s:7.5, c:[140,140,146], b:1}); T(c[1], x, y+14, {b:1, s:10.5}); doc.setFontSize(8.5); doc.setTextColor(90,90,96); doc.splitTextToSize(c[2], colW-10).forEach((l,j)=>doc.text(l, x, y+27+j*10)); T(c[3], x, y+49, {s:8.5, c:[90,90,96]}); });
-  y += 78; doc.setDrawColor(230,226,216); doc.line(M, y, W-M, y); y += 20;
-  const table = (title, L, total, x, w) => { let yy = y; T(title.toUpperCase(), x, yy, {s:8, b:1, c:[140,140,146]}); yy += 8; doc.setDrawColor(242,180,64); doc.setLineWidth(1.4); doc.line(x, yy, x+26, yy); doc.setLineWidth(.5); yy += 14;
-    (L.length?L:[{label:'—', amount:null}]).forEach(l=>{ const lab = doc.splitTextToSize(l.label, w-90); lab.forEach((s,j)=>T(s, x, yy+j*11, {s:9.5})); if(l.amount!=null) T(moneyPlain(l.amount, d.cur), x+w, yy, {a:'right', s:9.5});
-      const sub = l.reason||l.note; if(sub){ doc.setFontSize(7.5); doc.setTextColor(140,140,146); doc.splitTextToSize(sub, w-90).slice(0,2).forEach((s,j)=>doc.text(s, x, yy+lab.length*11+j*9)); yy += Math.min(2, doc.splitTextToSize(sub, w-90).length)*9; } yy += lab.length*11+5; });
-    if(total){ doc.setDrawColor(210,206,196); doc.line(x, yy-2, x+w, yy-2); yy += 10; T(total[0], x, yy, {b:1}); T(total[1], x+w, yy, {a:'right', b:1}); yy += 12; } return yy; };
-  const g = f => d.lines.filter(f); const w2 = (W-2*M-24)/2;
-  const y1 = table(emp?'Earnings':'Contractual fees', g(l=>['basic','fee','allowance','bonus','leavepay'].includes(l.kind)||(l.kind==='adjust'&&l.sign==='+')), ['Gross', moneyPlain(d.gross,d.cur)], M, w2);
-  let ySt = y;
-  if(emp){ ySt = table('Employee statutory contributions', g(l=>['sss','phic','hdmf','tax'].includes(l.kind)), null, M+w2+24, w2); y = ySt + 4; }
-  const ded = g(l=>['deduction','unpaidleave'].includes(l.kind)||(l.kind==='adjust'&&l.sign==='-'));
-  const yD = table('Authorized deductions', ded, ['Total deductions', '− '+moneyPlain(d.deductions,d.cur)], M+w2+24, w2);
-  y = Math.max(y1, yD) + 6;
-  if(g(l=>l.kind==='reimb').length){ y = table('Reimbursements', g(l=>l.kind==='reimb'), null, M, w2) + 6; }
-  const NY = Math.max(y, 520); doc.setFillColor(248,246,240); doc.setDrawColor(236,230,218); doc.roundedRect(M, NY, W-2*M, 66, 8, 8, 'FD'); doc.setFillColor(242,180,64); doc.roundedRect(M, NY, 6, 66, 3, 3, 'F');
-  T('NET PAYABLE', M+22, NY+24, {s:8, b:1, c:[140,140,146]}); T(emp?'Gross + reimbursements − deductions and contributions':'Contractual fee + authorized adjustments', M+22, NY+40, {s:8.5, c:[110,110,116]});
-  T(moneyPlain(d.net, d.cur), W-M-18, NY+43, {b:1, s:24, a:'right'}); y = NY + 90;
-  if(!emp){ doc.setFontSize(8); doc.setTextColor(120,120,126); doc.splitTextToSize('Issued to an independent contractor. Employee statutory contributions and employee leave deductions do not apply; any deduction shown is a specifically authorized adjustment.', W-2*M).forEach((s,i)=>doc.text(s, M, y+i*10)); y += 26; }
-  if(d.remarks){ doc.setFontSize(8.5); doc.setTextColor(90,90,96); doc.splitTextToSize('Finance remarks: '+d.remarks, W-2*M).forEach((s,i)=>doc.text(s, M, y+i*11)); y += 30; }
-  const FY = Math.max(y+10, 700); doc.setDrawColor(230,226,216); doc.line(M, FY, W-M, FY);
-  T('APPROVAL', M, FY+20, {s:7.5, b:1, c:[140,140,146]}); if(d.approval){ T(`Approved by ${pname(d.approval.by)}, CEO`, M, FY+34, {b:1, s:9.5}); T(esManila(d.approval.at), M, FY+47, {s:8.5, c:[90,90,96]}); T(`Version ${d.approval.version} · Verification ref. ${pvRef(d)}`, M, FY+59, {s:8.5, c:[90,90,96]}); } else T('Pending CEO approval', M, FY+34, {b:1});
-  T('ISSUED BY', M+W/2-20, FY+20, {s:7.5, b:1, c:[140,140,146]}); T('Finance, The Cross Core OPC', M+W/2-20, FY+34, {b:1, s:9.5}); T('System-generated · valid without a signature', M+W/2-20, FY+47, {s:8.5, c:[90,90,96]});
-  doc.setFontSize(7.5); doc.setTextColor(150,150,156); doc.text(`${d.docNo||''} · ${pvName(d)} · Confidential — for the named recipient, Finance and authorized management only · Handled under the Data Privacy Act of 2012`, M, H-26);
-  return doc;
-}
+/* the document itself (layout, PDF, image, print) lives in t0e_payslip.js */
 const PVD_CSS = `.pvd{background:#fff;color:#16161a;border:1px solid #ebe6da;border-radius:16px;overflow:hidden;max-width:820px;margin:0 auto;font-size:13px}
 .pvd-top{display:flex;align-items:center;gap:14px;padding:20px 24px;background:#141416;color:#fff;border-bottom:5px solid #F2B440;flex-wrap:wrap}.pvd-top img{height:50px;border-radius:8px}.pvd-top b{display:block;font-family:Sora,sans-serif;font-size:16px}.pvd-top span{font-size:11px;color:#c8c8cd}
 .pvd-title{margin-left:auto;text-align:right;font-family:Sora,sans-serif;font-weight:700;font-size:19px;line-height:1.15}.pvd-title small{display:block;font-size:10px;letter-spacing:.16em;color:#F2B440}.pvd-title em{display:block;font-style:normal;font-size:11px;font-weight:400;color:#c8c8cd;margin-top:3px}
@@ -32587,16 +32607,36 @@ const PVD_CSS = `.pvd{background:#fff;color:#16161a;border:1px solid #ebe6da;bor
 .pv-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;position:sticky;bottom:-1px;padding:10px 0;background:linear-gradient(0deg,var(--panel) 70%,transparent)}
 @media(max-width:700px){.pv-actions .btn{flex:1 1 44%;justify-content:center}.pv-lines input[type=number]{width:92px!important}}`; document.head.appendChild(st); })();
 
+/* ---------- exceptions: everything that needs a human before payroll is finalized ---------- */
+const pvPendingFor = emp => RATECHG.filter(r=>r.emp===emp && r.status==='Pending CEO');
+function pvMissingRates(){   /* active client assignments with no agreed rate */
+  const out = []; FINCLIENTS.filter(f=>f.status!=='Draft' && f.status!=='Ended').forEach(f=>activeAssign(f).forEach(a=>{ if(a.rate==null || a.rate==='') out.push({f, a}); })); return out;
+}
+function pvExceptionsHTML(D){
+  const rows = [];
+  D.forEach(d=>{
+    if(d.status===PV_ST.REL) return; const nm = esc(pvName(d));
+    d.lines.filter(l=>l.needs==='rate').forEach(l=>rows.push([nm, `<span class="badge b-missed">Rate Not Configured</span> ${esc(l.client||l.label)}`, `FIN.tab='rates';RENDER.finance()`, 'Set rate']));
+    d.lines.filter(l=>['hours','deliverables'].includes(l.needs)).forEach(l=>rows.push([nm, `<span class="badge b-missed">${l.needs==='hours'?'Hours':'Deliverables'} needed</span> ${esc(l.client||l.label)}`, `openPv('${d.id}')`, 'Enter']));
+    pvPendingFor(d.emp).forEach(r=>rows.push([nm, `<span class="badge b-pending">Pending CEO approval</span> ${esc(r.clientName||'rate change')} — ${pvRateTxt(r.proposed, r.rateType)} <span class="hint">(not included in this payroll)</span>`, `FIN.tab='ceo';RENDER.finance()`, 'View']));
+    if(d.flags?.mixedCurrency) rows.push([nm, `<span class="badge b-scheduled">Mixed currencies</span> review the amounts`, `openPv('${d.id}')`, 'Open']);
+    if(d.flags?.duplicatesSkipped) rows.push([nm, `<span class="badge b-draft">Duplicate assignment</span> ${d.flags.duplicatesSkipped} repeated entr${d.flags.duplicatesSkipped===1?'y was':'ies were'} counted once`, `openPv('${d.id}')`, 'Open']);
+  });
+  if(!rows.length) return '';
+  return `<div class="card" style="margin-bottom:14px;border-left:4px solid var(--warn)"><div class="card-h"><h3>⚠️ Payroll exceptions <span class="badge b-missed">${rows.length}</span></h3><span class="sub">resolve these before submitting to the CEO</span></div><div class="card-b" style="padding-top:4px;max-height:230px;overflow:auto">
+    ${rows.slice(0,40).map(r=>`<div class="list-row" style="font-size:12.5px"><b style="min-width:150px">${r[0]}</b><span style="flex:1">${r[1]}</span><button class="btn ghost" style="padding:3px 9px;font-size:12px" onclick="${r[2]}">${r[3]}</button></div>`).join('')}${rows.length>40?`<div class="hint">…and ${rows.length-40} more</div>`:''}</div></div>`;
+}
+
 /* ===== t0d_finui2.js — CEO review, release scheduler, COO oversight, leave sync, payroll settings, archive ===== */
 
 /* ---------- CEO review ---------- */
 function pvCeoHTML(){
-  const ceo = pvIsCeo();
+  const ceo = pvIsApprover(), ceoOnly = pvIsCeo();
   const P = PAYV2.filter(d=>[PV_ST.SUB, PV_ST.REV].includes(d.status)).sort((a,b)=>(a.submittedAt||'').localeCompare(b.submittedAt||''));
   const R = RATECHG.filter(r=>r.status==='Pending CEO');
   const routine = P.filter(d=>!d.lines.some(l=>l.manual));
   const hist = PAYV2.filter(d=>d.approval || d.revision).sort((a,b)=>((b.approval?.at||b.revision?.at)||'').localeCompare((a.approval?.at||a.revision?.at)||'')).slice(0,25);
-  return `${ceo?'':`<div class="hint" style="margin-bottom:10px">Only the CEO (${esc(pname(pvCeo()))}) approves payroll. This is a read-only view.</div>`}
+  return `${pvAltCardHTML()}${ceo?'':`<div class="hint" style="margin-bottom:10px">Only the CEO (${esc(pname(pvCeo()))}) — or the alternate the CEO authorizes — approves payroll. This is a read-only view.</div>`}
     <div class="card" style="margin-bottom:14px"><div class="card-h"><h3>Pending payroll submissions <span class="badge ${P.length?'b-missed':'b-draft'}">${P.length}</span></h3>
       ${ceo&&routine.length?`<button class="btn primary" onclick="pvCeoBatch()" title="Records without manual adjustments">Approve ${routine.length} routine record${routine.length===1?'':'s'}…</button>`:''}</div>
       <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Recipient</th><th>Type</th><th>Period</th><th>Net payable</th><th>Adjustments</th><th>Submitted</th><th></th></tr></thead><tbody>
@@ -32604,18 +32644,18 @@ function pvCeoHTML(){
         <td><b>${pvMoney(d.net,d)}</b></td><td>${d.lines.filter(l=>l.manual).length?`<span class="badge b-scheduled">${d.lines.filter(l=>l.manual).length} manual</span>`:'<span class="hint">routine</span>'}${d.version>1?` <span class="badge b-draft">v${d.version}</span>`:''}</td>
         <td class="hint">${esc(dtstr(d.submittedAt))}<br>${esc(first(d.submittedBy))}</td><td><button class="btn" style="padding:4px 9px;font-size:12px">${ceo?'Review':'View'}</button></td></tr>`).join('') || `<tr><td colspan="7" class="empty">Nothing is waiting for approval.</td></tr>`}</tbody></table></div></div>
     <div class="card" style="margin-bottom:14px"><div class="card-h"><h3>Rate changes awaiting approval <span class="badge ${R.length?'b-missed':'b-draft'}">${R.length}</span></h3></div><div class="card-b" style="padding-top:4px">
-      ${R.map(r=>`<div class="list-row" style="align-items:flex-start"><div style="flex:1"><b>${esc(pname(r.emp))}</b> · ${r.kind==='fee'?'service fee':'salary'}<div class="hint">${r.current!=null?money(r.current):'—'} → <b>${money(r.proposed)}</b>/mo · effective ${dLong(r.effective)} · proposed by ${esc(first(r.by))}</div><div style="font-size:12.5px;margin-top:3px">“${esc(r.reason)}”</div>${(r.support||[]).length?`<div>${fileChips(r.support)}</div>`:''}</div>
-        ${ceo?`<div style="display:flex;gap:6px"><button class="btn primary" style="padding:5px 10px" onclick="pvRateDecide('${r.id}',true)">Approve</button><button class="btn" style="padding:5px 10px" onclick="pvRateDecide('${r.id}',false)">Reject</button></div>`:''}</div>`).join('') || '<div class="hint">No pending rate changes.</div>'}</div></div>
+      ${R.map(r=>`<div class="list-row" style="align-items:flex-start"><div style="flex:1"><b>${esc(pname(r.emp))}</b> · ${r.clientName?`<b>${esc(r.clientName)}</b> · `:''}${r.kind==='fee'?'service fee':'salary'}<div class="hint">${r.current!=null?pvRateTxt(r.current, r.oldType):'Rate Not Configured'} → <b>${pvRateTxt(r.proposed, r.rateType)}</b> · effective ${dLong(r.effective)} · proposed by ${esc(first(r.by))} ${esc(dtstr(r.at))}</div><div style="font-size:12.5px;margin-top:3px">“${esc(r.reason)}”</div>${(r.support||[]).length?`<div>${fileChips(r.support)}</div>`:''}</div>
+        ${ceoOnly?`<div style="display:flex;gap:6px"><button class="btn primary" style="padding:5px 10px" onclick="pvRateDecide('${r.id}',true)">Approve</button><button class="btn" style="padding:5px 10px" onclick="pvRateDecide('${r.id}',false)">Reject</button></div>`:''}</div>`).join('') || '<div class="hint">No pending rate changes.</div>'}</div></div>
     <div class="card"><div class="card-h"><h3>Approval history</h3></div><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Recipient</th><th>Period</th><th>Decision</th><th>When</th><th>Comment</th></tr></thead><tbody>
-      ${hist.map(d=>{ const a = d.approval, rv = d.revision; return `<tr style="cursor:pointer" onclick="openPv('${d.id}')"><td>${esc(pvName(d))}</td><td>${esc(pvPeriodLabel(d.period))}</td><td>${a?'<span class="badge b-approved">Approved v'+a.version+'</span>':'<span class="badge b-missed">Revision requested</span>'}</td><td class="hint">${esc(dtstr((a||rv).at))}</td><td class="hint">${esc((a||rv).comment||'')}</td></tr>`; }).join('') || '<tr><td colspan="5" class="empty">No decisions yet.</td></tr>'}</tbody></table></div></div>`;
+      ${hist.map(d=>{ const a = d.approval, rv = d.revision; return `<tr style="cursor:pointer" onclick="openPv('${d.id}')"><td>${esc(pvName(d))}</td><td>${esc(pvPeriodLabel(d.period))}</td><td>${a?'<span class="badge b-approved">Approved v'+a.version+'</span>'+(a.alt?'<div class="hint">by the authorized alternate</div>':''):'<span class="badge b-missed">Revision requested</span>'}</td><td class="hint">${esc(dtstr((a||rv).at))}</td><td class="hint">${esc((a||rv).comment||'')}</td></tr>`; }).join('') || '<tr><td colspan="5" class="empty">No decisions yet.</td></tr>'}</tbody></table></div></div>`;
 }
 function pvCeoReview(id){
-  const d = pvDoc(id); if(!d) return; const ceo = pvIsCeo(); if(ceo) pvCeoOpen(id);
+  const d = pvDoc(id); if(!d) return; const ceo = pvIsApprover(); if(ceo) pvCeoOpen(id);
   const man = d.lines.filter(l=>l.manual); const prev = PAYV2.filter(x=>x.emp===d.emp && x.period.id<d.period.id).sort((a,b)=>b.period.id.localeCompare(a.period.id))[0];
   openModal(`Review — ${pvName(d)}`, `<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px">${pvBadge(d.status)}<span class="badge b-draft">v${d.version}</span><span class="hint">${esc(d.docNo||'')} · ${esc(PV_CLASS[d.class].doc)} · submitted ${esc(dtstr(d.submittedAt))} by ${esc(first(d.submittedBy))}</span></div>
     ${prev?`<div class="hint" style="margin-bottom:8px">Previous period net: ${pvMoney(prev.net,prev)} → this period <b>${pvMoney(d.net,d)}</b> (${d.net-prev.net>=0?'+':'−'}${money(Math.abs(d.net-prev.net))})</div>`:''}
     ${man.length?`<div class="card" style="margin-bottom:10px;border-left:4px solid var(--warn)"><div class="card-b"><b style="font-size:12.5px">Finance adjustments to review</b>${man.map(l=>`<div class="list-row" style="font-size:12.5px"><div style="flex:1"><b>${esc(l.label)}</b> <span class="hint">${esc(PV_KIND_LABEL[l.kind]||l.kind)}</span><div class="hint">Reason: ${esc(l.reason)}</div></div><b>${PV_DED.includes(l.kind)||(l.kind==='adjust'&&l.sign==='-')?'−':'+'}${pvMoney(l.amount,d)}</b></div>`).join('')}</div></div>`:'<div class="hint" style="margin-bottom:8px">No manual adjustments — routine cutoff record.</div>'}
-    ${pvDocHTML(d)}
+    ${pvDocImgBox(d)}
     ${(d.supporting||[]).length?`<div style="margin-top:10px"><span class="hint">Supporting documents</span><div>${fileChips(d.supporting)}</div></div>`:''}
     ${d.remarks?`<div class="hint" style="margin-top:6px">Finance remarks: ${esc(d.remarks)}</div>`:''}
     ${ceo&&[PV_ST.SUB,PV_ST.REV].includes(d.status)?`<div class="field" style="margin-top:12px"><label>Comment <span class="hint">(required to request a revision)</span></label><input id="ceoCm" placeholder="Optional for approval"></div>
@@ -32645,11 +32685,11 @@ function pvReleasesHTML(){
   return `<div class="grid cols-4" style="margin-bottom:14px">${pvKpi('Awaiting release', waiting, 'CEO approved, not scheduled', waiting?'var(--warn)':'')}${pvKpi('Scheduled', act.filter(r=>r.status==='Scheduled').length, act[0]?`next ${esc(dtstr(act.find(r=>r.status==='Scheduled')?.at||''))}`:'nothing upcoming')}
       ${pvKpi('Released successfully', cnt('Released Successfully'), 'delivered to portals', 'var(--ok)')}${pvKpi('Failed / suspended', cnt('Delivery Failed')+act.filter(r=>r.status==='Suspended').length, `${cnt('Cancelled')} cancelled · ${cnt('Rescheduled')} rescheduled`, (cnt('Delivery Failed')+act.filter(r=>r.status==='Suspended').length)?'var(--bad)':'')}</div>
     <div class="card" style="margin-bottom:14px"><div class="card-h"><h3>Approved records awaiting release <span class="badge b-draft">${ready.length}</span></h3>
-      <span style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap;align-items:center"><select onchange="PVU.cls=this.value;pvRefresh()" style="padding:5px 8px"><option value="all">All classifications</option><option value="contractor" ${PVU.cls==='contractor'?'selected':''}>Contractors / VAs</option><option value="employee" ${PVU.cls==='employee'?'selected':''}>Employees</option></select>
+      <span style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap;align-items:center">${can&&waiting?`<button class="btn primary" onclick="pvSendAllModal()">Send all approved payslips now (${waiting})</button>`:''}<select onchange="PVU.cls=this.value;pvRefresh()" style="padding:5px 8px"><option value="all">All classifications</option><option value="contractor" ${PVU.cls==='contractor'?'selected':''}>Contractors / VAs</option><option value="employee" ${PVU.cls==='employee'?'selected':''}>Employees</option></select>
       <select onchange="PVU.rel=this.value;pvRefresh()" style="padding:5px 8px"><option value="">All periods</option>${periods.map(p=>`<option value="${p}" ${PVU.rel===p?'selected':''}>${esc(pvPeriodLabel(pv2Period(p)))}</option>`).join('')}</select></span></div>
       <div class="tbl-wrap"><table class="tbl"><thead><tr><th style="width:30px">${can?`<input type="checkbox" style="width:auto" onchange="pvSelAll(this.checked)" aria-label="Select all">`:''}</th><th>Recipient</th><th>Type</th><th>Period</th><th>Net payable</th><th>Release status</th><th></th></tr></thead><tbody>
       ${ready.map(d=>{ const a = pvActiveRel(d); return `<tr><td>${can?`<input type="checkbox" style="width:auto" ${PVU.sel.has(d.id)?'checked':''} ${a?'disabled':''} onchange="pvSel('${d.id}',this.checked)">`:''}</td><td><b>${esc(pvName(d))}</b><div class="hint">${esc(d.empRole||'')}</div></td><td>${PV_CLASS[d.class].short}</td><td>${esc(pvPeriodLabel(d.period))}</td><td><b>${pvMoney(d.net,d)}</b></td>
-        <td>${pvBadge(pvRelStatus(d))}${a?`<div class="hint">${esc(dtstr(a.at))} PHT</div>`:''}</td>
+        <td>${pvDispBadge(d)}${a?`<div class="hint">${esc(dtstr(a.at))} PHT</div>`:''}</td>
         <td style="white-space:nowrap">${can&&!a?`<button class="btn" style="padding:4px 9px;font-size:12px" onclick="pvReleaseClick('${d.id}')">Release now</button> <button class="btn" style="padding:4px 9px;font-size:12px" onclick="pvScheduleModal(['${d.id}'])">Schedule</button>`:''} <button class="btn ghost" style="padding:4px 9px;font-size:12px" onclick="openPv('${d.id}')">Open</button></td></tr>`; }).join('') || `<tr><td colspan="7" class="empty">No CEO-approved records are waiting. Approved records appear here as <b>CEO Approved – Ready for Release</b>.</td></tr>`}</tbody></table></div>
       ${can&&ready.length?`<div class="card-b" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;border-top:1px solid var(--line)"><span class="hint">${pick.length} selected</span>
         <button class="btn" ${pick.length?'':'disabled'} onclick="pvBulkNow()">Release selected now</button><button class="btn primary" ${pick.length?'':'disabled'} onclick="pvScheduleModal(PVU.sel.size?[...PVU.sel]:[])">🗓 Bulk schedule ${pick.length||''}</button></div>`:''}</div>
@@ -32675,12 +32715,16 @@ function pvScheduleModal(ids){
     <div class="hint" style="margin:-4px 0 10px">🕘 Philippine Standard Time (UTC+8). Delivery is automatic on the server — nobody needs to stay logged in.</div>
     <div class="nav-label" style="padding:0 0 4px">Recipients & payroll periods (${D.length})</div>
     <div style="max-height:200px;overflow:auto;margin-bottom:10px">${D.map(d=>`<div class="list-row" style="font-size:12.5px">${av(P(d.emp))}<div style="flex:1"><b>${esc(pvName(d))}</b><div class="hint">${PV_CLASS[d.class].short} · ${esc(pvPeriodLabel(d.period))}</div></div><b>${pvMoney(d.net,d)}</b></div>`).join('')}</div>
+    <div class="field"><label>💬 Message from Finance <span class="hint">(printed on ${bulk?'every payslip in this batch':'the payslip'})${bulk?' · {first_name}, {period} and {payout} are filled in for each person':''}</span></label><textarea id="scMsg" rows="3">${esc(bulk?'Hi {first_name}, here is your payslip / payment statement for {period}. Your payment date is {payout}. If anything looks different from what you expected, please raise a Finance concern in Accounting and we will check it right away. Thank you for your work!':pvMsg(D[0]))}</textarea></div>
     <label class="hint" style="display:flex;gap:8px;align-items:flex-start;margin-bottom:10px"><input id="scOk" type="checkbox" style="width:auto;margin-top:3px"> I confirm these approved records, recipients and the release time are correct. Only the CEO-approved version is delivered; if a record is revised first, its release is suspended.</label>
     <button class="btn primary" style="width:100%" onclick="pvScheduleDo(${esc(JSON.stringify(ids))}, ${bulk})">Confirm schedule</button>`);
 }
 function pvScheduleDo(ids, bulk){
   if(!el('scOk').checked) return toast('Tick the confirmation first'); const date = el('scDate').value, time = el('scTime').value; if(!date||!time) return toast('Choose a date and time');
   try{
+    const tpl = (el('scMsg')?.value||'').trim(); const BULKDEF = 'Hi {first_name}, here is your payslip / payment statement for {period}. Your payment date is {payout}. If anything looks different from what you expected, please raise a Finance concern in Accounting and we will check it right away. Thank you for your work!';
+    ids.forEach(id=>{ const dd = pvDoc(id); if(!dd || !tpl) return; if(bulk && tpl===BULKDEF) return;   /* untouched bulk template: each record keeps its own message */
+      dd.financeMsg = tpl.replace(/\{first_name\}/g, String(pvName(dd)).split(' ')[0]).replace(/\{period\}/g, pvPeriodLabel(dd.period)).replace(/\{payout\}/g, dLong(dd.period.payout)); dd.msgBy = PERSON; });
     const res = pv2Schedule(ids, pvPHT(date, time), bulk?'bulk':'scheduled', bulk?uid('BATCH'):null); const ok = res.filter(r=>r.ok).length, bad = res.filter(r=>!r.ok);
     PVU.sel.clear(); recordChange(); closeModal(); RENDER.finance(); toast(`${ok} scheduled for ${dLong(date)} ${time} PHT${bad.length?` · ${bad.length} not scheduled`:''}`);
     if(bad.length) setTimeout(()=>openModal('Not scheduled', bad.map(b=>`<div class="list-row" style="font-size:12.5px"><b>${esc(pvName(pvDoc(b.id)))}</b> — ${esc(b.error)}</div>`).join('')), 350);
@@ -32713,7 +32757,7 @@ function pvOversightHTML(){
       ${small('Upcoming releases', rel.slice(0,8).map(r=>`<tr><td>${esc(r.empName||pname(r.emp))}</td><td>${esc(dtstr(r.at))}</td><td>${r.batch?'bulk':'single'}</td></tr>`).join(''), ['Recipient','Release (PHT)','Type'])}
       ${small('Failed / suspended deliveries', [...failed, ...PAYREL.filter(r=>r.status==='Suspended')].map(r=>`<tr><td>${esc(r.empName||pname(r.emp))}</td><td>${pvBadge(r.status)}</td><td class="hint">${esc(r.error||r.suspendReason||'')}</td></tr>`).join(''), ['Recipient','Status','Why'])}</div>
     <div class="grid cols-2" style="margin-bottom:14px">
-      ${small('Pending rate changes', RATECHG.filter(r=>r.status==='Pending CEO').map(r=>`<tr><td>${esc(pname(r.emp))}</td><td>${r.current!=null?money(r.current):'—'} → ${money(r.proposed)}</td><td>${dShort(r.effective)}</td></tr>`).join(''), ['Person','Change','Effective'])}
+      ${small('Pending rate changes', RATECHG.filter(r=>r.status==='Pending CEO').map(r=>`<tr><td>${esc(pname(r.emp))}${r.clientName?'<div class="hint">'+esc(r.clientName)+'</div>':''}</td><td>${r.current!=null?pvRateTxt(r.current, r.oldType):'Rate Not Configured'} → ${pvRateTxt(r.proposed, r.rateType)}</td><td>${dShort(r.effective)}</td></tr>`).join(''), ['Person','Change','Effective'])}
       ${small(`Finance concerns <span class="badge ${overdue.length?'b-missed':'b-draft'}">${tix.length} open${overdue.length?` · ${overdue.length} overdue`:''}</span>`, tix.slice(0,8).map(t=>`<tr style="cursor:pointer" onclick="FIN.tab='tickets';RENDER.finance()"><td>${esc(t.ref)}</td><td>${esc(pname(t.by))}</td><td>${esc(t.status)}</td><td class="hint">${esc(ago(t.at))}</td></tr>`).join(''), ['Ref','From','Status','Age'])}</div>
     <div class="grid cols-2" style="margin-bottom:14px">
       ${small('Leave-related payroll adjustments', LVSYNC.filter(s=>s.status==='Approved').sort((a,b)=>b.at.localeCompare(a.at)).slice(0,8).map(s=>`<tr><td>${esc(s.empName||pname(s.emp))}</td><td>${dShort(s.start)}–${dShort(s.end)}</td><td class="hint">${esc(s.adjustment||'')}</td></tr>`).join(''), ['Person','Dates','Adjustment'])}
@@ -32744,9 +32788,12 @@ function pvSettingsHTML(){
       <div class="grid cols-4"><div class="field"><label>SSS employee rate</label><input id="pcSss" type="number" step="0.001" value="${c.sss.rate}" ${dis}></div><div class="field"><label>SSS min / max credit</label><input id="pcSssMin" type="number" value="${c.sss.minMSC}" ${dis} style="width:48%"> <input id="pcSssMax" type="number" value="${c.sss.maxMSC}" ${dis} style="width:48%"></div>
         <div class="field"><label>PhilHealth rate (total)</label><input id="pcPh" type="number" step="0.001" value="${c.philhealth.rate}" ${dis}></div><div class="field"><label>PhilHealth floor / ceiling</label><input id="pcPhF" type="number" value="${c.philhealth.floor}" ${dis} style="width:48%"> <input id="pcPhC" type="number" value="${c.philhealth.ceil}" ${dis} style="width:48%"></div></div>
       <div class="grid cols-4"><div class="field"><label>Pag-IBIG rate</label><input id="pcPi" type="number" step="0.001" value="${c.pagibig.rate}" ${dis}></div><div class="field"><label>Pag-IBIG salary cap</label><input id="pcPiC" type="number" value="${c.pagibig.cap}" ${dis}></div>
+        <div class="field"><label>Contributions & tax are based on</label><select ${dis} onchange="pvSetStatBase(this.value)"><option value="auto" ${(c.statBase||'auto')==='auto'?'selected':''}>Internal salary when there is one (otherwise all fixed pay)</option><option value="internal" ${c.statBase==='internal'?'selected':''}>Internal salary only</option><option value="all" ${c.statBase==='all'?'selected':''}>All fixed pay, including client rates</option></select></div>
         <label class="switch-row"><input type="checkbox" id="pcTax" ${c.tax.enabled?'checked':''} ${dis} style="width:auto"> Withhold tax on compensation</label><div class="field"><label>Working days per month</label><input id="pcDays" type="number" step="0.01" value="${c.daysPerMonth}" ${dis}></div></div>
       <div class="field"><label>Annual withholding brackets — one per line: <i>over, base tax, rate</i></label><textarea id="pcBr" rows="6" ${dis} style="font-family:monospace;font-size:12px">${c.tax.brackets.map(b=>b.join(', ')).join('\n')}</textarea></div>
       <div class="hint">${esc(c.note||'')}</div>${can?`<button class="btn primary" style="margin-top:10px" onclick="pvSaveCfg()">Save settings</button>`:''}</div></div>
+    <div class="card" style="margin-bottom:14px"><div class="card-h"><h3>Confidentiality of filed payslips</h3></div><div class="card-b"><div class="hint" style="margin-bottom:8px">Released payslips are filed in HR 201 (employees) and the contractor records (VAs). By default only the person, Finance and the company heads can open them.</div>
+      <select ${pvIsCeo()?'':'disabled'} onchange="pvSetHrAccess(this.value)"><option value="restricted" ${c.hrAccess!=='hr'?'selected':''}>Restricted — HR cannot open payslips</option><option value="hr" ${c.hrAccess==='hr'?'selected':''}>HR can open newly filed payslips</option></select> <span class="hint">${pvIsCeo()?'':'Only the CEO changes this.'}</span></div></div>
     <div class="card"><div class="card-h"><h3>Workforce classification</h3><span class="sub">decides contractor payment statement vs employee payslip</span></div><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Person</th><th>Position</th><th>Paid as</th></tr></thead><tbody>
       ${people.map(p=>`<tr><td><b>${esc(p.name)}</b></td><td class="hint">${esc(p.role)}</td><td><select ${dis} onchange="pvSetCls('${p.id}',this.value)" style="padding:4px 8px"><option value="contractor" ${p.cls==='contractor'?'selected':''}>Independent contractor</option><option value="employee" ${p.cls==='employee'?'selected':''}>Declared employee</option></select></td></tr>`).join('')}</tbody></table></div>
       <div class="card-b hint">The CEO's executive portal stays outside ordinary payroll unless added to a pay profile. A classification change only affects drafts generated afterwards.</div></div>`;
@@ -32830,6 +32877,509 @@ function financeDashCard(){
     if(link && (link.view==='leave' || link.view==='leavehr') && link.req){ closeOverlays(); go(link.view); setTimeout(()=>lvOpen(link.req), 90); return; }
     return _fl.apply(this, arguments); }; }
 
+/* ===== t0e_payslip.js — the payslip / payment statement document =====
+   Follows the structure of the company's earlier payslip (Earnings · Deductions · Net Pay side by side, Clients Breakdown below, "CCPS" footer)
+   and adds: a Message from Finance, the release date and time (PHT), a DRAFT watermark until release, the CEO approval line.
+   The page is laid out ONCE as drawing instructions; the on-screen view, the image (PNG) and the PDF all draw those same instructions,
+   so what the CEO approves, what the person sees and what they download are identical. */
+const PS = {W:842, H:595, M:30, SCALE:2.4, VER:'CCPS v2.0'};
+const pvStamp = at => at ? new Date(at).toLocaleString('en-US',{month:'short', day:'numeric', year:'numeric', hour:'numeric', minute:'2-digit', timeZone:'Asia/Manila'}) + ' PHT' : '';
+const pvFmt = n => (+n||0) ? (+n).toLocaleString('en-US',{minimumFractionDigits:2, maximumFractionDigits:2}) : '-';
+const pvMsgDefault = d => `Hi ${String(pvName(d)).split(' ')[0]}, here is your ${d.class==='employee'?'payslip':'payment statement'} for ${pvPeriodLabel(d.period)}. Your payment date is ${dLong(d.period.payout)}. If anything looks different from what you expected, please raise a Finance concern in Accounting and we will check it right away. Thank you for your work!`;
+const pvMsg = d => (d.financeMsg != null && String(d.financeMsg).trim()) ? String(d.financeMsg).trim() : ((pvRun(d.period.id)?.message||'').trim() || pvMsgDefault(d));
+const pvMsgSent = d => (d.release?.message && String(d.release.message).trim()) || pvMsgDefault(d);   /* the copy frozen at release */
+
+/* regular pay per client, like the old "Clients breakdown" */
+function pvBreakdown(d){
+  const out = [];
+  (d.lines||[]).filter(l=>['basic','fee'].includes(l.kind)).forEach(l => {
+    const m = String(l.label).match(/^(?:Service fee|Salary|Client|Internal salary) — (.+?) — .+$/);
+    const name = l.internal ? 'Cross Core internal salary' : (l.client || (m ? m[1] : String(l.label).replace(/^(Service fee|Salary|Client|Internal salary) — /, '').replace(/ — Rate Not Configured$/,'')));
+    const rt = l.needs==='rate' ? 'Rate Not Configured' : l.rate!=null ? pvRateTxt(l.rate, l.rt||'monthly', d.cur) : '';
+    const f = out.find(x=>x.name===name); if(f){ f.amount += +l.amount; f.detail = f.detail===rt ? rt : 'multiple rates'; } else out.push({name, amount:+l.amount, role:l.internal?'':(l.role||''), detail:rt, internal:!!l.internal});
+  });
+  return out.map(x=>({...x, amount:pvR2(x.amount)})).sort((a,b)=>(b.internal?1:0)-(a.internal?1:0));
+}
+const pvSum = (d, f) => pvR2((d.lines||[]).filter(f).reduce((s,l)=>s+(+l.amount||0), 0));
+
+/* ---- layout: returns drawing instructions in points (A4 landscape) ---- */
+function pvOps(d, m){
+  const {W, H, M} = PS, emp = d.class === 'employee', ops = [], AMB = [227,147,18], GREY = [120,120,128], INK = [22,22,26];
+  const T = (s, x, y, o={}) => ops.push({t:'text', s:String(s), x, y, size:o.size||10, bold:!!o.bold, c:o.c||INK, a:o.a||'l'});
+  const L = (x1, y1, x2, y2, w=0.6, c=[30,30,34]) => ops.push({t:'line', x1, y1, x2, y2, w, c});
+  const R = (x, y, w, h, o={}) => ops.push({t:'rect', x, y, w, h, fill:o.fill, stroke:o.stroke, r:o.r||0, lw:o.lw||0.7});
+  const wrap = (s, w, size, bold) => { const out = []; String(s).split('\n').forEach(par => { let line = ''; par.split(/\s+/).filter(Boolean).forEach(word => { const t = line ? line+' '+word : word; if(m(t, size, bold) <= w) line = t; else { if(line) out.push(line); line = word; } }); out.push(line); }); return out; };
+  const released = !!d.release;
+  if(!released) ops.push({t:'wm', text:'DRAFT', sub:String(d.status||'').toUpperCase()});
+  R(0, 0, W, 7, {fill:[242,180,64]});
+  ops.push({t:'img', src:LOGO_B64, x:M, y:20, w:40, h:49});
+  T('PAYSLIP', M+54, 52, {size:27, bold:true}); T(emp?'Employee payslip':'Contractor payment statement', M+55, 67, {size:9.5, c:GREY});
+  if(d.correctionOf){ const o = pvDoc(d.correctionOf); T(`Corrected ${emp?'payslip':'statement'} — replaces ${o?.docNo||'the earlier document'}`, M+55, 80, {size:8.8, bold:true, c:[185,117,9]}); }
+  T(d.docNo||'', W-M, 36, {size:10, bold:true, a:'r', c:[185,117,9]});
+  T(released ? 'RELEASED' : d.status, W-M, 52, {size:8.5, bold:true, a:'r', c:released?[24,138,78]:[185,117,9]}); T(`All amounts in ${d.cur||'PHP'}`, W-M, 66, {size:8.5, a:'r', c:GREY});
+  /* name / position  ·  period / payout / time */
+  let y = 100; const kv = (lab, val, x, yy) => { T(lab, x, yy, {size:11, bold:true}); T(val, x + m(lab,11,true) + 4, yy, {size:11}); };
+  const rx = Math.round(W*0.56);
+  kv(emp?'Employee Name:':'VA Name:', pvName(d), M, y); kv('Job Position:', d.empRole||(emp?'Employee':'Virtual Assistant'), M, y+17); kv('Classification:', emp?'Declared employee':'Independent contractor', M, y+34);
+  kv('Pay Period:', pvPeriodLabel(d.period).replace('–','-'), rx, y); kv('Pay-Out Date:', dLong(d.period.payout), rx, y+17);
+  kv(released?'Released:':'Prepared:', released ? pvStamp(d.release.at) : (d.createdAt ? pvStamp(d.createdAt)+' (draft)' : 'Draft'), rx, y+34);
+  /* the three blocks */
+  const X1 = M, X1R = 470, X2 = 492, X2R = 652, X3 = 672, X3R = W-M, ty = 168;
+  T('EARNINGS', (X1+X1R)/2, ty, {size:11.5, bold:true, a:'c'}); T('DEDUCTIONS', (X2+X2R)/2, ty, {size:11.5, bold:true, a:'c'}); T('NET PAY', (X3+X3R)/2, ty, {size:11.5, bold:true, a:'c'});
+  L(M, ty+9, W-M, ty+9, 2);
+  const cc = {h:X1+176, r:X1+232, t:X1+296, f:X1+364, a:X1R};  /* column anchors (header centres / number right-edges) */
+  const hd = (s, x, a) => { const p = s.split('\n'); if(p.length===1) T(p[0], x, ty+37, {size:10, bold:true, a}); else { T(p[0], x, ty+30, {size:10, bold:true, a}); T(p[1], x, ty+44, {size:10, bold:true, a}); } };
+  hd('Particulars', X1, 'l'); hd('Hours\nWorked', cc.h-8, 'c'); hd('Hourly\nRate', cc.r-6, 'c'); hd('Total\nHourly Rate', cc.t-14, 'c'); hd('Fixed\nRate', cc.f-10, 'c'); hd('Total\nAmount', cc.a-26, 'c');
+  hd('Particulars', X2, 'l'); hd('Total\nAmount', X2R-26, 'c'); hd('Particulars', X3, 'l'); hd('Total\nAmount', X3R-26, 'c');
+  L(M, ty+54, W-M, ty+54, 1.6);
+  const isBase = l => ['basic','fee'].includes(l.kind);
+  const agg = f => { const L = (d.lines||[]).filter(l=>isBase(l)&&f(l)), hl = L.filter(l=>l.rt==='hourly'), fixed = pvR2(L.filter(l=>!['hourly','project'].includes(l.rt)).reduce((s,l)=>s+(+l.amount||0),0)), hourly = pvR2(hl.reduce((s,l)=>s+(+l.amount||0),0));
+    return {n:L.length, fixed, hourly, hours:hl.reduce((s,l)=>s+(+l.qty||0),0), hRate:hl.length && new Set(hl.map(l=>l.rate)).size===1 ? hl[0].rate : null, proj:pvR2(L.filter(l=>l.rt==='project').reduce((s,l)=>s+(+l.amount||0),0)), hasProj:L.some(l=>l.rt==='project')}; };
+  const row = (label, g) => [label, g.hours?String(g.hours):'-', g.hRate?pvFmt(g.hRate):'-', g.hourly?pvFmt(g.hourly):'-', g.fixed, pvR2(g.fixed+g.hourly)];
+  const hasInternal = (d.lines||[]).some(l=>isBase(l)&&l.internal), A = agg(()=>true), AI = agg(l=>l.internal), AC = agg(l=>!l.internal);
+  const bonus = pvSum(d, l=>l.kind==='bonus'), add = pvSum(d, l=>['allowance','leavepay'].includes(l.kind)||(l.kind==='adjust'&&l.sign==='+')), reimb = pvSum(d, l=>l.kind==='reimb');
+  const earnRows = hasInternal && emp ? [row('Internal Salary (Cross Core)', AI), row('Client Compensation', AC)] : [row('Regular Pay', A)];
+  earnRows.push(['Overtime Pay', '', '', '', 0, 0], ['Incentive', '', '', '', 0, bonus], ['Add (allowances & others)', '', '', '', 0, add]);
+  if(A.hasProj) earnRows.splice(earnRows.length-3, 0, ['Project-based Pay', '', '', '', 0, A.proj]);
+  if(reimb) earnRows.push(['Reimbursement', '', '', '', 0, reimb]);
+  const reg = pvR2(A.fixed + A.hourly), projT = A.proj;
+  const tax = pvSum(d, l=>l.kind==='tax'), dedRows = [['Income Tax', tax]];
+  if(emp) dedRows.push(['SSS (employee)', pvSum(d, l=>l.kind==='sss')], ['PhilHealth (employee)', pvSum(d, l=>l.kind==='phic')], ['Pag-IBIG (employee)', pvSum(d, l=>l.kind==='hdmf')]);
+  const ul = pvSum(d, l=>l.kind==='unpaidleave'); if(ul) dedRows.push(['Unpaid leave', ul]);
+  const others = (d.lines||[]).filter(l=>l.kind==='deduction'||(l.kind==='adjust'&&l.sign==='-')); others.forEach(l=>dedRows.push([String(l.label).slice(0,26), +l.amount]));
+  if(!others.some(l=>/cash advance/i.test(l.label))) dedRows.push(['Cash Advance', 0]);
+  const totE = pvR2(reg + projT + bonus + add + reimb), totD = pvR2(d.deductions||0), net = pvR2(d.net);
+  const netRows = [['Total Earnings', totE], ['Less: Deductions', totD]];
+  const n = Math.max(earnRows.length, dedRows.length, netRows.length); let ry = ty+75;
+  for(let i=0;i<n;i++){ const e = earnRows[i];
+    if(e){ T(e[0], X1, ry, {size:10.5}); T(e[1], cc.h-8, ry, {a:'c', size:10.5}); T(e[2], cc.r-6, ry, {a:'c', size:10.5}); T(e[3], cc.t-14, ry, {a:'c', size:10.5}); if(e[4]) T(pvFmt(e[4]), cc.f+14, ry, {a:'r', size:10.5}); T(pvFmt(e[5]), cc.a, ry, {a:'r', size:10.5}); }
+    const dr = dedRows[i]; if(dr){ T(dr[0], X2, ry, {size:10.5}); T(pvFmt(dr[1]), X2R, ry, {a:'r', size:10.5}); }
+    const nr = netRows[i]; if(nr){ T(nr[0], X3, ry, {size:10.5}); T(pvFmt(nr[1]), X3R, ry, {a:'r', size:10.5}); }
+    ry += 18; }
+  const by = ry - 6; L(M, by, W-M, by, 1.6);
+  T('Total Earnings', M+2, by+17, {size:11, bold:true}); T(pvFmt(totE), X1R, by+17, {size:11, bold:true, a:'r'});
+  T('Total Deductions', X2, by+17, {size:11, bold:true}); T(pvFmt(totD), X2R, by+17, {size:11, bold:true, a:'r'}); T('Total Net Pay', X3, by+17, {size:11, bold:true}); T(pvFmt(net), X3R, by+17, {size:11, bold:true, a:'r'});
+  L(M, by+27, W-M, by+27, 1.6);
+  /* clients breakdown (left) · message from Finance (right) */
+  let cy = by + 54; const cl = pvBreakdown(d); const boxX = 350;
+  if(cl.length){ T('CLIENTS BREAKDOWN:', M+1, cy, {size:12, bold:true}); let yy = cy + 20; const bx = 470;
+    cl.forEach(c=>{ T(String(c.name).slice(0,52), M+1, yy, {size:10, bold:!!c.internal}); T(pvFmt(c.amount), bx, yy, {size:10, a:'r', bold:!!c.internal}); const sub = [c.role, c.detail].filter(Boolean).join(' · '); if(sub) T(sub.slice(0,70), M+1, yy+10.5, {size:8, c:GREY}); yy += sub ? 24 : 15; });
+    L(M, yy-8, bx+4, yy-8, 1.6); T('Total Amount', M+2, yy+7, {size:10.5, bold:true}); T(pvFmt(cl.reduce((s,c)=>s+c.amount,0)), bx, yy+7, {size:10.5, bold:true, a:'r'}); L(M, yy+13, bx+4, yy+13, 1.6); cy = yy + 22; }
+  /* adjustments with reasons stay visible to the person */
+  const man = (d.lines||[]).filter(l=>l.manual && l.reason); let ny = cl.length ? cy + 10 : by + 54;
+  if(man.length){ T('ADJUSTMENTS', M+1, ny, {size:8.5, bold:true, c:GREY}); ny += 12; man.slice(0,4).forEach(l=>{ wrap(`${l.label} — ${l.reason}`, 280, 8.5, false).slice(0,2).forEach(s=>{ T(s, M+1, ny, {size:8.5, c:GREY}); ny += 10.5; }); }); }
+  /* the Finance message is deliberately NOT part of this document: it is a separate field delivered with the payslip */
+  /* notes + approval + footer */
+  let fy = H - 66; if(!emp){ T('Issued to an independent contractor. Employee statutory contributions and employee leave deductions do not apply; any deduction shown is a specifically authorized adjustment.', M+1, fy-10, {size:7.8, c:GREY}); }
+  L(M, fy, W-M, fy, 0.6, [220,214,200]);
+  if(d.approval) T(`Approved by ${pname(d.approval.by)}, CEO · ${pvStamp(d.approval.at)} · Version ${d.approval.version} · Verification ref. ${pvRef(d)}`, M+1, fy+14, {size:8.5, bold:true, c:[24,138,78]}); else T(`Pending CEO approval · ${d.status}`, M+1, fy+14, {size:8.5, bold:true, c:[185,117,9]});
+  T(`${PS.VER} · ${d.docNo||''} · Confidential — for the named recipient, Finance and authorized management only · Handled under the Data Privacy Act of 2012`, M+1, H-22, {size:7.8, c:[160,160,166]}); T('1', W-M, H-22, {size:8.5, a:'r', c:[160,160,166]});
+  return ops;
+}
+/* ---- backends ---- */
+let _pvMeasureCtx = null;
+const pvMeasure = (s, size, bold) => { _pvMeasureCtx = _pvMeasureCtx || document.createElement('canvas').getContext('2d'); _pvMeasureCtx.font = `${bold?'bold ':''}${size}px Helvetica, Arial, sans-serif`; return _pvMeasureCtx.measureText(String(s)).width; };
+async function pvPDF(d){
+  await loadScript(JSPDF_SRC); const doc = new window.jspdf.jsPDF({unit:'pt', format:'a4', orientation:'landscape'});
+  pvOps(d, pvMeasure).forEach(o => {
+    if(o.t==='text'){ doc.setFont('helvetica', o.bold?'bold':'normal'); doc.setFontSize(o.size); doc.setTextColor(...o.c); doc.text(o.s, o.x, o.y, {align:o.a==='r'?'right':o.a==='c'?'center':'left'}); }
+    else if(o.t==='line'){ doc.setDrawColor(...o.c); doc.setLineWidth(o.w); doc.line(o.x1, o.y1, o.x2, o.y2); }
+    else if(o.t==='rect'){ if(o.fill) doc.setFillColor(...o.fill); if(o.stroke) doc.setDrawColor(...o.stroke); doc.setLineWidth(o.lw); const st = o.fill&&o.stroke?'FD':o.fill?'F':'S'; o.r ? doc.roundedRect(o.x, o.y, o.w, o.h, o.r, o.r, st) : doc.rect(o.x, o.y, o.w, o.h, st); }
+    else if(o.t==='img'){ try{ doc.addImage(o.src, 'PNG', o.x, o.y, o.w, o.h, 'cclogo', 'FAST'); }catch(e){} }
+    else if(o.t==='wm'){ doc.setTextColor(240,234,222); doc.setFont('helvetica','bold'); doc.setFontSize(120); doc.text(o.text, 421, 380, {align:'center', angle:24}); doc.setFontSize(15); doc.setTextColor(226,218,200); doc.text(o.sub, 421, 425, {align:'center', angle:24}); } });
+  doc.setProperties({title:`${d.class==='employee'?'Payslip':'Payment statement'} — ${pvName(d)} — ${pvPeriodLabel(d.period)}`, author:'The Cross Core OPC — Finance', subject:d.docNo||''});
+  return doc;
+}
+async function pvPNG(d){
+  const ops = pvOps(d, pvMeasure), k = PS.SCALE, cv = document.createElement('canvas'); cv.width = Math.round(PS.W*k); cv.height = Math.round(PS.H*k); const x = cv.getContext('2d');
+  x.fillStyle = '#fff'; x.fillRect(0, 0, cv.width, cv.height); x.textBaseline = 'alphabetic'; const col = c => `rgb(${c[0]},${c[1]},${c[2]})`;
+  const rr = (X,Y,w,h,r) => { x.beginPath(); x.moveTo(X+r,Y); x.arcTo(X+w,Y,X+w,Y+h,r); x.arcTo(X+w,Y+h,X,Y+h,r); x.arcTo(X,Y+h,X,Y,r); x.arcTo(X,Y,X+w,Y,r); x.closePath(); };
+  for(const o of ops){
+    if(o.t==='text'){ x.font = `${o.bold?'bold ':''}${o.size*k}px Helvetica, Arial, sans-serif`; x.fillStyle = col(o.c); x.textAlign = o.a==='r'?'right':o.a==='c'?'center':'left'; x.fillText(o.s, o.x*k, o.y*k); }
+    else if(o.t==='line'){ x.strokeStyle = col(o.c); x.lineWidth = o.w*k; x.beginPath(); x.moveTo(o.x1*k, o.y1*k); x.lineTo(o.x2*k, o.y2*k); x.stroke(); }
+    else if(o.t==='rect'){ if(o.r) rr(o.x*k, o.y*k, o.w*k, o.h*k, o.r*k); else { x.beginPath(); x.rect(o.x*k, o.y*k, o.w*k, o.h*k); } if(o.fill){ x.fillStyle = col(o.fill); x.fill(); } if(o.stroke){ x.strokeStyle = col(o.stroke); x.lineWidth = o.lw*k; x.stroke(); } }
+    else if(o.t==='img'){ await new Promise(res=>{ const im = new Image(); im.onload = ()=>{ x.drawImage(im, o.x*k, o.y*k, o.w*k, o.h*k); res(); }; im.onerror = res; im.src = o.src; }); }
+    else if(o.t==='wm'){ x.save(); x.translate(421*k, 380*k); x.rotate(-24*Math.PI/180); x.textAlign = 'center'; x.font = `bold ${120*k}px Helvetica, Arial, sans-serif`; x.fillStyle = 'rgb(240,234,222)'; x.fillText(o.text, 0, 0); x.font = `bold ${15*k}px Helvetica, Arial, sans-serif`; x.fillStyle = 'rgb(226,218,200)'; x.fillText(o.sub, 0, 45*k); x.restore(); } }
+  return cv.toDataURL('image/png');
+}
+const pvFileBase = d => `${d.class==='employee'?'Payslip':'Payment-Statement'}-${pvName(d).replace(/[^\w]+/g,'-')}-${d.period.id}`;
+const pvImgAlt = d => `${PV_CLASS[d.class].doc} for ${pvName(d)}, ${pvPeriodLabel(d.period)}. Total earnings ${pvFmt(d.gross+(d.reimb||0))}, deductions ${pvFmt(d.deductions)}, net pay ${pvFmt(d.net)} ${d.cur}. ${d.release?'Released '+pvStamp(d.release.at):'Draft, not yet released'}.`;
+
+/* ---- on screen: the same drawing, shown as an image ---- */
+function pvDocImgBox(d){ setTimeout(pvFillDocImgs, 30); return `<div class="pvd-img" data-pvimg="${esc(d.id)}"><div class="hint" style="padding:30px;text-align:center">Preparing the document…</div></div>`; }
+async function pvFillDocImgs(){
+  for(const box of document.querySelectorAll('.pvd-img[data-pvimg]')){ const d = pvDoc(box.dataset.pvimg); if(!d || box.dataset.done===d.id+d.status+(d.financeMsg||'')) continue;
+    try{ const url = await pvPNG(d); box.dataset.done = d.id+d.status+(d.financeMsg||''); box.innerHTML = `<img src="${url}" alt="${esc(pvImgAlt(d))}">`; }catch(e){ box.innerHTML = `<div class="hint">Could not draw the document: ${esc(e.message)}</div>`; } }
+}
+function pvView(id){
+  const d = pvDoc(id); if(!d) return;
+  openModal(`${PV_CLASS[d.class].doc} · ${d.docNo||''}`, `${d.supersededBy?`<div class="end-banner urgent" style="margin-bottom:10px">Superseded by a corrected document (${esc(pvDoc(d.supersededBy)?.docNo||'')}).</div>`:''}${pvMsgCardFor(d)}${pvDocImgBox(d)}<div class="hint pv-swipe">↔ Swipe sideways to read the whole payslip — or download it as a PDF or image.</div>
+    <div class="pv-actions no-print"><button class="btn primary" onclick="pvDownload('${d.id}')">⬇ Download PDF</button><button class="btn" onclick="pvDownloadImg('${d.id}')">🖼 Download image (PNG)</button><button class="btn" onclick="pvPrint('${d.id}')">🖨 Print</button>${pvCan()?`<button class="btn" onclick="openPv('${d.id}')">← Back to the editor</button>`:''}</div>`, true);
+}
+async function pvDownload(id){ const d = pvDoc(id); try{ (await pvPDF(d)).save(pvFileBase(d)+'.pdf'); }catch(e){ toast('Could not create the PDF: '+e.message); } }
+async function pvDownloadImg(id){ const d = pvDoc(id); try{ const url = await pvPNG(d); const a = document.createElement('a'); a.href = url; a.download = pvFileBase(d)+'.png'; document.body.appendChild(a); a.click(); setTimeout(()=>a.remove(), 500); }catch(e){ toast('Could not create the image: '+e.message); } }
+async function pvPrint(id){
+  const d = pvDoc(id); if(!d) return; const url = await pvPNG(d); const w = window.open('', '_blank'); if(!w) return toast('Allow pop-ups to print');
+  w.document.write(`<!doctype html><title>${esc(pvFileBase(d))}</title><style>@page{size:A4 landscape;margin:0}html,body{margin:0}img{width:100%;display:block}</style><img src="${url}"><script>onload=()=>setTimeout(()=>print(),250)<\/script>`); w.document.close();
+}
+(function(){ const st = document.createElement('style'); st.textContent = `.pvd-img img{width:100%;height:auto;display:block;border:1px solid var(--line);border-radius:10px;background:#fff;box-shadow:0 6px 24px -14px rgba(20,16,8,.35)}.pvd-img{max-width:1100px;margin:0 auto}.pv-swipe{display:none;text-align:center;margin:6px 0 0}
+@media(max-width:760px){.pvd-img{overflow-x:auto;-webkit-overflow-scrolling:touch;border-radius:10px}.pvd-img img{width:780px;min-width:780px;max-width:none}.pv-swipe{display:block}}`; document.head.appendChild(st); })();
+
+/* ===== t0g_rates.js — Client-Based Compensation Rate Management =====
+   One central record per client assignment (FINCLIENTS → assignments[]) is the single source for the Heads' registration, Finance, the CEO, the COO and payroll.
+   EXISTING clients (before the enhancement): Finance configures / corrects rates directly; every change is logged.
+   NEW clients (registered with the enhanced workflow): the Heads' rates are the agreed rates; a Finance change is a request the CEO approves. */
+const RTU = {view:'client', filter:'all', q:''};
+const pvIsFixed = t => ['monthly','semimonthly'].includes(t);
+const pvClientKind = f => pvIsNewClient(f) ? `<span class="badge b-pending" title="Rates were entered by the Heads at registration. A Finance change needs CEO approval.">New client · CEO approval for changes</span>` : `<span class="badge b-draft" title="Created before the rate workflow. Finance can configure and correct rates directly (every change is logged).">Existing client · Finance edits directly</span>`;
+const pvCanEditRates = () => isFinance() || pvIsCeo();
+const pvAssignPending = (f, a) => RATECHG.find(r=>r.status==='Pending CEO' && r.target?.fc===f.id && r.target?.aid===a.id);
+const pvPersonTag = k => `<span class="chip" style="font-size:10.5px">${payClass(k)==='employee'?'Employee':'Contractor'}</span>`;
+function pvRateCell(f, a){ const cur = f.payCurrency||'PHP';
+  if(a.rate==null || a.rate==='') return `<span class="badge b-missed">Rate Not Configured</span>`;
+  return `<b>${pvRateTxt(a.rate, rtOf(a), cur)}</b><div class="hint">${RTYPES[rtOf(a)].label}</div>`; }
+
+/* ---------- the tab ---------- */
+function pvRatesHTML(){
+  const all = FINCLIENTS.filter(f=>f.status!=='Draft' || isHead(PERSON)); const miss = pvMissingRates(); const pend = RATECHG.filter(r=>r.status==='Pending CEO' && r.target?.src==='client');
+  const act = f => activeAssign(f); const nAssign = FINCLIENTS.filter(f=>f.status!=='Draft'&&f.status!=='Ended').reduce((s,f)=>s+act(f).length,0);
+  const q = RTU.q.trim().toLowerCase();
+  let L = all.filter(f=>{ if(RTU.filter==='new' && !pvIsNewClient(f)) return false; if(RTU.filter==='existing' && pvIsNewClient(f)) return false;
+    if(RTU.filter==='missing' && !act(f).some(a=>a.rate==null||a.rate==='')) return false; if(RTU.filter==='pending' && !act(f).some(a=>pvAssignPending(f,a))) return false;
+    if(q && !(f.clientName+' '+act(f).map(a=>pname(a.emp)+' '+(a.role||'')).join(' ')).toLowerCase().includes(q)) return false; return true; })
+    .sort((a,b)=>({New:0,Changed:1}[a.status]??2)-({New:0,Changed:1}[b.status]??2) || (b.endorsedAt||'').localeCompare(a.endorsedAt||'') || a.clientName.localeCompare(b.clientName));
+  const legacy = CLIENTS.filter(c=>c.status==='Active' && !isEnded(c) && !finFor(c.id));
+  const chip = (k, l) => `<button class="tab ${RTU.filter===k?'on':''}" style="padding:5px 12px" onclick="RTU.filter='${k}';pvRefresh()">${l}</button>`;
+  return `<div class="hint" style="margin-bottom:10px"><b>Existing clients</b> (created before this workflow): Finance can add and correct rates directly — nothing is guessed, and every change is logged. <b>New clients</b>: the rates the Heads entered at registration are the agreed rates; a change by Finance becomes a request the CEO approves, and a pending request never affects payroll.</div>
+    <div class="grid cols-4" style="margin-bottom:14px">${pvKpi('Clients with rates', all.filter(f=>f.status!=='Draft'&&f.status!=='Ended').length, `${nAssign} active assignments`)}${pvKpi('Rate Not Configured', miss.length, miss.length?'add the agreed amount below':'every assignment has a rate', miss.length?'var(--bad)':'var(--ok)')}
+      ${pvKpi('Pending CEO approval', pend.length, 'rate changes on new clients', pend.length?'var(--warn)':'')}${pvKpi('New · Existing', `${all.filter(pvIsNewClient).length} · ${all.filter(f=>!pvIsNewClient(f)).length}`, 'CEO-gated · Finance-editable')}</div>
+    ${legacy.length?`<div class="card" style="margin-bottom:12px"><div class="card-b" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><span style="flex:1;font-size:12.5px">${legacy.length} existing client${legacy.length===1?'':'s'} ${legacy.length===1?'has':'have'} no rate record yet. Add ${legacy.length===1?'it':'them'} to copy the current team, then enter each person's agreed rate — no rate is assumed.</span><button class="btn primary" onclick="finImportLegacy()">Add ${legacy.length} existing client${legacy.length===1?'':'s'}</button></div></div>`:''}
+    <div class="card" style="margin-bottom:12px"><div class="card-b" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+      <div class="tabs" style="margin:0;border:0">${[['client','By client'],['person','By person']].map(([k,l])=>`<button class="tab ${RTU.view===k?'on':''}" onclick="RTU.view='${k}';pvRefresh()">${l}</button>`).join('')}</div><span style="width:8px"></span>
+      ${chip('all','All')}${chip('missing',`Rate Not Configured${miss.length?' ('+miss.length+')':''}`)}${chip('pending','Pending CEO')}${chip('new','New clients')}${chip('existing','Existing clients')}
+      <input placeholder="Search client or person…" value="${esc(RTU.q)}" oninput="RTU.q=this.value;pvRefresh();const i=document.querySelector('#finBody input[placeholder^=Search]');i&&(i.focus(),i.setSelectionRange(99,99))" style="margin-left:auto;padding:6px 10px;min-width:200px"></div></div>
+    ${RTU.view==='person' ? pvRatesByPerson(L) : (L.map(pvClientRateCard).join('') || '<div class="empty">No clients match.</div>')}`;
+}
+function pvClientRateCard(f){
+  const cur = f.payCurrency||'PHP', A = activeAssign(f), past = (f.assignments||[]).filter(a=>a.to && a.to<manilaDate() && !a.removed), can = pvCanEditRates() && f.status!=='Draft';
+  const fixedTot = A.reduce((s,a)=>s+(pvMonthlyEq(a.rate, rtOf(a))||0),0), hasVar = A.some(a=>a.rate!=null && !pvIsFixed(rtOf(a))), nMiss = A.filter(a=>a.rate==null||a.rate==='').length;
+  const row = (a, ended) => { const pend = pvAssignPending(f, a); const isNew = pvIsNewClient(f);
+    return `<tr style="${ended?'opacity:.55':''}"><td>${av(P(a.emp))} <b>${esc(pname(a.emp))}</b> ${pvPersonTag(a.emp)}${a.payEligible===false?'<div><span class="badge b-draft">No pay · operational only</span></div>':''}${a.cutoffs&&a.cutoffs!=='both'?`<div><span class="badge b-scheduled">${a.cutoffs==='1'?'1st':'2nd'} cutoff only</span></div>`:''}</td><td>${esc(a.role||'')}</td><td>${pvRateCell(f, a)}</td><td>${dShort(a.from)}${a.to?' – '+dShort(a.to):' → present'}</td>
+      <td style="font-size:12px">${isNew && a.agreed ? `<span class="hint">Agreed at registration:</span><br>${pvRateTxt(a.agreed.rate, a.agreed.rateType, cur)}${(a.rate!=null && (+a.rate!==+a.agreed.rate || rtOf(a)!==a.agreed.rateType)) ? '<br><span class="badge b-approved">changed via CEO approval</span>' : ''}` : '<span class="hint">—</span>'}${pend?`<div style="margin-top:3px"><span class="badge b-pending">Pending CEO: ${pvRateTxt(pend.proposed, pend.rateType, cur)}</span></div>`:''}</td>
+      <td style="text-align:right;white-space:nowrap">${!ended && can ? `<button class="btn" style="padding:4px 9px;font-size:12px" onclick="rateModal('${f.id}','${a.id}')" ${pend?'disabled title="A request is already waiting for the CEO"':''}>${(a.rate==null||a.rate==='') ? 'Set rate' : isNew ? 'Propose change' : 'Change rate'}</button> ` : ''}${!ended && can && !isNew ? `<button class="btn ghost" style="padding:4px 9px;font-size:12px" onclick="pvTogglePay('${f.id}','${a.id}')">${a.payEligible===false?'Activate pay':'Deactivate pay'}</button> ` : ''}<button class="btn ghost" style="padding:4px 9px;font-size:12px" onclick="pvRateHistory('${f.id}','${a.emp}')">History</button></td></tr>`; };
+  return `<div class="card fin-card" style="margin-bottom:12px"><div class="card-b">
+    <div style="display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap"><div style="flex:1;min-width:230px"><b style="font-size:14.5px">${esc(f.clientName)}</b> ${pvClientKind(f)} ${f.status==='New'?'<span class="badge b-new">Awaiting Finance review</span>':f.status==='Changed'?'<span class="badge b-scheduled">Assignments changed</span>':f.status==='Draft'?'<span class="badge b-draft">Draft registration — not yet endorsed</span>':f.status==='Ended'?'<span class="badge b-missed">Contract ended</span>':''} ${nMiss?`<span class="badge b-missed">${nMiss} Rate Not Configured</span>`:''}
+      <div class="hint">${pvIsNewClient(f) ? `Registered by ${esc(pname(f.registeredBy||f.endorsedBy))}${f.enhancedAt?' · '+esc(dtstr(f.enhancedAt)):''} · registration ref ${esc(f.reg||'—')}` : 'Created before the registration rate workflow — rates are configured by Finance'}${f.client?' · onboarded':' · waiting for HR onboarding'} · effective ${dLong(f.effective)}</div></div>
+      <div class="fin-rate"><span class="hint">Package rate (billing)</span><b>${f.packageRate?.amount!=null?money(f.packageRate.amount, f.packageRate.currency):'—'}</b><small>${esc(f.packageRate?.basis||'')}</small>${can?`<button class="btn ghost" style="padding:3px 8px;font-size:11.5px;margin-top:4px" onclick="pkgModal('${f.id}')">Edit</button>`:''}</div></div>
+    <div class="tbl-wrap"><table class="tbl" style="margin-top:10px"><thead><tr><th>Person</th><th>Role</th><th>Agreed rate</th><th>Effective</th><th>Agreement / status</th><th></th></tr></thead><tbody>${[...A.map(a=>row(a,false)), ...past.map(a=>row(a,true))].join('') || '<tr><td colspan="6" class="empty">No assignments yet.</td></tr>'}</tbody></table></div>
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:8px"><span style="font-size:12.5px">Fixed monthly compensation for this client: <b>${money(fixedTot, cur)}</b>${hasVar?' <span class="hint">+ hourly / project-based work billed from hours and approved deliverables</span>':''}</span><span style="flex:1"></span>
+      ${can && ['New','Changed'].includes(f.status)?`<button class="btn primary" onclick="finMarkReviewed('${f.id}')">Mark reviewed</button>`:''}${can?`<button class="btn" onclick="rateModal('${f.id}')">+ Add person's rate</button>`:''}</div>
+    ${(f.rateLog||[]).length||(f.history||[]).length?`<details style="margin-top:8px"><summary class="hint" style="cursor:pointer">Rate & assignment audit history (${(f.rateLog||[]).length + (f.history||[]).length})</summary><div class="timeline" style="margin-top:6px;max-height:220px;overflow:auto">${pvAuditRows(f).map(h=>`<div class="ti"><b>${esc(h.act)}</b> · ${esc(first(h.by))}<div class="hint">${dtstr(h.at)}</div>${h.note?`<div>${esc(h.note)}</div>`:''}</div>`).join('')}</div></details>`:''}</div></div>`;
+}
+function pvAuditRows(f){
+  const cur = f.payCurrency||'PHP'; const logs = (f.rateLog||[]).map(e=>({at:e.at, by:e.by, act:`${pname(e.emp)}: ${({registration:'agreed at registration', set:'rate set', correct:'rate corrected', change:'rate changed', proposal:'change requested', 'ceo-approved':'change approved by the CEO', 'ceo-rejected':'change rejected by the CEO'})[e.kind]||e.kind}`,
+    note:`${e.old!=null?pvRateTxt(e.old, e.oldType, cur)+' → ':''}${e.new!=null?pvRateTxt(e.new, e.newType, cur):''}${e.effective?' · from '+dLong(e.effective):''}${e.reason?' — '+e.reason:''}${e.via?' ('+e.via+')':''}`}));
+  return [...logs, ...(f.history||[])].sort((a,b)=>(b.at||'').localeCompare(a.at||''));
+}
+function pvRatesByPerson(L){
+  const ids = new Set(); L.forEach(f=>activeAssign(f).forEach(a=>ids.add(a.emp))); const people = [...ids].map(k=>({k, name:pname(k)})).sort((a,b)=>a.name.localeCompare(b.name));
+  const q = RTU.q.trim().toLowerCase();
+  const rows = people.filter(p=>!q || p.name.toLowerCase().includes(q) || L.some(f=>f.clientName.toLowerCase().includes(q) && activeAssign(f).some(a=>a.emp===p.k))).map(p=>{
+    const items = []; L.forEach(f=>activeAssign(f).filter(a=>a.emp===p.k).forEach(a=>items.push({f,a})));
+    const prof = (payProfile(p.k)?.rates||[]).filter(r=>!r.to);
+    const fixed = items.reduce((s,x)=>s+(pvMonthlyEq(x.a.rate, rtOf(x.a))||0),0) + prof.reduce((s,r)=>s+(pvMonthlyEq(r.monthly, rtOf(r))||0),0);
+    return `<tr><td style="vertical-align:top"><b>${esc(p.name)}</b><div>${pvPersonTag(p.k)}</div></td><td>${items.map(({f,a})=>`<div class="list-row" style="font-size:12.5px;padding:3px 0"><div style="flex:1">${esc(f.clientName)} <span class="hint">· ${esc(a.role||'')}</span>${pvIsNewClient(f)?' <span class="hint">· new</span>':''}</div><div style="min-width:150px;text-align:right">${a.rate==null||a.rate===''?'<span class="badge b-missed">Rate Not Configured</span>':pvRateTxt(a.rate, rtOf(a), f.payCurrency)}</div><button class="btn ghost" style="padding:2px 8px;font-size:11.5px" onclick="pvRateHistory('${f.id}','${p.k}')">History</button></div>`).join('')}
+      ${prof.map(r=>`<div class="list-row" style="font-size:12.5px;padding:3px 0"><div style="flex:1">${esc(r.label)} <span class="hint">· pay profile (not tied to a client)</span></div><div style="min-width:150px;text-align:right">${pvRateTxt(r.monthly, rtOf(r), r.cur)}</div></div>`).join('')}</td>
+      <td style="vertical-align:top;text-align:right;white-space:nowrap"><b>${money(fixed)}</b><div class="hint">fixed / month</div>${items.some(x=>x.a.rate!=null && !pvIsFixed(rtOf(x.a)))?'<div class="hint">+ hourly / project</div>':''}</td></tr>`; });
+  return `<div class="card"><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Person</th><th>Client assignments and agreed rates</th><th style="text-align:right">Monthly total</th></tr></thead><tbody>${rows.join('') || '<tr><td colspan="3" class="empty">No assignments match.</td></tr>'}</tbody></table></div><div class="card-b hint">Example: ₱15,000/month (Client A) + ₱8,000/month (Client B) = ₱23,000 a month, paid across the 1st–15th and 16th–end-of-month cutoffs without double counting.</div></div>`;
+}
+
+/* ---------- set / change a rate ---------- */
+function rateModal(fid, aid){
+  if(!pvCanEditRates()) return toast('Only Finance (and the CEO) change compensation rates — you can view them here');
+  const f = FINCLIENTS.find(x=>x.id===fid); const a = aid ? f.assignments.find(x=>x.id===aid) : null; const isNew = pvIsNewClient(f) && f.status!=='Draft'; const has = a && a.rate!=null && a.rate!=='';
+  const direct = !isNew; const emps = payEligible();
+  openModal(`${a ? (has ? (direct?'Change rate':'Propose a rate change') : 'Set the agreed rate') : "Add a person's rate"} — ${f.clientName}`, `
+    <div class="end-banner ${direct?'':'urgent'}" style="margin-bottom:10px">${direct ? `<b>Existing client.</b> Finance can configure and correct this rate directly — no CEO approval is needed. The change is recorded in the client's audit history.` : `<b>New client.</b> The rates the Heads entered at registration are the agreed rates. Your change becomes a <b>request for the CEO</b>; the current rate stays in force and payroll ignores the request until it is approved.`}</div>
+    ${a?`<div class="list-row">${av(P(a.emp))}<div style="flex:1"><b>${esc(pname(a.emp))}</b><div class="hint">${esc(a.role||'')} · currently ${pvRateTxt(a.rate, rtOf(a), f.payCurrency)}${isNew&&a.agreed?` · agreed at registration ${pvRateTxt(a.agreed.rate, a.agreed.rateType, f.payCurrency)}`:''}</div></div></div>`
+      :`<div class="field"><label>Employee / VA</label><select id="rmEmp">${emps.map(e=>`<option value="${e.id}">${esc(e.name)} — ${esc(e.role)} (${e.cls==='employee'?'employee':'contractor'})</option>`).join('')}</select></div><div class="field"><label>Role on this client</label><input id="rmRole" placeholder="e.g. Lead generation VA"></div>`}
+    <div class="grid cols-3"><div class="field"><label>Rate type</label><select id="rmType" onchange="pvRatePrev('${fid}','${aid||''}')">${Object.entries(RTYPES).map(([k,v])=>`<option value="${k}" ${rtOf(a||{})===k?'selected':''}>${v.label}</option>`).join('')}</select></div>
+      <div class="field"><label>Amount (${esc(f.payCurrency||'PHP')})</label><input id="rmRate" type="number" min="0" step="0.01" value="${esc(has?a.rate:'')}" oninput="pvRatePrev('${fid}','${aid||''}')"></div>
+      <div class="field"><label>Effective from</label><input id="rmFrom" type="date" value="${esc(has?manilaDate():(a?.from||manilaDate()))}"></div></div>
+    <div class="grid cols-2"><div class="field"><label>Effective until <span class="hint">(optional)</span></label><input id="rmTo" type="date" value="${esc(a?.to||'')}"></div>
+      <div class="field"><label>Applies to</label><select id="rmCut">${[['both','Both cutoffs'],['1','1st cutoff only'],['2','2nd cutoff only']].map(([v,l])=>`<option value="${v}" ${(a?.cutoffs||'both')===v?'selected':''}>${l}</option>`).join('')}</select></div></div>
+    <label class="switch-row" style="display:flex;gap:8px;align-items:flex-start;margin:0 0 10px"><input type="checkbox" id="rmElig" ${a?.payEligible===false?'':'checked'} style="width:auto;margin-top:3px"> <span>Payroll-eligible <span class="hint">— untick for an operational assignment that carries no pay</span></span></label>
+    <div id="rmPrev" class="end-banner" style="margin-bottom:10px">Enter the amount to preview what it pays each cutoff.</div>
+    <div class="hint" style="margin:-4px 0 8px">Monthly = paid half each cutoff · Semi-monthly = the full amount each cutoff · Hourly = rate × hours entered at payroll · Project-based = rate × approved deliverables entered at payroll.</div>
+    <div class="field"><label>Reason ${has||!direct?'<span class="hint">(required)</span>':'<span class="hint">(optional)</span>'}</label><input id="rmNote" placeholder="e.g. rate agreed with the client, salary review, correction"></div>
+    <button class="btn primary" style="width:100%" onclick="saveRate('${fid}','${aid||''}')">${direct ? (has?'Save change':'Save rate') : 'Send to the CEO for approval'}</button>
+    <div class="hint" style="margin-top:8px">Earlier payroll keeps the rate that applied at the time; the new rate applies from its effective date.</div>`);
+}
+/* preview before anything is applied: monthly, annual and each cutoff */
+function pvRatePrev(fid, aid){
+  const f = FINCLIENTS.find(x=>x.id===fid), a = aid ? f.assignments.find(x=>x.id===aid) : null, box = el('rmPrev'); if(!box) return; const amt = +el('rmRate')?.value, type = el('rmType')?.value, cur = f.payCurrency||'PHP';
+  if(!(amt>0)){ box.innerHTML = 'Enter the amount to preview what it pays each cutoff.'; return; }
+  const per = {monthly:`Monthly <b>${money(amt,cur)}</b> · Annual <b>${money(amt*12,cur)}</b> · each cutoff <b>${money(amt/2,cur)}</b>`, semimonthly:`Each cutoff <b>${money(amt,cur)}</b> · Monthly <b>${money(amt*2,cur)}</b> · Annual <b>${money(amt*24,cur)}</b>`, hourly:`<b>${money(amt,cur)}</b> per hour — the payout is that rate × the hours entered at payroll`, project:`<b>${money(amt,cur)}</b> per project — the payout is that rate × the approved deliverables entered at payroll`}[type];
+  const was = a && a.rate!=null && a.rate!=='' ? pvMonthlyEq(a.rate, rtOf(a)) : null, now = pvMonthlyEq(amt, type);
+  box.innerHTML = `${per}${was!=null && now!=null && was!==now ? `<br><span class="hint">Change: ${now>was?'+':'−'}${money(Math.abs(now-was),cur)} a month versus today (${money(was,cur)})</span>` : ''}<br><span class="hint">Annual rate ÷ 12 = monthly; monthly ÷ 2 = each cutoff. Fixed amounts don't change with 28-, 29-, 30- or 31-day months.</span>`;
+}
+function pvTogglePay(fid, aid){
+  const f = FINCLIENTS.find(x=>x.id===fid), a = f.assignments.find(x=>x.id===aid); if(!a || pvIsNewClient(f)) return; const to = a.payEligible===false; a.payEligible = to;
+  pvRateLog(f, {kind:'change', emp:a.emp, aid:a.id, reason:to?'Pay activated':'Pay deactivated — operational assignment only', via:'Finance (existing client)'}); finHist(f, `${pname(a.emp)}: ${to?'pay activated':'pay deactivated'}`, `${f.clientName} — ${a.role||''}`);
+  recordChange(); RENDER.finance(); toast(to?'Pay activated — it is included from the next payroll':'Pay deactivated — this assignment no longer adds compensation');
+}
+function saveRate(fid, aid){
+  if(!pvCanEditRates()) return toast('Only Finance (and the CEO) change compensation rates');
+  const f = FINCLIENTS.find(x=>x.id===fid); const amtRaw = el('rmRate').value, type = el('rmType').value, from = el('rmFrom').value || manilaDate(), note = el('rmNote').value.trim(), until = el('rmTo').value || null, cutoffs = el('rmCut').value || 'both', elig = el('rmElig').checked;
+  if(until && until < from) return toast('“Effective until” is before the start date');
+  if(amtRaw==='' || !(+amtRaw>0)) return toast('Enter the agreed rate'); const amt = +amtRaw; const isNew = pvIsNewClient(f) && f.status!=='Draft';
+  let a = aid ? f.assignments.find(x=>x.id===aid) : null;
+  if(!a){ const k = el('rmEmp').value; if(!k) return toast('Choose the person'); if(activeAssign(f).some(x=>x.emp===k)) return toast(`${pname(k)} is already on this client — change their existing line instead`);
+    a = {id:uid('AS'), emp:k, role:el('rmRole').value.trim()||P(k)?.sub||'Team member', isPm:false, rate:null, rateType:type, from, to:null}; f.assignments.push(a); finHist(f, `${pname(k)} added by Finance`, `${a.role}${isNew?' — rate sent to the CEO':''}`); }
+  const old = a.rate==null||a.rate==='' ? null : +a.rate, oldType = rtOf(a);
+  if(isNew){
+    if(note.length < 3) return toast('A reason is required for a change to a new client’s agreed rate');
+    pvProposeRate({emp:a.emp, kind:payClass(a.emp)==='contractor'?'fee':'salary', current:old, proposed:amt, effective:from, reason:note, rateType:type, oldType, clientName:f.clientName, payEligible:elig, cutoffs, until, target:{src:'client', fc:f.id, aid:a.id}});
+    pvRateLog(f, {kind:'proposal', emp:a.emp, aid:a.id, old, oldType, new:amt, newType:type, effective:from, reason:note, via:'Finance request → CEO'});
+    finHist(f, `${pname(a.emp)}: rate change requested`, `${old==null?'Rate Not Configured':pvRateTxt(old, oldType, f.payCurrency)} → ${pvRateTxt(amt, type, f.payCurrency)} from ${dLong(from)} — waiting for the CEO`);
+    recordChange(); closeModal(); RENDER.finance(); return toast('Sent to the CEO for approval — the current rate stays in force until then');
+  }
+  if(old==null){ a.rate = amt; a.rateType = type; a.from = a.from || from; if(from < a.from) a.from = from; a.payEligible = elig; a.cutoffs = cutoffs; if(until) a.to = until;
+    pvRateLog(f, {kind:'set', emp:a.emp, aid:a.id, old:null, new:amt, newType:type, effective:a.from, reason:note, via:'Finance (existing client)'}); finHist(f, `${pname(a.emp)}: agreed rate set`, `${pvRateTxt(amt, type, f.payCurrency)} from ${dLong(a.from)}${note?' — '+note:''}`); }
+  else { if(amt===old && type===oldType) return toast('The rate is unchanged'); if(note.length < 3) return toast('Add a short reason — it is kept in the audit history');
+    if(!a.from || from <= a.from){ a.rate = amt; a.rateType = type; a.payEligible = elig; a.cutoffs = cutoffs; if(until) a.to = until; if(!a.from) a.from = from; pvRateLog(f, {kind:'correct', emp:a.emp, aid:a.id, old, oldType, new:amt, newType:type, effective:a.from, reason:note, via:'Finance (existing client)'}); finHist(f, `${pname(a.emp)}: agreed rate corrected`, `${pvRateTxt(old, oldType, f.payCurrency)} → ${pvRateTxt(amt, type, f.payCurrency)} from ${dLong(a.from)} — ${note}`); }
+    else { a.to = shiftDate(from, -1); f.assignments.push({id:uid('AS'), emp:a.emp, role:a.role, isPm:a.isPm, rate:amt, rateType:type, from, to:until, payEligible:elig, cutoffs}); pvRateLog(f, {kind:'change', emp:a.emp, aid:a.id, old, oldType, new:amt, newType:type, effective:from, reason:note, via:'Finance (existing client)'}); finHist(f, `${pname(a.emp)}: agreed rate changed`, `${pvRateTxt(old, oldType, f.payCurrency)} → ${pvRateTxt(amt, type, f.payCurrency)} from ${dLong(from)} (earlier periods keep the old rate) — ${note}`); } }
+  recordChange(); closeModal(); RENDER.finance(); toast('Rate saved — payroll uses it from its effective date');
+}
+function pvRateHistory(fid, emp){
+  const f = FINCLIENTS.find(x=>x.id===fid); const rows = (f.assignments||[]).filter(a=>a.emp===emp).sort((a,b)=>(a.from||'').localeCompare(b.from||''));
+  const reqs = RATECHG.filter(r=>r.target?.fc===fid && r.emp===emp).sort((a,b)=>b.at.localeCompare(a.at));
+  const log = pvAuditRows(f).filter(h=>String(h.act).startsWith(pname(emp)));
+  openModal(`Rate history — ${pname(emp)} · ${f.clientName}`, `${pvClientKind(f)}
+    <div class="nav-label" style="padding:10px 0 4px">Rates over time</div><table class="tbl"><thead><tr><th>Rate</th><th>Type</th><th>From</th><th>To</th><th>Role</th></tr></thead><tbody>${rows.map(a=>`<tr><td>${a.rate==null?'<span class="badge b-missed">Rate Not Configured</span>':pvRateTxt(a.rate, rtOf(a), f.payCurrency)}</td><td>${RTYPES[rtOf(a)].label}</td><td>${dLong(a.from)}</td><td>${a.to?dLong(a.to):'present'}</td><td>${esc(a.role||'')}</td></tr>`).join('')}</tbody></table>
+    ${rows.some(a=>a.agreed)?`<div class="hint" style="margin-top:6px">Agreed at registration: ${rows.filter(a=>a.agreed).map(a=>pvRateTxt(a.agreed.rate, a.agreed.rateType, f.payCurrency)).join(', ')} (kept unchanged for traceability${f.reg?' · registration '+esc(f.reg):''}).</div>`:''}
+    <div class="nav-label" style="padding:12px 0 4px">CEO requests</div>${reqs.map(r=>`<div class="list-row" style="font-size:12.5px"><div style="flex:1">${r.current==null?'Rate Not Configured':pvRateTxt(r.current, r.oldType)} → <b>${pvRateTxt(r.proposed, r.rateType)}</b> from ${dLong(r.effective)}<div class="hint">“${esc(r.reason)}” · ${esc(first(r.by))} ${esc(dtstr(r.at))}${r.decision?` · ${esc(r.status)} by ${esc(first(r.decision.by))} ${esc(dtstr(r.decision.at))}${r.decision.comment?' — '+esc(r.decision.comment):''}`:''}</div></div>${pvBadge(r.status)}</div>`).join('') || '<div class="hint">None.</div>'}
+    <div class="nav-label" style="padding:12px 0 4px">Audit log</div><div class="timeline" style="max-height:220px;overflow:auto">${log.map(h=>`<div class="ti"><b>${esc(h.act)}</b> · ${esc(first(h.by))}<div class="hint">${dtstr(h.at)}</div>${h.note?`<div>${esc(h.note)}</div>`:''}</div>`).join('') || '<div class="hint">No entries yet.</div>'}</div>`, true);
+}
+
+/* ---------- pay profiles & rates (the person's own, non-client pay lines) now show rate types ---------- */
+function profilesHTML(){
+  return `<div class="hint" style="margin-bottom:10px">Pay profile lines are a person's own pay that is not tied to a client (for example a core-team base salary). A change to an existing line needs the CEO's approval. Client-based rates are managed in <a href="#" onclick="event.preventDefault();FIN.tab='rates';RENDER.finance()">Client rates</a>.</div>
+    <div class="card"><div class="card-h"><h3>Employees — work schedule and rates</h3><input placeholder="Search…" value="${esc(FIN.q)}" oninput="FIN.q=this.value;el('finBody').innerHTML=profilesHTML();this.focus()" style="padding:6px 9px"></div>
+    <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Person</th><th>Paid as</th><th>Scheduled workdays</th><th>Agreed rates in force</th><th></th></tr></thead><tbody>
+    ${payEligible().filter(e=>!FIN.q || (e.name+' '+e.role).toLowerCase().includes(FIN.q.toLowerCase())).map(e=>{ const L = pvRateLines(e.id, manilaDate(), manilaDate()); const fixed = L.reduce((s,l)=>s+(pvMonthlyEq(l.amount, l.type)||0),0);
+      return `<tr><td>${av(e)} <b>${esc(e.name)}</b><div class="hint">${esc(e.role)}</div></td><td>${e.cls==='employee'?'Declared employee':'Contractor'}</td><td>${workdaysOf(e.id).map(d=>WEEKDAYS[d]).join(', ')}</td>
+        <td style="font-size:12px">${L.map(l=>`${esc(l.label)} · ${l.amount==null?'<span class="badge b-missed">Rate Not Configured</span>':pvRateTxt(l.amount, l.type, l.cur)}`).join('<br>')||'<span class="hint">No assignment or rate yet</span>'}${fixed?`<div style="margin-top:3px"><b>${money(fixed)}</b> <span class="hint">fixed / month</span></div>`:''}</td>
+        <td style="text-align:right"><button class="btn" style="padding:4px 9px;font-size:12px" onclick="profileModal('${e.id}')">Edit</button></td></tr>`; }).join('')}
+    </tbody></table></div></div>`;
+}
+{ const _pm = profileModal; profileModal = function(emp){ _pm(emp); const cur = el('ppCur');
+    if(cur) cur.insertAdjacentHTML('afterend', `<select id="ppType" style="margin:0 0 10px 6px">${Object.entries(RTYPES).map(([k,v])=>`<option value="${k}">${v.label}</option>`).join('')}</select>`); }; }
+
+/* ---------- registration: rate type per person, and the "agreed at registration" record ---------- */
+const pvTypeSel = (cls, id, sel) => `<select class="${cls}" ${id?`id="${id}"`:''} style="font-size:12px;padding:6px 6px;max-width:112px" title="How this person is paid on this client">${Object.entries(RTYPES).map(([k,v])=>`<option value="${k}" ${sel===k?'selected':''}>${v.label}</option>`).join('')}</select>`;
+regRateInput = (k, rate) => `<span style="display:inline-flex;gap:4px;align-items:center"><input class="rgRate" data-id="${k}" type="number" min="0" step="0.01" value="${esc(rate??'')}" placeholder="Agreed rate" title="Agreed rate — Finance and company heads only" style="width:104px;font-size:12px;padding:6px 8px">${pvTypeSel('rgRateType data-pvt', '', REG?.fin?.types?.[k]).replace('class="rgRateType data-pvt"', `class="rgRateType" data-id="${k}"`)}</span>`;
+{ const _rff = regFinFields; regFinFields = function(r){ const h = _rff.apply(this, arguments); const f = r?.id ? FINCLIENTS.find(x=>x.reg===r.id) : null; REG.fin.types = f ? Object.fromEntries((f.assignments||[]).map(a=>[a.emp, rtOf(a)])) : {}; return h; }; }
+{ const _rm = regModal; regModal = function(id){ _rm.apply(this, arguments); const i = el('rgPmRate'); if(i && !el('rgPmType')) i.insertAdjacentHTML('afterend', pvTypeSel('', 'rgPmType', REG?.fin?.types?.[(REG.pms||[])[0]])); }; }
+function regSaveFinance(r){
+  const amt = el('rgRateAmt')?.value; const rates = {}, types = {};
+  document.querySelectorAll('.rgRate').forEach(i=>{ if(i.value!==''){ rates[i.dataset.id] = +i.value; types[i.dataset.id] = document.querySelector(`.rgRateType[data-id="${i.dataset.id}"]`)?.value || 'monthly'; } });
+  const pmR = el('rgPmRate')?.value; if(pmR && (r.pms||[])[0]){ rates[r.pms[0]] = +pmR; types[r.pms[0]] = el('rgPmType')?.value || 'monthly'; }
+  const people = uniq([...(r.pms||[]), ...(r.team||[])]); let f = FINCLIENTS.find(x=>x.reg===r.id);
+  const snap = () => JSON.stringify([f.packageRate, f.assignments.map(a=>[a.emp,a.rate,a.rateType,a.role])]); const was = f ? snap() : '';
+  if(!f){ f = {id:'FC-'+r.id, reg:r.id, client:null, status:'Draft', assignments:[], files:[], history:[]}; FINCLIENTS.unshift(f); finHist(f, 'Registered', `by ${pname(PERSON)}`); }
+  Object.assign(f, {clientName:r.clientName, services:r.services||[], effective:r.startDate||'', payCurrency:el('rgPayCur')?.value||'PHP', files:REG.fin?.files||[],
+    packageRate:{amount:amt===''?null:+amt, currency:el('rgRateCur')?.value||'USD', basis:el('rgRateBasis')?.value||'per month', note:(el('rgRateNote')?.value||'').trim()},
+    enhanced:true, enhancedAt:f.enhancedAt||nowISO(), registeredBy:f.registeredBy||PERSON});          /* a client registered with this workflow is a NEW client */
+  f.assignments = people.map(k=>{ const old = f.assignments.find(a=>a.emp===k); const rate = rates[k] ?? null, type = types[k] || 'monthly';
+    const agreed = rate==null ? null : (f.status==='Draft' || !old?.agreed ? {rate, rateType:type, at:nowISO(), by:PERSON, reg:r.id} : old.agreed);   /* frozen once endorsed */
+    return {id:old?.id||uid('AS'), emp:k, role:(r.pms||[]).includes(k)?'Project manager':(r.resp?.[k]||P(k)?.sub||'Team member'), isPm:(r.pms||[]).includes(k), rate, rateType:type, from:r.startDate||'', to:null, agreed}; });
+  if(was && was!==snap()) finHist(f, 'Registration edited', 'package rate / proposed rates updated');
+  return f;
+}
+{ const _fe = finOnEndorse; finOnEndorse = function(r){ _fe.apply(this, arguments); const f = FINCLIENTS.find(x=>x.reg===r.id); if(!f) return;
+    (f.assignments||[]).filter(a=>a.agreed && !(f.rateLog||[]).some(e=>e.kind==='registration' && e.aid===a.id)).forEach(a=>pvRateLog(f, {kind:'registration', emp:a.emp, aid:a.id, new:a.rate, newType:rtOf(a), effective:a.from||f.effective, via:'entered by the Heads at registration', by:PERSON}));
+    finHist(f, 'Agreed rates recorded at registration', `${(f.assignments||[]).filter(a=>a.rate!=null).length} rate(s) are now the agreed rates; Finance changes need CEO approval`); }; }
+/* people added later by HR onboarding keep the rate type of their earlier line */
+{ const _fr = finReconcile; finReconcile = function(){ _fr.apply(this, arguments); FINCLIENTS.forEach(f=>(f.assignments||[]).forEach(a=>{ if(!a.rateType){ const prev = f.assignments.filter(x=>x.emp===a.emp && x.rateType && x!==a).slice(-1)[0]; if(prev && a.rate!=null) a.rateType = prev.rateType; } })); }; }
+
+/* ---------- COO (and every head): full read-only visibility of rates, requests and audit ---------- */
+function pvCooRatesHTML(){
+  const cl = FINCLIENTS.filter(f=>f.status!=='Ended'), rows = []; cl.forEach(f=>(f.status==='Draft'?[]:activeAssign(f)).forEach(a=>rows.push({f,a})));
+  const reqs = [...RATECHG].sort((a,b)=>b.at.localeCompare(a.at)), miss = pvMissingRates(), now = Date.now();
+  const direct = []; FINCLIENTS.forEach(f=>{ if(pvIsNewClient(f)) return; (f.rateLog||[]).filter(e=>['set','correct','change'].includes(e.kind)).forEach(e=>direct.push({f,e})); });
+  const regs = FINCLIENTS.filter(pvIsNewClient);
+  const mismatch = []; CLIENTS.filter(c=>!isEnded(c)).forEach(c=>{ const f = finFor(c.id); const team = uniq([...pmsOf(c.id), ...(c.team||[])]); if(!f){ if(team.length) mismatch.push([c.name, 'No Finance rate record for this client', team.length+' people on the team']); return; }
+    team.filter(k=>!activeAssign(f).some(a=>a.emp===k)).forEach(k=>mismatch.push([c.name, `${pname(k)} is on the client team but has no Finance assignment`, 'add their rate'])); });
+  const audit = []; FINCLIENTS.forEach(f=>(f.rateLog||[]).forEach(e=>audit.push({at:e.at, by:e.by, text:`${f.clientName} · ${pname(e.emp)}: ${e.kind}`, note:`${e.old!=null?pvRateTxt(e.old,e.oldType,f.payCurrency)+' → ':''}${e.new!=null?pvRateTxt(e.new,e.newType,f.payCurrency):''}${e.reason?' — '+e.reason:''}${e.via?' ('+e.via+')':''}`})));
+  RATECHG.forEach(r=>r.decision && audit.push({at:r.decision.at, by:r.decision.by, text:`${r.clientName||''} · ${pname(r.emp)}: request ${r.status.toLowerCase()}`, note:`${pvRateTxt(r.proposed,r.rateType)} · ${r.decision.comment||''}`}));
+  audit.sort((a,b)=>(b.at||'').localeCompare(a.at||''));
+  const T = (title, head, body, empty) => `<div class="card" style="margin-bottom:14px"><div class="card-h"><h3>${title}</h3></div><div class="tbl-wrap"><table class="tbl"><thead><tr>${head.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${body||`<tr><td colspan="${head.length}" class="empty">${empty||'None.'}</td></tr>`}</tbody></table></div></div>`;
+  const q = RTU.q.trim().toLowerCase(); const shown = rows.filter(({f,a})=>!q || (f.clientName+' '+pname(a.emp)).toLowerCase().includes(q));
+  return `<h3 style="margin:22px 0 10px;font-size:16px">Client-based compensation rates <span class="hint" style="font-weight:400">· read-only monitoring — CEO approval rules still apply</span></h3>
+    <div class="grid cols-4" style="margin-bottom:14px">${pvKpi('Rate Not Configured', miss.length, 'active assignments without a rate', miss.length?'var(--bad)':'var(--ok)')}${pvKpi('Pending CEO requests', reqs.filter(r=>r.status==='Pending CEO').length, `${reqs.filter(r=>r.status==='Approved').length} approved · ${reqs.filter(r=>r.status==='Rejected').length} rejected`)}
+      ${pvKpi('Rates entered at registration', regs.reduce((s,f)=>s+(f.assignments||[]).filter(a=>a.agreed).length,0), `${regs.length} new client${regs.length===1?'':'s'}`)}${pvKpi('Finance edits (existing clients)', direct.length, 'direct changes, all logged')}</div>
+    ${T('Pending and recent rate-change requests', ['Person','Client','Change','Effective','Reason','Status'], reqs.slice(0,15).map(r=>`<tr><td>${esc(pname(r.emp))}</td><td>${esc(r.clientName||'—')}</td><td>${r.current==null?'Rate Not Configured':pvRateTxt(r.current, r.oldType)} → <b>${pvRateTxt(r.proposed, r.rateType)}</b></td><td>${dShort(r.effective)}</td><td class="hint">${esc(r.reason)}${r.decision?'<br>'+esc(first(r.decision.by))+' · '+esc(dtstr(r.decision.at))+(r.decision.comment?' — '+esc(r.decision.comment):''):''}</td><td>${pvBadge(r.status)}<div class="hint">${esc(ago(r.at))}</div></td></tr>`).join(''), 'No rate-change requests yet.')}
+    ${T('Rate Not Configured', ['Client','Person','Role','Client type'], miss.map(({f,a})=>`<tr><td>${esc(f.clientName)}</td><td>${esc(pname(a.emp))}</td><td>${esc(a.role||'')}</td><td>${pvIsNewClient(f)?'New':'Existing'}</td></tr>`).join(''), 'Every active assignment has an agreed rate.')}
+    ${T('Rates entered by the Heads at registration (new clients)', ['Client','Registered by','When','Agreed rates'], regs.map(f=>`<tr><td><b>${esc(f.clientName)}</b><div class="hint">${esc(f.reg||'')}</div></td><td>${esc(pname(f.registeredBy||f.endorsedBy))}</td><td class="hint">${esc(dtstr(f.enhancedAt||f.endorsedAt))}</td><td style="font-size:12px">${(f.assignments||[]).filter(a=>a.agreed).map(a=>`${esc(pname(a.emp))}: ${pvRateTxt(a.agreed.rate, a.agreed.rateType, f.payCurrency)}`).join('<br>')||'—'}</td></tr>`).join(''), 'No new clients registered with the enhanced workflow yet.')}
+    ${T('Finance adjustments to existing clients', ['When','Client','Person','Change','By'], direct.sort((a,b)=>b.e.at.localeCompare(a.e.at)).slice(0,15).map(({f,e})=>`<tr><td class="hint">${esc(dtstr(e.at))}</td><td>${esc(f.clientName)}</td><td>${esc(pname(e.emp))}</td><td>${e.old!=null?pvRateTxt(e.old,e.oldType,f.payCurrency)+' → ':''}<b>${pvRateTxt(e.new,e.newType,f.payCurrency)}</b><div class="hint">${esc(e.reason||'')}</div></td><td>${esc(first(e.by))}</td></tr>`).join(''), 'None yet.')}
+    ${T('Possible discrepancies', ['Client','Issue','Next step'], mismatch.slice(0,20).map(m=>`<tr><td>${esc(m[0])}</td><td>${esc(m[1])}</td><td class="hint">${esc(m[2])}</td></tr>`).join(''), 'Client teams and Finance assignments agree.')}
+    <div class="card" style="margin-bottom:14px"><div class="card-h"><h3>All compensation rates</h3><input placeholder="Search client or person…" value="${esc(RTU.q)}" oninput="RTU.q=this.value;pvRefresh();const i=document.querySelector('#finBody input[placeholder^=Search]');i&&(i.focus(),i.setSelectionRange(99,99))" style="margin-left:auto;padding:5px 9px"></div><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Client</th><th>Person</th><th>Paid as</th><th>Rate</th><th>Effective</th><th>Client type</th></tr></thead><tbody>
+      ${shown.slice(0,150).map(({f,a})=>`<tr><td>${esc(f.clientName)}</td><td>${esc(pname(a.emp))}</td><td>${payClass(a.emp)==='employee'?'Employee':'Contractor'}</td><td>${a.rate==null||a.rate===''?'<span class="badge b-missed">Rate Not Configured</span>':pvRateTxt(a.rate, rtOf(a), f.payCurrency)}</td><td>${dShort(a.from)}</td><td>${pvIsNewClient(f)?'New':'Existing'}</td></tr>`).join('') || '<tr><td colspan="6" class="empty">No rates.</td></tr>'}</tbody></table></div></div>
+    ${T('Rate audit log', ['When','By','What','Detail'], audit.slice(0,25).map(x=>`<tr><td class="hint">${esc(dtstr(x.at))}</td><td>${esc(first(x.by))}</td><td>${esc(x.text)}</td><td class="hint">${esc(x.note)}</td></tr>`).join(''), 'No rate changes recorded yet.')}`;
+}
+{ const _ov = pvOversightHTML; pvOversightHTML = function(){ return _ov.apply(this, arguments) + pvCooRatesHTML(); }; }
+
+/* ===== t0h_spec.js — cutoff automation extras =====
+   Pre-Generated Payroll dashboard & statuses · the separate "Message to Employee / VA" · scheduled adjustments · the CEO's alternate approver ·
+   Send All Approved Now · corrections · "Viewed" tracking · filing in HR 201 / contractor records. */
+const pvCfgRec = () => { let r = PAYCFG.find(x=>x.id==='global'); if(!r){ r = {id:'global'}; PAYCFG.push(r); } return r; };
+const pvPayrunRec = pid => { let r = pvRun(pid); if(!r){ r = {id:pid, ...payPeriod(pid), status:'Open', createdBy:PERSON, createdAt:nowISO()}; PAYRUNS.push(r); } return r; };
+const pvViewed = d => PAYVIEW.find(v=>v.doc===d.id);
+
+/* ---------- statuses in the words of the payroll process ---------- */
+function pvDisp(d){
+  if(d.release){ return pvViewed(d) ? 'Viewed' : 'Sent'; }
+  const a = pvActiveRel(d); if(a) return a.status==='Processing Release' ? 'Sending' : a.status==='Suspended' ? 'Suspended — needs fresh approval' : 'Scheduled';
+  if(PAYREL.some(r=>r.doc===d.id && r.status==='Delivery Failed')) return 'Failed';
+  switch(d.status){
+    case PV_ST.DRAFT: return d.reviewAt ? 'Under Finance Review' : 'Draft – Pending Finance Review';
+    case PV_ST.SUB: case PV_ST.REV: return pvAlt().enabled && pvAltOn() && pvAlt().key===pvCoo() ? 'Pending CEO / COO Approval' : 'Pending CEO Approval';
+    case PV_ST.RET: return 'Rejected – returned for correction';
+    case PV_ST.OK: return 'Approved';
+    default: return d.status; }
+}
+const PV_DISP_BADGE = {'Draft – Pending Finance Review':'b-draft', 'Under Finance Review':'b-scheduled', 'Pending CEO Approval':'b-pending', 'Pending CEO / COO Approval':'b-pending', 'Rejected – returned for correction':'b-missed', Approved:'b-approved', Scheduled:'b-scheduled', Sending:'b-scheduled', Sent:'b-approved', Viewed:'b-approved', Failed:'b-missed', 'Suspended — needs fresh approval':'b-missed', Cancelled:'b-draft'};
+const pvDispBadge = d => { const s = pvDisp(d); return `<span class="badge ${PV_DISP_BADGE[s]||'b-draft'}">${esc(s)}</span>`; };
+
+/* ---------- the payroll dashboard (counts per the status table) ---------- */
+function pvDashHTML(D){
+  const c = f => D.filter(f).length, all = PAYV2.filter(d=>!d.supersededBy);
+  const pend = c(d=>[PV_ST.SUB,PV_ST.REV].includes(d.status)), total = D.filter(d=>!d.supersededBy).reduce((s,d)=>s+(+d.net||0),0);
+  const failed = PAYREL.filter(r=>r.status==='Delivery Failed' && D.some(d=>d.id===r.doc)).length;
+  return `<div class="grid cols-4" style="margin-bottom:10px">
+      ${pvKpi('Pre-generated batch', D.length?`${D.length} records`:'—', `${c(d=>d.class==='employee')} employees · ${c(d=>d.class==='contractor')} contractor VAs`)}
+      ${pvKpi('Total payroll (net)', money(total), 'this cutoff, before release')}
+      ${pvKpi('Pending Finance review', c(d=>d.status===PV_ST.DRAFT), `${c(d=>d.status===PV_ST.RET)} returned for correction`, c(d=>d.status===PV_ST.RET)?'var(--bad)':'')}
+      ${pvKpi(pvAltOn()?'Awaiting CEO / alternate':'Awaiting executive approval', pend, 'submitted, waiting for a decision', pend?'var(--warn)':'')}</div>
+    <div class="grid cols-4" style="margin-bottom:14px">
+      ${pvKpi('Approved', c(d=>pvApprovedCurrent(d)&&!d.release), 'ready to distribute', 'var(--ok)')}${pvKpi('Scheduled', c(d=>!!pvActiveRel(d)), 'will publish automatically')}
+      ${pvKpi('Sent · Viewed', `${c(d=>!!d.release)} · ${c(d=>!!d.release&&!!pvViewed(d))}`, 'published to portals · opened by the person')}${pvKpi('Failed deliveries', failed, failed?'retry from the Release scheduler':'none', failed?'var(--bad)':'')}</div>`;
+}
+
+/* ---------- Message to Employee / VA (a separate field — never printed on the payslip) ---------- */
+function pvMsgPanel(pid, D){
+  const run = pvRun(pid), cur = run?.message || '', can = pvCan(); const sample = D.find(d=>d.lines.length) || D[0];
+  return `<div class="card" style="margin-bottom:14px"><div class="card-h"><h3>💬 Message to Employee / VA</h3><span class="sub">delivered together with each payslip · never printed on the payslip itself</span></div><div class="card-b">
+    <div class="field"><label>General message for this cutoff <span class="hint">(goes with every payslip in the batch; a personal message on a record replaces it for that person)</span></label>
+      <textarea id="pmGen" rows="3" ${can?'':'disabled'} placeholder="${esc(sample?pvMsgDefault(sample):'Hi! Your payslip for this cutoff is now available…')}">${esc(cur)}</textarea></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">${can?`<button class="btn primary" onclick="pvSaveRunMsg('${pid}')">Save general message</button><button class="btn" onclick="pvMsgPreview('${pid}')">Preview as the recipient</button>`:''}
+      <span class="hint">${D.filter(d=>d.financeMsg && String(d.financeMsg).trim()).length} personalized · the rest use this message (or the default if empty)</span></div></div></div>`;
+}
+function pvSaveRunMsg(pid){ const r = pvPayrunRec(pid); r.message = el('pmGen').value.trim(); r.messageBy = PERSON; r.messageAt = nowISO(); recordChange(); toast(r.message ? 'General message saved — it goes out with each payslip' : 'Cleared — the default message will be used'); }
+function pvMsgPreview(pid){
+  const d = pvDocs(pid).find(x=>x.lines.length) || pvDocs(pid)[0]; if(!d) return toast('There are no records for this cutoff yet');
+  const live = el('pmGen')?.value.trim(); const saved = pvRun(pid)?.message; const text = live || (saved||'').trim() || pvMsgDefault(d);
+  openModal('Message preview', `<div class="hint" style="margin-bottom:8px">How <b>${esc(pvName(d))}</b> will see it, next to the payslip (not inside it):</div>${pvMsgCard(text, PERSON, null, true)}
+    <div class="hint" style="margin-top:10px">The payslip itself carries no message — Finance's note travels with the notification and appears beside the document in the recipient's portal.</div>`);
+}
+function pvMsgCard(text, by, at, preview){
+  return `<div class="pv-msg"><div class="pv-msg-h">💬 <b>Message from Finance</b>${preview?'<span class="badge b-draft">preview</span>':''}</div><div class="pv-msg-b">${linkify(esc(text)).replace(/\n/g,'<br>')}</div><div class="pv-msg-f">— ${esc(by&&by!=='system'?pname(by):'Finance')}, Finance · The Cross Core${at?' · sent '+esc(pvStamp(at)):''}</div><div class="pv-msg-n">This message is separate from the official payslip document.</div></div>`;
+}
+const pvMsgCardFor = d => d.release ? pvMsgCard(pvMsgSent(d), d.release.msgBy || d.release.by, d.release.at) : pvMsgCard(pvMsg(d), d.msgBy || PERSON, null, true);
+
+/* ---------- adjustments Finance schedules for a cutoff ---------- */
+function pvAdjPanel(pid, D){
+  const L = PADJ.filter(x=>x.period===pid).sort((a,b)=>(a.at||'').localeCompare(b.at||'')), can = pvCan(), people = payEligible();
+  return `<details class="card" style="margin-bottom:14px" ${L.length?'open':''}><summary class="card-h" style="cursor:pointer"><h3>Scheduled adjustments for this cutoff <span class="badge b-draft">${L.length}</span></h3><span class="sub">bonuses, allowances, reimbursements and deductions that are included automatically when the payroll is generated</span></summary><div class="card-b">
+    ${L.length?`<table class="tbl" style="margin-bottom:10px"><thead><tr><th>Person</th><th>Type</th><th>Description</th><th>Amount</th><th>Reason</th><th>Status</th><th></th></tr></thead><tbody>${L.map(x=>`<tr><td>${esc(pname(x.emp))}</td><td>${esc(PV_KIND_LABEL[x.kind]||x.kind)}</td><td>${esc(x.label||'')}</td><td>${money(x.amount)}</td><td class="hint">${esc(x.reason)}</td><td>${x.status==='Applied'?'<span class="badge b-approved">Applied</span>':'<span class="badge b-scheduled">Active</span>'}</td><td>${can&&x.status!=='Applied'?`<button class="btn ghost" style="padding:2px 8px;font-size:11.5px" onclick="pvAdjDel('${x.id}')">Remove</button>`:''}</td></tr>`).join('')}</tbody></table>`:'<div class="hint" style="margin-bottom:8px">None scheduled. Add one and it is included in the next generation — or applied to the draft right away if one already exists.</div>'}
+    ${can?`<div class="grid cols-3"><div class="field"><label>Person</label><select id="paEmp">${people.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('')}</select></div><div class="field"><label>Type</label><select id="paKind"><option value="bonus">Bonus / incentive</option><option value="allowance">Allowance</option><option value="reimb">Reimbursement</option><option value="deduction">Authorized deduction</option></select></div><div class="field"><label>Amount</label><input id="paAmt" type="number" min="0" step="0.01"></div></div>
+      <div class="grid cols-2"><div class="field"><label>Description</label><input id="paLabel" placeholder="e.g. Q3 performance bonus"></div><div class="field"><label>Reason <span class="hint">(required)</span></label><input id="paWhy" placeholder="Who approved it and why"></div></div>
+      <button class="btn" onclick="pvAdjAdd('${pid}')">Schedule adjustment</button>`:''}</div></details>`;
+}
+function pvAdjAdd(pid){
+  const emp = el('paEmp').value, kind = el('paKind').value, amt = +el('paAmt').value, label = el('paLabel').value.trim(), reason = el('paWhy').value.trim();
+  if(!(amt>0)) return toast('Enter the amount'); if(reason.length<3) return toast('A reason is required for every adjustment');
+  const x = {id:uid('PA'), emp, period:pid, kind, label:label||PV_KIND_LABEL[kind], amount:pvR2(amt), reason, status:'Active', by:PERSON, at:nowISO()}; PADJ.push(x);
+  const d = PAYV2.find(q=>q.emp===emp && q.period.id===pid && !q.correctionOf);
+  if(d && pvEditable(d)){ try{ const l = pvAddLine(d.id, kind, x.label, x.amount, reason); l.adjId = x.id; x.status = 'Applied'; x.appliedTo = d.id; }catch(e){ toast(e.message); } }
+  recordChange(); toast(x.status==='Applied' ? 'Added to the existing draft' : 'Scheduled — included at the next generation'); pvRefresh();
+}
+function pvAdjDel(id){ PADJ = PADJ.filter(x=>x.id!==id); recordChange(); pvRefresh(); }
+
+/* ---------- the CEO's alternate approver ---------- */
+function pvAltCardHTML(){
+  const a = pvAlt(), ceo = pvIsCeo(), heads = HEADS.filter(k=>k!==pvCeo()), on = pvAltOn();
+  if(ceo) return `<div class="card" style="margin-bottom:14px"><div class="card-h"><h3>Alternate approver while you are unavailable</h3><span class="badge ${on?'b-approved':'b-draft'}">${on?'active':a.enabled?'scheduled':'off'}</span></div><div class="card-b">
+    <div class="hint" style="margin-bottom:8px">The CEO is the primary payroll approver. If you are away you can authorize <b>one other company head</b> to approve (or return) payroll for a period you choose. One approval is enough and it is recorded as given on your behalf. Rate changes always stay with you.</div>
+    <div class="grid cols-4"><label class="switch-row"><input type="checkbox" id="altOn" ${a.enabled?'checked':''} style="width:auto"> Authorize an alternate</label>
+      <div class="field"><label>Alternate</label><select id="altKey">${heads.map(k=>`<option value="${k}" ${a.key===k?'selected':''}>${esc(pname(k))} — ${esc(lvSlotLabel(k))}</option>`).join('')}</select></div>
+      <div class="field"><label>From</label><input id="altFrom" type="date" value="${esc(a.from||'')}"></div><div class="field"><label>Until</label><input id="altTo" type="date" value="${esc(a.to||'')}"></div></div>
+    <div class="field"><label>Reason</label><input id="altWhy" value="${esc(a.reason||'')}" placeholder="e.g. on leave Oct 20–27"></div><button class="btn primary" onclick="pvSaveAlt()">Save</button></div></div>`;
+  if(pvAltOk()) return `<div class="end-banner" style="margin-bottom:12px">✅ <b>You are the authorized alternate approver</b> for ${esc(pname(pvCeo()))}${a.from?' from '+dLong(a.from):''}${a.to?' until '+dLong(a.to):''}. Your approvals are recorded as given on the CEO's behalf.</div>`;
+  return a.enabled ? `<div class="hint" style="margin-bottom:10px">Alternate approver: ${esc(pname(a.key))}${a.from?' · from '+dLong(a.from):''}${a.to?' · until '+dLong(a.to):''} — ${on?'currently active':'not active today'}.</div>` : '';
+}
+function pvSaveAlt(){
+  if(!pvIsCeo()) return toast('Only the CEO authorizes an alternate approver'); const r = pvCfgRec(); const on = el('altOn').checked, key = el('altKey').value, from = el('altFrom').value, to = el('altTo').value;
+  if(on && !key) return toast('Choose the alternate'); if(on && from && to && to<from) return toast('The end date is before the start date');
+  r.alt = {enabled:on, key, from, to, reason:el('altWhy').value.trim(), by:PERSON, at:nowISO()}; recordChange();
+  if(on) pvEmit([key], 'approval', `🛡 <b>${esc(pname(PERSON))}</b> authorized you as the alternate payroll approver${from?' from '+dLong(from):''}${to?' until '+dLong(to):''}.`, finLink('ceo'));
+  toast(on?`${pname(key)} can now approve payroll${from?' from '+dShort(from):''}${to?' until '+dShort(to):''}`:'Alternate approver switched off'); RENDER.finance();
+}
+function pvSetHrAccess(v){ if(!pvIsCeo()) return toast('Only the CEO changes who can open payslip records'); pvCfgRec().hrAccess = v; recordChange(); toast(v==='hr'?'HR can now see newly filed payslips':'Payslips are visible only to the person, Finance and the heads'); RENDER.finance(); }
+function pvSetStatBase(v){ pvCfgRec().statBase = v; recordChange(); toast('Saved'); }
+
+/* ---------- Send All Approved Payslips Now ---------- */
+function pvSendAllModal(){
+  const ready = PAYV2.filter(d=>pvApprovedCurrent(d) && !d.release && !pvActiveRel(d)); if(!ready.length) return toast('There are no approved payslips waiting — scheduled ones release automatically at their time');
+  const periods = [...new Set(ready.map(d=>d.period.id))].sort(); const msg = pvRun(periods[0])?.message || pvMsgDefault(ready[0]);
+  openModal(`Send all approved payslips now (${ready.length})`, `<div class="hint" style="margin-bottom:8px">Cutoff${periods.length>1?'s':''}: <b>${periods.map(p=>esc(pvPeriodLabel(pv2Period(p)))).join(' · ')}</b>. Each person receives only their own document. CEO / alternate approval is re-checked for every one; ineligible records are skipped. Payslips already scheduled are not included.</div>
+    <div style="max-height:200px;overflow:auto;margin-bottom:10px">${ready.map(d=>`<div class="list-row" style="font-size:12.5px">${av(P(d.emp))}<div style="flex:1"><b>${esc(pvName(d))}</b><div class="hint">${PV_CLASS[d.class].short} · ${esc(pvPeriodLabel(d.period))}${d.approval?.alt?' · approved by the alternate':''}</div></div><b>${pvMoney(d.net,d)}</b></div>`).join('')}</div>
+    <div class="field"><label>💬 General message <span class="hint">(goes with each payslip, outside the document · personal messages are kept)</span></label><textarea id="saMsg" rows="3">${esc(msg)}</textarea></div>
+    <div class="hint" style="margin-bottom:8px">Total net: <b>${money(ready.reduce((s,d)=>s+d.net,0))}</b> · Sending is not payment — payment is confirmed separately.</div>
+    <label class="hint" style="display:flex;gap:8px;margin-bottom:10px"><input id="saOk" type="checkbox" style="width:auto"> I confirm these ${ready.length} payslips, recipients and the message are correct.</label>
+    <button class="btn primary" style="width:100%" onclick="pvSendAllDo(${esc(JSON.stringify(ready.map(d=>d.id)))}, ${esc(JSON.stringify(periods))})">Send ${ready.length} now</button>`);
+}
+async function pvSendAllDo(ids, periods){
+  if(!el('saOk').checked) return toast('Tick the confirmation first'); const m = el('saMsg').value.trim();
+  periods.forEach(p=>{ const r = pvPayrunRec(p); if(m && m !== pvMsgDefault(pvDoc(ids.find(i=>pvDoc(i).period.id===p)))) r.message = m; });
+  await lvSettle(); closeModal(); let ok = 0; const bad = [];
+  for(const id of ids){ try{ await pv2ReleaseNow(id); ok++; }catch(e){ bad.push(`${pvName(pvDoc(id))}: ${e.message}`); } }
+  RENDER.finance(); toast(`${ok} sent${bad.length?` · ${bad.length} not sent`:''}`); if(bad.length) setTimeout(()=>openModal('Not sent', bad.map(b=>`<div class="list-row" style="font-size:12.5px">${esc(b)}</div>`).join('')), 300);
+}
+
+/* ---------- corrections: a released payslip stays on file; the corrected one is a new, separately approved document ---------- */
+function pvCreateCorrection(id){
+  const o = pvDoc(id); if(!o || !o.release) return; if(PAYV2.some(x=>x.correctionOf===id && !x.release && x.status!==PV_ST.RET) ) return toast('A correction for this payslip is already in progress');
+  const n = PAYV2.filter(x=>x.correctionOf===id).length + 1, nid = `${id}|C${n}`;
+  const c = JSON.parse(JSON.stringify(o)); Object.assign(c, {id:nid, status:PV_ST.DRAFT, version:0, approval:null, release:null, revision:null, correctionOf:id, supersededBy:undefined, supersededAt:undefined, pay:{status:'Unpaid'}, reviewAt:null, flags:{...(o.flags||{}), correction:true}, financeMsg:undefined, createdAt:nowISO(), history:[{at:nowISO(), by:PERSON, act:'Correction started', note:`replaces ${o.docNo||id}`}]});
+  if(pvLive()) delete c.docNo; else c.docNo = pvDocNo(o.period.id);   /* the database numbers new documents */
+  PAYV2.push(c); recordChange(); toast('Correction created — edit it, then submit it for approval. The original stays on file.'); openPv(nid);
+}
+
+/* ---------- "Viewed" ---------- */
+{ const _pv = pvView; pvView = function(id){ const d = pvDoc(id); _pv.apply(this, arguments);
+    if(d && d.release && PERSON===d.emp && !pvViewed(d)){ PAYVIEW.push({id:'PV|'+d.id, doc:d.id, emp:d.emp, at:nowISO()}); recordChange(); } }; }
+
+/* ---------- filing: HR 201 → Payslips (employees) · contractor records → Payments (VAs) ---------- */
+{ const _f = h201Folders; h201Folders = function(id){ const base = _f(id); const emp = payClass(id)==='employee';
+    const add = {id:emp?'payslips':'payments', name:'Payslips & Payment History', ico:'🧾', hint:'Released payslips and payment statements, filed automatically by year, month and cutoff — visible to the person, Finance and the heads'};
+    return [...base.slice(0,-1), add, base[base.length-1]]; }; }
+{ const _o = h201Open; h201Open = function(id){ const f = HRFILES.find(x=>x.id===id); if(f?.source==='payroll' && pvDoc(f.doc)) return pvView(f.doc); return _o.apply(this, arguments); }; }
+{ const _p = h201DocPDF; h201DocPDF = async function(f){ if(f.source==='payroll'){ const d = pvDoc(f.doc); if(d) return pvPDF(d); } return _p.apply(this, arguments); }; }
+{ const _n = h201PdfName; h201PdfName = function(f){ return f.source==='payroll' && pvDoc(f.doc) ? pvFileBase(pvDoc(f.doc))+'.pdf' : _n.apply(this, arguments); }; }
+if(typeof h201Src!=='undefined') h201Src.payroll = 'Released payslip / payment statement';
+/* a filed payslip is confidential: the person, Finance and the heads — HR only if the CEO has opened it up */
+{ const _a = COLL.hrfiles.aud; COLL.hrfiles.aud = function(f){ return f.source==='payroll' ? uniq([f.emp, ...financeKeys(), ...HEADS, ...(payCfg().hrAccess==='hr'?HR_KEYS():[])]) : _a.apply(this, arguments); }; }
+
+/* ---------- COO oversight also shows who may approve and who can open payslip records ---------- */
+{ const _ov = pvOversightHTML; pvOversightHTML = function(){ const a = pvAlt();
+    return `<div class="card" style="margin-bottom:14px"><div class="card-b" style="display:flex;gap:18px;flex-wrap:wrap;font-size:12.5px"><span><b>Primary approver:</b> ${esc(pname(pvCeo()))} (CEO)</span><span><b>Alternate:</b> ${a.enabled?esc(pname(a.key))+(a.from?' · '+dShort(a.from):'')+(a.to?' – '+dShort(a.to):'')+(pvAltOn()?' <span class="badge b-approved">active</span>':' <span class="badge b-draft">not active today</span>'):'none authorized'}</span><span><b>Payslip records open to HR:</b> ${payCfg().hrAccess==='hr'?'yes':'no (restricted)'}</span><span><b>Viewed:</b> ${PAYV2.filter(d=>d.release&&pvViewed(d)).length} of ${PAYV2.filter(d=>d.release).length} released</span></div></div>` + _ov.apply(this, arguments); }; }
+
+(function(){ const st = document.createElement('style'); st.textContent = `.pv-msg{border:1px solid rgba(242,180,64,.55);border-left:5px solid #F2B440;background:linear-gradient(135deg,rgba(255,249,232,.95),rgba(255,252,243,.9));border-radius:14px;padding:12px 16px;margin:0 auto 12px;max-width:1100px;color:#2a2620}
+.pv-msg-h{display:flex;gap:8px;align-items:center;font-size:12.5px;color:#a8700a;margin-bottom:5px}.pv-msg-b{font-size:13.5px;line-height:1.5}.pv-msg-f{font-size:12px;font-weight:700;margin-top:7px}.pv-msg-n{font-size:10.5px;color:#8a8478;margin-top:2px}
+[data-theme="dark"] .pv-msg{background:linear-gradient(135deg,rgba(60,48,20,.7),rgba(40,34,20,.6));color:#f4efe2}[data-theme="dark"] .pv-msg-h{color:#f5be52}[data-theme="dark"] .pv-msg-n{color:#b8b0a0}`; document.head.appendChild(st); })();
+
 /* ===== t1_acct.js — Accounting module for every portal: payslips / payment statements, announcements, Finance concerns ===== */
 const ACS = {tab:'payslips', open:null, pend:{}, q:'', st:'all'};
 const AC_CATS = ['Incorrect compensation','Missing payslip','Payment discrepancy','Deduction question','Reimbursement','Delayed payment','Employee benefits','Other Finance issue'];
@@ -32851,7 +33401,7 @@ function acNextCutoffs(){
 RENDER.accounting = () => {
   const mine = acMyClass(), word = PV_CLASS[mine].short;
   const nT = FINTIX.filter(t=>t.by===PERSON && ['Awaiting Information','Resolved'].includes(t.status)).length;
-  const tabs = [['payslips', mine==='employee'?'Payslips':'Payment statements'], ['announcements','Accounting announcements'], ['concerns', `Finance concerns${nT?` <span class="badge b-missed">${nT}</span>`:''}`]];
+  const tabs = [['payslips', 'My Payslips & Payment History'], ['announcements','Accounting announcements'], ['concerns', `Finance concerns${nT?` <span class="badge b-missed">${nT}</span>`:''}`]];
   el('v-accounting').innerHTML = `<div class="page-head"><div><h2>Accounting</h2><p>Your ${word.toLowerCase()}s, payroll notices and Finance support — all in one place.</p></div>
       <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" onclick="ACS.tab='concerns';ACS.open=null;acNewConcern()">+ Raise a Finance concern</button></div></div>
     <div class="tabs fin-tabs">${tabs.map(([k,l])=>`<button class="tab ${ACS.tab===k?'on':''}" onclick="ACS.tab='${k}';ACS.open=null;RENDER.accounting()">${l}</button>`).join('')}</div>
@@ -32860,20 +33410,32 @@ RENDER.accounting = () => {
 const acRefresh = () => { if(CURRENT==='accounting') RENDER.accounting(); else if(CURRENT==='finance') pvRefresh(); };
 
 /* ---------- payslips / payment statements ---------- */
+const AC_MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 function acPayslipsHTML(){
-  const L = acMyDocs(), mine = acMyClass(), cur = L[0], old = myPayslips();
-  const hero = cur ? `<div class="card ac-hero"><div class="card-b"><div class="hint" style="text-transform:uppercase;letter-spacing:.1em;font-size:10.5px">Latest ${PV_CLASS[mine].short.toLowerCase()}</div>
+  ACS.fy ??= ''; ACS.fm ??= ''; ACS.fc ??= ''; ACS.fq ??= '';
+  const mine = acMyClass(), L = acMyDocs(), cur = L.find(d=>!d.supersededBy) || L[0];
+  const items = [...L.map(d=>({d, y:d.period.start.slice(0,4), m:+d.period.start.slice(5,7), c:d.period.cut, key:d.period.id+(d.correctionOf?'~':'')})),
+    ...myPayslips().map(s=>({s, y:String(s.period.start).slice(0,4), m:+String(s.period.start).slice(5,7), c:+String(s.period.start).slice(8,10)===1?1:2, key:'old'+s.id}))];
+  const years = [...new Set(items.map(x=>x.y))].sort().reverse();
+  let F = items.filter(x=>(!ACS.fy||x.y===ACS.fy) && (!ACS.fm||x.m===+ACS.fm) && (!ACS.fc||String(x.c)===ACS.fc));
+  if(ACS.fq.trim()){ const q = ACS.fq.trim().toLowerCase(); F = F.filter(x=>(x.d ? (pvPeriodLabel(x.d.period)+' '+(x.d.docNo||'')+' '+PV_CLASS[x.d.class].doc) : periodLabel(x.s.period)+' payslip').toLowerCase().includes(q)); }
+  const hero = cur ? `${pvMsgCardFor(cur)}<div class="card ac-hero"><div class="card-b"><div class="hint" style="text-transform:uppercase;letter-spacing:.1em;font-size:10.5px">Latest ${PV_CLASS[mine].short.toLowerCase()}</div>
       <div style="display:flex;gap:16px;align-items:flex-end;flex-wrap:wrap"><div style="flex:1;min-width:200px"><div style="font-family:Sora,sans-serif;font-size:26px;font-weight:700">${pvMoney(cur.net,cur)}</div><div class="hint">${esc(pvPeriodLabel(cur.period))} · cutoff ${dLong(cur.period.cutoff)} · payment date ${dLong(cur.period.payout)}</div>
         <div style="margin-top:6px"><span class="badge ${cur.pay?.status==='Paid'?'b-approved':'b-scheduled'}">${cur.pay?.status==='Paid'?'Paid '+dShort(cur.pay.at):'Payment pending'}</span> <span class="hint">released ${esc(dtstr(cur.release.at))}</span></div></div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" onclick="pvView('${cur.id}')">View</button><button class="btn" onclick="pvDownload('${cur.id}')">⬇ PDF</button></div></div></div></div>`
+        <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" onclick="pvView('${cur.id}')">View</button><button class="btn" onclick="pvDownload('${cur.id}')">⬇ PDF</button><button class="btn" onclick="pvDownloadImg('${cur.id}')">🖼 Image</button><button class="btn" onclick="pvPrint('${cur.id}')">🖨 Print</button></div></div></div></div>`
     : `<div class="card"><div class="card-b empty" style="padding:26px 12px"><b>No ${PV_CLASS[mine].short.toLowerCase()} yet</b><span>When Finance releases one it appears here and you'll get a notification. Payment is confirmed separately.</span></div></div>`;
   const nxt = acNextCutoffs();
+  const row = x => x.d ? `<tr><td><b>${x.c===1?'1st cutoff':'2nd cutoff'}</b><div class="hint">${esc(pvPeriodLabel(x.d.period))}</div></td><td>${esc(PV_CLASS[x.d.class].doc)}<div class="hint">${esc(x.d.docNo||'')}${x.d.correctionOf?' · ✏️ corrected':''}${x.d.supersededBy?' · superseded':''}</div></td><td><b>${pvMoney(x.d.net,x.d)}</b></td><td><span class="badge ${x.d.pay?.status==='Paid'?'b-approved':'b-scheduled'}">${x.d.pay?.status==='Paid'?'Paid '+dShort(x.d.pay.at):'Pending'}</span></td><td class="hint">${esc(dtstr(x.d.release.at))}${x.d.release.message?' · 💬':''}</td>
+      <td style="white-space:nowrap"><button class="btn" style="padding:4px 9px;font-size:12px" onclick="pvView('${x.d.id}')">View</button> <button class="btn ghost" style="padding:4px 9px;font-size:12px" onclick="pvDownload('${x.d.id}')">PDF</button> <button class="btn ghost" style="padding:4px 9px;font-size:12px" onclick="pvDownloadImg('${x.d.id}')">Image</button> <button class="btn ghost" style="padding:4px 9px;font-size:12px" onclick="pvPrint('${x.d.id}')">Print</button></td></tr>`
+    : `<tr><td><b>${x.c===1?'1st cutoff':'2nd cutoff'}</b><div class="hint">${esc(periodLabel(x.s.period))}</div></td><td>Payslip <span class="hint">(earlier system)</span></td><td>${money(x.s.final,x.s.cur)}</td><td>${x.s.payout?.status==='Paid'?'Paid '+dShort(x.s.payout.at):'Pending'}</td><td class="hint">${esc(dtstr(x.s.delivery?.at))}</td><td><button class="btn ghost" style="padding:4px 9px;font-size:12px" onclick="downloadSlipPDF('${x.s.id}')">PDF</button></td></tr>`;
+  const groups = []; years.filter(y=>F.some(x=>x.y===y)).forEach(y=>{ [12,11,10,9,8,7,6,5,4,3,2,1].forEach(m=>{ const R = F.filter(x=>x.y===y&&x.m===m).sort((p,q)=>q.c-p.c); if(R.length) groups.push(`<tr class="pv-gh"><td colspan="6">${y} · ${AC_MONTHS[m-1]}</td></tr>${R.map(row).join('')}`); }); });
   return `${hero}<div class="grid cols-2" style="margin:14px 0">${nxt.map((p,i)=>`<div class="card kpi"><div class="k-label">${i?'Following':'Next'} cutoff</div><div class="k-val" style="font-size:20px">${dLong(p.cutoff)}</div><div class="hint">Covers ${dShort(p.start)}–${dShort(p.end)} · payment date ${dLong(p.payout)}</div></div>`).join('')}</div>
-    <div class="card"><div class="card-h"><h3>History</h3><span class="sub">${L.length+old.length} document${L.length+old.length===1?'':'s'}</span></div><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Period</th><th>Document</th><th>Net payable</th><th>Payment</th><th>Released</th><th></th></tr></thead><tbody>
-      ${L.map(d=>`<tr><td><b>${esc(pvPeriodLabel(d.period))}</b></td><td>${esc(PV_CLASS[d.class].doc)}<div class="hint">${esc(d.docNo||'')}</div></td><td><b>${pvMoney(d.net,d)}</b></td><td><span class="badge ${d.pay?.status==='Paid'?'b-approved':'b-scheduled'}">${d.pay?.status==='Paid'?'Paid '+dShort(d.pay.at):'Pending'}</span></td><td class="hint">${esc(dtstr(d.release.at))}</td>
-        <td style="white-space:nowrap"><button class="btn" style="padding:4px 9px;font-size:12px" onclick="pvView('${d.id}')">View</button> <button class="btn ghost" style="padding:4px 9px;font-size:12px" onclick="pvDownload('${d.id}')">PDF</button></td></tr>`).join('')}
-      ${old.map(s=>`<tr><td>${esc(periodLabel(s.period))}</td><td>Payslip <span class="hint">(earlier system)</span></td><td>${money(s.final,s.cur)}</td><td>${s.payout?.status==='Paid'?'Paid '+dShort(s.payout.at):'Pending'}</td><td class="hint">${esc(dtstr(s.delivery?.at))}</td><td><button class="btn" style="padding:4px 9px;font-size:12px" onclick="downloadSlipPDF('${s.id}')">PDF</button></td></tr>`).join('')}
-      ${L.length+old.length?'':'<tr><td colspan="6" class="empty">Nothing released yet.</td></tr>'}</tbody></table></div></div>`;
+    <div class="card"><div class="card-h"><h3>My Payslips & Payment History</h3><span class="sub">${items.length} document${items.length===1?'':'s'} · filed by year, month and cutoff</span>
+      <span style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap"><select onchange="ACS.fy=this.value;RENDER.accounting()" style="padding:5px 8px"><option value="">All years</option>${years.map(y=>`<option ${ACS.fy===y?'selected':''}>${y}</option>`).join('')}</select>
+      <select onchange="ACS.fm=this.value;RENDER.accounting()" style="padding:5px 8px"><option value="">All months</option>${AC_MONTHS.map((n,i)=>`<option value="${i+1}" ${+ACS.fm===i+1?'selected':''}>${n}</option>`).join('')}</select>
+      <select onchange="ACS.fc=this.value;RENDER.accounting()" style="padding:5px 8px"><option value="">Both cutoffs</option><option value="1" ${ACS.fc==='1'?'selected':''}>1st cutoff (1–15)</option><option value="2" ${ACS.fc==='2'?'selected':''}>2nd cutoff (16–end)</option></select>
+      <input placeholder="Search…" value="${esc(ACS.fq)}" oninput="ACS.fq=this.value;RENDER.accounting();const i=document.querySelector('#v-accounting input[placeholder=Search…]');i&&(i.focus(),i.setSelectionRange(99,99))" style="padding:5px 8px;width:130px"></span></div>
+      <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Cutoff</th><th>Document</th><th>Net payable</th><th>Payment</th><th>Released</th><th></th></tr></thead><tbody>${groups.join('') || '<tr><td colspan="6" class="empty">Nothing released yet — or no document matches the filters.</td></tr>'}</tbody></table></div></div>`;
 }
 function acOpenDoc(id){ const d = pvDoc(id); if(d && (d.emp===PERSON || pvCan() || isHead(PERSON))) pvView(id); }
 
@@ -33586,8 +34148,7 @@ function dkGo(id){ dkCloseMore(); if(id==='__theme') return toggleTheme(); if(id
 { const _go2 = go; go = function(id){ const r = _go2.apply(this, arguments); try{ dkBuild(); }catch(e){ console.warn('dock', e); } return r; }; }
 { const _ub = updateBadges; updateBadges = function(){ const r = _ub.apply(this, arguments); try{ if(dkShown()) dkBuild(); }catch(e){} return r; }; }
 { const _sp = setPerson; setPerson = function(p){ const r = _sp.apply(this, arguments); try{ DK.sig = ''; dkBuild(); }catch(e){} return r; }; }
-/* the sidebar no longer repeats what the dock already shows (desktop); phones keep the full menu in the slide-out */
-{ const _bn = buildNav; buildNav = function(){ const r = _bn.apply(this, arguments); try{ const ids = new Set(dkItems().map(x=>x.id).filter(Boolean)); document.querySelectorAll('#nav .nav-item').forEach(b=>{ const m = (b.getAttribute('onclick')||'').match(/go\('([\w-]+)'\)/); b.classList.toggle('in-dock', !!(m && ids.has(m[1]) && dkShown())); }); }catch(e){} return r; }; }
+/* the sidebar keeps every module — the dock is a shortcut layer that hides itself, so it never removes a menu entry */
 
 (function(){ const st = document.createElement('style'); st.id = 'dockCss'; st.textContent = `
 /* a hidden toast must be invisible everywhere (it used to sit behind the dock as a black pill) */
@@ -33635,13 +34196,64 @@ body.has-dock .content{padding-bottom:calc(44px + env(safe-area-inset-bottom,0px
 body.has-dock .cora-fab,body.has-dock .app-hr-fab,body.has-dock .cap-fab{transition:bottom .32s cubic-bezier(.22,1,.36,1),left .28s cubic-bezier(.4,0,.2,1),opacity .2s}
 body.dock-open .cora-fab,body.dock-open .app-hr-fab{bottom:calc(98px + env(safe-area-inset-bottom,0px))}body.dock-open .cap-fab{bottom:calc(98px + env(safe-area-inset-bottom,0px))}
 body.dock-open.view-chat .cora-fab{bottom:calc(104px + env(safe-area-inset-bottom,0px))}
-@media(min-width:901px){#nav .nav-item.in-dock{display:none}}
 @media(max-width:760px){.dk-bar{padding:8px 8px 9px;border-radius:24px;width:100%;justify-content:space-between}.dk-i{flex:1 1 0;min-width:0;width:auto;height:56px}.dk-t{width:44px;height:44px;border-radius:13px}.dk-t svg{width:22px;height:22px}.dk-sep{display:none}
   .dk-i::before{display:none}.dk-b{top:-5px;right:-3px;min-width:17px;height:17px;font-size:10px;line-height:17px}.dk-i[data-k="tasks"],.dk-i[data-k="announce"],.dk-i[data-k="calendar"],.dk-i[data-k="leavehr"]{display:none}
   body.dock-open .toast.show,body.has-dock .toast.show{bottom:calc(92px + env(safe-area-inset-bottom,0px))}.dk-pop{bottom:calc(86px + env(safe-area-inset-bottom,0px))}body.dock-open .cora-fab,body.dock-open .app-hr-fab,body.dock-open .cap-fab{bottom:calc(86px + env(safe-area-inset-bottom,0px))}}
 @media(max-width:380px){.dk-t{width:40px;height:40px}}
 @media(prefers-reduced-motion:reduce){.cc-dock,.cc-dock.show,.dk-t,.dk-dot,.dk-pop{transition:opacity .15s!important;animation:none!important}.cc-dock{transform:none}.dk-i::before{transition:opacity .1s}}
 @media print{.cc-dock,.dk-pop,.dk-handle{display:none!important}}`; document.head.appendChild(st); })();
+
+/* ===== t4_demo.js — demo mode only: sample payroll data and a "try it" guide =====
+   Appears only when the portal is NOT connected to the live database. Nothing here is ever shown or written in a live portal. */
+const pvIsDemo = () => typeof BACKEND !== 'undefined' && BACKEND?.mode === 'demo';
+function pvDemoSeed(){
+  if(!pvIsDemo()) return;
+  const d0 = '2026-01-01';
+  [['DEMO-FC-1','KYLEE RENOUF & Partners - Dan'], ['DEMO-FC-2','ROB IMBEAULT'], ['DEMO-FC-3','Anjeanette']].forEach(([id, n]) => { if(!FINCLIENTS.some(f=>f.id===id)) FINCLIENTS.push({id, clientName:n, services:[], status:'Reviewed', effective:d0, payCurrency:'PHP', packageRate:{amount:null, currency:'USD', basis:'per month', note:''}, files:[], history:[], assignments:[], demo:true}); });
+  const mix = [[4250,3750,5000],[6000,7000],[9000],[5500,4500,3000],[12000],[8000,6000],[10000],[7500,2500]];
+  payEligible().filter(p=>p.cls==='contractor').forEach((p, i) => { if(rateLines(p.id, d0, '9999-12-31').some(l=>l.monthly!=null)) return;
+    mix[i % mix.length].forEach((amt, j) => { const f = FINCLIENTS.find(x=>x.id==='DEMO-FC-'+(((i+j)%3)+1)); f.assignments.push({id:uid('AS'), emp:p.id, role:'Virtual Assistant', rate:amt, from:d0, to:null}); }); });
+  payEligible().filter(p=>p.cls==='employee').forEach(p => { const pp = ensureProfile(p.id); if(pp.rates.some(r=>!r.to) || rateLines(p.id, d0, '9999-12-31').some(l=>l.monthly!=null)) return;
+    const base = HEADS.includes(p.id) ? 80000 : PEOPLE[p.id]?.role==='manager' ? 30000 : PEOPLE[p.id]?.role==='hr' ? 28000 : 25000; pp.rates.push({id:uid('PR'), label:'Base pay', monthly:base, cur:'PHP', from:d0, to:null}); });
+  PAYV2 = PAYV2.filter(d => !(d.period.id===FIN.period && d.status===PV_ST.DRAFT && !d.lines.some(l=>l.manual)));   /* replace the empty "rate needed" drafts */
+  const n = pv2GenerateLocal(FIN.period); recordChange(); RENDER.finance(); toast(`Sample data loaded — ${n} drafts with rates, 3 clients, employees with contributions`);
+}
+function pvDemoGo(person, view, tab){
+  if(!PEOPLE[person]) return toast('That demo person is not available'); setPerson(person); document.getElementById('annGate')?.remove();
+  if(view==='finance') FIN.tab = tab || 'payroll'; if(view==='accounting') ACS.tab = tab || 'payslips'; if(view==='leave') LVU.tab = tab || 'mine'; if(view==='leavehr') LVU.hrTab = tab || 'requests';
+  go(view);
+}
+const PVD_STEPS = [
+  ['1','Finance','Cha opens a record (click a person), adds an incentive with a reason, then <b>Submit to CEO</b>','charisse','finance','payroll'],
+  ['2','CEO','Pau reviews and <b>Approves</b> — or requests a revision with a comment','paul','finance','ceo'],
+  ['3','Finance','Cha chooses <b>Release now</b>, <b>Schedule</b> (pick a date and time) or <b>Bulk schedule</b>, and edits the message to the recipients','charisse','finance','releases'],
+  ['4','VA','Erica sees her payment statement — <b>View</b>, <b>PDF</b> or <b>Image</b>','erica','accounting','payslips'],
+  ['5','Employee','Tricia (a project manager) gets a payslip with SSS, PhilHealth, Pag-IBIG and tax','tricia','accounting','payslips'],
+  ['6','Concern','Erica raises a Finance concern; Cha replies and resolves it','erica','accounting','concerns'],
+  ['7','Leave','Erica files a time-off request and signs; then HR (Luane) → PM (Tricia) → Pau, JA and Norman approve','erica','leave','mine'],
+  ['8','Alternate','Pau authorizes JA as the <b>alternate approver</b> for a few days — JA can then approve payroll on his behalf','paul','finance','ceo'],
+  ['9','Rates','Cha opens <b>Client rates</b>: set a missing rate directly on an existing client, or send a change on a new client to the CEO','charisse','finance','rates'],
+  ['10','Message','Cha writes a <b>general message</b> (or a personal one) — it travels with the payslip but is never printed on it','charisse','finance','payroll'],
+];
+function pvDemoCard(){
+  if(!pvIsDemo()) return '';
+  return `<div class="card pvdemo" style="margin-bottom:14px"><div class="card-b"><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><div style="flex:1;min-width:240px"><b>🧪 Try it in demo mode</b><div class="hint">Nothing here touches real data — it stays in this browser. Use the buttons to move between people, or the “Preview as” menu at the top.</div></div>
+      <button class="btn primary" onclick="pvDemoSeed()">Load sample payroll data</button></div>
+    <ol class="pvdemo-steps">${PVD_STEPS.map(s=>`<li><span>${s[2]}</span><button class="btn" onclick="pvDemoGo('${s[3]}','${s[4]}','${s[5]}')">Open as ${esc(first(s[3]))}</button></li>`).join('')}</ol>
+    <div class="hint">Leave order: Erica → Luane (HR) → Tricia (PM) → Pau, JA, Norman. Every person who has to act sees it under <b>Leave → Needs my action</b>.</div></div></div>`;
+}
+function pvDemoBar(){
+  if(!pvIsDemo()) return '';
+  const chips = [['charisse','finance','payroll','Finance · Cha'],['paul','finance','ceo','CEO · Pau'],['ja','finance','oversight','COO · JA'],['erica','accounting','payslips','VA · Erica'],['tricia','accounting','payslips','Employee · Tricia'],['luane','leavehr','requests','HR · Luane'],['tricia','leave','inbox','PM · Tricia'],['norman','leave','inbox','Head · Norman']];
+  return `<div class="pvdemo-bar" role="group" aria-label="Demo: switch person"><span>🧪 Demo — go to:</span>${chips.map(c=>`<button onclick="pvDemoGo('${c[0]}','${c[1]}','${c[2]}')">${esc(c[3])}</button>`).join('')}</div>`;
+}
+{ const _pp = pvPayrollHTML; pvPayrollHTML = function(){ return pvDemoCard() + _pp.apply(this, arguments); }; }
+{ const _a = RENDER.accounting; RENDER.accounting = function(){ _a.apply(this, arguments); const h = el('v-accounting')?.querySelector('.page-head'); if(h && pvIsDemo() && !el('v-accounting').querySelector('.pvdemo-bar')) h.insertAdjacentHTML('beforebegin', pvDemoBar()); }; }
+{ const _l = RENDER.leave; RENDER.leave = function(){ _l.apply(this, arguments); const h = el('v-leave')?.querySelector('.page-head'); if(h && pvIsDemo() && !el('v-leave').querySelector('.pvdemo-bar')) h.insertAdjacentHTML('beforebegin', pvDemoBar()); }; }
+{ const _h = RENDER.leavehr; RENDER.leavehr = function(){ _h.apply(this, arguments); const h = el('v-leavehr')?.querySelector('.page-head'); if(h && pvIsDemo() && !el('v-leavehr').querySelector('.pvdemo-bar')) h.insertAdjacentHTML('beforebegin', pvDemoBar()); }; }
+(function(){ const st = document.createElement('style'); st.textContent = `.pvdemo{border:1.5px dashed rgba(227,147,18,.6);background:linear-gradient(135deg,rgba(242,180,64,.12),rgba(242,180,64,.03))}.pvdemo-steps{margin:10px 0 6px 20px;display:flex;flex-direction:column;gap:6px;font-size:12.5px}.pvdemo-steps li{padding-left:2px}.pvdemo-steps li span{display:inline-block;max-width:calc(100% - 140px);vertical-align:middle}.pvdemo-steps .btn{margin-left:8px;padding:3px 9px;font-size:12px}
+.pvdemo-bar{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:0 0 10px;padding:8px 10px;border:1.5px dashed rgba(227,147,18,.55);border-radius:12px;background:rgba(242,180,64,.08);font-size:12px}.pvdemo-bar span{font-weight:700;color:var(--ink-2);margin-right:2px}.pvdemo-bar button{padding:4px 10px;border-radius:99px;border:1px solid rgba(227,147,18,.5);background:var(--panel);font-size:12px;font-weight:600}.pvdemo-bar button:hover{background:rgba(242,180,64,.28)}
+@media(max-width:700px){.pvdemo-steps li span{max-width:100%;display:block;margin-bottom:3px}.pvdemo-steps .btn{margin-left:0}}`; document.head.appendChild(st); })();
 
 /* <<< OCT24 MODULES <<< */
 </script>

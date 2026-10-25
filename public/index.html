@@ -20914,7 +20914,7 @@ async function cooPostFromModal(){ const ch = CHATS.find(c=>c.id===el('paPostC')
    The footer shows which build is running ("Build 2026-10-07 · 1"), and every open portal checks every few minutes
    (and whenever it comes back to the foreground) whether a newer build has been published. If so it shows
    "New version available — Update now" instead of quietly running old code. */
-const BUILD_ID = '2026-10-25 · 2';
+const BUILD_ID = '2026-10-25 · 3';
 function verStamp(){ const f = el('footNote'); if(f && !f.dataset.v){ f.dataset.v = 1; f.textContent = `Cross Core Ops Suite v8 · Build ${BUILD_ID}`; } }
 async function verCheck(){
   if(!/^https?:/.test(location.protocol)) return;
@@ -34209,6 +34209,120 @@ body.dock-open.view-chat .cora-fab{bottom:calc(104px + env(safe-area-inset-botto
 @media(max-width:380px){.dk-t{width:40px;height:40px}}
 @media(prefers-reduced-motion:reduce){.cc-dock,.cc-dock.show,.dk-t,.dk-dot,.dk-pop{transition:opacity .15s!important;animation:none!important}.cc-dock{transform:none}.dk-i::before{transition:opacity .1s}}
 @media print{.cc-dock,.dk-pop,.dk-handle{display:none!important}}`; document.head.appendChild(st); })();
+
+/* ===== t3b_dockskin.js — premium 3D glass look for the dock (visual only) =====
+   Same dock, same items, permissions, routes, badges, auto-hide, keyboard and touch behaviour as t3_dock.js.
+   Only the appearance changes: frosted ivory glass with a bright rim, raised glass tiles, duotone 3D icons in the
+   Cross Core palette (espresso #1A1206 / amber #E39312 / gold #F2B440 / ivory), a label under each icon, gold badges
+   and an amber glow + underline on the active module. Dark mode uses smoked glass with cream-and-gold icons. */
+
+/* shared gradients for every icon (colours follow the theme through CSS variables) */
+(function dkDefs(){ if(document.getElementById('dkDefs')) return; const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  s.id = 'dkDefs'; s.setAttribute('aria-hidden', 'true'); s.style.cssText = 'position:absolute;width:0;height:0;overflow:hidden';
+  s.innerHTML = `<defs>
+    <linearGradient id="dkEsp" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:var(--dk-e1)"/><stop offset="1" style="stop-color:var(--dk-e2)"/></linearGradient>
+    <linearGradient id="dkGold" x1="0" y1="0" x2="0.4" y2="1"><stop offset="0" stop-color="#FFD98A"/><stop offset=".55" stop-color="#F2B440"/><stop offset="1" stop-color="#D98510"/></linearGradient>
+    <linearGradient id="dkGloss" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".55"/><stop offset=".5" stop-color="#fff" stop-opacity="0"/></linearGradient>
+  </defs>`; (document.body || document.documentElement).appendChild(s); })();
+
+/* duotone icons: espresso body (E), gold accents (G), a soft top gloss (H) */
+const DKE = 'fill="url(#dkEsp)"', DKG = 'fill="url(#dkGold)"', DKH = 'fill="url(#dkGloss)"', DKGS = 'fill="none" stroke="url(#dkGold)" stroke-linecap="round" stroke-linejoin="round"';
+const DK_ICONS = {
+  dashboard:`<path ${DKE} d="M12 2.6 1.9 11a1.1 1.1 0 0 0 1.4 1.7L4.2 12v8.1c0 .9.7 1.6 1.6 1.6h12.4c.9 0 1.6-.7 1.6-1.6V12l.9.7A1.1 1.1 0 0 0 22.1 11Z"/><path ${DKG} d="M9.6 21.7v-5.2c0-.9.7-1.6 1.6-1.6h1.6c.9 0 1.6.7 1.6 1.6v5.2Z"/><path ${DKH} d="M12 4.2 5.4 9.7V12h13.2V9.7Z" opacity=".5"/>`,
+  chat:`<path ${DKE} d="M12 3C6.5 3 2.2 6.7 2.2 11.3c0 2.4 1.2 4.6 3.1 6.1l-.9 3.4c-.1.5.4.9.9.6l3.9-2.1c.9.2 1.8.3 2.8.3 5.5 0 9.8-3.7 9.8-8.3S17.5 3 12 3Z"/><circle ${DKG} cx="7.8" cy="11.4" r="1.45"/><circle ${DKG} cx="12" cy="11.4" r="1.45"/><circle ${DKG} cx="16.2" cy="11.4" r="1.45"/><path ${DKH} d="M12 4.2c-4.6 0-8.3 2.9-8.6 6.7 2.4-1.9 5.3-2.8 8.6-2.8s6.2.9 8.6 2.8C20.3 7.1 16.6 4.2 12 4.2Z"/>`,
+  calendar:`<rect ${DKE} x="2.6" y="4.4" width="18.8" height="17.2" rx="3.2"/><rect ${DKG} x="2.6" y="4.4" width="18.8" height="4.6" rx="2.2"/><rect ${DKE} x="6.4" y="2.2" width="2.2" height="4.8" rx="1.1"/><rect ${DKE} x="15.4" y="2.2" width="2.2" height="4.8" rx="1.1"/>${[0,1,2].map(r=>[0,1,2].map(c=>`<rect ${DKG} x="${6.3+c*4.3}" y="${11.2+r*3.3}" width="2.5" height="2.2" rx=".7"/>`).join('')).join('')}`,
+  tasks:`<rect ${DKE} x="2.6" y="2.6" width="18.8" height="18.8" rx="4.4"/><path ${DKGS} stroke-width="2.7" d="m7.4 12.3 3.1 3.1 6.2-6.6"/><path ${DKH} d="M7 3.4h10c2.2 0 3.6 1.4 3.6 3.6v1.6H3.4V7c0-2.2 1.4-3.6 3.6-3.6Z"/>`,
+  accounting:`<path ${DKE} d="M4.6 5.2h12.6c.9 0 1.6.7 1.6 1.6v1.4H5.4a.9.9 0 0 0 0 1.8h14.1c1 0 1.9.8 1.9 1.9v8.1c0 1-.8 1.9-1.9 1.9H4.6c-1.3 0-2.4-1.1-2.4-2.4V7.6c0-1.3 1.1-2.4 2.4-2.4Z"/><rect ${DKG} x="14.8" y="13" width="6.6" height="4.4" rx="2.2"/><circle ${DKE} cx="17.4" cy="15.2" r="1"/><path ${DKH} d="M4.6 6h12.6c.5 0 .8.3.8.8v.6H4.2A1.6 1.6 0 0 1 4.6 6Z"/>`,
+  leave:`<rect ${DKE} x="2.6" y="4.4" width="18.8" height="17.2" rx="3.2"/><rect ${DKG} x="2.6" y="4.4" width="18.8" height="4.6" rx="2.2"/><rect ${DKE} x="6.4" y="2.2" width="2.2" height="4.8" rx="1.1"/><rect ${DKE} x="15.4" y="2.2" width="2.2" height="4.8" rx="1.1"/><path ${DKGS} stroke-width="2.4" d="m8.2 15.1 2.6 2.6 5-5.2"/>`,
+  leavehr:`<circle ${DKE} cx="8.4" cy="7.6" r="3.6"/><path ${DKE} d="M1.6 19.4c0-3.6 3-6.4 6.8-6.4s6.8 2.8 6.8 6.4c0 .8-.6 1.4-1.4 1.4H3c-.8 0-1.4-.6-1.4-1.4Z"/><circle ${DKG} cx="16.4" cy="8.6" r="3.1"/><path ${DKG} d="M12.6 14.6a6.4 6.4 0 0 1 3.8-1.2c3.3 0 5.9 2.5 5.9 5.6 0 .7-.5 1.2-1.2 1.2h-4.4c.1-.3.1-.5.1-.8 0-1.9-1.6-3.9-4.2-4.8Z"/>`,
+  finance:`<rect ${DKE} x="3" y="13.4" width="4.4" height="7.6" rx="1.3"/><rect ${DKE} x="9.8" y="9" width="4.4" height="12" rx="1.3"/><rect ${DKG} x="16.6" y="3.6" width="4.4" height="17.4" rx="1.3"/><rect ${DKE} x="2" y="21" width="20" height="1.6" rx=".8"/>`,
+  announce:`<path ${DKE} d="M3.4 9.2h3.2l9.2-4.9c.7-.4 1.5.1 1.5.9v13.6c0 .8-.8 1.3-1.5.9l-9.2-4.9H3.4c-.8 0-1.4-.6-1.4-1.4V10.6c0-.8.6-1.4 1.4-1.4Z"/><path ${DKG} d="m6.2 15 1.5 5.1c.2.6.7 1 1.3 1h1.1c.7 0 1.2-.7 1-1.4L9.8 15Z"/><path ${DKGS} stroke-width="1.8" d="M19.8 9.4 22 8M19.8 14.6 22 16M20.2 12h2.2"/>`,
+  notifs:`<path ${DKE} d="M12 2.4c-3.7 0-6.6 2.9-6.6 6.6v4.2c0 1-.4 2-1.1 2.7l-.9.9c-.6.6-.2 1.6.7 1.6h15.8c.9 0 1.3-1 .7-1.6l-.9-.9c-.7-.7-1.1-1.7-1.1-2.7V9c0-3.7-2.9-6.6-6.6-6.6Z"/><path ${DKG} d="M9.2 19.6h5.6a2.8 2.8 0 0 1-5.6 0Z"/><rect ${DKG} x="10.9" y="1.2" width="2.2" height="2.6" rx="1.1"/><path ${DKH} d="M12 3.4c-3 0-5.4 2.4-5.4 5.4v1.4c1.6-1 3.4-1.5 5.4-1.5s3.8.5 5.4 1.5V8.8c0-3-2.4-5.4-5.4-5.4Z"/>`,
+  more:`<rect ${DKE} x="3" y="3" width="7.8" height="7.8" rx="2.2"/><rect ${DKE} x="13.2" y="3" width="7.8" height="7.8" rx="2.2"/><rect ${DKE} x="3" y="13.2" width="7.8" height="7.8" rx="2.2"/><rect ${DKG} x="13.2" y="13.2" width="7.8" height="7.8" rx="2.2"/>`,
+};
+const DK_SHORT = {dashboard:'Home', chat:'Messages', calendar:'Calendar', tasks:'Tasks', accounting:'Accounting', leave:'Leave', leavehr:'Leave HR', finance:'Payroll', announce:'Announcements', notifs:'Notifications', more:'More'};
+const dkSvg = (k, fallback) => DK_ICONS[k] ? `<svg class="dk-3d" viewBox="0 0 24 24" aria-hidden="true">${DK_ICONS[k]}</svg>`
+  : `<svg class="dk-3d" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="url(#dkEsp)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="${fallback||I.doc}"/></svg>`;
+
+/* re-skin the tiles after the dock builds (only when its structure changed; badge / active updates stay untouched) */
+function dkSkin(){ const d = el('ccDock'); if(!d) return;
+  d.querySelectorAll('.dk-i').forEach(b=>{ if(b.dataset.skin===DK.sig) return; const k = b.dataset.k; const it = (DK.items||[]).find(x=>x.key===k);
+    const t = b.querySelector('.dk-t'); const old = t?.querySelector('svg:not(.dk-3d)'); if(old) old.outerHTML = dkSvg(k, it?.ico); else if(t && !t.querySelector('svg')) t.insertAdjacentHTML('afterbegin', dkSvg(k, it?.ico));
+    if(!b.querySelector('.dk-l')) b.querySelector('.dk-t')?.insertAdjacentHTML('afterend', `<span class="dk-l">${esc(DK_SHORT[k] || b.dataset.l || '')}</span>`);
+    b.dataset.skin = DK.sig; }); }
+{ const _b = dkBuild; dkBuild = function(){ const r = _b.apply(this, arguments); try{ dkSkin(); }catch(e){ console.warn('dock skin', e); } return r; }; }
+/* the tiles carry a label, so they are wider; the magnification keeps the same feel (peak ≈1.5×, neighbours follow) */
+const dkTileW = () => innerWidth >= 1280 ? 84 : innerWidth >= 1100 ? 74 : 66;
+dkMeasure = function(){ const d = el('ccDock'); if(!d) return; const its = [...d.querySelectorAll('.dk-i')]; DK.els = its;
+  DK.w = (dkTouch() || dkNarrow()) ? 0 : dkTileW();
+  its.forEach(b=>{ b.style.removeProperty('--s'); if(DK.w) b.style.width = DK.w+'px'; else b.style.removeProperty('width'); });
+  let x = 0; const W = DK.w || dkTileW(); const cs = its.map(b=>{ if(b.classList.contains('dk-more')) x += 17; const c = x + W/2; x += W; return c; });
+  DK.base = cs.map(c=>c - x/2); };
+dkMagnify = function(px){ if(dkTouch() || dkNarrow() || !DK.els || !DK.w) return; const cx = innerWidth/2, dx0 = px - cx, sg = DK.w * 1.05;
+  DK.tgt = DK.els.map((b,i)=>{ const dist = Math.abs(dx0 - DK.base[i]); return 1 + 0.5*Math.exp(-(dist*dist)/(2*sg*sg)); }); dkAnimate(); };
+/* the More sheet uses the same 3D tiles */
+{ const _m = dkToggleMore; dkToggleMore = function(ev){ const r = _m.apply(this, arguments); el('dkMore')?.querySelectorAll('.dk-grid svg').forEach(s=>{ s.setAttribute('stroke', 'url(#dkEsp)'); s.classList.add('dk-3d-s'); }); return r; }; }
+if(el('ccDock')){ DK.sig = ''; try{ dkBuild(); }catch(e){} }
+
+(function(){ const st = document.createElement('style'); st.id = 'dockSkinCss'; st.textContent = `
+:root{--dk-e1:#3A2A16;--dk-e2:#120C05}
+[data-theme="dark"]{--dk-e1:#FFF4DE;--dk-e2:#D9C7A6}
+/* ---- the bar: warm frosted glass with a bright rim, floating ---- */
+#ccDock .dk-bar{gap:0;padding:10px 14px 9px;border-radius:30px;align-items:flex-end;
+  background:linear-gradient(180deg,rgba(255,253,248,.93) 0%,rgba(250,243,230,.86) 55%,rgba(244,232,210,.82) 100%);
+  backdrop-filter:blur(40px) saturate(1.8);-webkit-backdrop-filter:blur(40px) saturate(1.8);
+  border:1.5px solid rgba(255,255,255,.9);
+  box-shadow:0 0 0 1px rgba(227,147,18,.14),0 30px 60px -22px rgba(52,32,6,.5),0 12px 26px -14px rgba(52,32,6,.3),inset 0 2px 0 rgba(255,255,255,.95),inset 0 -2px 6px rgba(227,147,18,.08),inset 0 0 0 1px rgba(255,255,255,.35)}
+[data-theme="dark"] #ccDock .dk-bar{background:linear-gradient(180deg,rgba(64,58,50,.9),rgba(28,25,22,.88));border-color:rgba(255,236,200,.16);
+  box-shadow:0 0 0 1px rgba(242,180,64,.12),0 30px 60px -22px rgba(0,0,0,.8),0 12px 26px -14px rgba(0,0,0,.55),inset 0 1px 0 rgba(255,240,210,.18)}
+/* ---- each module: a raised glass tile + label ---- */
+#ccDock .dk-i{height:86px;width:84px;justify-content:flex-start;padding-top:4px;border-radius:20px;color:#2a2218}
+#ccDock .dk-i + .dk-i::after{content:"";position:absolute;left:0;top:16px;height:44px;width:1px;background:linear-gradient(180deg,transparent,rgba(120,86,30,.16),transparent);pointer-events:none}
+#ccDock .dk-i.on::after,#ccDock .dk-i.on + .dk-i::after,#ccDock .dk-more::after{display:none}
+[data-theme="dark"] #ccDock .dk-i{color:#f4ead8}[data-theme="dark"] #ccDock .dk-i + .dk-i::after{background:linear-gradient(180deg,transparent,rgba(255,236,200,.16),transparent)}
+#ccDock .dk-t{width:50px;height:50px;border-radius:15px;transform-origin:50% 100%;
+  background:linear-gradient(170deg,#FFFFFF 0%,#FBF6EC 48%,#EFE4D0 100%);border:1px solid rgba(255,255,255,.95);
+  box-shadow:0 1px 0 rgba(255,255,255,.9) inset,0 -3px 6px rgba(190,150,80,.16) inset,0 8px 16px -8px rgba(60,38,8,.45),0 2px 4px -1px rgba(60,38,8,.16);
+  transition:background .22s,box-shadow .22s,filter .2s}
+#ccDock .dk-t::after{content:"";position:absolute;inset:1px 1px 52% 1px;border-radius:14px 14px 40% 40%/14px 14px 12px 12px;background:linear-gradient(180deg,rgba(255,255,255,.75),rgba(255,255,255,0));pointer-events:none}
+[data-theme="dark"] #ccDock .dk-t{background:linear-gradient(170deg,rgba(255,250,240,.22),rgba(255,245,225,.09));border-color:rgba(255,240,210,.18);
+  box-shadow:0 1px 0 rgba(255,245,225,.22) inset,0 8px 16px -8px rgba(0,0,0,.7)}
+[data-theme="dark"] #ccDock .dk-t::after{background:linear-gradient(180deg,rgba(255,255,255,.14),rgba(255,255,255,0))}
+#ccDock .dk-t svg.dk-3d{width:30px;height:30px;position:relative;z-index:1;filter:drop-shadow(0 2px 1.5px rgba(40,24,4,.32)) drop-shadow(0 .5px 0 rgba(255,255,255,.4))}
+[data-theme="dark"] #ccDock .dk-t svg.dk-3d{filter:drop-shadow(0 2px 2px rgba(0,0,0,.55))}
+#ccDock .dk-i:hover .dk-t{filter:brightness(1.03)}
+#ccDock .dk-l{margin-top:6px;max-width:100%;padding:0 2px;font:600 11.5px/1.15 Inter,system-ui,sans-serif;letter-spacing:-.005em;color:inherit;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;position:relative;z-index:1}
+@media(min-width:761px){#ccDock .dk-l{max-width:calc(100% + 14px);overflow:visible;text-overflow:clip;letter-spacing:-.015em}}
+/* ---- active: espresso tile with a gold icon, warm glow plate, gold underline ---- */
+#ccDock .dk-i.on{background:linear-gradient(180deg,rgba(255,214,140,.55),rgba(242,180,64,.32));box-shadow:0 0 0 1px rgba(242,180,64,.45) inset,0 10px 26px -10px rgba(227,147,18,.65),0 0 22px -4px rgba(242,180,64,.55)}
+#ccDock .dk-i.on .dk-t{background:linear-gradient(165deg,#4A3519 0%,#1E1408 60%,#120B04 100%);border-color:rgba(255,214,140,.55);
+  box-shadow:0 1px 0 rgba(255,220,160,.35) inset,0 0 0 1px rgba(0,0,0,.35),0 10px 20px -8px rgba(60,30,0,.7),0 0 18px -2px rgba(242,180,64,.6)}
+#ccDock .dk-i.on .dk-t::after{background:linear-gradient(180deg,rgba(255,220,160,.22),rgba(255,255,255,0))}
+#ccDock .dk-i.on .dk-t svg.dk-3d [fill="url(#dkEsp)"]{fill:url(#dkGold)}#ccDock .dk-i.on .dk-t svg.dk-3d [stroke="url(#dkEsp)"]{stroke:url(#dkGold)}
+#ccDock .dk-i.on .dk-t svg.dk-3d [fill="url(#dkGold)"]{fill:#2A1C0A}#ccDock .dk-i.on .dk-t svg.dk-3d [stroke="url(#dkGold)"]{stroke:#2A1C0A}#ccDock .dk-i.on .dk-t svg.dk-3d [fill="url(#dkGloss)"]{opacity:.25}
+#ccDock .dk-i.on .dk-l{color:#8A5408}[data-theme="dark"] #ccDock .dk-i.on .dk-l{color:#FFD58A}
+#ccDock .dk-dot{bottom:5px;width:28px;height:3px;margin-left:-14px;border-radius:3px;background:linear-gradient(90deg,#F2B440,#E39312);box-shadow:0 0 10px rgba(242,180,64,.8)}
+/* ---- badges: gold pills with a white ring ---- */
+#ccDock .dk-b{top:-7px;right:-9px;min-width:21px;height:21px;padding:0 6px;border-radius:11px;background:linear-gradient(180deg,#FFC35A,#E8920E);color:#fff;font:700 11px/21px Inter,sans-serif;text-shadow:0 1px 0 rgba(120,60,0,.35);
+  box-shadow:0 0 0 2px rgba(255,255,255,.95),0 4px 10px -2px rgba(227,147,18,.7)}
+[data-theme="dark"] #ccDock .dk-b{box-shadow:0 0 0 2px rgba(40,34,28,.95),0 4px 10px -2px rgba(227,147,18,.6)}
+#ccDock .dk-sep{height:46px;margin:0 8px 30px;background:linear-gradient(180deg,transparent,rgba(120,86,30,.28),transparent)}
+#ccDock .dk-i::before{bottom:calc(100% + 4px + (var(--s) - 1) * 50px)}
+#ccDock .dk-i:focus-visible .dk-t{box-shadow:0 0 0 2px #fff,0 0 0 4px #E39312,0 8px 16px -8px rgba(60,38,8,.45)}
+/* the More sheet: same glass tiles */
+.dk-grid button span{width:42px;height:42px;border-radius:13px;background:linear-gradient(170deg,#FFFFFF,#FBF6EC 48%,#EFE4D0);border:1px solid rgba(255,255,255,.95);box-shadow:0 1px 0 #fff inset,0 6px 12px -6px rgba(60,38,8,.4)}
+.dk-grid svg.dk-3d-s{width:21px;height:21px;filter:drop-shadow(0 1px 1px rgba(40,24,4,.25))}
+.dk-grid button:hover span{box-shadow:0 1px 0 #fff inset,0 0 0 2px rgba(242,180,64,.55),0 8px 14px -6px rgba(227,147,18,.5)}
+/* floating buttons and toasts step above the taller dock */
+body.dock-open .cora-fab,body.dock-open .app-hr-fab,body.dock-open .cap-fab{bottom:calc(122px + env(safe-area-inset-bottom,0px))}
+body.dock-open.view-chat .cora-fab{bottom:calc(126px + env(safe-area-inset-bottom,0px))}
+body.has-dock .toast.show{bottom:calc(120px + env(safe-area-inset-bottom,0px))}.dk-pop{bottom:calc(122px + env(safe-area-inset-bottom,0px))}
+@media(max-width:1279px){#ccDock .dk-i{width:74px}#ccDock .dk-l{font-size:11px}}@media(max-width:1099px){#ccDock .dk-i{width:66px}#ccDock .dk-l{font-size:10.5px}}
+@media(max-width:760px){#ccDock .dk-bar{padding:8px 6px 7px;border-radius:26px}#ccDock .dk-i{height:74px;width:auto;padding-top:3px}#ccDock .dk-t{width:44px;height:44px;border-radius:13px}#ccDock .dk-t svg.dk-3d{width:26px;height:26px}
+  #ccDock .dk-l{font-size:9.5px;margin-top:4px}#ccDock .dk-i + .dk-i::after{display:none}#ccDock .dk-dot{width:20px;margin-left:-10px;bottom:3px}#ccDock .dk-b{top:-5px;right:-4px;min-width:18px;height:18px;line-height:18px;font-size:10px}
+  body.dock-open .cora-fab,body.dock-open .app-hr-fab,body.dock-open .cap-fab,.dk-pop{bottom:calc(98px + env(safe-area-inset-bottom,0px))}body.dock-open .toast.show,body.has-dock .toast.show{bottom:calc(98px + env(safe-area-inset-bottom,0px))}}
+@media(max-width:380px){#ccDock .dk-t{width:40px;height:40px}#ccDock .dk-t svg.dk-3d{width:23px;height:23px}#ccDock .dk-l{font-size:9px}}
+@media(prefers-reduced-motion:reduce){#ccDock .dk-t{transition:none}}`; document.head.appendChild(st); })();
 
 /* ===== t5_clientboard.js — the Client Portal (every client, every service) =====
    One private link per authorized REPRESENTATIVE of a client (name · email · role · services). The portal shows only the services in the client's package

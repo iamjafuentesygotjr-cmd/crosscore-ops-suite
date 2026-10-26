@@ -20914,7 +20914,7 @@ async function cooPostFromModal(){ const ch = CHATS.find(c=>c.id===el('paPostC')
    The footer shows which build is running ("Build 2026-10-07 · 1"), and every open portal checks every few minutes
    (and whenever it comes back to the foreground) whether a newer build has been published. If so it shows
    "New version available — Update now" instead of quietly running old code. */
-const BUILD_ID = '2026-10-26 · 6';
+const BUILD_ID = '2026-10-26 · 8';
 function verStamp(){ const f = el('footNote'); if(f && !f.dataset.v){ f.dataset.v = 1; f.textContent = `Cross Core Ops Suite v8 · Build ${BUILD_ID}`; } }
 async function verCheck(){
   if(!/^https?:/.test(location.protocol)) return;
@@ -35655,15 +35655,16 @@ function jwfPanelHTML(){ const run = JOSEWF.filter(w=>['active','collecting','co
 .jwf-st{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-3);margin-left:4px}.jwf-st.done{color:var(--ok)}
 .jwf-li{font-size:12.5px}.jwf-fail{color:var(--bad);font-size:12px}`; document.head.appendChild(st); })();
 
-/* ===== t11_leavedirect.js — direct approval route for people outside the PM structure (Oct 26 2026) =====
-   Cha (Charisse, Finance) is not supervised by a Project Manager. Her leave / time-off requests skip the PM (and HR
-   endorsement) stages and go straight to Pau (CEO): Requester signs → Pau approves → Approved stamp, HR filing, Finance
-   sync and calendar exactly as for everyone else. HR is told about the request (FYI) and still files the approved form.
-   Everyone else keeps the existing route (HR → PM for contractors → every required head).
-   The route is a setting: lvCfg().direct = {personKey:[approverKeys]} (default: charisse → paul). The database enforces
+/* ===== t11_leavedirect.js — no-PM approval route for people outside the PM structure (Oct 26 2026) =====
+   Cha (Charisse, Finance) is not supervised by a Project Manager. Her leave / time-off requests:
+     Requester signs → HR reviews & signs → Pau (CEO) approves → Approved stamp, HR filing, Finance sync, calendar.
+   No Project Manager is chosen, asked or notified, and the leadership step is Pau only. Everyone else keeps the existing
+   route (HR → PM for contractors → every required head).
+   The route is a setting: lvCfg().direct = {personKey:[approverKeys]} (default: Charisse → Pau). The database enforces
    the same rule (supabase/update-oct26-leave-direct.sql). */
-const LVD_DEFAULT = {charisse:['paul']};
-function lvDirect(emp){ const d = lvCfg().direct; const L = (d && Array.isArray(d[emp])) ? d[emp] : LVD_DEFAULT[emp];
+const LVD_DEFAULT_APPROVERS = ['paul'];
+const lvdIsCha = k => k==='charisse' || /^charisse\b/i.test(PEOPLE[k]?.name || EMPLOYEES.find(e=>e.id===k)?.name || '');
+function lvDirect(emp){ const d = lvCfg().direct; const L = (d && Array.isArray(d[emp])) ? d[emp] : (lvdIsCha(emp) ? LVD_DEFAULT_APPROVERS : null);
   const ok = (L||[]).filter(k=>PEOPLE[k] && k!==emp); return ok.length ? ok : null; }
 const lvIsDirect = r => !!r && (r.route==='direct' || !!lvDirect(r.emp));
 const lvDirectNames = emp => (lvDirect(emp)||[]).map(k=>`${first(k)} (${lvSlotLabel(k)})`).join(' and ');
@@ -35671,43 +35672,146 @@ const lvDirectNames = emp => (lvDirect(emp)||[]).map(k=>`${first(k)} (${lvSlotLa
 /* creating: no Project Manager to choose */
 { const _c = lvCreate; lvCreate = function(f){ if(!lvDirect(PERSON)) return _c.apply(this, arguments);
     const r = _c.call(this, {...f, pm:f.pm || '__direct'}); r.pm = null; r.route = 'direct'; return r; }; }
-/* submitting: straight to the direct approver(s) */
-{ const _s = lvSubmit; lvSubmit = function(r){ const dir = lvDirect(r?.emp); if(!dir) return _s.apply(this, arguments);
-    if(![LV_ST.DRAFT, LV_ST.RET].includes(r.status) || r.emp!==PERSON) throw new Error('This request can’t be submitted now.'); if(!lvSignedNow(r,'requester')) throw new Error('Sign the request before submitting it.');
-    const was = r.status; r.status = LV_ST.LEAD; r.route = 'direct'; r.pm = null; r.no = r.no || lvNextNo(); r.submittedAt = nowISO(); r.hr = null; r.pmr = null;
-    r.approvers = dir.map(k=>({key:k, role:lvSlotLabel(k), status:'Pending', at:null, comment:null, by:null}));
-    lvAudit(r, `Submitted and signed → sent directly to ${lvDirectNames(r.emp)} for approval (no PM / HR endorsement step)`); LVD.just = r.id; lvEmitStage(r, was); }; }
-/* a request that reached HR on an older portal: HR forwards it to the direct approver, never to a PM */
+/* submitting: to HR as usual (marked as the no-PM route) */
+{ const _s = lvSubmit; lvSubmit = function(r){ if(lvDirect(r?.emp)){ r.pm = null; r.route = 'direct'; } return _s.apply(this, arguments); }; }
+/* HR endorsement: straight to Pau — never to a Project Manager, and Pau is the only approver */
 { const _h = lvHrEndorse; lvHrEndorse = function(r, approvers, comment){ const dir = lvDirect(r?.emp); if(!dir) return _h.apply(this, arguments);
     if(!lvIsHr() || r.emp===PERSON || r.status!==LV_ST.HR) throw new Error('Only an HR representative reviews this request.'); if(!lvSignedNow(r,'hr')) throw new Error('HR must sign when endorsing the request.');
     r.approvers = dir.map(k=>({key:k, role:lvSlotLabel(k), status:'Pending', at:null, comment:null, by:null})); r.route = 'direct'; r.pm = null;
-    r.hr = {by:PERSON, at:nowISO(), action:'endorsed', comment:comment||''}; r.status = LV_ST.LEAD; lvAudit(r, `HR endorsed and signed → ${lvDirectNames(r.emp)}`); lvEmitStage(r, LV_ST.HR); }; }
+    r.hr = {by:PERSON, at:nowISO(), action:'endorsed', comment:comment||''}; r.status = LV_ST.LEAD; lvAudit(r, `HR endorsed and signed → ${lvDirectNames(r.emp)} (no Project Manager step)`); LVD.hr = r.id; lvEmitStage(r, LV_ST.HR); }; }
 /* notifications (demo; the live database sends the same from the server) */
-const LVD = {just:null};
-{ const _e = lvEmitStage; lvEmitStage = function(r, was, a){ if(!lvIsDirect(r) || r.status!==LV_ST.LEAD || was===LV_ST.LEAD || a) return _e.apply(this, arguments);
-    const nm = pname(r.emp), w = lvWord(r), lnk = {view:'leave', req:r.id}; const who = (r.approvers||[]).filter(x=>x.status==='Pending').map(x=>x.key);
-    pvEmit(who, 'leave', `🖋 Your approval is needed: <b>${esc(nm)}</b>'s ${w} ${esc(r.no||'')} (${dShort(r.start)}–${dShort(r.end)}) — sent directly to you (no PM / HR endorsement step).`, lnk);
-    pvEmit([r.emp], 'leave', `✅ Your ${w} ${esc(r.no||'')} was submitted and sent directly to ${esc(lvDirectNames(r.emp))} for approval.`, lnk);
-    pvEmit(HR_KEYS(), 'leave', `📝 FYI: <b>${esc(nm)}</b> filed a ${w} ${esc(r.no||'')} (${dShort(r.start)}–${dShort(r.end)}) — routed directly to ${esc(lvDirectNames(r.emp))} for approval.`, {view:'leavehr', req:r.id}); }; }
-{ const _t = toast; toast = function(msg){ if(LVD.just && /^Signed and submitted — HR will review it next/.test(String(msg||''))){ const r = lvDoc(LVD.just); LVD.just = null; return _t.call(this, `Signed and submitted — sent directly to ${lvDirectNames(r?.emp)} for approval`); } return _t.apply(this, arguments); }; }
+const LVD = {hr:null};
+{ const _e = lvEmitStage; lvEmitStage = function(r, was, a){ if(!lvIsDirect(r)) return _e.apply(this, arguments);
+    const nm = pname(r.emp), w = lvWord(r), lnk = {view:'leave', req:r.id};
+    if(r.status===LV_ST.HR){ pvEmit(HR_KEYS(), 'leave', `📝 <b>${esc(nm)}</b> submitted a signed ${w} (${esc(r.no||'')}) — HR review and signature required. After HR it goes to ${esc(lvDirectNames(r.emp))} (no PM step).`, {view:'leavehr', req:r.id});
+      pvEmit([r.emp], 'leave', `✅ Your ${w} was submitted and signed. HR reviews it next, then ${esc(lvDirectNames(r.emp))} approves.`, lnk); return; }
+    if(r.status===LV_ST.LEAD && was!==LV_ST.LEAD && !a){ const who = (r.approvers||[]).filter(x=>x.status==='Pending').map(x=>x.key);
+      pvEmit(who, 'leave', `🖋 Your approval is needed: <b>${esc(nm)}</b>'s ${w} ${esc(r.no||'')} (${dShort(r.start)}–${dShort(r.end)}) — HR has reviewed it (no PM step).`, lnk);
+      pvEmit([r.emp], 'leave', `HR endorsed your ${w}. It’s now with ${esc(lvDirectNames(r.emp))} for approval.`, lnk); return; }
+    return _e.apply(this, arguments); }; }
+{ const _t = toast; toast = function(msg){ if(LVD.hr && /^Endorsed — the Project Manager reviews it next/.test(String(msg||''))){ const r = lvDoc(LVD.hr); LVD.hr = null; return _t.call(this, `Endorsed — sent to ${lvDirectNames(r?.emp)} for approval`); }
+    return _t.apply(this, arguments); }; }
 
-/* the form: no PM picker, the right “what happens next” */
+/* the page and the form: no PM picker, the right “what happens next” */
+const lvdNext = emp => `HR reviews and signs, then ${lvDirectNames(emp)} approves — no Project Manager step.`;
+{ const _r = RENDER.leave; if(_r) RENDER.leave = function(){ const r = _r.apply(this, arguments); if(!lvDirect(PERSON)) return r;
+    const p = el('v-leave')?.querySelector('.page-head p'); if(p && /Project Manager/.test(p.textContent)) p.textContent = `Send a ${lvIsEmp()?'leave':'time-off'} request. ${lvdNext(PERSON)}`; return r; }; }
 { const _f = lvForm; lvForm = function(rid){ const r = _f.apply(this, arguments); const emp = rid ? lvDoc(rid)?.emp : PERSON; if(!lvDirect(emp)) return r;
-    const pm = el('lvPm'); if(pm){ const fld = pm.closest('.field'); fld.innerHTML = `<label>Approval</label><div class="lvd-route">Goes directly to <b>${esc(lvDirectNames(emp))}</b></div>`; }
-    const hints = [...(el('modalBody')?.querySelectorAll('.hint')||[])]; const h = hints.find(x=>/Next you sign electronically/.test(x.textContent));
-    if(h) h.textContent = `Next you sign electronically. Your request then goes straight to ${lvDirectNames(emp)} for approval — no Project Manager step. HR is informed and files the approved form.`;
+    const pm = el('lvPm'); if(pm){ const fld = pm.closest('.field'); fld.innerHTML = `<label>Approval</label><div class="lvd-route">HR, then <b>${esc(lvDirectNames(emp))}</b></div>`; }
+    const h = [...(el('modalBody')?.querySelectorAll('.hint')||[])].find(x=>/Next you sign electronically/.test(x.textContent));
+    if(h) h.textContent = `Next you sign electronically. ${lvdNext(emp)}`;
     return r; }; }
 { const _g = lvFormGo; lvFormGo = async function(rid){ if(!el('lvPm') && lvDirect(rid ? lvDoc(rid)?.emp : PERSON)){ const r = rid ? lvDoc(rid) : null; if(r) r.pm = null; } return _g.apply(this, arguments); }; }
-/* the request: direct route steps, no HR / PM signature boxes */
-{ const _o = lvOpen; lvOpen = function(id){ const r0 = _o.apply(this, arguments); const r = lvDoc(id); if(!r || !lvIsDirect(r) || r.hr?.action==='endorsed') return r0;
+/* the request: HR → Pau steps, no PM signature box, HR sees who approves next */
+{ const _o = lvOpen; lvOpen = function(id){ const r0 = _o.apply(this, arguments); const r = lvDoc(id); if(!r || !lvIsDirect(r)) return r0;
     const body = el('modalBody'); if(!body) return r0; const appr = (r.approvers||[]).length ? r.approvers : (lvDirect(r.emp)||[]).map(k=>({key:k, status:'Pending'}));
-    const steps = [['Requester signed', r.submittedAt, !!r.submittedAt], ...appr.map(a=>[`${first(a.key)} (${lvSlotLabel(a.key)}) approval`, a.at, a.status==='Approved']), ['Approved stamp & HR filing', r.filing?.at, r.filing?.status==='Filed']];
+    const steps = [['Requester signed', r.submittedAt, !!r.submittedAt], ['HR review & signature', r.hr?.at, r.hr?.action==='endorsed'], ...appr.map(a=>[`${first(a.key)} (${lvSlotLabel(a.key)}) approval`, a.at, a.status==='Approved']), ['Approved stamp & HR filing', r.filing?.at, r.filing?.status==='Filed']];
     const st = body.querySelector('.lv-steps'); if(st) st.innerHTML = steps.map(([l,at,done])=>`<div class="${done?'done':''}"><i>${done?'✓':''}</i><b>${esc(l)}</b><span class="hint">${at?esc(dtstr(at)):''}</span></div>`).join('');
-    st?.insertAdjacentHTML('afterend', `<div class="hint lvd-note">Direct approval route — ${esc(pname(r.emp))} is not under a Project Manager, so this goes straight to ${esc(lvDirectNames(r.emp))}.</div>`);
-    body.querySelectorAll('.lv-sigs .lv-sig').forEach(c=>{ if(/HR representative|Project Manager/.test(c.querySelector('.hint')?.textContent||'')) c.remove(); });
+    if(st && !body.querySelector('.lvd-note')) st.insertAdjacentHTML('afterend', `<div class="hint lvd-note">${esc(pname(r.emp))} is not under a Project Manager: HR reviews, then ${esc(lvDirectNames(r.emp))} approves.</div>`);
+    body.querySelectorAll('.lv-sigs .lv-sig').forEach(c=>{ if(/Project Manager/.test(c.querySelector('.hint')?.textContent||'')) c.remove(); });
     body.querySelectorAll('.nav-label').forEach(n=>{ if(/every required head must approve/.test(n.textContent)) n.textContent = 'Approval'; });
+    const ap = body.querySelector('#hrAppr'); if(ap){ const f = ap.closest('.field'); f.innerHTML = `<label>Approver after HR</label><div class="lvd-route"><b>${esc(lvDirectNames(r.emp))}</b> only — no Project Manager step</div><div id="hrAppr" hidden></div>`; }
     return r0; }; }
 (function(){ const s = document.createElement('style'); s.textContent = `.lvd-route{font-size:13px;padding:8px 10px;border-radius:10px;background:var(--info-bg);color:var(--info)}.lvd-note{margin:-6px 0 10px}`; document.head.appendChild(s); })();
+
+/* ===== t12_marcusperf.js — Marcus: fast first draft, voice check in the background (Oct 26 2026) =====
+   ROOT CAUSE of “Checking voice alignment…” for a long time: one press of Generate ran up to SIX AI calls one after the
+   other — write → strict voice check (8 scores, all must be ≥ 8) → rewrite → check → rewrite → check — each waiting for the
+   whole answer (no streaming, up to 60 s + a retry each), and each sending the client's full voice pack (SOP, notes,
+   20 approved examples, voice profile) again. Nothing was shown until the last call finished. On a free-tier AI key the
+   extra calls also used up the daily allowance faster, which makes the server try slower fallback models.
+   Now (same voice rules, same quality bar):
+   • the draft streams into the Studio as it is written and is ready to copy as soon as it is done (one call);
+   • the voice check runs in the background with a compact prompt (voice profile + tone + notes, not the whole SOP) and
+     a 25-second limit; the scores appear on the draft when ready;
+   • if it doesn't pass (any score < 8 or a local check fails), ONE improved version is written automatically in the
+     background and swapped in (or offered with “Use improved version” if you already edited the text);
+   • every call has a first-word limit (20 s) and a total limit, one automatic retry for passing hiccups, and Retry;
+   • the client's voice pack is built once per minute instead of on every call;
+   • Chat with Marcus streams its drafts into the bubble as they are written. */
+const MXP = {seq:0, cache:new Map(), last:null};
+/* the voice pack: built once, reused for a minute (rebuilt at once when the profile, SOP or examples change) */
+{ const _cv = clientVoice; clientVoice = function(cid){ const c = client(cid); const v = typeof vcRec==='function' ? vcRec(cid) : null;
+    const key = [cid, c?.sop?.version||'', c?.sop?.at||'', c?.tone||'', String(c?.notes||'').length, v?.updatedAt||'', (v?.examples||[]).length, (v?.rejected||[]).length, (v?.instructions||[]).length].join('|');
+    const hit = MXP.cache.get(key); if(hit && Date.now() - hit.at < 60e3) return hit.t;
+    const t = _cv.apply(this, arguments); MXP.cache.set(key, {t, at:Date.now()}); if(MXP.cache.size > 60) MXP.cache.clear(); return t; }; }
+const mxpJudgeVoice = cid => { const c = client(cid) || {}; const def = x => x && !/^(—|To be defined)$/i.test(String(x));
+  let t = `Client: ${c.name}\n`; if(def(c.tone)) t += `Tone of voice: ${c.tone}\n`; if(def(c.notes)) t += `Notes & preferences: ${coraTrim(c.notes, 700)}\n`;
+  try{ t += (typeof vcPrompt==='function' ? coraTrim(vcPrompt(cid, {lite:true}), 2600) : ''); }catch(e){} return t; };
+const mxpClean = t => String(t||'').trim().replace(/^#+\s*draft\s*\n/i,'').replace(/^["“](.*)["”]$/s,'$1').trim();
+async function mxpAI(system, prompt, onText, lim){ const r = typeof aiStreamX==='function' ? await aiStreamX(system, prompt, onText, lim) : await aiChat(system, prompt); return r || {text:null, note:'No answer'}; }
+async function mxpDraft(cid, ctx, fb, onText){ const c = client(cid); const kind = ctx.comment ? 'reply' : 'comment';
+  const ask = `CLIENT VOICE — the client's saved tone, SOP, notes & preferences and voice profile. Follow these exactly (the current SOP and notes win over older examples):\n${clientVoice(cid)}\n\nPOST:\n${coraTrim(ctx.post||'(not given — respond only to the comment)', 3000)}\n${ctx.comment?`\nCOMMENT TO REPLY TO${ctx.who?` (from ${ctx.who})`:''}:\n${coraTrim(ctx.comment, 1000)}\n`:''}${ctx.base?`\nCURRENT DRAFT TO REVISE:\n${ctx.base}\n`:''}${ctx.note?`\nINSTRUCTION FOR THIS ONE (temporary): ${ctx.note}\n`:''}${fb?`\nTHE PREVIOUS VERSION FAILED THE ${c.name.toUpperCase()} VOICE CHECK:\n${fb}\nWrite a new version that fixes this.\n`:''}\nWrite the ${kind} now.`;
+  const t0 = Date.now(); const r = await mxpAI(VC_SYS(c.name, kind), ask, onText, {first:20000, total:50000});
+  return {text:r.text ? mxpClean(r.text) : null, note:r.note, ms:Date.now()-t0}; }
+async function mxpJudge(cid, text, ctx){ const c = client(cid); const kind = ctx.comment ? 'reply' : 'comment'; const t0 = Date.now();
+  const r = await mxpAI(`You are a strict editor checking whether a LinkedIn ${kind} sounds exactly like ${c.name} and follows ${c.name}'s saved tone and preferences. Score honestly. Reply with JSON only.`,
+    `${mxpJudgeVoice(cid)}\n\nPOST:\n${coraTrim(ctx.post||'(no post given — judge the reply against the comment only)', 1500)}\n${ctx.comment?`\nCOMMENT BEING REPLIED TO:\n${coraTrim(ctx.comment, 600)}\n`:''}\nDRAFT ${kind.toUpperCase()}:\n${text}\n\nScore 0-10 each: post (responds to a specific point of THIS post), comment (${ctx.comment?'addresses what the commenter said':'use 10'}), voice (sounds like ${c.name}), tone (matches the saved tone), style (like the approved examples), length (fits the usual length), natural (a human would type this), fresh (no formulaic opening or AI pattern).\nReturn {"post":n,"comment":n,"voice":n,"tone":n,"style":n,"length":n,"natural":n,"fresh":n,"issues":["short reason", ...]}`,
+    null, {first:15000, total:25000});
+  const j = r.text ? vcParseJSON(r.text) : null; if(!j) return null;
+  const scores = Object.fromEntries(VC_KEYS.map(([k])=>[k, Math.max(0, Math.min(10, +j[k]||0))])); if(!ctx.comment) scores.comment = 10; if(!ctx.post) scores.post = 10;
+  return {scores, issues:(j.issues||[]).slice(0,4), low:VC_KEYS.filter(([k])=>scores[k] < 8).map(([,l])=>l), total:Object.values(scores).reduce((a,b)=>a+b,0), ms:Date.now()-t0}; }
+
+/* ---------- the Studio ---------- */
+function mxpLiveHTML(){ return `<div class="vs-out glass-card mxp-live"><div class="vs-out-h"><span class="vs-k"><span class="spinner" style="display:inline-block;vertical-align:middle"></span> ${esc(MXS.step||'Writing…')}</span><span class="hint">${MXS.live?vcWords(MXS.live)+' words so far':'starting…'}</span></div>${MXS.live?`<div class="mxp-text">${esc(MXS.live)}</div>`:''}</div>`; }
+function mxpPaint(){ const b = el('vsOut'); if(!b) return; if(MXS.busy){ b.innerHTML = mxpLiveHTML(); return; }
+  const o = MXS.out; if(!o || o.offline) return; const ta = el('vsText');
+  if(ta && document.activeElement===ta){ const tmp = document.createElement('div'); tmp.innerHTML = vsOutHTML(o);
+    ['.vs-chks','.mxp-state','.vs-warn'].forEach(sel=>{ const n = tmp.querySelector(sel), cur = b.querySelector(sel); if(n && cur) cur.replaceWith(n); else if(n && !cur && sel!=='.vs-warn') b.querySelector('.vs-acts')?.before(n); else if(!n && cur) cur.remove(); }); return; }
+  b.innerHTML = vsOutHTML(o); }
+vsPaintBusy = function(){ mxpPaint(); };
+vsRun = async function(base, extra){
+  if(MXS.busy) return; const cid = MXS.cid; if(!cid) return; const post = (el('vsPost')?.value ?? MXS.post).trim(), comment = (el('vsCom')?.value ?? MXS.comment).trim();
+  if(!post && !comment) return toast('Paste the post caption (and the comment, for a reply)');
+  MXS.post = post; MXS.comment = comment; MXS.who = el('vsWho')?.value.trim() || MXS.who; MXS.note = el('vsNote')?.value.trim() ?? MXS.note;
+  if(MXS.keep && MXS.note && vcCanEdit(cid)){ const r = vcEnsure(cid); r.instructions = uniq([...vcA(r.instructions), MXS.note]); r.updatedAt = nowISO(); r.updatedBy = PERSON; recordChange(); ccConfirmToast(`Saved to ${first(cname(cid))}’s voice profile`, [SYNC.key('voices', cid)]); MXS.keep = false; }
+  const seq = ++MXP.seq; const c = client(cid); const ctx = {post, comment, who:MXS.who, note:[extra, MXS.note].filter(Boolean).join(' · '), base};
+  MXS.busy = true; MXS.live = ''; MXS.step = `Writing in ${first(c.name)}’s voice…`; MXS.last = {base, extra}; RENDER.marcus(); mxpPaint();
+  let d; try{ d = await mxpDraft(cid, ctx, '', t=>{ if(seq===MXP.seq){ MXS.live = mxpClean(t); mxpPaint(); } }); }catch(e){ d = {text:null, note:String(e?.message||e)}; }
+  if(seq!==MXP.seq) return;
+  MXS.busy = false; MXS.step = ''; MXS.live = '';
+  if(!d.text){ MXS.out = {cid, offline:true, note:d.note||'No answer from the AI service.'}; RENDER.marcus(); return; }
+  const local = vcLocalCheck(cid, d.text, ctx);
+  const o = MXS.out = {cid, kind:comment?'reply':'comment', text:d.text, scores:null, issues:local, local, low:[], attempt:1, pass:!local.length, checking:true, ms:d.ms, ctx};
+  mxRecordOpenings(cid, [vcOpen(d.text)]); RENDER.marcus();
+  mxpBackground(seq, o).catch(e=>{ console.warn('marcus check', e); o.checking = false; o.improving = false; mxpPaint(); });
+};
+async function mxpBackground(seq, o){ const cid = o.cid, ctx = o.ctx; const live = () => seq===MXP.seq && MXS.out===o;
+  const j = await mxpJudge(cid, o.text, ctx); if(!live()) return;
+  o.checking = false; if(j){ Object.assign(o, {scores:j.scores, low:j.low, issues:[...o.local, ...j.issues], total:j.total, checkMs:j.ms}); } else o.note = 'The AI voice check didn’t answer in time — local checks only.';
+  o.pass = !o.local.length && (!j || !j.low.length); mxpPaint(); if(o.pass) return;
+  /* one automatic improvement */
+  o.improving = true; mxpPaint();
+  const fb = [...o.local, ...(j?.issues||[])].map(i=>'- '+i).join('\n') + (j?.low?.length ? `\n- Low scores: ${j.low.join(', ')}` : '');
+  const d2 = await mxpDraft(cid, ctx, fb, null); if(!live()) return;
+  if(!d2.text){ o.improving = false; o.note = 'The automatic improvement didn’t come through — edit before using, or press Regenerate.'; mxpPaint(); return; }
+  const local2 = vcLocalCheck(cid, d2.text, ctx); const j2 = await mxpJudge(cid, d2.text, ctx); if(!live()) return;
+  o.improving = false;
+  const score = (loc, jj) => (jj ? jj.total : 50) - loc.length*4;
+  if(score(local2, j2) <= score(o.local, j)){ o.note = 'An improved version was tried but wasn’t better — this is the best one. Edit before using.'; mxpPaint(); return; }
+  const better = {text:d2.text, scores:j2?.scores||null, low:j2?.low||[], issues:[...local2, ...(j2?.issues||[])], local:local2, total:j2?.total, pass:!local2.length && (!j2 || !j2.low.length), attempt:2};
+  if(o.edited){ o.better = better; mxpPaint(); return; }
+  Object.assign(o, better, {note:`Improved automatically to match ${first(cname(cid))}’s voice.`}); mxRecordOpenings(cid, [vcOpen(better.text)]); mxpPaint(); }
+function mxpUseBetter(){ const o = MXS.out; if(!o?.better) return; Object.assign(o, o.better, {better:null, edited:false, note:'Switched to the improved version.'}); RENDER.marcus(); }
+document.addEventListener('input', e=>{ if(e.target?.id==='vsText' && MXS.out) MXS.out.edited = true; }, true);
+{ const _vo = vsOutHTML; vsOutHTML = function(o){ let h = _vo.apply(this, arguments); if(!o || o.offline) return h;
+    h = h.replace(/rewritten \d+× to pass the voice check|passed on the first try/, o.checking ? 'checking the voice…' : o.attempt>1 ? 'improved once to pass the voice check' : o.pass ? 'passed the voice check' : 'voice check done')
+         .replace(/Couldn’t fully pass after 3 tries:/, 'Didn’t fully pass the voice check:');
+    if(o.checking) h = h.replace('<span class="hint">Local checks only</span>', '<span class="hint mxp-pending"><span class="spinner" style="display:inline-block;vertical-align:middle;width:12px;height:12px"></span> checking in the background — you can copy it already</span>');
+    const st = o.improving ? `<div class="mxp-state">✨ Writing an improved version in the background…</div>` : o.better ? `<div class="mxp-state">✨ An improved version is ready. <button class="btn primary" onclick="mxpUseBetter()">Use improved version</button></div>` : o.note ? `<div class="mxp-state hint">ℹ ${esc(o.note)}</div>` : '';
+    if(st) h = h.replace('<div class="vs-chks">', st + '<div class="vs-chks">');
+    if((o.improving || o.checking) && !o.pass) h = h.replace(/<div class="vs-warn">Didn’t fully pass[^]*?<\/div>/, '');
+    if(o.ms) h = h.replace(/(<span class="hint">)(\d+ words · )/, `$1$2written in ${(o.ms/1000).toFixed(1)} s · `);
+    return h; }; }
+
+/* ---------- Chat with Marcus: drafts stream into the bubble ---------- */
+function mxpChatLive(t){ const b = el('mxBody'); const s = b && [...b.querySelectorAll('.cora-m.assistant')].pop(); if(!s || !MARCUS.busy) return;
+  s.innerHTML = `<div class="hint" style="margin-bottom:4px"><span class="spinner" style="display:inline-block;vertical-align:middle;width:12px;height:12px"></span> ${esc(MARCUS.step||'Writing…')}</div><div class="mxp-text">${esc(t)}</div>`; }
+{ const _ac = aiChat; aiChat = async function(system, prompt){
+    if(typeof MARCUS!=='undefined' && MARCUS.busy && CURRENT==='marcus' && BACKEND?.mode==='live' && typeof aiStreamX==='function') return aiStreamX(system, prompt, t=>mxpChatLive(t), {first:20000, total:60000});
+    return _ac.apply(this, arguments); }; }
+(function(){ const s = document.createElement('style'); s.textContent = `.mxp-text{white-space:pre-wrap;font-size:13.5px;line-height:1.5;margin-top:8px}.mxp-live .mxp-text{animation:none}
+.mxp-state{font-size:12.5px;margin:6px 0;display:flex;gap:8px;align-items:center;flex-wrap:wrap}.mxp-state .btn{padding:4px 10px;font-size:12px}`; document.head.appendChild(s); })();
 
 /* <<< OCT24 MODULES <<< */
 </script>

@@ -20914,7 +20914,7 @@ async function cooPostFromModal(){ const ch = CHATS.find(c=>c.id===el('paPostC')
    The footer shows which build is running ("Build 2026-10-07 · 1"), and every open portal checks every few minutes
    (and whenever it comes back to the foreground) whether a newer build has been published. If so it shows
    "New version available — Update now" instead of quietly running old code. */
-const BUILD_ID = '2026-10-26 · 4';
+const BUILD_ID = '2026-10-26 · 5';
 function verStamp(){ const f = el('footNote'); if(f && !f.dataset.v){ f.dataset.v = 1; f.textContent = `Cross Core Ops Suite v8 · Build ${BUILD_ID}`; } }
 async function verCheck(){
   if(!/^https?:/.test(location.protocol)) return;
@@ -35418,6 +35418,242 @@ function joseRetry(id){ const m = MESSAGES.find(x=>x.id===id); if(m) joseAnswer(
 { const _sp = setPerson; setPerson = function(){ JM.seeded = false; JM.known = new Set(); const r = _sp.apply(this, arguments); setTimeout(()=>{ try{ jmScan(); }catch(e){} }, 3000); return r; }; }
 (function(){ const st = document.createElement('style'); st.id = 'jmCss'; st.textContent = `.jm-tag{background:linear-gradient(135deg,rgba(242,180,64,.25),rgba(45,99,200,.18));border-radius:6px;padding:0 4px}
 .jm-acts{display:flex;gap:6px;margin-top:8px}.jm-acts .btn{padding:4px 10px;font-size:11.5px}`; document.head.appendChild(st); })();
+
+/* ===== t10_josewf.js — COO AI Assistant: one instruction → a workflow he runs to the end (Oct 26 2026) =====
+   Everything Jose already does stays (availability polls in a GC, majority booking, scheduled messages, monitoring, …).
+   New on top:
+   • Greetings and names are understood: “Hi Cora, …”, “Jose, …”, “COO, …” all go to the COO AI Assistant.
+   • MEETING WORKFLOW — “Schedule our Operations Meeting with Tricia, Yamille and Kiara on Wednesday. Ask them for their
+     availability between 3 PM and 6 PM, finalize once everyone agrees, create the link, add it to their calendars and
+     announce it in our Operations group chat.”
+       1. understands people, day, time range, the announcement GC and the rule (“everyone agrees” = book only a time
+          everyone picked; otherwise the existing majority rule);
+       2. checks the calendars it can see (JA's and the attendees' meetings) and leaves out clashing times;
+       3. messages each attendee PRIVATELY with the interactive availability options (same poll buttons, also on phones);
+       4. collects answers (incl. 🚫 Not coming / suggested times) and follows up privately with only the people who haven't answered;
+       5–7. books the agreed time with the existing booking (Meet/Zoom link, everyone's Ops Suite calendar, invitations) —
+          only after the server saved it;
+       8. the confirmation is posted in the announcement GC tagging the attendees;
+       9. checks the meeting and each invitation exist, asks attendees to tap Accept so it's visible to them;
+       10. reports to JA: booked time + link, who accepted, who is still pending — and again when everyone has accepted.
+   • TASK WORKFLOW — “Message Yamille and Tricia to submit their updated client reports by Friday. Follow up with anyone
+     who hasn't submitted and notify me once both are complete.”
+       creates a task for each person (due date, in their Content Board / dashboard), messages each privately, watches
+       for the submission (task moved to For Approval / Approved / Completed, or they reply “submitted” to Jose), reminds
+       only the people still pending (day before, on the due date, then daily while overdue — at most 3, then JA is told),
+       and tells JA as each one submits and when all are done.
+   • The workflow lives in the database (collection josewf), so it continues after JA closes the portal: it is advanced
+     by whichever COO / head / HR portal is open. Message, task, invitation and report ids are fixed per workflow, so a
+     retry or two open portals never send anything twice.
+   • Executive activity panel on the COO Assistant page: running workflows with each person's status, pending responses,
+     meetings awaiting confirmation, scheduled reminders, failed actions and the activity history.
+   Nothing is reported as done unless the server confirmed it. */
+let JOSEWF = [];
+COLL.josewf = {get:()=>JOSEWF, set:v=>JOSEWF=v, aud:w=>uniq([cooKey(), ...HEADS, w?.by]).filter(Boolean)};
+const JWF_DONE_ST = ['For Approval','Approved','Completed','Published'];
+const JWF_SAID_DONE = /\b(submitted|done|sent( it)?|uploaded|finished|completed?|tapos( na)?|naipasa|na-?submit|nai-?submit|nasubmit|na-?upload|ok na)\b/i;
+const jwfClean = t => String(t||'').replace(/[’‘]/g,"'").replace(/[“”]/g,'"')
+  .replace(/^\s*((hi|hello|hey|good (morning|afternoon|evening|day))\s*[,!]?\s*)?(cora|jose|coo( ai)? assistant|coo)\s*[,:!\-–]\s*/i, '')
+  .replace(/^\s*(hi|hello|hey)\s+(cora|jose)\s*[,!.]?\s*/i, '').trim();
+const jwfLower = t => (typeof joseNorm==='function' ? joseNorm(t) : t).toLowerCase();
+const jwfPeople = s => (typeof cmdPeople==='function' ? cmdPeople(s) : []).filter(k=>PEOPLE[k] && k!==cooKey() && !isAssistantKey(k) && PEOPLE[k].role!=='client');
+const jwfIsMeet = s => /\b(schedule|set up|setup|arrange|book|plan|organi[sz]e|i-?schedule|mag-?schedule|ayusin)\b/.test(s) && /\b(meeting|call|sync|huddle|catch[- ]?up|1:1)\b/.test(s)
+  && /\b(availab\w*|free|between|options?|agree|pwede|when they|what time works)\b/.test(s);
+const jwfIsTask = s => /\b(submit|send in|turn in|upload|finish|complete|prepare|update|file|ipasa|pasa|isubmit|i-?submit)\b/.test(s)
+  && /\b(by|until|before|due|hanggang|bago)\s+(mon|tue|wed|thu|fri|sat|sun|today|tomorrow|tonight|bukas|end of|eod|jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec|\d)/.test(s)
+  && /\b(message|tell|ask|remind|have|get|paki|pa-?message|let|i-?message|sabihan|ipaalam|follow up)\b/.test(s);
+const jwfIsStatus = s => /\b(status|progress|update on|kumusta|how('?s| is| are)|where are we)\b/.test(s) && /\b(workflows?|tasks?|reports?|meeting|polls?|what you('re| are) (doing|working on)|ginagawa|everything you('re| are) handling)\b/.test(s) && !/\b(schedule|message|remind|send)\b.*\b(to|with)\b/.test(s);
+function jwfLog(w, text, kind){ w.log = [...(w.log||[]), {at:nowISO(), text, kind:kind||'info', by:PERSON}].slice(-80); w.updated = nowISO(); }
+/* report to JA: bell (with a fixed id) + the COO Assistant conversation when JA's own portal does it */
+function jwfReport(w, key, text){ const coo = w.by || cooKey(); jwfLog(w, text, 'report');
+  const id = ('N-jwf-'+w.id+'-'+key).replace(/[^A-Za-z0-9-]/g,'');
+  if(!NOTIFS2.some(n=>n.id===id)) NOTIFS2.unshift({id, to:coo, type:'reminder', text:`🤖 COO AI Assistant: ${esc(text).replace(/\n/g,'<br>')}`, link:{view:'pa', pa:COO_ASST}, by:PERSON, asst:'asst:'+COO_ASST, at:nowISO(), read:PERSON===coo});
+  if(PERSON===coo){ try{ const a = pmAssistants().find(isCooA); const conv = paConv(a); if(conv && !conv.msgs.some(m=>m.jwf===id)){ conv.msgs.push({role:'assistant', text, at:nowISO(), jwf:id}); aiSaveConv(conv); if(CURRENT==='pa') RENDER.pa(); } }catch(e){} } }
+function jwfDM(k, id, text, extra={}){ const cid = dmId(cooKey(), k); if(!CHATS.find(c=>c.id===cid)) CHATS.push({id:cid, kind:'dm', name:'', members:[cooKey(), k].sort(), at:nowISO()});
+  const mid = String(id).replace(/[^A-Za-z0-9-]/g,''); if(MESSAGES.some(m=>m.id===mid)) return mid;
+  MESSAGES.push({id:mid, chat:cid, by:'asst:'+COO_ASST, kind:'assistant', text, at:nowISO(), files:[], ...extra});
+  notifyAs('asst:'+COO_ASST, [k], 'message', `🤖 COO AI Assistant: ${esc(coraTrim(text.replace(/@/g,''), 110))}`, {view:'chat', arg:cid, msg:mid}, mid); return mid; }
+const jwfDay = d => mtDate(d+'T04:00:00Z', {long:true});
+
+/* ---------- MEETING WORKFLOW ---------- */
+function jwfTitle(raw, ch){ const m = String(raw).match(/\b(?:our|the|an?|isang)\s+((?:[A-Z][\w&'-]*\s+){0,4}(?:Meeting|Sync|Call|Huddle|Catch-?up|Review|Planning|Standup|Stand-up))\b/);
+  return avClean(m?.[1] || avTitle(raw, ch)); }
+async function jwfMeeting(raw){ const text = jwfClean(raw); const s = jwfLower(text);
+  const people = jwfPeople(s); if(!people.length) return 'Who should I invite? (e.g. “with Tricia, Yamille and Kiara”)';
+  avChat.ambiguous = null; let ch = avChat(s);
+  if(!ch && avChat.ambiguous) return `Which group chat should I announce it in — ${avChat.ambiguous.map(c=>'“'+chatTitle(c)+'”').join(' or ')}?`;
+  if(!ch){ const o = opsChat(); if(o && people.every(k=>(o.members||[]).includes(k))) ch = o; }
+  if(!ch) return `Where should I announce the confirmed meeting — which group chat? (e.g. “in the Operations GC”). I’ll message ${people.map(first).join(', ')} privately for their availability.`;
+  const day = avDay(s); const {opts, mins} = avTimes(s, day);
+  if(!opts.length) return `Those times on ${jwfDay(day)} have already passed — which day or times should I offer?`;
+  opts.forEach(o=>{ o.clash = people.filter(k=>busyFor(k, o.start, o.end)); });
+  let free = opts.filter(o=>!o.busy && !o.clash.length); const clashNote = opts.filter(o=>!o.busy && o.clash.length).map(o=>`${mtTime(o.start)} (${o.clash.map(first).join(', ')} busy)`);
+  if(!free.length) free = opts.filter(o=>!o.busy);
+  if(!free.length) return `You’re busy at all of those times on ${jwfDay(day)} — which other times should I offer?`;
+  const title = jwfTitle(text, ch); const purpose = avPurpose(text);
+  const rule = /\b(everyone|all of them|all|lahat)\b[^.]{0,30}\b(agree|agrees|available|confirm|confirms|can make|ok)\b|\bonce everyone\b|\bunanimous\b/.test(s) ? 'all' : 'majority';
+  const dup = OPSPOLL.find(p=>p.kind==='adhoc' && p.status==='collecting' && p.wf && p.day===day && p.title===title);
+  if(dup) return `I’m already collecting availability for “${dup.title}” on ${jwfDay(day)}. Say “status” to see who has answered.`;
+  const first0 = new Date(free[0].start).getTime(); const at = nowISO();
+  const w = {id:uid('WF'), kind:'meeting', status:'collecting', title, by:PERSON, people, chat:ch.id, day, rule, createdAt:at, updated:at, instruction:text.slice(0, 600), log:[], sent:{}};
+  const poll = {id:uid('AP'), kind:'adhoc', chat:ch.id, title, purpose, day, mins, attendees:people, options:free.map(({busy, clash, ...o})=>o), round:1, status:'collecting', by:PERSON, createdAt:at,
+    deadline:new Date(Math.max(Date.now()+60*60e3, first0 - 60*60e3)).toISOString(), log:[], dm:true, rule, wf:w.id, nudged:true, nudgeAt:new Date(Math.min(Date.now()+4*3600e3, first0 - 3*3600e3)).toISOString()};
+  w.poll = poll.id; OPSPOLL.push(poll); JOSEWF.push(w);
+  const range = `${mtTime(poll.options[0].start)}–${mtTime(poll.options[poll.options.length-1].end)}`;
+  const keys = [mk('opspoll', poll.id), mk('josewf', w.id)];
+  people.forEach(k=>{ const mid = jwfDM(k, `M-avdm-${poll.id}-${k}`, `Hi ${first(k)}! 📅 JA asked me to schedule “${title}” on ${jwfDay(day)}${purpose?` to discuss ${purpose}`:''}.\nPlease tap every time that works for you (PH time, ${range}) — or “I can’t make any of these” / suggest another time. ${rule==='all'?'I’ll book it as soon as everyone agrees on a time':'I’ll book the time that works for most of you'} and send the calendar invite with the meeting link.`, {kind:'opspoll', poll:poll.id, round:1});
+    keys.push(mk('messages', mid)); });
+  poll.msg = `M-avdm-${poll.id}-${people[0]}`;
+  jwfLog(w, `Asked ${people.map(first).join(', ')} privately for their availability on ${jwfDay(day)} (${poll.options.map(o=>mtTime(o.start)).join(', ')}).`, 'action');
+  audit(`COO Assistant started meeting workflow “${title}” with ${people.map(pname).join(', ')}`);
+  recordChange(); const v = await cooVerify(keys);
+  if(!v.ok){ w.failed = v.why; jwfLog(w, 'Not saved: '+v.why, 'fail'); recordChange(); return `⚠ I couldn’t send the availability request yet — ${v.why}. Say “retry”.`; }
+  return `✅ On it — “${title}”, ${jwfDay(day)}.\n1. Messaged ${people.map(first).join(', ')} privately with clickable times: ${poll.options.map(o=>mtTime(o.start)).join(' · ')} (PH time).${clashNote.length?`\n   Left out because of calendar clashes: ${clashNote.join(', ')}.`:''}\n2. ${rule==='all'?'I’ll book it as soon as everyone agrees on one time':'I’ll book the time most of them pick'}, with a meeting link, and put it in everyone’s calendar with an invitation.\n3. Then I’ll announce it in ${chatTitle(ch)} tagging them, check that each invitation is there and accepted, and report back to you.\nI’ll follow up privately with anyone who hasn’t answered. Say “status” any time.`; }
+/* “once everyone agrees”: only a time everyone picked is booked */
+{ const _b = avBook; avBook = async function(poll, o, why){ if(poll?.rule==='all' && !/^everyone/.test(String(why||''))){
+      const w = JOSEWF.find(x=>x.id===poll.wf); const t = opsTally(poll);
+      if(w && !t.pending.length && !w.sent?.noCommon){ w.sent = {...(w.sent||{}), noCommon:nowISO()};
+        jwfReport(w, 'nocommon', `“${poll.title}”: everyone answered but there’s no time all of them can make.\n${t.opt.map(x=>`• ${mtTime(x.start)} — ${x.yes.map(first).join(', ')||'nobody'}`).join('\n')}\nSay “schedule it for the time most people selected”, or give me new times.`); recordChange(); }
+      return; }
+    return _b.apply(this, arguments); }; }
+/* follow-ups for private polls go privately, to the people who haven't answered */
+{ const _n = joseNudge; joseNudge = function(p, why){ if(!p?.dm) return _n.apply(this, arguments); const t = opsTally(p); if(!t.pending.length) return 0;
+    const n = (p.nudges||[]).length + 1; const booked = p.status==='confirmed' && p.slot;
+    t.pending.forEach(k=>jwfDM(k, `M-avnudge-${p.id}-${n}-${k}`, booked ? `Hi ${first(k)}! ${p.title} is set for ${mtDate(p.slot.start,{long:true})} at ${mtTime(p.slot.start)} (PH time). Please open Calendar and tap Accept on the invitation so I know you can see it.` : `Hi ${first(k)}! Friendly reminder 🙂 please pick the times that work for you for “${p.title}” (the options are in my message above) — or tap “I can’t make any of these”.`));
+    p.nudges = [...(p.nudges||[]), {at:nowISO(), who:t.pending, why}]; const w = JOSEWF.find(x=>x.id===p.wf); if(w) jwfLog(w, `Followed up privately with ${t.pending.map(first).join(', ')} (${why}).`, 'action'); recordChange(); return t.pending.length; }; }
+
+/* ---------- TASK WORKFLOW ---------- */
+function jwfTaskWhat(raw){ const m = String(raw).match(/\bto\s+((?:submit|send in|send|turn in|upload|finish|complete|prepare|update|file)\b.+?)(?=\s+(?:by|until|before|due|on or before)\b|[.;!]|$)/i);
+  let t = (m?.[1] || 'submit the requested report').replace(/\b(their|his|her|your)\s+/gi, '').trim(); return t.charAt(0).toUpperCase() + t.slice(1); }
+function jwfDue(s){ const m = s.match(/\b(?:by|until|before|due|hanggang|bago)\s+(.{2,40}?)(?=[.,;!]|\s+(?:and|then|follow|notify|tell|let)\b|$)/); const frag = m ? m[1] : '';
+  if(!frag) return null; if(/\b(today|tonight|eod|end of (the )?day|ngayon)\b/.test(frag)) return manilaDate(); return avDay(frag); }
+async function jwfTask(raw){ const text = jwfClean(raw); const s = jwfLower(text);
+  const people = jwfPeople(s); if(!people.length) return 'Who should I ask? (e.g. “Yamille and Tricia”)';
+  const due = jwfDue(s); if(!due) return 'By when should they submit it? (e.g. “by Friday”)';
+  const what = jwfTaskWhat(text); const at = nowISO();
+  const dup = JOSEWF.find(x=>x.kind==='task' && x.status==='active' && x.title===what && x.due===due && people.every(k=>x.people.includes(k)));
+  if(dup) return `I’m already tracking “${dup.title}” (due ${jwfDay(due)}) for ${dup.people.map(first).join(', ')}. Say “status” to see who has submitted.`;
+  const w = {id:uid('WF'), kind:'task', status:'active', title:what, by:PERSON, people, due, createdAt:at, updated:at, instruction:text.slice(0, 600), tasks:{}, done:{}, log:[], sent:{}};
+  const keys = [mk('josewf', w.id)];
+  people.forEach(k=>{ const tid = 'T-jwf-'+w.id.replace(/[^A-Za-z0-9]/g,'')+'-'+k;
+    if(!TASKS.some(t=>t.id===tid)) TASKS.push({id:tid, title:what, client:'', assignee:k, status:'In Progress', plat:'', due:new Date(due+'T23:59:00+08:00'), type:'Report', theme:'', caption:'',
+      notes:`Requested by ${pname(w.by)} through the COO AI Assistant. When it’s submitted, move this task to “For Approval” (or reply “submitted” to the COO AI Assistant).`, sources:[], refs:[], outputs:[],
+      history:[{by:'COO AI Assistant', who:'asst:'+COO_ASST, act:'Created', note:`for ${pname(w.by)}`, when:dtstr(at), at}], createdBy:w.by, createdAt:at, core:true, stage:null, jwf:w.id});
+    w.tasks[k] = tid; keys.push(mk('tasks', tid));
+    const mid = jwfDM(k, `M-jwf-${w.id}-${k}-ask`, `Hi ${first(k)}! JA asked me to remind you: please ${what.charAt(0).toLowerCase()+what.slice(1)} by ${jwfDay(due)}. I’ve added it to your tasks (Content Board → “${what}”). When it’s done, move the task to “For Approval” or just reply “submitted” here. Thank you!`);
+    keys.push(mk('messages', mid)); });
+  notifyAs('asst:'+COO_ASST, people, 'assignment', `📝 New task from JA: <b>${esc(what)}</b> — due ${esc(jwfDay(due))}`, {view:'tasks'}, 'jwf-'+w.id);
+  JOSEWF.push(w); jwfLog(w, `Created a task for ${people.map(first).join(', ')} (due ${jwfDay(due)}) and messaged each of them privately.`, 'action');
+  audit(`COO Assistant started task workflow “${what}” for ${people.map(pname).join(', ')}`);
+  recordChange(); const v = await cooVerify(keys);
+  if(!v.ok){ w.failed = v.why; jwfLog(w, 'Not saved: '+v.why, 'fail'); recordChange(); return `⚠ I couldn’t save it yet — ${v.why}. Say “retry”.`; }
+  return `✅ Done — “${what}”, due ${jwfDay(due)}.\n• Task created and assigned to ${people.map(first).join(', ')} (in their tasks).\n• Each got a private message from me.\nI’ll remind only the ones who haven’t submitted (the day before, on the due date, then daily if late), and tell you as each one submits and when everyone is done.`; }
+
+/* ---------- the workflows keep going (any COO / head / HR portal; fixed ids → never twice) ---------- */
+const jwfSubmitted = (w, k) => { const t = TASKS.find(x=>x.id===w.tasks?.[k]); if(t && JWF_DONE_ST.includes(t.status)) return {how:`moved the task to ${t.status}`};
+  const cid = dmId(cooKey(), k); const m = MESSAGES.filter(x=>x.chat===cid && x.by===k && String(x.at) > String(w.createdAt) && JWF_SAID_DONE.test(x.text||'')).pop(); return m ? {how:'said it’s submitted', msg:m} : null; };
+function jwfTick(){ if(typeof canRunOps!=='function' || !canRunOps()) return; let ch = false; const today = window.__jwfToday || manilaDate(); const h = window.__jwfHour ?? phParts(new Date()).h;
+  JOSEWF.filter(w=>w.kind==='task' && w.status==='active').forEach(w=>{
+    w.people.forEach(k=>{ if(w.done[k]) return; const s = jwfSubmitted(w, k); if(!s) return;
+      w.done = {...w.done, [k]:nowISO()}; ch = true; jwfLog(w, `${first(k)} submitted (${s.how}).`, 'done');
+      if(s.msg) jwfDM(k, `M-jwf-${w.id}-${k}-thanks`, `Thank you, ${first(k)}! Noted — I’ll let JA know.`);
+      const left = w.people.filter(x=>!w.done[x]);
+      jwfReport(w, 'done-'+k, `✅ ${pname(k)} submitted “${w.title}” (${s.how}).${left.length?` Still waiting for: ${left.map(first).join(', ')}.`:''}`); });
+    if(w.people.every(k=>w.done[k])){ w.status = 'done'; w.doneAt = nowISO(); ch = true; jwfReport(w, 'all', `🎉 Everyone has submitted “${w.title}” (${w.people.map(first).join(', ')}).`); return; }
+    if(h < 9 || h > 20) return;
+    const pend = w.people.filter(k=>!w.done[k]); const prev = manilaDate(new Date(new Date(w.due+'T12:00:00+08:00').getTime()-864e5));
+    let key = null; if(today===prev && w.createdAt.slice(0,10)!==today) key = 'pre'; else if(today===w.due) key = 'due'; else if(today > w.due) key = 'late-'+today;
+    if(!key || w.sent?.[key]) return; const lateN = Object.keys(w.sent||{}).filter(x=>x.startsWith('late-')).length;
+    if(key.startsWith('late-') && lateN >= 3){ if(!w.sent.esc){ w.sent = {...w.sent, esc:nowISO()}; jwfReport(w, 'esc', `⚠ “${w.title}” is ${lateN}+ days overdue for ${pend.map(first).join(', ')} — I’ve reminded them 3 times. You may want to step in.`); ch = true; } return; }
+    w.sent = {...(w.sent||{}), [key]:nowISO()}; ch = true;
+    pend.forEach(k=>jwfDM(k, `M-jwf-${w.id}-${k}-${key}`, key==='pre' ? `Hi ${first(k)}! Friendly reminder: “${w.title}” is due tomorrow (${jwfDay(w.due)}). Reply “submitted” here or move the task to For Approval once it’s in. 🙂`
+      : key==='due' ? `Hi ${first(k)}! “${w.title}” is due today. Please submit it and move the task to For Approval (or reply “submitted” here).` : `Hi ${first(k)}, “${w.title}” was due ${jwfDay(w.due)} and I don’t see it yet. Could you submit it today and let me know here? Thank you!`));
+    jwfLog(w, `Reminded ${pend.map(first).join(', ')} (${key==='pre'?'due tomorrow':key==='due'?'due today':'overdue'}).`, 'action'); });
+  JOSEWF.filter(w=>w.kind==='meeting' && ['collecting','confirming'].includes(w.status)).forEach(w=>{ const p = OPSPOLL.find(x=>x.id===w.poll); if(!p) return;
+    if(['cancelled'].includes(p.status) || p.wiped){ w.status = 'cancelled'; jwfLog(w, 'The availability request was cancelled.', 'info'); ch = true; return; }
+    if(p.status==='collecting' && Date.now() > new Date(p.deadline).getTime() && opsTally(p).pending.length && !w.sent?.deadline){ w.sent = {...(w.sent||{}), deadline:nowISO()}; ch = true;
+      jwfReport(w, 'deadline', `⏰ The answer window for “${p.title}” has passed. Still no answer from: ${opsTally(p).pending.map(first).join(', ')}. ${w.rule==='all'?'Nothing is booked until everyone agrees — ':''}say “schedule it for the time most people selected”, “follow up with them now”, or give me new times.`); }
+    if(p.status==='collecting'){ const t = opsTally(p); const ans = p.attendees.filter(k=>!t.pending.includes(k)); const seen = w.answered || [];
+      const fresh = ans.filter(k=>!seen.includes(k)); if(fresh.length){ w.answered = uniq([...seen, ...fresh]); jwfLog(w, `${fresh.map(first).join(', ')} answered (${w.answered.length}/${p.attendees.length}).`, 'info'); ch = true; }
+      return; }
+    if(p.status==='confirmed' && p.meeting){ const m = MEETINGS.find(x=>x.id===p.meeting); if(!m) return;
+      const inv = (m.participants||[]); const missing = w.people.filter(k=>!inv.includes(k) && k!==m.organizer);
+      const acc = w.people.filter(k=>MTRSVP.find(r=>r.id===m.id+'|'+k)?.st==='accepted'); const dec = w.people.filter(k=>['declined','reschedule'].includes(MTRSVP.find(r=>r.id===m.id+'|'+k)?.st)); const pend = w.people.filter(k=>!acc.includes(k) && !dec.includes(k));
+      if(w.status==='collecting'){ w.status = 'confirming'; w.meeting = m.id; ch = true;
+        pend.forEach(k=>jwfDM(k, `M-jwf-${w.id}-${k}-seen`, `Hi ${first(k)}! “${m.title}” is booked for ${mtDate(m.start,{long:true})} at ${mtTime(m.start)} (PH time) — it’s in your Ops Suite Calendar${m.link?` (link: ${m.link})`:''}. Please open Calendar and tap Accept so I know you can see the invitation.`));
+        jwfReport(w, 'booked', `✅ Booked “${m.title}” — ${mtDate(m.start,{long:true})}, ${mtTime(m.start)}–${mtTime(m.end)} (PH time).${m.link?`\nLink: ${m.link}`:'\n(No video link was created — '+(m.linkNote||'add one from the meeting')+'.)'}\nInvitations in the calendar: ${inv.filter(k=>w.people.includes(k)).map(first).join(', ')||'—'}${missing.length?` · ⚠ missing: ${missing.map(first).join(', ')}`:''}\nAnnounced in ${chatTitle(CHATS.find(c=>c.id===p.chat)||{name:'the GC'})}.\nConfirmed: ${acc.map(first).join(', ')||'nobody yet'} · Pending: ${pend.map(first).join(', ')||'—'}${dec.length?` · Declined / reschedule: ${dec.map(first).join(', ')}`:''}`); }
+      if(dec.length && !w.sent?.['dec-'+dec.join('-')]){ w.sent = {...(w.sent||{}), ['dec-'+dec.join('-')]:nowISO()}; jwfReport(w, 'dec-'+dec.join('-'), `⚠ ${dec.map(first).join(', ')} declined or asked to reschedule “${m.title}”.`); ch = true; }
+      if(!pend.length && !dec.length && w.status!=='done'){ w.status = 'done'; w.doneAt = nowISO(); ch = true; jwfReport(w, 'allacc', `🎉 Everyone accepted “${m.title}” (${acc.map(first).join(', ')}) — it’s in all their calendars.`); } } });
+  if(ch) recordChange(); }
+setInterval(()=>{ try{ jwfTick(); }catch(e){ console.warn('jwf', e); } }, 60e3);
+{ const _ore = onRemoteEvent; onRemoteEvent = function(ev){ const r = _ore.apply(this, arguments); if(['opsvotes','opspoll','mtrsvp','tasks','meetings','messages'].includes(ev?.coll)){ clearTimeout(jwfTick._t); jwfTick._t = setTimeout(()=>{ try{ jwfTick(); }catch(e){} }, 1500); } return r; }; }
+{ const _sp = setPerson; setPerson = function(){ const r = _sp.apply(this, arguments); setTimeout(()=>{ try{ jwfTick(); }catch(e){} }, 20000); return r; }; }
+
+/* ---------- status ---------- */
+function jwfStatus(){ const A = JOSEWF.filter(w=>['active','collecting','confirming'].includes(w.status)).sort((a,b)=>String(b.createdAt).localeCompare(String(a.createdAt)));
+  if(!A.length) return 'Nothing is running right now. Recent: '+(JOSEWF.filter(w=>w.status==='done').slice(-3).map(w=>`“${w.title}” ✓`).join(', ')||'—');
+  return 'Here’s what I’m handling:\n'+A.map(w=>{ if(w.kind==='task') return `📝 “${w.title}” (due ${jwfDay(w.due)}) — submitted: ${w.people.filter(k=>w.done[k]).map(first).join(', ')||'nobody yet'} · pending: ${w.people.filter(k=>!w.done[k]).map(first).join(', ')||'—'}`;
+    const p = OPSPOLL.find(x=>x.id===w.poll); const t = p ? opsTally(p) : null; const m = MEETINGS.find(x=>x.id===(w.meeting||p?.meeting));
+    if(m){ const acc = w.people.filter(k=>MTRSVP.find(r=>r.id===m.id+'|'+k)?.st==='accepted'); return `📅 “${w.title}” booked ${mtDate(m.start)} ${mtTime(m.start)} — accepted: ${acc.map(first).join(', ')||'nobody yet'} · pending: ${w.people.filter(k=>!acc.includes(k)).map(first).join(', ')||'—'}`; }
+    return `📅 “${w.title}” (${jwfDay(w.day)}) — collecting availability · answered: ${p?p.attendees.filter(k=>!t.pending.includes(k)).map(first).join(', ')||'nobody yet':'—'} · waiting for: ${t?t.pending.map(first).join(', ')||'—':'—'}`; }).join('\n'); }
+
+/* ---------- routing: COO Assistant page and @COO Assistant in chats ---------- */
+async function jwfRoute(raw){ const s = jwfLower(jwfClean(raw)); if(PERSON!==cooKey() && !isHead(PERSON)) return null;
+  if(jwfIsStatus(s)) return jwfStatus();
+  if(jwfIsMeet(s) && jwfPeople(s).length) return await jwfMeeting(raw);
+  if(jwfIsTask(s) && jwfPeople(s).length) return await jwfTask(raw);
+  return null; }
+{ const _ce = cooExec; cooExec = async function(text){ const r = await jwfRoute(text); if(r) { if(typeof COO_LAST!=='undefined'){ COO_LAST.fn = () => jwfRoute(text); COO_LAST.text = text; } return r; }
+    return _ce.call(this, jwfClean(text) || text); }; }
+{ const _pi = paIntent; paIntent = function(a, text){ if(!(isCooA(a) && PERSON===a.pm)) return _pi.apply(this, arguments);
+    const s = jwfLower(jwfClean(text));
+    if(jwfIsStatus(s) || ((jwfIsMeet(s) || jwfIsTask(s)) && jwfPeople(s).length)){ const tag = uid('W');
+      setTimeout(async ()=>{ let r; try{ r = await cooExec(text); }catch(e){ r = `⚠ That didn’t work: ${e.message}. Say “retry”.`; } if(r==null) r = cooUnknown(text);
+        const conv = paConv(a); const msg = conv.msgs.find(x=>x.wait===tag) || [...conv.msgs].reverse().find(x=>x.role==='assistant' && x.text==='⏳ On it…'); if(msg){ msg.text = r; delete msg.wait; aiSaveConv(conv); if(CURRENT==='pa') RENDER.pa(); } }, 30);
+      window.__lastWait = tag; return {reply:'⏳ On it…', wait:tag}; }
+    return _pi.call(this, a, jwfClean(text) || text); }; }
+
+/* ---------- Executive activity panel (COO Assistant page) ---------- */
+const JWFV = {open:'run'};
+function jwfPanelHTML(){ const run = JOSEWF.filter(w=>['active','collecting','confirming'].includes(w.status)).sort((a,b)=>String(b.createdAt).localeCompare(String(a.createdAt)));
+  const done = JOSEWF.filter(w=>['done','cancelled'].includes(w.status)).sort((a,b)=>String(b.doneAt||b.updated).localeCompare(String(a.doneAt||a.updated))).slice(0, 12);
+  const chip = (k, st) => `<span class="jwf-chip ${st}">${esc(first(k))}${st==='ok'?' ✓':st==='no'?' ✕':' …'}</span>`;
+  const wfRow = w => { let who = '', next = '';
+    if(w.kind==='task'){ who = w.people.map(k=>chip(k, w.done[k]?'ok':'wait')).join(''); next = w.status==='done' ? 'All submitted' : `Due ${jwfDay(w.due)} · reminders only to pending people`; }
+    else { const p = OPSPOLL.find(x=>x.id===w.poll); const m = MEETINGS.find(x=>x.id===(w.meeting||p?.meeting));
+      if(m){ who = w.people.map(k=>{ const st = MTRSVP.find(r=>r.id===m.id+'|'+k)?.st; return chip(k, st==='accepted'?'ok':['declined','reschedule'].includes(st)?'no':'wait'); }).join(''); next = `Booked ${mtDate(m.start)} ${mtTime(m.start)}${m.link?' · link ready':''} · waiting for invitations to be accepted`; }
+      else if(p){ const t = opsTally(p); who = w.people.map(k=>chip(k, t.pending.includes(k)?'wait':'ok')).join(''); next = `Collecting availability for ${jwfDay(w.day)} · ${w.rule==='all'?'books when everyone agrees':'books the majority time'}`; } }
+    const last = (w.log||[]).slice(-1)[0];
+    return `<div class="jwf-row"><div class="jwf-ic">${w.kind==='task'?'📝':'📅'}</div><div style="flex:1;min-width:0"><b>${esc(w.title)}</b> <span class="jwf-st ${w.status}">${esc(w.status)}</span><div class="jwf-who">${who}</div><div class="hint">${esc(next)}${last?` · last: ${esc(coraTrim(last.text, 90))} (${esc(ago(last.at))})`:''}</div>${w.failed?`<div class="jwf-fail">⚠ ${esc(w.failed)}</div>`:''}</div></div>`; };
+  const pendResp = [];
+  run.forEach(w=>{ if(w.kind==='task') w.people.filter(k=>!w.done[k]).forEach(k=>pendResp.push(`${pname(k)} — “${w.title}” (due ${jwfDay(w.due)})`));
+    else { const p = OPSPOLL.find(x=>x.id===w.poll); if(p?.status==='collecting') opsTally(p).pending.forEach(k=>pendResp.push(`${pname(k)} — availability for “${w.title}”`)); } });
+  const polls = OPSPOLL.filter(p=>p.kind==='adhoc' && p.status==='collecting' && !p.wiped);
+  const meetsPend = MEETINGS.filter(m=>m.organizer===cooKey() && m.status!=='cancelled' && new Date(m.start) > new Date() && (m.participants||[]).some(k=>MTRSVP.find(r=>r.id===m.id+'|'+k)?.st!=='accepted')).sort((a,b)=>String(a.start).localeCompare(String(b.start))).slice(0, 8);
+  const sched = (typeof COOQ!=='undefined' ? COOQ.filter(q=>q.status==='scheduled') : []).sort((a,b)=>String(a.at).localeCompare(String(b.at)));
+  const fails = [...JOSEWF.filter(w=>w.failed).map(w=>({at:w.updated, text:`“${w.title}”: ${w.failed}`})), ...JOSEWF.flatMap(w=>(w.log||[]).filter(l=>l.kind==='fail').map(l=>({at:l.at, text:`“${w.title}”: ${l.text}`}))), ...(typeof syncRefusedNow==='function' ? syncRefusedNow().map(([k, t])=>({at:new Date(t).toISOString(), text:'Not saved: '+(typeof syncKeyLabel==='function'?syncKeyLabel(k).replace(/<[^>]+>/g,''):k)})) : [])].slice(0, 10);
+  const hist = [...JOSEWF.flatMap(w=>(w.log||[]).map(l=>({at:l.at, text:`${w.kind==='task'?'📝':'📅'} ${w.title}: ${l.text}`}))), ...(typeof PALOG!=='undefined' ? PALOG.filter(x=>x.pa===COO_ASST).slice(0, 40).map(x=>({at:x.at, text:`💬 ${x.kind==='mention'?'Answered a question in chat':'Sent'}${x.to?.length?' to '+x.to.map(first).join(', '):''}: ${coraTrim(String(x.text||''), 90)}`})) : [])]
+    .sort((a,b)=>String(b.at).localeCompare(String(a.at))).slice(0, 30);
+  const sec = (k, icon, label, n, body) => `<details class="jwf-sec" ${JWFV.open===k?'open':''} ontoggle="if(this.open) JWFV.open='${k}'"><summary>${icon} ${label} <span class="pill">${n}</span></summary><div class="jwf-body">${body || '<div class="hint">Nothing here.</div>'}</div></details>`;
+  return `<div class="card jwf-panel"><div class="card-h"><h3>Executive activity</h3><span class="sub">What the COO AI Assistant is doing for you — live</span></div><div class="card-b">
+    ${sec('run','⚙️','Running now', run.length, run.map(wfRow).join(''))}
+    ${sec('pend','⏳','Pending employee responses', pendResp.length, pendResp.map(x=>`<div class="jwf-li">${esc(x)}</div>`).join(''))}
+    ${sec('meet','📅','Meetings awaiting confirmation', polls.length + meetsPend.length, [...polls.map(p=>`<div class="jwf-li"><b>${esc(p.title)}</b> — collecting availability (${opsTally(p).pending.length} pending)</div>`), ...meetsPend.map(m=>{ const pend = (m.participants||[]).filter(k=>MTRSVP.find(r=>r.id===m.id+'|'+k)?.st!=='accepted'); return `<div class="jwf-li"><b>${esc(m.title)}</b> — ${esc(mtDate(m.start))} ${esc(mtTime(m.start))} · not accepted yet: ${esc(pend.map(first).join(', '))}</div>`; })].join(''))}
+    ${sec('sched','🕒','Scheduled reminders & follow-ups', sched.length, sched.map(q=>`<div class="jwf-li">${esc(mtDate(q.at))} ${esc(mtTime(q.at))} → ${esc(q.label||'')}: “${esc(coraTrim(q.text||'', 80))}”</div>`).join(''))}
+    ${sec('fail','⚠️','Failed actions — need you', fails.length, fails.map(f=>`<div class="jwf-li jwf-fail">${esc(f.text)} <span class="hint">${esc(ago(f.at))}</span></div>`).join(''))}
+    ${sec('done','✅','Completed', done.length, done.map(wfRow).join(''))}
+    ${sec('hist','🗂','Activity history', hist.length, hist.map(h=>`<div class="jwf-li"><span class="hint">${esc(dstr(h.at))} ${esc(clock(h.at))}</span> ${esc(h.text)}</div>`).join(''))}
+  </div></div>`; }
+{ const _rp = RENDER.pa; RENDER.pa = function(){ const r = _rp.apply(this, arguments); try{ const a = typeof paSel==='function' ? paSel() : null; const v = el('v-pa');
+      if(!v || !isCooA(a) || !(PERSON===cooKey() || isHead(PERSON))) return r; v.querySelector('.jwf-panel')?.remove();
+      const anchor = v.querySelector('.coo-dash') || v.querySelector('.ops-cards') || v.querySelector('.page-head');
+      anchor?.insertAdjacentHTML(anchor.classList.contains('page-head') ? 'afterend' : 'beforebegin', jwfPanelHTML()); }catch(e){ console.warn('jwf panel', e); } return r; }; }
+(function(){ const st = document.createElement('style'); st.id = 'jwfCss'; st.textContent = `.jwf-panel{margin-bottom:14px}.jwf-sec{border-top:1px solid var(--line);padding:8px 0}.jwf-sec:first-child{border-top:0}
+.jwf-sec summary{cursor:pointer;font-weight:700;font-size:13px;display:flex;gap:6px;align-items:center}.jwf-body{padding:8px 0 2px;display:grid;gap:8px}
+.jwf-row{display:flex;gap:10px;align-items:flex-start}.jwf-ic{font-size:18px;line-height:1.2}.jwf-who{display:flex;flex-wrap:wrap;gap:4px;margin:4px 0}
+.jwf-chip{font-size:11px;font-weight:600;padding:1px 8px;border-radius:99px;background:var(--line-2);color:var(--ink-2)}.jwf-chip.ok{background:var(--ok-bg);color:var(--ok)}.jwf-chip.no{background:var(--bad-bg);color:var(--bad)}.jwf-chip.wait{background:var(--warn-bg);color:var(--warn)}
+.jwf-st{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-3);margin-left:4px}.jwf-st.done{color:var(--ok)}
+.jwf-li{font-size:12.5px}.jwf-fail{color:var(--bad);font-size:12px}`; document.head.appendChild(st); })();
 
 /* <<< OCT24 MODULES <<< */
 </script>

@@ -20914,7 +20914,7 @@ async function cooPostFromModal(){ const ch = CHATS.find(c=>c.id===el('paPostC')
    The footer shows which build is running ("Build 2026-10-07 · 1"), and every open portal checks every few minutes
    (and whenever it comes back to the foreground) whether a newer build has been published. If so it shows
    "New version available — Update now" instead of quietly running old code. */
-const BUILD_ID = '2026-10-26 · 3';
+const BUILD_ID = '2026-10-26 · 4';
 function verStamp(){ const f = el('footNote'); if(f && !f.dataset.v){ f.dataset.v = 1; f.textContent = `Cross Core Ops Suite v8 · Build ${BUILD_ID}`; } }
 async function verCheck(){
   if(!/^https?:/.test(location.protocol)) return;
@@ -35186,6 +35186,238 @@ tr.tkh-unread td{font-weight:600}
 .tkh-filters select,.tkh-filters input[type=date]{padding:6px 8px;font-size:12.5px}
 .tkh-extra{display:grid;gap:8px;margin:10px 0}
 .tkh-closed{background:var(--line-2);color:var(--ink)}`; document.head.appendChild(st); })();
+
+/* ===== t9_josechat.js — @COO Assistant in chats, threaded answers, real-time pop-ups (Oct 26 2026) =====
+   Builds on Jose (the COO Assistant) without replacing anything he already does.
+   • Pop-ups: every COO Assistant message (group chat, private chat, thread, availability poll) pops up for the people in that
+     conversation, titled “COO AI Assistant · <conversation>”, with Open message / Dismiss. It uses the existing pop-up,
+     sound, mute, unread and catch-up rules (one pop-up per message per device, nothing old after a refresh, no pop-up
+     when you're already reading that message).
+   • @COO Assistant (also @COO AI Assistant / @Jose) is in the @ list of every staff conversation, private chats included.
+     Tagging him — or asking a question in a thread under one of his messages — gets an answer IN THAT THREAD, under the
+     exact message, tagging the person who asked. Each mention is answered once (fixed reply id), from the asker's own
+     portal, so two people asking at the same time each get their own answer. A “COO AI Assistant is typing…” indicator
+     shows while he works; failures show an understandable message with Retry, and nothing is claimed unless it was saved.
+   • What he can use is only what the asker's own portal can already see (their meetings, their open availability polls,
+     their tasks, company knowledge they have access to, announcements addressed to them, this conversation) — so tagging
+     him never reveals HR, Finance, pay or other people's private records. Answers in group chats never include private items.
+   • Meeting questions are answered from the real calendar (never invented). “Can I change my availability to 5 PM?”
+     updates the asker's own vote on the open availability poll after matching the exact time, and confirms only once saved.
+   • The COO (JA) can give Jose any of his usual instructions by tagging him in a chat — they run through the same
+     actions as the COO Assistant page (approval rules unchanged). Other people asking for actions are told who can do it. */
+const JOSE_KEY = 'asst:' + COO_ASST;
+const JOSE_LABEL = 'COO AI Assistant';
+const JOSE_RE = /(^|[\s(])@(?:jose(?:\s*[-–·]\s*coo(?:\s+ai)?\s+assistant)?|coo(?:\s+ai)?\s+assistant)(?![\w])/i;
+const JM = {remote:new Set(), known:new Set(), busy:new Set(), seeded:false, failed:new Map(), ty:new Map()};
+const joseReplyId = id => 'M-jre-' + String(id).replace(/[^A-Za-z0-9_-]/g, '');
+const joseChatOk = c => !!c && !c.archived && c.kind!=='clientline' && (c.members||[]).includes(PERSON)
+  && !(c.members||[]).some(k=>PEOPLE[k]?.role==='client') && PEOPLE[PERSON] && !['client','applicant'].includes(ROLE);
+
+/* ---------- 1. pop-ups: COO AI Assistant as the sender, Open message / Dismiss ---------- */
+/* COO Assistant messages get the pop-up (with Open message / Dismiss) on every page; outside Messages the chat head is
+   also added, so the message stays at hand after the pop-up fades (the unread count stays until it is read) */
+{ const _mt = msgToast; msgToast = function(m, kind){ if(m?.by!==JOSE_KEY) return _mt.apply(this, arguments);
+    const c = CHATS.find(x=>x.id===m.chat); if(!c) return;
+    const label = (kind==='mention' ? '@ mentioned you · ' : m.thread ? '↪ Thread · ' : '') + (c.kind==='dm' ? 'Private conversation' : chatTitle(c));
+    const d = topToast({key:'m|'+m.chat+'|'+(m.thread||''), count:true, ava:av(P(m.by)), title:JOSE_LABEL, label:esc(label), kind, text:esc((msgPreview(m)||'').replace(/@\S+(\s\S+)?\s/, s=>s).replace(/\s+/g,' ').slice(0,140)),
+      link:{view:'chat', arg:m.chat, ...(m.thread?{thread:m.thread}:{}), msg:m.id}, tip:'Open '+(m.thread?'the thread':'the message'), onOpen:()=>mpOpen(m)});
+    if(d){ d.dataset.mid = m.id; d.classList.add('jm-toast'); d.setAttribute('aria-label', `New message from ${JOSE_LABEL} — ${label}`);
+      d.querySelector('.mt-body')?.insertAdjacentHTML('beforeend', `<div class="jm-acts"><button class="btn primary jm-open">Open message</button><button class="btn ghost jm-dis">Dismiss</button></div>`);
+      d.querySelector('.jm-dis')?.addEventListener('click', e=>{ e.stopPropagation(); msgToastClose(d); }); }
+    try{ if(!m.thread && typeof bubAdd==='function' && !bubInMessages() && bubChat(m.chat)) bubAdd(m, kind); }catch(e){}
+    return d; }; }
+/* the bell entry for a COO Assistant message says who it is from and opens the exact message / thread */
+const joseNotifText = (c, m) => `🤖 <b>${JOSE_LABEL}</b> ${m.thread?'replied in a thread in':'in'} <b>${esc(c.kind==='dm'?'your private conversation':chatTitle(c))}</b>: ${esc(String(m.text||'').replace(/\s+/g,' ').slice(0, 110))}`;
+
+/* ---------- 2. @COO Assistant in the @ list (group and private chats) ---------- */
+function joseMentionRow(i){ return `<button class="${i===MENTION.i?'on':''}" onmousedown="event.preventDefault();mentionPick(${i})">${av(P(JOSE_KEY))}<span><b>@COO Assistant</b><small>${esc(JOSE_LABEL)} (Jose) · ask a question or give an instruction</small></span></button>`; }
+{ const _ms = mentionSuggest; mentionSuggest = function(){
+    const inp = el('chatMsg'), box = el('mentionBox'); const c = CHATS.find(x=>x.id===CHAT_OPEN);
+    if(!inp || !box || !joseChatOk(c)) return _ms.apply(this, arguments);
+    const upto = inp.value.slice(0, inp.selectionStart); const mt = upto.match(/(^|\s)@([\w .'-]{0,30})$/); const q = (mt?.[2]||'').toLowerCase().trim();
+    const want = mt && !/^(coo( ai)? assistant|jose) /.test(mt[2].toLowerCase()) && (!q || ['coo assistant','coo ai assistant','jose','ai assistant','assistant'].some(n=>n.startsWith(q) || (q.length>=2 && n.includes(q))));
+    _ms.apply(this, arguments);
+    if(!want) return;
+    MENTION.start = upto.length - mt[2].length - 1;
+    if(!box.classList.contains('on')){ MENTION.list = []; MENTION.i = 0; }
+    const oldHTML = [...box.querySelectorAll('button')].map(b=>b.outerHTML);
+    const old = MENTION.list.slice(); MENTION.list = [JOSE_KEY, ...old.filter(k=>k!==JOSE_KEY)];
+    box.innerHTML = joseMentionRow(0) + oldHTML.map((h, j)=>h.replace(/mentionPick\(\d+\)/, `mentionPick(${j+1})`).replace(/class="on"/, '')).join('');
+    if(MENTION.i===0) box.firstElementChild?.classList.add('on'); else box.children[MENTION.i]?.classList.add('on');
+    box.classList.add('on'); }; }
+{ const _mp = mentionPick; mentionPick = function(i){ if(MENTION.list[i]!==JOSE_KEY) return _mp.apply(this, arguments);
+    const inp = el('chatMsg'); if(!inp) return; const before = inp.value.slice(0, MENTION.start), after = inp.value.slice(inp.selectionStart);
+    const ins = '@COO Assistant '; inp.value = before + ins + after; const pos = (before+ins).length; inp.setSelectionRange(pos, pos); inp.focus(); mentionClose(); }; }
+/* the tag shows as an assistant chip */
+{ const _mt2 = msgText; msgText = function(m){ let h = _mt2.apply(this, arguments); if(!JOSE_RE.test(m?.text||'')) return h;
+    return h.replace(/(^|[\s(>])@(jose(?:\s*[-–·]\s*coo(?:\s+ai)?\s+assistant)?|coo(?:\s+ai)?\s+assistant)(?![\w])/gi, (all, pre, n)=>`${pre}<span class="mention jm-tag" title="${JOSE_LABEL}">@${n}</span>`); }; }
+
+/* ---------- 3. typing indicator for the assistant ---------- */
+{ const _on = tyOn; tyOn = function(chat, p){ if(p?.who!==JOSE_KEY) return _on.apply(this, arguments);
+    let M = TY.who.get(chat); if(!M){ M = new Map(); TY.who.set(chat, M); } const key = JOSE_KEY+'|'+(p.dev||'');
+    if(p.t==='stop') M.delete(key); else M.set(key, Date.now() + 6000); tyDraw(); }; }
+function joseTyping(chat, on){ const p = {t:on?'typing':'stop', who:JOSE_KEY, dev:'jose-'+TY.dev, at:Date.now()};
+  try{ tyOn(chat, p); }catch(e){}
+  try{ if(tyLive()){ const o = tyJoin(chat); if(o?.ok) o.ch.send({type:'broadcast', event:'ty', payload:p}); else if(o) o.pend = p; } }catch(e){}
+  clearInterval(JM.ty.get(chat)); JM.ty.delete(chat);
+  if(on) JM.ty.set(chat, setInterval(()=>joseTyping(chat, true), 3500)); }
+
+/* ---------- 4. which messages call for an answer ---------- */
+function joseWanted(m){ if(!m || m.by!==PERSON || m.sys || !m.text) return false; const c = CHATS.find(x=>x.id===m.chat); if(!joseChatOk(c)) return false;
+  if(JOSE_RE.test(m.text)) return true;
+  if(m.thread){ const root = MESSAGES.find(x=>x.id===m.thread); if(root?.by===JOSE_KEY && /\?|\b(pwede|paano|ano|kailan|sino|can i|could you|please)\b/i.test(m.text)) return true; }
+  return false; }
+const joseAnswered = m => MESSAGES.some(x=>x.id===joseReplyId(m.id));
+function jmScan(){ if(!SYNC.ready || !PEOPLE[PERSON]) return;
+  if(!JM.seeded){ MESSAGES.forEach(m=>JM.known.add(m.id)); JM.seeded = true; joseCatchUp(); return; }
+  for(const m of MESSAGES){ if(JM.known.has(m.id)) continue; JM.known.add(m.id);
+    if(joseWanted(m) && !joseAnswered(m)) joseAnswer(m); } }
+/* anything that arrives from the server or another device is never answered here (its own device answers it) */
+{ const _ar = SYNC.applyRemote; SYNC.applyRemote = function(ups){ (ups||[]).forEach(r=>{ if(r.collection==='messages'){ JM.known.add(String(r.id)); JM.remote.add(String(r.id)); } }); return _ar.apply(this, arguments); }; }
+{ const _rc = recordChange; recordChange = function(){ const r = _rc.apply(this, arguments); clearTimeout(JM.st); JM.st = setTimeout(()=>{ try{ jmScan(); }catch(e){ console.warn('jose scan', e); } }, 60); return r; }; }
+/* a mention whose answer never went out (portal closed while thinking): answered once on the next start */
+function joseCatchUp(){ const now = Date.now();
+  MESSAGES.filter(m=>m.by===PERSON && joseWanted(m) && !joseAnswered(m)).forEach(m=>{ const age = now - Date.parse(m.at||0);
+    if(age > 90e3 && age < 30*60e3) joseAnswer(m); }); }
+
+/* ---------- 5. the answer ---------- */
+const josePlain = t => String(t||'').replace(JOSE_RE, ' ').replace(/\s+/g,' ').trim();
+const JOSE_ACTION = /\b(send|post|announce|book|schedule|reschedule|cancel|remind|follow[\s-]?up|nudge|create|add|remove|invite|tag|message|notify|finali[sz]e|delete|draft)\b/i;
+const JOSE_SENSITIVE = /\b(salar(y|ies)|payslip|payroll|pay ?rate|rates?|compensation|bonus|deduction|loan|bank|201 file|hr file|disciplin\w*|memo|evaluation score|grades?|medical|leave balance of|password|login of)\b/i;
+
+function joseMeetings(c){ const now = Date.now();
+  return MEETINGS.filter(m=>mtMine(m) && m.status!=='cancelled' && new Date(m.end||m.start).getTime() > now - 3600e3).sort((a,b)=>String(a.start).localeCompare(String(b.start))).slice(0, 8); }
+function joseMeetingAnswer(q, c){ const s = q.toLowerCase(); let L = joseMeetings(c);
+  const words = s.replace(/[^a-z0-9 ]/g,' ').split(/\s+/).filter(w=>w.length>3 && !/^(what|time|when|meeting|meetings|our|next|anong|oras|kailan|yung|ang|the|schedule|today|tomorrow|bukas|ngayon|assistant|jose)$/.test(w));
+  const hit = L.filter(m=>words.some(w=>String(m.title||'').toLowerCase().includes(w)));
+  if(hit.length) L = hit;
+  const P_ = typeof OPSPOLL!=='undefined' ? OPSPOLL.filter(p=>p.status==='collecting' && ((p.attendees||[]).includes(PERSON) || p.chat===c?.id)) : [];
+  if(!L.length && !P_.length) return `I checked your calendar in Ops Suite and I don’t see an upcoming meeting${words.length?` matching “${words.join(' ')}”`:''} that you’re invited to. If it was just announced, the invitation may still be on its way — or ask the organizer to add you.`;
+  const lines = L.slice(0, 5).map(m=>{ const r = mtRsvp(m.id, PERSON)?.status; return `• ${m.title} — ${mtDate(m.start, {long:true})}, ${mtTime(m.start)}${m.end?`–${mtTime(m.end)}`:''} (PH time)${m.link?` · link: ${m.link}`:''}${m.organizer!==PERSON && r ? ` · your response: ${MT_ST[r]||r}` : ''}`; });
+  const pl = P_.slice(0, 3).map(p=>`• ${p.title} — still collecting availability${p.day?` for ${mtDate(p.day+'T04:00:00Z',{long:true})}`:''}; not booked yet`);
+  return `Here’s what your Ops Suite calendar shows:\n${[...lines, ...pl].join('\n')}`; }
+
+/* availability: change / add / not coming on the open poll */
+function joseTimeOf(s){ const m = s.match(/\b(\d{1,2})(?::(\d{2}))?\s*(am|pm|n\.?n\.?|ng (umaga|hapon|gabi))?\b/i); if(!m) return null; let h = +m[1]; const mi = +(m[2]||0); const ap = (m[3]||'').toLowerCase();
+  if(!ap && !/\b(at|to|sa|by|around|mga)\s+\d/.test(s)) return null;
+  if(/pm|hapon|gabi/.test(ap) && h<12) h += 12; if(/am|umaga/.test(ap) && h===12) h = 0; if(!ap && h>=1 && h<=7) h += 12; return {h, mi}; }
+async function joseAvailability(q, c){ const s = q.toLowerCase();
+  const none = /\b(not coming|can'?t (make|come|attend)|cannot (make|come|attend)|hindi (ako )?(makaka|maka)(punta|attend|sali)|di (ako )?makaka)\w*/.test(s);
+  const t = none ? null : joseTimeOf(s);
+  if(!none && !(t && /\b(availab\w*|available|free|pwede|change|switch|move|update|set|instead|vote|kaya ko|g ako)\b/.test(s))) return null;
+  if(typeof OPSPOLL==='undefined') return null;
+  const polls = OPSPOLL.filter(p=>p.status==='collecting' && (p.attendees||[]).includes(PERSON)).sort((a,b)=>Number(b.chat===c.id)-Number(a.chat===c.id) || String(b.createdAt||'').localeCompare(String(a.createdAt||'')));
+  if(!polls.length) return `I don’t see an open availability request that includes you right now, ${first(PERSON)}, so there’s nothing to change. If a meeting is already booked, use “Request to reschedule” on the invitation in your Calendar.`;
+  if(polls.length>1 && !polls.some(p=>p.chat===c.id)) return `You have ${polls.length} open availability requests (${polls.map(p=>'“'+p.title+'”').join(', ')}). Which meeting should I update?`;
+  const p = polls[0];
+  const id = `${p.id}|${p.round}|${PERSON}`; let v = OPSVOTES.find(x=>x.id===id);
+  if(none){ if(!v){ v = {id, poll:p.id, round:p.round, person:PERSON, yes:[], none:true}; OPSVOTES.push(v); } else { v.none = true; v.yes = []; } v.at = nowISO(); }
+  else { const opt = (p.options||[]).find(o=>{ const d = new Date(new Date(o.start).getTime()+8*3600e3); return d.getUTCHours()===t.h && d.getUTCMinutes()===t.mi; });
+    if(!opt) return `Sorry, ${first(PERSON)} — ${String(t.h%12||12)}:${String(t.mi).padStart(2,'0')} ${t.h<12?'AM':'PM'} isn’t one of the options for “${p.title}”. The available times are: ${(p.options||[]).map(o=>mtTime(o.start)).join(', ')} (PH time). Tell me which one works, or tap them on the poll.`;
+    const add = /\b(also|add|too|din|rin)\b/.test(s);
+    if(!v){ v = {id, poll:p.id, round:p.round, person:PERSON, yes:[], none:false}; OPSVOTES.push(v); }
+    v.none = false; v.yes = add ? uniq([...(v.yes||[]), opt.id]) : [opt.id]; v.at = nowISO(); p._jt = opt; }
+  recordChange(); const ok = typeof cooVerify==='function' ? await cooVerify([mk('opsvotes', id)]) : {ok:true};
+  if(!ok.ok) return `⚠ I couldn’t save your availability yet — ${ok.why}. Your choice is kept on this device; you can also tap it on the poll.`;
+  setTimeout(()=>{ try{ pollTick(); }catch(e){} }, 400);
+  audit(`COO Assistant updated ${pname(PERSON)}'s availability for ${p.title}`);
+  return none ? `Got it, ${first(PERSON)} — I’ve marked you as not available for “${p.title}”. JA will see it in the availability summary.`
+    : `Done, ${first(PERSON)}! ✅ Your availability for “${p.title}” is now ${(v.yes||[]).map(x=>{ const o = (p.options||[]).find(y=>y.id===x); return o ? mtDate(o.start)+' '+mtTime(o.start) : ''; }).filter(Boolean).join(', ')} (PH time). It’s saved, and the summary is updated.`; }
+
+function joseContext(m, c, group){
+  const thread = m.thread ? [MESSAGES.find(x=>x.id===m.thread), ...threadReplies(m.thread)] : mainMsgs(c.id).sort((a,b)=>String(a.at).localeCompare(String(b.at)));
+  const conv = thread.filter(Boolean).filter(x=>x.id!==m.id && String(x.at)<=String(m.at)).slice(-14).map(x=>`${x.by===JOSE_KEY?'COO AI Assistant':pname(x.by)}: ${String(x.text||msgPreview(x)||'').replace(/\s+/g,' ').slice(0, 300)}`).join('\n');
+  const meets = joseMeetings(c).slice(0, 5).map(x=>`- ${x.title}: ${mtDate(x.start,{long:true})} ${mtTime(x.start)} PH${x.link?' · '+x.link:''}`).join('\n') || '- none';
+  const polls = (typeof OPSPOLL!=='undefined' ? OPSPOLL.filter(p=>p.status==='collecting' && (p.attendees||[]).includes(PERSON)) : []).slice(0,3).map(p=>`- ${p.title}: collecting availability · options ${(p.options||[]).map(o=>mtDate(o.start)+' '+mtTime(o.start)).join(', ')}`).join('\n') || '- none';
+  const tasks = group ? '' : TASKS.filter(t=>t.assignee===PERSON && !['Completed','Published','Archived','Cancelled','Done','Approved'].includes(t.status) && !t.archived).slice(0, 8).map(t=>`- ${t.title} (${t.status}${t.due?', due '+dstr(iso(t.due)):''})`).join('\n');
+  const anns = annFor(PERSON).slice().sort((a,b)=>String(b.at).localeCompare(String(a.at))).slice(0, 5).map(a=>`- ${a.title} (${dstr(a.at)})`).join('\n') || '- none';
+  const q = josePlain(m.text).toLowerCase(); const words = q.split(/\W+/).filter(w=>w.length>3);
+  const kbOk = a => { if(a.status && a.status!=='Approved') return false; const au = COLL.kb.aud(a); return !au || au.includes(PERSON); };
+  const kb = (typeof KB!=='undefined' ? KB : []).filter(kbOk).map(a=>({a, s:words.reduce((n,w)=>n+(String((a.title||'')+' '+(a.body||a.content||a.text||a.summary||'')).toLowerCase().includes(w)?1:0), 0)})).filter(x=>x.s>0).sort((x,y)=>y.s-x.s).slice(0, 3)
+    .map(({a})=>`### ${a.title}\n${String(a.body||a.content||a.text||a.summary||'').replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').slice(0, 900)}`).join('\n\n') || '(no matching article)';
+  const nav = NAV.filter(n=>!n.roles || n.roles.includes(ROLE)).map(n=>n.name).filter(Boolean);
+  return `ASKER: ${pname(PERSON)} (${P(PERSON).sub||ROLE}) · role ${ROLE}${PERSON===cooKey()?' · this is the COO':''}
+CONVERSATION: ${c.kind==='dm'?'private conversation':'group chat “'+chatTitle(c)+'”'}${m.thread?' (inside a thread)':''} — your reply is visible to ${c.kind==='dm'?'both people in it':'the people in this group chat'}.
+RECENT MESSAGES (oldest first):
+${conv || '(none)'}
+ASKER'S UPCOMING MEETINGS (from the Ops Suite Calendar):
+${meets}
+OPEN AVAILABILITY REQUESTS FOR THE ASKER:
+${polls}
+${group ? '' : `ASKER'S OPEN TASKS:\n${tasks || '- none'}\n`}RECENT ANNOUNCEMENTS FOR THE ASKER:
+${anns}
+OPS SUITE SECTIONS THE ASKER CAN OPEN: ${nav.join(', ')}
+COMPANY KNOWLEDGE (only articles the asker may read):
+${kb}`; }
+const JOSE_GUIDE = `OPS SUITE QUICK GUIDE (current features):
+- System Ops Support: “Report a problem” creates a support ticket (type, priority, description, screenshots / screen recording). Typing is auto-saved as a draft (“Draft saved”); “Save as draft”; drafts are in “My drafts” and get a ticket number only when submitted. Tabs: Active tickets (Open, In Progress, Pending Information, For Testing, Reopened), Resolved (fixed, waiting for final closure — say “No, still happening” if not fixed), Ticket history (every closed ticket kept permanently, searchable by number, keyword, category, dates). A closed ticket can be reopened with a reason; System Ops Support accepts it and it returns to Active with its history. The sidebar number only counts unread updates.
+- Messages: group and private chats, threads (reply under a message), @mentions, voice messages, pop-ups (Notification settings → Message pop-ups), 🔕 Mute per conversation.
+- Calendar: meetings with invitations; Accept, Decline or Request to reschedule; availability polls posted by the COO AI Assistant — tap every time that works, or “I can’t make any of these”.
+- Leave & Time Off, Attendance & Time Logs (Time In / Time Out), Accounting (payslips, Finance concerns), Company Knowledge (SOPs and policies), Training Hub, Announcements, Content Board for client work.`;
+function joseSystem(group){ return `You are “Jose”, the COO AI Assistant of Cross Core (a company of virtual assistants, PMs and creative staff), replying inside Ops Suite chat.
+Rules:
+- Understand English, Filipino and Taglish. Reply in clear, friendly, professional English (a short Taglish phrase is fine if the asker wrote in Taglish). Address the asker by first name.
+- Be brief and specific: 1–6 sentences, or short numbered steps for “how do I” questions. No headings, no markdown tables.
+- Use ONLY the DATA and GUIDE below. Never invent meeting times, policies, task statuses, approvals, ticket numbers or names. If the answer isn’t in the data, say what you checked and who can help (their PM, HR, or System Ops Support).
+- You cannot see or reveal anyone’s pay, payroll, HR files, evaluations, leave balances or personal details${group?', and in this group chat you must not share the asker’s private items either — suggest they check the right section':''}. If asked, explain it needs the proper authorization and where to look.
+- Never say you did something (sent, booked, scheduled, changed) — actions are handled separately. If they ask for an action you didn’t do, explain who can do it or how.
+${JOSE_GUIDE}`; }
+
+async function joseAnswer(m, retry){ if(!m || JM.busy.has(m.id) || joseAnswered(m)) return; const c = CHATS.find(x=>x.id===m.chat); if(!joseChatOk(c)) return;
+  JM.busy.add(m.id); JM.failed.delete(m.id); joseTyping(c.id, true);
+  const q = josePlain(m.text); const s = q.toLowerCase(); const group = c.kind!=='dm';
+  let text = null, note = null;
+  try{
+    if(!q) text = `Hi ${first(PERSON)}! I’m the COO AI Assistant. Ask me about meetings, Ops Suite features, support tickets or your availability — or, if you’re JA, give me an instruction.`;
+    if(!text){ const av = await joseAvailability(q, c); if(av) text = av; }
+    if(!text && PERSON===cooKey() && typeof cooExec==='function' && JOSE_ACTION.test(s)){ const r = await cooExec(q); if(r) text = String(r); }
+    if(!text && JOSE_ACTION.test(s) && PERSON!==cooKey() && /\b(can you|could you|please|pa|paki)\b/.test(s) && /\b(send|post|announce|book|schedule|reschedule|cancel|remind|invite|create)\b/.test(s))
+      text = `I can only send, schedule or announce things when JA (the COO) asks me to, ${first(PERSON)}. For a meeting you can create one in Calendar → Create meeting; for anything else, tag your PM or JA here and I’ll help once it’s approved.`;
+    if(!text && /\b(meeting|meet|call|huddle|sync|1:1|one on one)\b/.test(s) && /\b(when|what time|anong oras|kailan|oras|schedule|sched|time|next|ngayon|today|tomorrow|bukas)\b/.test(s)) text = joseMeetingAnswer(q, c);
+    if(!text && JOSE_SENSITIVE.test(s) && !(PERSON===cooKey() && c.kind==='dm')) text = `Sorry, ${first(PERSON)} — I can’t share pay, HR, evaluation or other personal records here. ${/payslip|pay|salar|deduction|bonus/i.test(s)?'Your own payslips are in Accounting, and Finance concerns go through Accounting → Concerns.':'Please check the right section in your portal, or ask HR / your PM directly.'}`;
+    if(!text){ const res = await (typeof aiStreamX==='function' ? aiStreamX(joseSystem(group), `DATA:\n${joseContext(m, c, group)}\n\nQUESTION FROM ${pname(PERSON)}: ${q}\n\nReply to ${first(PERSON)} now.`, null, {first:30000, total:80000}) : aiChat(joseSystem(group), q));
+      if(res?.text && String(res.text).trim()) text = String(res.text).trim().replace(/^\s*(jose|coo ai assistant)\s*:\s*/i,'');
+      else note = res?.note || 'The AI service didn’t answer.'; }
+  }catch(e){ note = e?.message || String(e); }
+  joseTyping(c.id, false); JM.busy.delete(m.id);
+  if(!text){ JM.failed.set(m.id, note); joseFail(m, c, note); return; }
+  if(joseAnswered(m)) return;
+  const id = joseReplyId(m.id); const at = nowISO(); const root = m.thread || m.id;
+  const reply = {id, chat:c.id, thread:root, by:JOSE_KEY, kind:'assistant', text:`@${pname(PERSON)} ${text}`.slice(0, 3800), at, files:[], mentions:[PERSON], replyTo:m.id, asker:PERSON};
+  MESSAGES.push(reply); JM.known.add(id);
+  if(typeof PALOG!=='undefined') PALOG.unshift({id:'JM-'+id, pa:COO_ASST, pm:cooKey(), kind:'mention', status:'Sent', text, to:[PERSON], at, date:manilaDate(), sentBy:PERSON, msg:id, chat:c.id, q:q.slice(0, 300)});
+  recordChange();
+  try{ if(CURRENT==='chat' && CHAT_OPEN===c.id){ updateMessages(c); if(typeof drawThread==='function' && THREAD_OPEN===root) drawThread(); } }catch(e){}
+  try{ mpRedrawList(); }catch(e){}
+  const v = typeof cooVerify==='function' && BACKEND?.mode==='live' ? await cooVerify([mk('messages', id)]) : {ok:true};
+  if(!v.ok){ toast(`COO AI Assistant’s answer isn’t saved yet — ${v.why}`); }
+}
+function joseFail(m, c, note){
+  const why = /not connected|AI provider/i.test(note||'') ? 'the AI provider isn’t connected' : /Demo mode/i.test(note||'') ? 'AI answers work on the live portal' : (note||'the AI service didn’t answer').replace(/\.$/, '');
+  topToast({key:'jose-fail|'+m.id, ava:av(P(JOSE_KEY)), title:JOSE_LABEL, label:'Couldn’t answer', kind:'mention', text:esc(`I couldn’t answer your question in ${c.kind==='dm'?'this conversation':chatTitle(c)} — ${why}. Tap to retry.`), tip:'Retry', onOpen:()=>joseAnswer(m, true)});
+}
+function joseRetry(id){ const m = MESSAGES.find(x=>x.id===id); if(m) joseAnswer(m, true); }
+
+/* ---------- 6. every COO Assistant message reaches its people: bell entry for messages that tag nobody (private chats) ---------- */
+{ const _ore = onRemoteEvent; onRemoteEvent = function(ev){ const r = _ore.apply(this, arguments);
+    try{ const o = ev?.obj; if(!ev?.deleted && ev.coll==='messages' && ev.isNew && o?.by===JOSE_KEY){ const M = TY.who.get(o.chat); if(M){ [...M.keys()].forEach(k=>{ if(k.startsWith(JOSE_KEY+'|')) M.delete(k); }); tyDraw(); } } }catch(e){}
+    return r; }; }
+/* a private-chat message from the COO Assistant (no tags) also lands in the bell, so it's there after the pop-up fades */
+{ const _rc2 = recordChange; let seen = null; recordChange = function(){
+    try{ if(SYNC.ready && PEOPLE[PERSON]){ if(!seen){ seen = new Set(MESSAGES.filter(m=>m.by===JOSE_KEY).map(m=>m.id)); }
+      else MESSAGES.forEach(m=>{ if(m.by!==JOSE_KEY || seen.has(m.id)) return; seen.add(m.id); if(JM.remote.has(String(m.id))) return; const c = CHATS.find(x=>x.id===m.chat); if(!c) return;
+        const to = (c.kind==='dm' ? (c.members||[]) : (m.mentions||[])).filter(k=>k!==PERSON && PEOPLE[k]);
+        const nid = 'N-jm-'+String(m.id).replace(/[^A-Za-z0-9-]/g,''); if(!to.length) return;
+        to.forEach(k=>{ const id = nid+'-'+k; if(NOTIFS2.some(n=>n.id===id || (n.to===k && n.link?.msg===m.id))) return;
+          NOTIFS2.unshift({id, to:k, type:'message', text:joseNotifText(c, m), link:{view:'chat', arg:c.id, ...(m.thread?{thread:m.thread}:{}), msg:m.id}, by:PERSON, asst:JOSE_KEY, at:nowISO(), read:false}); }); }); } }catch(e){}
+    return _rc2.apply(this, arguments); }; }
+/* opening the conversation / thread marks that message's bell entry as read */
+{ const _fl = followLink; followLink = function(link){ const r = _fl.apply(this, arguments);
+    try{ if(link?.view==='chat' && link.msg){ let ch = false; NOTIFS2.filter(n=>n.to===PERSON && !n.read && n.link?.msg===link.msg).forEach(n=>{ n.read = true; ch = true; }); if(ch) recordChange(); } }catch(e){}
+    return r; }; }
+{ const _sp = setPerson; setPerson = function(){ JM.seeded = false; JM.known = new Set(); const r = _sp.apply(this, arguments); setTimeout(()=>{ try{ jmScan(); }catch(e){} }, 3000); return r; }; }
+(function(){ const st = document.createElement('style'); st.id = 'jmCss'; st.textContent = `.jm-tag{background:linear-gradient(135deg,rgba(242,180,64,.25),rgba(45,99,200,.18));border-radius:6px;padding:0 4px}
+.jm-acts{display:flex;gap:6px;margin-top:8px}.jm-acts .btn{padding:4px 10px;font-size:11.5px}`; document.head.appendChild(st); })();
 
 /* <<< OCT24 MODULES <<< */
 </script>

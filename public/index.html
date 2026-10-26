@@ -20914,7 +20914,7 @@ async function cooPostFromModal(){ const ch = CHATS.find(c=>c.id===el('paPostC')
    The footer shows which build is running ("Build 2026-10-07 · 1"), and every open portal checks every few minutes
    (and whenever it comes back to the foreground) whether a newer build has been published. If so it shows
    "New version available — Update now" instead of quietly running old code. */
-const BUILD_ID = '2026-10-26 · 2';
+const BUILD_ID = '2026-10-26 · 3';
 function verStamp(){ const f = el('footNote'); if(f && !f.dataset.v){ f.dataset.v = 1; f.textContent = `Cross Core Ops Suite v8 · Build ${BUILD_ID}`; } }
 async function verCheck(){
   if(!/^https?:/.test(location.protocol)) return;
@@ -34990,6 +34990,202 @@ function tkdRowsHTML(D, cols){ return D.map(d=>`<tr class="clickable-row tkd-row
 .tkd-state.saved{color:var(--ok,#1E8E5A)}.tkd-state.offline{color:var(--warn,#B97509)}
 #modalTitle .tk-st{margin-left:6px;vertical-align:middle}
 .btn.danger{color:#fff;background:#C8402F;border-color:#C8402F}`; document.head.appendChild(st); })();
+
+/* ===== t8_tkhistory.js — System Ops Support: honest badges, no more "not saved", Active / Resolved / Ticket history, reopen (Oct 26 2026) =====
+   ROOT CAUSE of the stuck badge + “Some changes were not saved — your account does not have permission”:
+   opening your own ticket removed you from the ticket's unreadBy list and saved the WHOLE ticket back. When the copy on
+   that device was older than the server's (e.g. the team had since moved it to Resolved / Closed), the save also carried
+   the old status, and the server's ticket guard (cc_guard_ticket: only the support team changes a status) refused the
+   whole save. The “read” mark was lost, so the badge came back after every refresh, and the pill showed “not saved”.
+   Fix (no SQL needed):
+   • “seen / unread” is now kept per person in their OWN preferences record (prefs.tkSeen), which only they write —
+     opening a ticket never writes to the ticket itself; matching bell notifications are marked read at the same time;
+   • tickets are saved field by field (cc_patch — already installed for the Content Board): a reply or reopen request
+     sends only the new entries, never a stale status, so newer changes are never overwritten;
+   • if the server still refuses a ticket change, that ticket is reloaded from the server automatically;
+   • badge = real unread updates only (reporter) / new tickets + reopen requests waiting (System Ops Support).
+   Sections: Active · Resolved · Ticket history (closed, permanent, searchable) · My drafts. Statuses added: Pending
+   Information (team asks the reporter), Reopened (team accepts a reopen request; same number, full history kept). */
+const TKH = {q:'', type:'', basis:'closed', from:'', to:'', st:'Closed', sort:'closed', ast:'all'};
+const TKH_ACTIVE = s => !['Resolved','Closed'].includes(s);
+const tkhLabel = s => s==='Submitted' ? 'Open' : s==='Resolved' ? 'Fixed / Resolved' : s;
+const tkhBadgeHTML = s => `<span class="tk-st tk-${String(s).toLowerCase().replace(/[^a-z]/g,'')}">${esc(tkhLabel(s))}</span>`;
+const tkhClosedAt = t => (t.history||[]).filter(h=>h.to==='Closed').map(h=>h.at).sort().pop() || (t.status==='Closed' ? t.updated : null);
+const tkhClosedBy = t => (t.history||[]).filter(h=>h.to==='Closed').sort((a,b)=>String(a.at).localeCompare(String(b.at))).pop()?.by || null;
+const tkhHandler = t => t.assignee || t.resolution?.by || tkhClosedBy(t) || null;
+const tkhPendingReopen = t => (t.reopens||[]).find(r=>r.status==='requested');
+
+/* ---------- 1. unread state lives in the person's own record ---------- */
+const tkhSeenMap = () => (PREFS.find(x=>x.id===PERSON)?.tkSeen) || {};
+function tkhLastAct(t){ let m = ''; const take = (by, at) => { if(by && by!==PERSON && at && String(at) > m) m = String(at); };
+  (t.history||[]).forEach(h=>take(h.by, h.at)); (t.comments||[]).forEach(c=>take(c.by, c.at)); if(t.resolution) take(t.resolution.by, t.resolution.at); return m; }
+function tkhUnread(t){ if(!t || t.qa || t.by!==PERSON) return false; const la = tkhLastAct(t); if(!la) return false;
+  const seen = tkhSeenMap()[t.id]; return seen ? la > seen : !!t.unreadBy?.includes(PERSON); }
+function tkhMarkSeen(id){ const t = TICKETS.find(x=>x.id===id); if(!t || !PEOPLE[PERSON]) return; let changed = false;
+  if(tkhUnread(t) || (t.by===PERSON && !tkhSeenMap()[id] && tkhLastAct(t))){ const p = myPrefs(); p.tkSeen = {...(p.tkSeen||{}), [id]: nowISO()};
+    const ids = Object.keys(p.tkSeen); if(ids.length > 300) ids.sort((a,b)=>String(p.tkSeen[a]).localeCompare(String(p.tkSeen[b]))).slice(0, ids.length-300).forEach(k=>delete p.tkSeen[k]);
+    changed = true; }
+  NOTIFS2.filter(n=>n.to===PERSON && !n.read && n.link?.view==='support' && n.link.ticket===id).forEach(n=>{ n.read = true; changed = true; });
+  if(changed) recordChange(); tkhBadge(); }
+/* opening a ticket: the original marked it read by editing the ticket (refused for reporters) — now it doesn't touch it */
+{ const _to = tkOpen; tkOpen = function(id){ const t = TICKETS.find(x=>x.id===id); const ub = t?.unreadBy;
+    if(t && ub) t.unreadBy = {includes:()=>false, filter:()=>ub};          /* read-only view for the original */
+    let r; try{ r = _to.apply(this, arguments); } finally { if(t && ub) t.unreadBy = ub; }
+    if(t){ tkhMarkSeen(id); try{ tkhDetailExtras(t); }catch(e){ console.warn('tkh detail', e); } }
+    return r; }; }
+
+/* ---------- 2. sidebar badge: only genuine unread updates / work waiting ---------- */
+function tkhCount(){ if(!PEOPLE[PERSON]) return 0;
+  const mine = TICKETS.filter(tkhUnread).length;
+  if(!tkIsTeam()) return mine;
+  return mine + TICKETS.filter(t=>!t.qa && t.status==='Submitted').length + TICKETS.filter(t=>!t.qa && tkhPendingReopen(t)).length; }
+function tkhBadge(){ const b = document.querySelector(`#nav .nav-item[onclick="go('support')"]`); if(!b) return;
+  const n = tkhCount(); let p = b.querySelector('.pill');
+  if(!n){ p?.remove(); return; } if(!p){ b.insertAdjacentHTML('beforeend', '<span class="pill"></span>'); p = b.querySelector('.pill'); } p.textContent = n; }
+{ const _bn = buildNav; buildNav = function(){ const r = _bn.apply(this, arguments); try{ tkhBadge(); }catch(e){} return r; }; }
+{ const _ub = updateBadges; updateBadges = function(){ const r = _ub.apply(this, arguments); try{ tkhBadge(); }catch(e){} return r; }; }
+{ const _ore = onRemoteEvent; onRemoteEvent = function(ev){ _ore.apply(this, arguments); if(['tickets','prefs','notifs'].includes(ev?.coll)){ try{ tkhBadge(); }catch(e){} } }; }
+setInterval(()=>{ try{ tkhBadge(); }catch(e){} }, 8000);
+
+/* ---------- 3. saves: field by field, and a refused ticket reloads itself ---------- */
+if(typeof PATCH_COLLS!=='undefined') PATCH_COLLS.add('tickets');
+{ const S = DELIVERY.refusedKeys; const _a = S.add.bind(S); let tm = 0;
+  S.add = k => { const r = _a(k); if(String(k).startsWith('tickets|') && BACKEND?.mode==='live'){ clearTimeout(tm); tm = setTimeout(()=>{ try{ REFUSED_AT.delete(k); S.delete(k); SYNC.resync(); syncUI(); toast('That ticket had newer changes from System Ops Support — refreshed to the latest version'); }catch(e){} }, 1200); } return r; }; }
+
+/* ---------- 4. new statuses: Pending Information, Reopened ---------- */
+function tkhAskInfo(id){ const t = TICKETS.find(x=>x.id===id); if(!t || !tkCanWork(t)) return;
+  openModal(`Ask for more information — ${t.id}`, `<div class="field"><label>What do you need from ${esc(first(t.by))}? *</label><textarea id="tkhQ" rows="3" placeholder="e.g. Which client workspace were you in, and can you attach a screenshot of the error?"></textarea></div>
+    <div class="hint">The ticket moves to <b>Pending Information</b> and ${esc(first(t.by))} is notified. Move it back to In Progress once they reply.</div>
+    <div class="cf-acts"><button class="btn" onclick="tkOpen('${t.id}')">Cancel</button><button class="btn primary" onclick="tkhAskInfoSave('${t.id}')">Send request</button></div>`);
+  setTimeout(()=>el('tkhQ')?.focus(), 40); }
+function tkhAskInfoSave(id){ const t = TICKETS.find(x=>x.id===id); if(!t || !tkCanWork(t)) return; const q = (el('tkhQ')?.value||'').trim(); if(!q) return toast('Write what you need');
+  t.comments = [...(t.comments||[]), {id:uid('TC'), by:PERSON, at:nowISO(), text:'❓ More information needed: '+q, files:[]}];
+  tkSetStatus(t, 'Pending Information', 'More information requested'); recordChange(); tkOpen(id); RENDER.support?.(); toast(`${first(t.by)} was asked for more information`); }
+function tkhReopenAsk(id){ const t = TICKETS.find(x=>x.id===id); if(!t || t.by!==PERSON) return;
+  openModal(`Reopen ${t.id}`, `<div class="hint" style="margin-bottom:8px">The same ticket (${esc(t.id)}) comes back with its full history — no duplicate is created. System Ops Support is notified and reopens it.</div>
+    <div class="field"><label>Why does it need another look? *</label><textarea id="tkhR" rows="3" placeholder="e.g. It happened again today at 9:10 AM after Time In — screenshot attached in the reply."></textarea></div>
+    <div class="cf-acts"><button class="btn" onclick="tkOpen('${t.id}')">Cancel</button><button class="btn primary" onclick="tkhReopenSend('${t.id}')">↩ Request reopen</button></div>`);
+  setTimeout(()=>el('tkhR')?.focus(), 40); }
+function tkhReopenSend(id){ const t = TICKETS.find(x=>x.id===id); if(!t || t.by!==PERSON) return; const why = (el('tkhR')?.value||'').trim(); if(!why) return toast('Add the reason');
+  if(tkhPendingReopen(t)) return toast('A reopen request is already waiting');
+  const at = nowISO();
+  t.reopens = [...(t.reopens||[]), {id:uid('RO'), by:PERSON, at, reason:why, status:'requested', from:t.status}];
+  t.comments = [...(t.comments||[]), {id:uid('TC'), by:PERSON, at, text:'↩ Reopen requested: '+why, files:[]}];
+  t.history = [...(t.history||[]), {at, by:PERSON, to:t.status, note:'Reopen requested — '+why}]; t.updated = at;
+  notify(uniq([...tkTagged(t), ...tkTeam(), t.assignee].filter(k=>k && k!==PERSON)), 'system', `↩ <b>${esc(first(PERSON))}</b> asked to reopen ticket ${esc(t.id)} “${esc(t.title)}”: ${esc(why.slice(0,90))}`, tkUrl(t.id));
+  audit(`Requested reopening of support ticket ${t.id}`); recordChange(); tkOpen(id); RENDER.support?.(); toast('Reopen request sent — System Ops Support was notified'); }
+function tkhReopenDecide(id, ok){ const t = TICKETS.find(x=>x.id===id); if(!t || !tkCanWork(t)) return; const rq = tkhPendingReopen(t); if(!rq) return;
+  const at = nowISO(); t.reopens = (t.reopens||[]).map(r=>r.id===rq.id ? {...r, status:ok?'accepted':'declined', decidedBy:PERSON, decidedAt:at} : r);
+  if(ok){ tkSetStatus(t, 'Reopened', 'Reopened — '+rq.reason); }
+  else { const why = (el('tkhDecl')?.value||'').trim() || 'The issue is already fixed — see the resolution.';
+    t.comments = [...(t.comments||[]), {id:uid('TC'), by:PERSON, at, text:'Reopen request declined: '+why, files:[]}]; tkTouch(t, 'Reopen request declined — '+why);
+    tkNotifyParties(t, `🎫 Your request to reopen ${esc(t.id)} was declined: ${esc(why.slice(0,90))}`); }
+  audit(`${ok?'Reopened':'Declined reopening of'} support ticket ${t.id}`); recordChange(); tkOpen(id); RENDER.support?.(); toast(ok ? 'Reopened — back in Active tickets' : 'Declined — the reporter was notified'); }
+/* resolving again keeps the earlier resolution in the record */
+{ const _tr = tkResolve; tkResolve = function(id){ const t = TICKETS.find(x=>x.id===id); const txt = (el('tkResT')?.value||'').trim();
+    if(t && txt && t.resolution && t.resolution.text!==txt) t.pastResolutions = [...(t.pastResolutions||[]), t.resolution];
+    return _tr.apply(this, arguments); }; }
+/* closing tells the reporter where to find it */
+{ const _ss = tkSetStatus; tkSetStatus = function(t, status, note){ const r = _ss.apply(this, arguments);
+    if(status==='Closed'){ const n = NOTIFS2.find(x=>x.to===t.by && x.link?.ticket===t.id && !x.read && /Closed/.test(x.text||'')); if(n && !/Ticket history/.test(n.text)) n.text += ' — it is kept in <b>Ticket history</b>.'; }
+    return r; }; }
+
+/* ---------- 5. details window: closing record, reopen, ask for info ---------- */
+function tkhDetailExtras(t){ const body = el('modalBody'); if(!body || !el('modalTitle')?.textContent.includes(t.id)) return; const work = tkCanWork(t);
+  const meta = body.querySelector('.tk-meta'); const bits = [];
+  if(t.status==='Pending Information' && t.by===PERSON) bits.push(`<div class="tk-clarify">❓ <b>System Ops Support needs more information.</b> Reply below with the details or a screenshot.</div>`);
+  const rq = tkhPendingReopen(t);
+  if(rq) bits.push(`<div class="tk-clarify">↩ <b>Reopen requested</b> by ${esc(pname(rq.by))} · ${esc(dstr(rq.at))} ${esc(clock(rq.at))}: ${esc(rq.reason)}${work?`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px"><button class="btn primary" onclick="tkhReopenDecide('${t.id}',true)">Accept & reopen</button><input id="tkhDecl" placeholder="Reason if declining…" style="flex:1;min-width:160px"><button class="btn" onclick="tkhReopenDecide('${t.id}',false)">Decline</button></div>`:'<div class="hint">Waiting for System Ops Support.</div>'}</div>`);
+  if(t.status==='Closed'){ const ca = tkhClosedAt(t), h = tkhHandler(t);
+    bits.push(`<div class="tk-res tkh-closed">🗂 <b>Closed</b>${ca?` ${esc(dstr(ca))} ${esc(clock(ca))}`:''}${tkhClosedBy(t)?` by ${esc(pname(tkhClosedBy(t)))}`:''}${h?` · handled by <b>${esc(pname(h))}</b>`:''}${t.resolution?.at?` · resolved ${esc(dstr(t.resolution.at))} ${esc(clock(t.resolution.at))}`:''}. Kept permanently in Ticket history.</div>`); }
+  if((t.pastResolutions||[]).length) bits.push(`<details class="tk-hist"><summary>Earlier resolutions (${t.pastResolutions.length})</summary>${t.pastResolutions.map(r=>`<div class="hint" style="margin-top:4px">✅ ${esc(first(r.by))}, ${esc(dstr(r.at))}: ${esc(r.text)}</div>`).join('')}</details>`);
+  if((t.reopens||[]).length) bits.push(`<details class="tk-hist"><summary>Reopening record (${t.reopens.length})</summary>${t.reopens.map(r=>`<div class="hint" style="margin-top:4px">↩ ${esc(pname(r.by))} · ${esc(dstr(r.at))} ${esc(clock(r.at))} — ${esc(r.reason)} · <b>${esc(r.status)}</b>${r.decidedBy?` by ${esc(first(r.decidedBy))} ${esc(dstr(r.decidedAt))}`:''}</div>`).join('')}</details>`);
+  if(bits.length) (meta||body.firstElementChild)?.insertAdjacentHTML('afterend', `<div class="tkh-extra">${bits.join('')}</div>`);
+  /* actions */
+  let acts = body.querySelector('.tk-acts');
+  const add = html => { if(!acts){ (body.querySelector('.kv.tk-kv')||meta)?.insertAdjacentHTML('afterend', `<div class="tk-acts"></div>`); acts = body.querySelector('.tk-acts'); } acts?.insertAdjacentHTML('beforeend', html); };
+  if(work){
+    if(['Pending Information','Reopened'].includes(t.status) && !acts?.textContent.includes('In Progress')) add(`<span class="hint">Move to</span><button class="btn" onclick="tkMove('${t.id}','In Progress')">In Progress</button><button class="btn primary" onclick="tkMove('${t.id}','Resolved')">Resolved</button>`);
+    if(TKH_ACTIVE(t.status) && t.status!=='Pending Information' && !t.qa) add(`<button class="btn" onclick="tkhAskInfo('${t.id}')">❓ Ask for information</button>`);
+  }
+  if(t.by===PERSON && t.status==='Closed' && !rq) add(`<span class="hint">Happening again?</span><button class="btn" onclick="tkhReopenAsk('${t.id}')">↩ Reopen ticket</button>`);
+}
+
+/* ---------- 6. Active · Resolved · Ticket history ---------- */
+const tkhMineBase = () => TICKETS.filter(t=>!t.qa && (t.by===PERSON || tkTagged(t).includes(PERSON) || t.pm===PERSON));
+const tkhScope = () => tkIsTeam() ? tkVisible().filter(t=>!t.qa) : tkhMineBase();
+const tkhMatch = (t, q) => !q || (t.id+' '+(t.title||'')+' '+(t.desc||'')+' '+(t.type||'')+' '+(t.area||'')+' '+pname(t.by)+' '+(t.resolution?.text||'')+' '+(t.comments||[]).map(c=>c.text).join(' ')).toLowerCase().includes(q.toLowerCase());
+const tkhAssignedHTML = t => t.assignee ? esc(first(t.assignee)) : (t.assignees||[]).length ? '<span class="tk-team">System Ops Support</span>' : '<span class="hint">—</span>';
+function tkhTitleCell(t){ const u = tkhUnread(t); const g = (()=>{ try{ return tkTargets(t); }catch(e){ return {}; } })();
+  return `<td style="min-width:220px">${u?'<span class="tkh-dot" title="New update"></span>':''}<b style="font-size:13px">${esc(t.title)}</b>${t.systemWide?' <span class="tk-flag sys">system-wide</span>':''}${tkhPendingReopen(t)?' <span class="tk-flag">reopen requested</span>':''}${TKH_ACTIVE(t.status)&&g.replyLate?' <span class="tk-flag late">reply overdue</span>':''}<div class="hint">${esc((t.area||'')+(t.comments?.length?` · 💬 ${t.comments.length}`:'')+((t.files||[]).length?` · 📎 ${t.files.length}`:''))}</div></td>`; }
+function tkhSearchBox(){ return `<input class="tkh-q" placeholder="Search ticket number, title or keywords…" value="${esc(TKH.q)}" oninput="TKH.q=this.value;clearTimeout(TKH.qt);TKH.qt=setTimeout(()=>{RENDER.support();const i=document.querySelector('#v-support .tkh-q');i?.focus();i?.setSelectionRange(i.value.length,i.value.length)},250)" style="min-width:220px">`; }
+function tkhActiveHTML(base){ const L0 = base.filter(t=>TKH_ACTIVE(t.status));
+  const sts = ['Submitted','In Progress','Pending Information','For Testing','Reopened'];
+  const L = L0.filter(t=>TKH.ast==='all' || t.status===TKH.ast).filter(t=>tkhMatch(t, TKH.q)).sort((a,b)=>Number(tkhUnread(b))-Number(tkhUnread(a)) || String(b.updated||b.at).localeCompare(String(a.updated||a.at)));
+  const D = TK.tab==='mine' && typeof tkDrafts==='function' ? tkDrafts() : [];
+  return `<div class="card"><div class="card-h" style="flex-wrap:wrap;gap:8px"><div class="pill-row"><button class="chip ${TKH.ast==='all'?'on':''}" onclick="TKH.ast='all';RENDER.support()">All active <b>${L0.length}</b></button>${sts.map(s=>`<button class="chip ${TKH.ast===s?'on':''}" onclick="TKH.ast='${s}';RENDER.support()">${esc(tkhLabel(s))} <b>${L0.filter(t=>t.status===s).length}</b></button>`).join('')}</div>${tkhSearchBox()}</div>
+    <div class="tbl-wrap"><table class="tbl tk-tbl"><thead><tr><th>ID</th><th>Title</th><th>Type</th><th>Priority</th><th>Status</th><th>Reported by</th><th>Assigned</th><th>Updated</th></tr></thead><tbody>
+    ${D.length && typeof tkdRowsHTML==='function' && TKH.ast==='all' && !TKH.q ? tkdRowsHTML(D, 'mine') : ''}
+    ${L.map(t=>`<tr class="clickable-row ${tkhUnread(t)?'tkh-unread':''}" onclick="tkOpen('${t.id}')"><td><b>${esc(t.id)}</b></td>${tkhTitleCell(t)}<td>${esc(t.type)}</td><td>${tkPri(t.priority)}</td><td>${tkhBadgeHTML(t.status)}</td><td>${esc(first(t.by))}</td><td>${tkhAssignedHTML(t)}</td><td class="hint">${esc(ago(t.updated||t.at))}</td></tr>`).join('') || (D.length && TKH.ast==='all' && !TKH.q ? '' : `<tr><td colspan="8" class="empty">${L0.length?'No active tickets match.':'No active tickets — everything is resolved or closed. Found a problem? Press “Report a problem”.'}</td></tr>`)}
+    </tbody></table></div></div>`; }
+function tkhResolvedHTML(base){ const L = base.filter(t=>t.status==='Resolved').filter(t=>tkhMatch(t, TKH.q)).sort((a,b)=>String(b.resolution?.at||b.updated).localeCompare(String(a.resolution?.at||a.updated)));
+  return `<div class="card"><div class="card-h" style="flex-wrap:wrap;gap:8px"><div><h3>Fixed / Resolved</h3><span class="sub">Fixed and waiting for final closure. Still happening? Open it and press “No, still happening”.</span></div>${tkhSearchBox()}</div>
+    <div class="tbl-wrap"><table class="tbl tk-tbl"><thead><tr><th>ID</th><th>Title</th><th>Resolution</th><th>Reported by</th><th>Resolved</th><th>Handled by</th><th>Status</th></tr></thead><tbody>
+    ${L.map(t=>`<tr class="clickable-row ${tkhUnread(t)?'tkh-unread':''}" onclick="tkOpen('${t.id}')"><td><b>${esc(t.id)}</b></td>${tkhTitleCell(t)}<td class="hint" style="max-width:320px">${esc((t.resolution?.text||'').slice(0,140))}</td><td>${esc(first(t.by))}</td><td class="hint">${esc(t.resolution?.at?dstr(t.resolution.at):'—')}</td><td>${tkhHandler(t)?esc(first(tkhHandler(t))):'—'}</td><td>${tkhBadgeHTML(t.status)}</td></tr>`).join('') || `<tr><td colspan="7" class="empty">Nothing waiting for closure.</td></tr>`}
+    </tbody></table></div></div>`; }
+function tkhHistoryList(base){ const st = TKH.st;
+  let L = base.filter(t=>st==='any' ? true : t.status===st).filter(t=>tkhMatch(t, TKH.q)).filter(t=>!TKH.type || t.type===TKH.type);
+  const dOf = t => TKH.basis==='closed' ? (tkhClosedAt(t) || t.resolution?.at || t.updated) : t.at;
+  const day = iso => iso ? new Date(new Date(iso).getTime()+8*3600e3).toISOString().slice(0,10) : '';
+  if(TKH.from) L = L.filter(t=>day(dOf(t)) >= TKH.from); if(TKH.to) L = L.filter(t=>day(dOf(t)) && day(dOf(t)) <= TKH.to);
+  const key = TKH.sort==='closed' ? t=>String(tkhClosedAt(t)||t.updated||'') : t=>String(t.at||'');
+  return L.sort((a,b)=> TKH.sort==='oldest' ? key(a).localeCompare(key(b)) : key(b).localeCompare(key(a))); }
+function tkhHistoryHTML(base){ const L = tkhHistoryList(base); const all = base.filter(t=>t.status==='Closed').length;
+  const sel = (v, opts, on) => `<select onchange="${on}">${opts.map(([k,l])=>`<option value="${k}" ${k===v?'selected':''}>${l}</option>`).join('')}</select>`;
+  return `<div class="card"><div class="card-h" style="flex-wrap:wrap;gap:8px"><div><h3>Ticket history <span class="pill">${all}</span></h3><span class="sub">Every closed ticket with its full record — kept permanently${tkIsTeam()?'':' · only your own tickets'}</span></div></div>
+    <div class="tkh-filters">${tkhSearchBox()}
+      ${sel(TKH.type, [['','All categories'], ...TK_TYPES.map(x=>[x,x])], "TKH.type=this.value;RENDER.support()")}
+      ${sel(TKH.st, [['Closed','Closed'],['Resolved','Fixed / Resolved'],['any','Any status']], "TKH.st=this.value;RENDER.support()")}
+      ${sel(TKH.basis, [['closed','Date closed'],['submitted','Date submitted']], "TKH.basis=this.value;RENDER.support()")}
+      <label class="hint">from <input type="date" value="${esc(TKH.from)}" onchange="TKH.from=this.value;RENDER.support()"></label><label class="hint">to <input type="date" value="${esc(TKH.to)}" onchange="TKH.to=this.value;RENDER.support()"></label>
+      ${sel(TKH.sort, [['closed','Recently closed'],['newest','Newest submitted'],['oldest','Oldest first']], "TKH.sort=this.value;RENDER.support()")}
+      ${TKH.q||TKH.type||TKH.from||TKH.to||TKH.st!=='Closed'?`<button class="btn ghost" style="padding:5px 10px;font-size:12px" onclick="Object.assign(TKH,{q:'',type:'',from:'',to:'',st:'Closed'});RENDER.support()">Clear</button>`:''}</div>
+    <div class="tbl-wrap"><table class="tbl tk-tbl"><thead><tr><th>ID</th><th>Title</th><th>Category</th><th>Submitted by</th><th>Submitted</th><th>Closed</th><th>Handled by</th><th>Status</th></tr></thead><tbody>
+    ${L.map(t=>{ const ca = tkhClosedAt(t); return `<tr class="clickable-row ${tkhUnread(t)?'tkh-unread':''}" onclick="tkOpen('${t.id}')"><td><b>${esc(t.id)}</b></td>${tkhTitleCell(t)}<td>${esc(t.type)}</td><td>${esc(pname(t.by))}<div class="hint">${esc(t.portal||'')}</div></td><td class="hint">${esc(dstr(t.at))} ${esc(clock(t.at))}</td><td class="hint">${ca?esc(dstr(ca))+' '+esc(clock(ca)):'—'}</td><td>${tkhHandler(t)?esc(pname(tkhHandler(t))):'—'}</td><td>${tkhBadgeHTML(t.status)}</td></tr>`; }).join('') || `<tr><td colspan="8" class="empty">${all?'No tickets match these filters.':'No closed tickets yet. When System Ops Support closes a ticket it moves here automatically.'}</td></tr>`}
+    </tbody></table></div></div>`; }
+{ const _rs = RENDER.support; RENDER.support = function(){ const own = ['mine','all','resolved','history'].includes(TK.tab); const keep = TK.tab;
+    if(own) TK.tab = 'how'; let r; try{ r = _rs.apply(this, arguments); } finally { TK.tab = keep; }
+    const v = el('v-support'); if(!v) return r; const team = tkIsTeam(); if(!team && keep==='all'){ TK.tab = 'mine'; return RENDER.support(); }
+    const scope = tkhScope(), mineB = tkhMineBase(); const D = typeof tkDrafts==='function' ? tkDrafts() : [];
+    const nA = (keep==='all'?scope:mineB).filter(t=>TKH_ACTIVE(t.status)).length;
+    const unreadIn = L => L.filter(tkhUnread).length;
+    const tabs = [['mine', team?'My active':'Active tickets', mineB.filter(t=>TKH_ACTIVE(t.status)).length, unreadIn(mineB.filter(t=>TKH_ACTIVE(t.status)))],
+      ...(team?[['all','All active', scope.filter(t=>TKH_ACTIVE(t.status)).length, 0]]:[]),
+      ['resolved','Resolved', scope.filter(t=>t.status==='Resolved').length, unreadIn(scope.filter(t=>t.status==='Resolved'))],
+      ['history','Ticket history', scope.filter(t=>t.status==='Closed').length, unreadIn(scope.filter(t=>t.status==='Closed'))],
+      ['drafts','My drafts', D.length, 0], ...(team?[['qa','QA tracker', 0, 0]]:[]), ['how','How it works', 0, 0]];
+    const bar = v.querySelector('.tabs');
+    if(bar) bar.innerHTML = tabs.map(([k,l,n,u])=>`<button class="tab ${keep===k?'on':''} ${k==='drafts'?'tkd-tab':''}" onclick="TK.tab='${k}';RENDER.support()">${l}${n&&k!=='how'&&k!=='qa'?` <span class="tkh-n">${n}</span>`:''}${u?` <span class="pill" title="Unread updates">${u}</span>`:''}</button>`).join('');
+    if(!own) return r;
+    { let n = bar?.nextElementSibling; while(n){ const x = n.nextElementSibling; n.remove(); n = x; } }
+    const html = keep==='history' ? tkhHistoryHTML(scope) : keep==='resolved' ? tkhResolvedHTML(scope) : tkhActiveHTML(keep==='all' ? scope : mineB);
+    bar?.insertAdjacentHTML('afterend', html);
+    return r; }; }
+/* links from notifications open the right section */
+{ const _fl = followLink; followLink = function(link){ if(link?.view==='support' && link.ticket){ const t = TICKETS.find(x=>x.id===link.ticket);
+      if(t && !t.qa){ TK.tab = t.status==='Closed' ? 'history' : t.status==='Resolved' ? 'resolved' : (t.by!==PERSON && tkIsTeam() ? 'all' : 'mine'); if(t.status==='Closed') TKH.st = 'Closed'; } }
+    const r = _fl.apply(this, arguments);
+    if(link?.view==='support' && link.ticket){ const t = TICKETS.find(x=>x.id===link.ticket); if(t && !t.qa){ TK.tab = t.status==='Closed' ? 'history' : t.status==='Resolved' ? 'resolved' : (t.by!==PERSON && tkIsTeam() ? 'all' : 'mine'); if(CURRENT==='support') RENDER.support(); } }
+    return r; }; }
+(function(){ const st = document.createElement('style'); st.id = 'tkhCss'; st.textContent = `.tk-pendinginformation{background:var(--warn-bg);color:var(--warn);border:1px solid currentColor}
+.tk-reopened{background:var(--bad-bg);color:var(--bad)}
+.tkh-n{font-size:11px;color:var(--muted,var(--ink-2));font-weight:600;margin-left:2px}
+.tkh-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--bad,#C8402F);margin-right:6px;vertical-align:middle}
+tr.tkh-unread td{font-weight:600}
+.tkh-filters{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:0 16px 12px}
+.tkh-filters select,.tkh-filters input[type=date]{padding:6px 8px;font-size:12.5px}
+.tkh-extra{display:grid;gap:8px;margin:10px 0}
+.tkh-closed{background:var(--line-2);color:var(--ink)}`; document.head.appendChild(st); })();
 
 /* <<< OCT24 MODULES <<< */
 </script>

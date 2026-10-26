@@ -20914,7 +20914,7 @@ async function cooPostFromModal(){ const ch = CHATS.find(c=>c.id===el('paPostC')
    The footer shows which build is running ("Build 2026-10-07 · 1"), and every open portal checks every few minutes
    (and whenever it comes back to the foreground) whether a newer build has been published. If so it shows
    "New version available — Update now" instead of quietly running old code. */
-const BUILD_ID = '2026-10-26 · 5';
+const BUILD_ID = '2026-10-26 · 6';
 function verStamp(){ const f = el('footNote'); if(f && !f.dataset.v){ f.dataset.v = 1; f.textContent = `Cross Core Ops Suite v8 · Build ${BUILD_ID}`; } }
 async function verCheck(){
   if(!/^https?:/.test(location.protocol)) return;
@@ -35654,6 +35654,60 @@ function jwfPanelHTML(){ const run = JOSEWF.filter(w=>['active','collecting','co
 .jwf-chip{font-size:11px;font-weight:600;padding:1px 8px;border-radius:99px;background:var(--line-2);color:var(--ink-2)}.jwf-chip.ok{background:var(--ok-bg);color:var(--ok)}.jwf-chip.no{background:var(--bad-bg);color:var(--bad)}.jwf-chip.wait{background:var(--warn-bg);color:var(--warn)}
 .jwf-st{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-3);margin-left:4px}.jwf-st.done{color:var(--ok)}
 .jwf-li{font-size:12.5px}.jwf-fail{color:var(--bad);font-size:12px}`; document.head.appendChild(st); })();
+
+/* ===== t11_leavedirect.js — direct approval route for people outside the PM structure (Oct 26 2026) =====
+   Cha (Charisse, Finance) is not supervised by a Project Manager. Her leave / time-off requests skip the PM (and HR
+   endorsement) stages and go straight to Pau (CEO): Requester signs → Pau approves → Approved stamp, HR filing, Finance
+   sync and calendar exactly as for everyone else. HR is told about the request (FYI) and still files the approved form.
+   Everyone else keeps the existing route (HR → PM for contractors → every required head).
+   The route is a setting: lvCfg().direct = {personKey:[approverKeys]} (default: charisse → paul). The database enforces
+   the same rule (supabase/update-oct26-leave-direct.sql). */
+const LVD_DEFAULT = {charisse:['paul']};
+function lvDirect(emp){ const d = lvCfg().direct; const L = (d && Array.isArray(d[emp])) ? d[emp] : LVD_DEFAULT[emp];
+  const ok = (L||[]).filter(k=>PEOPLE[k] && k!==emp); return ok.length ? ok : null; }
+const lvIsDirect = r => !!r && (r.route==='direct' || !!lvDirect(r.emp));
+const lvDirectNames = emp => (lvDirect(emp)||[]).map(k=>`${first(k)} (${lvSlotLabel(k)})`).join(' and ');
+
+/* creating: no Project Manager to choose */
+{ const _c = lvCreate; lvCreate = function(f){ if(!lvDirect(PERSON)) return _c.apply(this, arguments);
+    const r = _c.call(this, {...f, pm:f.pm || '__direct'}); r.pm = null; r.route = 'direct'; return r; }; }
+/* submitting: straight to the direct approver(s) */
+{ const _s = lvSubmit; lvSubmit = function(r){ const dir = lvDirect(r?.emp); if(!dir) return _s.apply(this, arguments);
+    if(![LV_ST.DRAFT, LV_ST.RET].includes(r.status) || r.emp!==PERSON) throw new Error('This request can’t be submitted now.'); if(!lvSignedNow(r,'requester')) throw new Error('Sign the request before submitting it.');
+    const was = r.status; r.status = LV_ST.LEAD; r.route = 'direct'; r.pm = null; r.no = r.no || lvNextNo(); r.submittedAt = nowISO(); r.hr = null; r.pmr = null;
+    r.approvers = dir.map(k=>({key:k, role:lvSlotLabel(k), status:'Pending', at:null, comment:null, by:null}));
+    lvAudit(r, `Submitted and signed → sent directly to ${lvDirectNames(r.emp)} for approval (no PM / HR endorsement step)`); LVD.just = r.id; lvEmitStage(r, was); }; }
+/* a request that reached HR on an older portal: HR forwards it to the direct approver, never to a PM */
+{ const _h = lvHrEndorse; lvHrEndorse = function(r, approvers, comment){ const dir = lvDirect(r?.emp); if(!dir) return _h.apply(this, arguments);
+    if(!lvIsHr() || r.emp===PERSON || r.status!==LV_ST.HR) throw new Error('Only an HR representative reviews this request.'); if(!lvSignedNow(r,'hr')) throw new Error('HR must sign when endorsing the request.');
+    r.approvers = dir.map(k=>({key:k, role:lvSlotLabel(k), status:'Pending', at:null, comment:null, by:null})); r.route = 'direct'; r.pm = null;
+    r.hr = {by:PERSON, at:nowISO(), action:'endorsed', comment:comment||''}; r.status = LV_ST.LEAD; lvAudit(r, `HR endorsed and signed → ${lvDirectNames(r.emp)}`); lvEmitStage(r, LV_ST.HR); }; }
+/* notifications (demo; the live database sends the same from the server) */
+const LVD = {just:null};
+{ const _e = lvEmitStage; lvEmitStage = function(r, was, a){ if(!lvIsDirect(r) || r.status!==LV_ST.LEAD || was===LV_ST.LEAD || a) return _e.apply(this, arguments);
+    const nm = pname(r.emp), w = lvWord(r), lnk = {view:'leave', req:r.id}; const who = (r.approvers||[]).filter(x=>x.status==='Pending').map(x=>x.key);
+    pvEmit(who, 'leave', `🖋 Your approval is needed: <b>${esc(nm)}</b>'s ${w} ${esc(r.no||'')} (${dShort(r.start)}–${dShort(r.end)}) — sent directly to you (no PM / HR endorsement step).`, lnk);
+    pvEmit([r.emp], 'leave', `✅ Your ${w} ${esc(r.no||'')} was submitted and sent directly to ${esc(lvDirectNames(r.emp))} for approval.`, lnk);
+    pvEmit(HR_KEYS(), 'leave', `📝 FYI: <b>${esc(nm)}</b> filed a ${w} ${esc(r.no||'')} (${dShort(r.start)}–${dShort(r.end)}) — routed directly to ${esc(lvDirectNames(r.emp))} for approval.`, {view:'leavehr', req:r.id}); }; }
+{ const _t = toast; toast = function(msg){ if(LVD.just && /^Signed and submitted — HR will review it next/.test(String(msg||''))){ const r = lvDoc(LVD.just); LVD.just = null; return _t.call(this, `Signed and submitted — sent directly to ${lvDirectNames(r?.emp)} for approval`); } return _t.apply(this, arguments); }; }
+
+/* the form: no PM picker, the right “what happens next” */
+{ const _f = lvForm; lvForm = function(rid){ const r = _f.apply(this, arguments); const emp = rid ? lvDoc(rid)?.emp : PERSON; if(!lvDirect(emp)) return r;
+    const pm = el('lvPm'); if(pm){ const fld = pm.closest('.field'); fld.innerHTML = `<label>Approval</label><div class="lvd-route">Goes directly to <b>${esc(lvDirectNames(emp))}</b></div>`; }
+    const hints = [...(el('modalBody')?.querySelectorAll('.hint')||[])]; const h = hints.find(x=>/Next you sign electronically/.test(x.textContent));
+    if(h) h.textContent = `Next you sign electronically. Your request then goes straight to ${lvDirectNames(emp)} for approval — no Project Manager step. HR is informed and files the approved form.`;
+    return r; }; }
+{ const _g = lvFormGo; lvFormGo = async function(rid){ if(!el('lvPm') && lvDirect(rid ? lvDoc(rid)?.emp : PERSON)){ const r = rid ? lvDoc(rid) : null; if(r) r.pm = null; } return _g.apply(this, arguments); }; }
+/* the request: direct route steps, no HR / PM signature boxes */
+{ const _o = lvOpen; lvOpen = function(id){ const r0 = _o.apply(this, arguments); const r = lvDoc(id); if(!r || !lvIsDirect(r) || r.hr?.action==='endorsed') return r0;
+    const body = el('modalBody'); if(!body) return r0; const appr = (r.approvers||[]).length ? r.approvers : (lvDirect(r.emp)||[]).map(k=>({key:k, status:'Pending'}));
+    const steps = [['Requester signed', r.submittedAt, !!r.submittedAt], ...appr.map(a=>[`${first(a.key)} (${lvSlotLabel(a.key)}) approval`, a.at, a.status==='Approved']), ['Approved stamp & HR filing', r.filing?.at, r.filing?.status==='Filed']];
+    const st = body.querySelector('.lv-steps'); if(st) st.innerHTML = steps.map(([l,at,done])=>`<div class="${done?'done':''}"><i>${done?'✓':''}</i><b>${esc(l)}</b><span class="hint">${at?esc(dtstr(at)):''}</span></div>`).join('');
+    st?.insertAdjacentHTML('afterend', `<div class="hint lvd-note">Direct approval route — ${esc(pname(r.emp))} is not under a Project Manager, so this goes straight to ${esc(lvDirectNames(r.emp))}.</div>`);
+    body.querySelectorAll('.lv-sigs .lv-sig').forEach(c=>{ if(/HR representative|Project Manager/.test(c.querySelector('.hint')?.textContent||'')) c.remove(); });
+    body.querySelectorAll('.nav-label').forEach(n=>{ if(/every required head must approve/.test(n.textContent)) n.textContent = 'Approval'; });
+    return r0; }; }
+(function(){ const s = document.createElement('style'); s.textContent = `.lvd-route{font-size:13px;padding:8px 10px;border-radius:10px;background:var(--info-bg);color:var(--info)}.lvd-note{margin:-6px 0 10px}`; document.head.appendChild(s); })();
 
 /* <<< OCT24 MODULES <<< */
 </script>

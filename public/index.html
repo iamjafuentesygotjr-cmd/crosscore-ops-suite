@@ -20914,7 +20914,7 @@ async function cooPostFromModal(){ const ch = CHATS.find(c=>c.id===el('paPostC')
    The footer shows which build is running ("Build 2026-10-07 · 1"), and every open portal checks every few minutes
    (and whenever it comes back to the foreground) whether a newer build has been published. If so it shows
    "New version available — Update now" instead of quietly running old code. */
-const BUILD_ID = '2026-10-25 · 3';
+const BUILD_ID = '2026-10-26 · 1';
 function verStamp(){ const f = el('footNote'); if(f && !f.dataset.v){ f.dataset.v = 1; f.textContent = `Cross Core Ops Suite v8 · Build ${BUILD_ID}`; } }
 async function verCheck(){
   if(!/^https?:/.test(location.protocol)) return;
@@ -34831,6 +34831,46 @@ function pvDemoBar(){
 (function(){ const st = document.createElement('style'); st.textContent = `.pvdemo{border:1.5px dashed rgba(227,147,18,.6);background:linear-gradient(135deg,rgba(242,180,64,.12),rgba(242,180,64,.03))}.pvdemo-steps{margin:10px 0 6px 20px;display:flex;flex-direction:column;gap:6px;font-size:12.5px}.pvdemo-steps li{padding-left:2px}.pvdemo-steps li span{display:inline-block;max-width:calc(100% - 140px);vertical-align:middle}.pvdemo-steps .btn{margin-left:8px;padding:3px 9px;font-size:12px}
 .pvdemo-bar{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:0 0 10px;padding:8px 10px;border:1.5px dashed rgba(227,147,18,.55);border-radius:12px;background:rgba(242,180,64,.08);font-size:12px}.pvdemo-bar span{font-weight:700;color:var(--ink-2);margin-right:2px}.pvdemo-bar button{padding:4px 10px;border-radius:99px;border:1px solid rgba(227,147,18,.5);background:var(--panel);font-size:12px;font-weight:600}.pvdemo-bar button:hover{background:rgba(242,180,64,.28)}
 @media(max-width:700px){.pvdemo-steps li span{max-width:100%;display:block;margin-bottom:3px}.pvdemo-steps .btn{margin-left:0}}`; document.head.appendChild(st); })();
+
+/* ===== t6_fnguard.js — server-function health check (Oct 26 2026) =====
+   Root cause of “Marcus isn’t working”: the Supabase Edge Function named cc-admin was overwritten with the client-board
+   file (cc-client-board). Every assistant request (Marcus, Cora, Jose, PM assistants) and every account / push action then
+   got “Not available” from the wrong code, which the portal could only show as “Could not reach the AI service”.
+   Permanent guard:
+   • the portal asks the server function who it is (whoami); if cc-admin is running the wrong code (or is missing), company
+     heads, HR and system admins see a banner with the exact fix, and every assistant error says what is wrong instead of a
+     vague “try again”;
+   • the client-board file itself now refuses portal requests with a clear “wrong function” message (see its source). */
+const FN_FIX = 'The server function “cc-admin” is running the wrong code (the client-board file), so Marcus, Cora and the other assistants can’t answer. Fix: Supabase → Edge Functions → cc-admin → replace its code with supabase/functions/cc-admin/index.ts → Deploy. Deploy the client-board file as a separate function named cc-client-board.';
+const FN = {st:'', at:0};
+const fnWrong = m => /^Not available$|wrong server function|client-board file|wrongFunction/i.test(String(m||'').trim());
+function fnNote(n){ return n && /\(Not available\)|Wrong server function|client-board file/i.test(n) ? FN_FIX : n; }
+/* assistants and account tools: turn the cryptic error into the fix */
+{ const _ai = aiInvoke; aiInvoke = async function(){ try{ return await _ai.apply(this, arguments); }catch(e){ if(fnWrong(e.message)){ FN.st = 'wrong'; fnBanner(); throw new Error(FN_FIX); } throw e; } }; }
+{ const _ac = adminCall; adminCall = async function(){ try{ return await _ac.apply(this, arguments); }catch(e){ if(fnWrong(e.message)){ FN.st = 'wrong'; fnBanner(); throw new Error(FN_FIX); } throw e; } }; }
+for(const name of ['aiStream','aiChat','aiChatCore','aiStreamX']){ if(typeof window[name]!=='function') continue; const f = window[name];
+  window[name] = async function(){ const r = await f.apply(this, arguments); if(r && !r.text && r.note && fnNote(r.note)!==r.note){ r.note = FN_FIX; FN.st = 'wrong'; fnBanner(); } return r; }; }
+/* who should see the banner: the people who can redeploy or tell someone to */
+const fnAdmin = () => typeof isHead==='function' && (isHead(PERSON) || ROLE==='hr' || (typeof isFullAccess==='function' && isFullAccess()) || (typeof isSysAdmin==='function' && isSysAdmin()));
+async function fnCheck(){ if(BACKEND?.mode!=='live' || !BACKEND.sb || !PEOPLE[PERSON] || ['client','applicant'].includes(ROLE)) return;
+  if(Date.now() - FN.at < 25*60e3 && FN.st) return; FN.at = Date.now();
+  try{ const {data, error} = await BACKEND.sb.functions.invoke('cc-admin', {body:{action:'whoami'}});
+    if(error){ let m = error.message; try{ m = (await error.context.json()).error || m; }catch(e){} FN.st = fnWrong(m) ? 'wrong' : /not found|404/i.test(m) ? 'missing' : (/Unknown action/i.test(m) ? 'ok' : 'unknown'); }
+    else FN.st = data?.fn==='cc-admin' ? 'ok' : (data?.error && fnWrong(data.error)) ? 'wrong' : /Unknown action/i.test(data?.error||'') ? 'ok' : 'unknown';
+  }catch(e){ FN.st = fnWrong(e.message) ? 'wrong' : 'unknown'; }
+  fnBanner(); }
+function fnBanner(){ const b = el('fnBanner'); const bad = FN.st==='wrong' || FN.st==='missing';
+  if(!bad || !fnAdmin()){ b?.remove(); return; } if(b) return;
+  document.body.insertAdjacentHTML('beforeend', `<div id="fnBanner" class="fn-banner" role="alert"><b>⚠ Assistants offline</b><span>${esc(FN.st==='missing' ? 'The server function “cc-admin” is missing. Supabase → Edge Functions → Deploy a new function named cc-admin with supabase/functions/cc-admin/index.ts.' : FN_FIX)}</span><button class="btn" onclick="FN.at=0;fnCheck()">Check again</button><button class="btn ghost" onclick="el('fnBanner').remove()">✕</button></div>`); }
+{ const _sp = setPerson; setPerson = function(){ const r = _sp.apply(this, arguments); setTimeout(fnCheck, 9000); return r; }; }
+setInterval(fnCheck, 30*60e3);
+(function(){ const st = document.createElement('style'); st.textContent = `.fn-banner{position:fixed;left:50%;top:12px;transform:translateX(-50%);z-index:95;width:min(860px,calc(100vw - 24px));display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:12px 14px;border-radius:16px;background:#FFF4DC;color:#5A3A04;border:1px solid #F2B440;box-shadow:0 18px 40px -16px rgba(90,58,4,.45);font-size:13px;line-height:1.45}
+.fn-banner span{flex:1;min-width:240px}.fn-banner .btn{padding:6px 12px;font-size:12px}[data-theme="dark"] .fn-banner{background:#2C2212;color:#FFE2A6;border-color:#B97509}`; document.head.appendChild(st); })();
+/* “Update everyone”: a portal that is closed can't install anything until it is opened, so the push now also sends each person
+   a notification (bell + device push on phones / computers with notifications on) asking them to open the portal */
+if(typeof verPush==='function'){ const _vp = verPush; verPush = function(keys){ const r = _vp.apply(this, arguments);
+  try{ const k = (keys||[]).filter(x=>x && x!==PERSON); if(k.length) notify(k, 'system', `🔄 A new version of the Ops Suite (${esc(BUILD_ID)}) is ready — open or refresh the portal and it installs automatically.`, {view:'dashboard'}); recordChange(); }catch(e){}
+  return r; }; }
 
 /* <<< OCT24 MODULES <<< */
 </script>

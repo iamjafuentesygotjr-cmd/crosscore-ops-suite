@@ -20914,7 +20914,7 @@ async function cooPostFromModal(){ const ch = CHATS.find(c=>c.id===el('paPostC')
    The footer shows which build is running ("Build 2026-10-07 · 1"), and every open portal checks every few minutes
    (and whenever it comes back to the foreground) whether a newer build has been published. If so it shows
    "New version available — Update now" instead of quietly running old code. */
-const BUILD_ID = '2026-10-26 · 1';
+const BUILD_ID = '2026-10-26 · 2';
 function verStamp(){ const f = el('footNote'); if(f && !f.dataset.v){ f.dataset.v = 1; f.textContent = `Cross Core Ops Suite v8 · Build ${BUILD_ID}`; } }
 async function verCheck(){
   if(!/^https?:/.test(location.protocol)) return;
@@ -34871,6 +34871,125 @@ setInterval(fnCheck, 30*60e3);
 if(typeof verPush==='function'){ const _vp = verPush; verPush = function(keys){ const r = _vp.apply(this, arguments);
   try{ const k = (keys||[]).filter(x=>x && x!==PERSON); if(k.length) notify(k, 'system', `🔄 A new version of the Ops Suite (${esc(BUILD_ID)}) is ready — open or refresh the portal and it installs automatically.`, {view:'dashboard'}); recordChange(); }catch(e){}
   return r; }; }
+
+/* ===== t7_tkdrafts.js — support tickets: auto-save, offline-safe drafts, My drafts (Oct 26 2026) =====
+   Builds on the existing “Save as draft” (TK-6ea). Nothing about submitting, numbering, notifying, statuses or
+   permissions changes:
+   • every change in the Report-a-problem window is auto-saved (a moment after typing stops, after each upload, and on
+     close / refresh / leaving the page) — a small “Draft saved” indicator confirms it;
+   • a copy is also kept on this device right away, so a refresh, crash or lost connection never loses the text;
+     it syncs to the account as soon as the connection is back (and is recovered on the next sign-in on this device);
+   • “My drafts” tab: Draft label, continue, submit, delete. Drafts also appear at the top of My tickets labelled Draft;
+   • drafts live in the person's own preferences record (only they receive it), have no ticket number and send no
+     notifications — the ticket number and the System Ops Support notifications happen only on Submit. */
+const TKD = {t:0, state:'', at:0, local:'cc-tkdrafts-'};
+const tkdKey = () => TKD.local + (PERSON||'');
+function tkdLocalAll(){ try{ return JSON.parse(localStorage.getItem(tkdKey())||'{}') || {}; }catch(e){ return {}; } }
+function tkdLocalPut(d){ if(!d?.draftId || !PERSON) return; try{ const a = tkdLocalAll(); a[d.draftId] = JSON.parse(JSON.stringify({...d, files:(d.files||[]).filter(f=>!f.uploading)})); localStorage.setItem(tkdKey(), JSON.stringify(a)); }catch(e){} }
+function tkdLocalDrop(id){ try{ const a = tkdLocalAll(); if(a[id]){ delete a[id]; localStorage.setItem(tkdKey(), JSON.stringify(a)); } }catch(e){} }
+const tkdOnline = () => navigator.onLine && (BACKEND?.mode!=='live' || BACKEND.online!==false);
+/* drafts that were submitted or deleted are remembered (ids only) so an old device copy never brings them back */
+function tkdDone(id){ const p = myPrefs(); p.tkDone = uniq([id, ...(p.tkDone||[])]).slice(0, 80); tkdLocalDrop(id); }
+
+/* the indicator next to the buttons */
+function tkdShow(state){ TKD.state = state; TKD.at = Date.now(); const s = el('tkDraftState'); if(!s) return;
+  s.className = 'tkd-state ' + state;
+  s.textContent = state==='saving' ? 'Saving draft…' : state==='offline' ? '✓ Draft saved on this device — syncs when you’re back online' : state==='saved' ? '✓ Draft saved' : ''; }
+
+/* save now (quiet). Returns true when something was saved. */
+function tkdSaveNow(){ if(!el('tkTitle') || !TK_DRAFT) return false; tkSaveDraft();
+  if(!tkDraftHasContent(TK_DRAFT)) return false;
+  TK_DRAFT.draftId = TK_DRAFT.draftId || uid('TD'); TK_DRAFT.savedAt = nowISO(); tkdLocalPut(TK_DRAFT);   /* device copy first */
+  const ok = tkDraftSave(true); tkdShow(tkdOnline() ? 'saved' : 'offline'); return ok; }
+function tkdSchedule(){ if(!el('tkTitle')) return; tkSaveDraft(); if(TK_DRAFT && tkDraftHasContent(TK_DRAFT)){
+    TK_DRAFT.draftId = TK_DRAFT.draftId || uid('TD'); TK_DRAFT.savedAt = nowISO(); tkdLocalPut(TK_DRAFT); tkdShow('saving'); }
+  clearTimeout(TKD.t); TKD.t = setTimeout(tkdSaveNow, 1200); }
+/* typing / picking anywhere in the ticket window */
+['input','change'].forEach(ev=>document.addEventListener(ev, e=>{ if(el('tkTitle') && e.target?.closest?.('#modalBody')) tkdSchedule(); }, true));
+
+/* the ticket window: indicator, Draft label when resuming, Close keeps the draft, Discard removes it */
+{ const _tm = ticketModal; ticketModal = function(){ const r = _tm.apply(this, arguments); const acts = el('tkSend')?.parentElement; if(!acts) return r;
+    const d = TK_DRAFT || {};
+    if(d.draftId && tkDrafts().some(x=>x.draftId===d.draftId)){ const t = el('modalTitle'); if(t) t.innerHTML = `Report a problem <span class="tk-st tk-draft">Draft</span>`; }
+    acts.style.flexWrap = 'wrap';
+    if(!el('tkDraftState')) acts.insertAdjacentHTML('afterbegin', `<span id="tkDraftState" class="tkd-state"></span>`);
+    const cancel = [...acts.querySelectorAll('button')].find(b=>b.textContent.trim()==='Cancel');
+    if(cancel){ cancel.textContent = 'Close'; cancel.title = 'Close — what you typed stays in My drafts'; cancel.setAttribute('onclick', 'closeModal()'); }
+    if(d.draftId && !el('tkDiscard')) el('tkDraftBtn')?.insertAdjacentHTML('beforebegin', `<button class="btn ghost" id="tkDiscard" onclick="tkdDiscard()" title="Delete this draft">🗑 Discard</button>`);
+    if(d.savedAt) tkdShow(tkdOnline() ? 'saved' : 'offline');
+    return r; }; }
+/* Save as draft button: also keeps the device copy */
+{ const _ds = tkDraftSave; tkDraftSave = function(quiet){ if(el('tkTitle')){ tkSaveDraft(); if(TK_DRAFT && tkDraftHasContent(TK_DRAFT)){ TK_DRAFT.draftId = TK_DRAFT.draftId || uid('TD'); TK_DRAFT.savedAt = nowISO(); tkdLocalPut(TK_DRAFT); } }
+    const r = _ds.apply(this, arguments);
+    if(r){ const p = myPrefs(); p.tkDrafts = (p.tkDrafts||[]).slice(0, 30); }
+    return r; }; }
+function tkdDiscard(){ const id = TK_DRAFT?.draftId; const b = el('tkDiscard');
+  if(b && !b.dataset.sure){ b.dataset.sure = '1'; b.textContent = 'Delete this draft?'; b.classList.add('danger'); setTimeout(()=>{ if(b.isConnected){ delete b.dataset.sure; b.textContent = '🗑 Discard'; b.classList.remove('danger'); } }, 4000); return; }
+  clearTimeout(TKD.t); TK_DRAFT = null; if(id){ const p = myPrefs(); p.tkDrafts = (p.tkDrafts||[]).filter(x=>x.draftId!==id); tkdDone(id); recordChange(); }
+  closeModal(); RENDER.support?.(); toast('Draft deleted'); }
+/* uploads finishing / files removed also count as changes */
+{ const _af = tkAddFile; tkAddFile = async function(){ const r = await _af.apply(this, arguments); if(el('tkTitle')) tkdSaveNow(); else if(TK_DRAFT && tkDraftHasContent(TK_DRAFT)){ TK_DRAFT.draftId = TK_DRAFT.draftId || uid('TD'); TK_DRAFT.savedAt = nowISO(); tkdLocalPut(TK_DRAFT); } return r; }; }
+{ const _rf = tkRmFile; tkRmFile = function(){ const r = _rf.apply(this, arguments); tkdSchedule(); return r; }; }
+/* closing (✕, Esc, outside click, navigating to another section) — save immediately, no waiting */
+{ const _cm = closeModal; closeModal = function(){ try{ if(el('tkTitle') && TK_DRAFT && el('modal')?.classList.contains('open')){ clearTimeout(TKD.t); tkSaveDraft(); if(tkDraftHasContent(TK_DRAFT)){ TK_DRAFT.draftId = TK_DRAFT.draftId || uid('TD'); TK_DRAFT.savedAt = nowISO(); tkdLocalPut(TK_DRAFT); } } }catch(e){}
+    return _cm.apply(this, arguments); }; }
+/* refresh / closing the tab / the phone suspending the page */
+function tkdUnload(){ try{ if(el('tkTitle') && TK_DRAFT && el('modal')?.classList.contains('open')){ clearTimeout(TKD.t); tkdSaveNow(); SYNC.flush?.(); } }catch(e){} }
+window.addEventListener('pagehide', tkdUnload); window.addEventListener('beforeunload', tkdUnload);
+document.addEventListener('visibilitychange', ()=>{ if(document.hidden) tkdUnload(); });
+/* deleting from the list / submitting: forget the device copy too */
+{ const _dd = tkDraftDelete; tkDraftDelete = function(id){ tkdDone(id); return _dd.apply(this, arguments); }; }
+{ const _ts = tkSubmit; tkSubmit = async function(){ clearTimeout(TKD.t); const did = TK_DRAFT?.draftId; const n = TICKETS.length; const r = await _ts.apply(this, arguments);
+    if(did && TICKETS.length > n){ tkdDone(did); recordChange(); RENDER.support?.(); }
+    return r; }; }
+
+/* connection back / next sign-in on this device: push any device copy that is newer than the account copy */
+function tkdReconcile(why){ if(!PERSON || !PEOPLE[PERSON] || !SYNC.ready) return 0; const loc = tkdLocalAll(); const p = myPrefs(); const done = new Set(p.tkDone||[]); let n = 0;
+  Object.values(loc).forEach(d=>{ if(!d?.draftId) return; if(done.has(d.draftId)){ tkdLocalDrop(d.draftId); return; }
+    const cur = (p.tkDrafts||[]).find(x=>x.draftId===d.draftId);
+    if(!cur || String(cur.savedAt||'') < String(d.savedAt||'')){ p.tkDrafts = [d, ...(p.tkDrafts||[]).filter(x=>x.draftId!==d.draftId)].slice(0, 30); n++; } });
+  /* account copies already newer than (or equal to) the device copy: the device copy is no longer needed */
+  (p.tkDrafts||[]).forEach(x=>{ const d = loc[x.draftId]; if(d && String(x.savedAt||'') >= String(d.savedAt||'') && tkdOnline() && !(TK_DRAFT && TK_DRAFT.draftId===x.draftId && el('tkTitle'))) tkdLocalDrop(x.draftId); });
+  if(n){ recordChange(); if(CURRENT==='support') RENDER.support?.(); if(why==='signin') toast(`Recovered ${n} unsaved ticket draft${n>1?'s':''} — see System Ops Support → My drafts`); else if(why==='online') toast('Ticket draft synced'); }
+  if(why==='online' && el('tkDraftState') && TKD.state==='offline') tkdShow('saved');
+  return n; }
+window.addEventListener('online', ()=>setTimeout(()=>tkdReconcile('online'), 1500));
+{ const _sp = setPerson; setPerson = function(){ const r = _sp.apply(this, arguments); let tries = 0;
+    const go2 = () => { if(SYNC.ready && PEOPLE[PERSON]) tkdReconcile('signin'); else if(++tries < 12) setTimeout(go2, 1500); }; setTimeout(go2, 2500); return r; }; }
+
+/* ---------- My drafts tab + Draft rows in My tickets ---------- */
+function tkdSubmit(id){ tkDraftOpen(id); const d = TK_DRAFT; if(!d) return;
+  const miss = [!(d.title||'').trim() && 'a title', !(d.desc||'').trim() && 'what happened'].filter(Boolean);
+  if(miss.length) return setTimeout(()=>{ toast(`Add ${miss.join(' and ')} to submit this draft`); el(!(d.title||'').trim() ? 'tkTitle' : 'tkDesc')?.focus(); }, 60);
+  setTimeout(()=>tkSubmit(), 60); }
+function tkdDeleteAsk(btn, id){ if(!btn.dataset.sure){ btn.dataset.sure = '1'; btn.textContent = 'Delete?'; btn.classList.add('danger'); setTimeout(()=>{ if(btn.isConnected){ delete btn.dataset.sure; btn.textContent = '✕'; btn.classList.remove('danger'); } }, 4000); return; }
+  tkDraftDelete(id); }
+function tkdRowsHTML(D, cols){ return D.map(d=>`<tr class="clickable-row tkd-row" onclick="if(!event.target.closest('button')) tkDraftOpen('${d.draftId}')">
+    <td><span class="hint">—</span></td><td style="min-width:220px"><b style="font-size:13px">${esc(d.title||'(no title yet)')}</b><div class="hint">${esc((d.area||'')+((d.files||[]).length?` · 📎 ${d.files.length}`:''))}</div></td>
+    <td>${esc(d.type||'')}</td><td>${tkPri(d.priority||'Medium')}</td><td><span class="tk-st tk-draft">Draft</span></td>
+    ${cols==='mine' ? `<td>${esc(first(PERSON))}</td><td class="hint">not sent yet</td><td class="hint">saved ${esc(ago(d.savedAt))}</td>`
+      : `<td class="hint">saved ${esc(ago(d.savedAt))}</td><td style="white-space:nowrap;text-align:right"><button class="btn primary" style="padding:5px 11px;font-size:12px" onclick="tkDraftOpen('${d.draftId}')">Continue</button> <button class="btn" style="padding:5px 11px;font-size:12px" onclick="tkdSubmit('${d.draftId}')">Submit</button> <button class="btn ghost" style="padding:5px 9px;font-size:12px" title="Delete draft" onclick="tkdDeleteAsk(this,'${d.draftId}')">✕</button></td>`}</tr>`).join(''); }
+{ const _rs = RENDER.support; RENDER.support = function(){ const onDrafts = TK.tab==='drafts'; if(onDrafts) TK.tab = 'how';
+    let r; try{ r = _rs.apply(this, arguments); } finally { if(onDrafts) TK.tab = 'drafts'; }
+    const v = el('v-support'); if(!v) return r; const D = tkDrafts().slice().sort((a,b)=>String(b.savedAt||'').localeCompare(String(a.savedAt||'')));
+    v.querySelector('.tk-drafts')?.remove();
+    const tabs = v.querySelector('.tabs');
+    if(tabs && !tabs.querySelector('.tkd-tab')){ const mine = [...tabs.querySelectorAll('.tab')].find(b=>b.textContent.trim().startsWith('My tickets'));
+      (mine||tabs.firstElementChild)?.insertAdjacentHTML('afterend', `<button class="tab tkd-tab ${onDrafts?'on':''}" onclick="TK.tab='drafts';RENDER.support()">My drafts${D.length?` <span class="pill">${D.length}</span>`:''}</button>`);
+      if(onDrafts) tabs.querySelectorAll('.tab:not(.tkd-tab)').forEach(b=>b.classList.remove('on')); }
+    if(onDrafts){ { let n = tabs?.nextElementSibling; while(n){ const x = n.nextElementSibling; n.remove(); n = x; } }
+      tabs?.insertAdjacentHTML('afterend', `<div class="card tkd-card"><div class="card-h"><h3>My drafts</h3><span class="sub">Only you can see these. Nothing is sent and no ticket number is given until you press Submit.</span></div>
+        <div class="tbl-wrap"><table class="tbl tk-tbl"><thead><tr><th>ID</th><th>Title</th><th>Type</th><th>Priority</th><th>Status</th><th>Last saved</th><th></th></tr></thead><tbody>
+        ${tkdRowsHTML(D, 'drafts') || `<tr><td colspan="7" class="empty">No drafts. Anything you start in “Report a problem” is saved here automatically until you submit it.</td></tr>`}</tbody></table></div></div>`);
+      return r; }
+    if(TK.tab==='mine' && D.length && ['open','all'].includes(TK.status)){ const tb = v.querySelector('.tk-tbl tbody'); if(tb){ tb.querySelector('td.empty')?.parentElement?.remove(); tb.insertAdjacentHTML('afterbegin', tkdRowsHTML(D, 'mine')); } }
+    return r; }; }
+(function(){ const st = document.createElement('style'); st.id = 'tkdCss'; st.textContent = `.tk-draft{background:var(--surface-2,#EEF0F4);color:var(--muted,#5B6475);border:1px dashed currentColor}
+.tkd-row td{background:color-mix(in srgb, var(--surface-2,#EEF0F4) 45%, transparent)}
+.tkd-state{flex:1 1 100%;text-align:left;font-size:12px;color:var(--muted,#5B6475);align-self:center;transition:opacity .3s}
+.tkd-state.saved{color:var(--ok,#1E8E5A)}.tkd-state.offline{color:var(--warn,#B97509)}
+#modalTitle .tk-st{margin-left:6px;vertical-align:middle}
+.btn.danger{color:#fff;background:#C8402F;border-color:#C8402F}`; document.head.appendChild(st); })();
 
 /* <<< OCT24 MODULES <<< */
 </script>

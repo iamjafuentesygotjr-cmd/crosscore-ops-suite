@@ -20914,7 +20914,7 @@ async function cooPostFromModal(){ const ch = CHATS.find(c=>c.id===el('paPostC')
    The footer shows which build is running ("Build 2026-10-07 · 1"), and every open portal checks every few minutes
    (and whenever it comes back to the foreground) whether a newer build has been published. If so it shows
    "New version available — Update now" instead of quietly running old code. */
-const BUILD_ID = '2026-10-26 · 8';
+const BUILD_ID = '2026-10-27 · 1';
 function verStamp(){ const f = el('footNote'); if(f && !f.dataset.v){ f.dataset.v = 1; f.textContent = `Cross Core Ops Suite v8 · Build ${BUILD_ID}`; } }
 async function verCheck(){
   if(!/^https?:/.test(location.protocol)) return;
@@ -34373,19 +34373,20 @@ const cbRandId = () => 'CB-' + [...crypto.getRandomValues(new Uint8Array(6))].ma
 const CBU = {cid:null, fresh:null, tab:'reps'};
 const cbState = l => l.revoked ? 'Revoked' : l.paused ? 'Deactivated' : new Date(l.expiresAt) <= new Date() ? 'Expired' : 'Active';
 const cbLogEv = (cid, l, ev, detail='') => CBLOG.unshift({id:uid('CL'), client:cid, link:l?.id||null, rep:l?.name||l?.label||'', role:l?.role||'approver', event:ev, detail, at:nowISO(), by:PERSON});
-async function cbCreateLink({client:cid, brand, label, days, name='', email='', role='reviewer', modules=null}){
+async function cbCreateLink({client:cid, brand, label, days, name='', email='', role='reviewer', modules=null, access='approval', perms=null}){
   if(!cbCan(cid)) throw new Error('Only the client’s Project Manager, a department head or a company head can manage client access.');
   const pk = cbModulesFor(client(cid)); if(!pk.length) throw new Error('This client has no services in their package yet.');
   if(modules && modules.some(m=>!pk.includes(m))) throw new Error('That service is not part of this client’s package.');
   if(email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) throw new Error('Check the email address.');
+  if(access==='full' && !(modules||pk).includes('content')) throw new Error('Full Board Access needs the Content Planning service switched on for this link.');
   const secret = cbB64u(crypto.getRandomValues(new Uint8Array(32))), id = cbRandId();   /* 256 random bits; only their SHA-256 is stored */
-  const l = {id, client:cid, brand:brand||null, label:label||name||`${cname(cid)} — client portal`, name:name.trim(), email:email.trim(), role, modules:modules&&modules.length&&modules.length<pk.length?modules:null, secretHash:await cbSha(secret), createdBy:PERSON, createdAt:nowISO(), expiresAt:new Date(Date.now()+days*864e5).toISOString(), revoked:false, paused:false, uses:0, lastUsedAt:null};
+  const l = {id, client:cid, brand:brand||null, label:label||name||`${cname(cid)} — client portal`, name:name.trim(), email:email.trim(), role, modules:modules&&modules.length&&modules.length<pk.length?modules:null, secretHash:await cbSha(secret), createdBy:PERSON, createdAt:nowISO(), expiresAt:new Date(Date.now()+days*864e5).toISOString(), revoked:false, paused:false, uses:0, lastUsedAt:null, access:access==='full'?'full':'approval', perms:access==='full'?cbfCleanPerms(perms):null};
   CBLINKS.unshift(l); cbLogEv(cid, l, 'invited'); audit(`Invited ${name||'a representative'} to the ${cname(cid)} client portal`); recordChange();
   return {link:l, url:`${cbBase()}#cb=${id}.${secret}`};
 }
 function cbSet(id, patch, ev){ const l = CBLINKS.find(x=>x.id===id); if(!l || !cbCan(l.client)) return null; Object.assign(l, patch); if(ev) cbLogEv(l.client, l, ev); recordChange(); return l; }
 const cbRevoke = id => { const l = cbSet(id, {revoked:true, revokedBy:PERSON, revokedAt:nowISO()}, 'revoked'); if(l) audit(`Revoked client portal access for ${l.name||l.label} (${cname(l.client)})`); };
-const cbMailto = (l, url) => { const c = client(l.client); const body = `Hello ${l.name||''},\n\nHere is your private link to the ${c.name} client portal. You can review ${cbEffFor(l, c).map(m=>cbModName(m, c)).join(', ')}${l.role==='viewer'?'':', and leave feedback'}${l.role==='approver'?' or approve deliverables':''} — no sign-in needed:\n\n${url}\n\nThe link is private to you and expires on ${dLong(String(l.expiresAt).slice(0,10))}. Please don’t forward it.\n\nThe Cross Core team`; return `mailto:${encodeURIComponent(l.email||'')}?subject=${encodeURIComponent(`Your ${c.name} client portal — Cross Core`)}&body=${encodeURIComponent(body)}`; };
+const cbMailto = (l, url) => { const c = client(l.client); const body = `Hello ${l.name||''},\n\nHere is your private link to the ${c.name} client portal. ${l.access==='full'?`You can work directly in your Content Planning Board with our team (plan, edit, move and comment on posts${l.role==='approver'?', and approve them':''}) and review ${cbEffFor(l, c).map(m=>cbModName(m, c)).join(', ')}`:`You can review ${cbEffFor(l, c).map(m=>cbModName(m, c)).join(', ')}${l.role==='viewer'?'':', and leave feedback'}${l.role==='approver'?' or approve deliverables':''}`} — no sign-in needed:\n\n${url}\n\nThe link is private to you and expires on ${dLong(String(l.expiresAt).slice(0,10))}. Please don’t forward it.\n\nThe Cross Core team`; return `mailto:${encodeURIComponent(l.email||'')}?subject=${encodeURIComponent(`Your ${c.name} client portal — Cross Core`)}&body=${encodeURIComponent(body)}`; };
 const cbItems = cid => TASKS.filter(t=>t.client===cid && cbPostLike(t));
 
 function cbAccessModal(cid, tab){
@@ -34411,10 +34412,11 @@ function cbTabReps(c, pk){
       <div class="field"><label>Services they can open <span class="hint">(only services in the package can be switched on)</span></label><div style="display:flex;gap:12px;flex-wrap:wrap">${pk.map(m=>`<label style="display:flex;gap:6px;align-items:center;font-size:13px"><input type="checkbox" class="cbMod" value="${esc(m.id)}" checked style="width:auto"> ${esc(m.name)}</label>`).join('')}</div></div>
       <div class="grid cols-3"><div class="field"><label>What the link shows</label><select id="cbBrand"><option value="">The whole account${B.length?' (all brands)':''}</option>${B.map(b=>`<option value="${esc(b.id)}">${esc(b.name)} only (content services)</option>`).join('')}</select></div>
         <div class="field"><label>Expires after</label><select id="cbDays">${[[7,'7 days'],[14,'14 days'],[30,'30 days'],[60,'60 days'],[90,'90 days'],[180,'180 days']].map(([d,l])=>`<option value="${d}" ${d===30?'selected':''}>${l}</option>`).join('')}</select></div><div class="field"><label>Label <span class="hint">(only you see it)</span></label><input id="cbLabel" placeholder="optional"></div></div>
+      ${cbfAccessHTML('cbN', null)}
       <button class="btn primary" onclick="cbGenerate()">🔗 Generate client access link</button></div></div>
     <div class="nav-label" style="padding:0 0 6px">Representatives and links for ${esc(c.name)}</div>
-    ${L.length?`<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Representative</th><th>Role</th><th>Services</th><th>Expires</th><th>Last opened</th><th>Status</th><th></th></tr></thead><tbody>${L.map(l=>{ const s = cbState(l), eff = cbEffFor(l, c); return `<tr><td><b>${esc(l.name||l.label)}</b>${l.name&&l.label&&l.label!==l.name?`<div class="hint">${esc(l.label)}</div>`:''}<div class="hint">${esc(l.email||'')}${l.email?' · ':''}by ${esc(first(l.createdBy))} · ${esc(ago(l.createdAt))}${l.brand?' · '+esc((B.find(b=>b.id===l.brand)||{}).name||l.brand):''}</div></td>
-        <td>${esc((CB_ROLES[l.role||'approver']||CB_ROLES.approver)[0])}${l.role?'':'<div class="hint">shared link</div>'}</td><td class="hint">${eff.map(m=>esc(cbModName(m, c))).join(', ')||'—'}</td><td class="hint">${esc(dShort(String(l.expiresAt).slice(0,10)))}</td><td class="hint">${l.lastUsedAt?esc(ago(l.lastUsedAt))+' · '+(l.uses||0)+'×':'not opened yet'}</td>
+    ${L.length?`<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Representative</th><th>Access</th><th>Role</th><th>Services</th><th>Expires</th><th>Last opened</th><th>Status</th><th></th></tr></thead><tbody>${L.map(l=>{ const s = cbState(l), eff = cbEffFor(l, c); return `<tr><td><b>${esc(l.name||l.label)}</b>${l.name&&l.label&&l.label!==l.name?`<div class="hint">${esc(l.label)}</div>`:''}<div class="hint">${esc(l.email||'')}${l.email?' · ':''}by ${esc(first(l.createdBy))} · ${esc(ago(l.createdAt))}${l.brand?' · '+esc((B.find(b=>b.id===l.brand)||{}).name||l.brand):''}</div></td>
+        <td>${l.access==='full'?'<span class="badge b-scheduled" title="The same Content Planning Board the VA and PM use">Full board</span>':'<span class="badge b-draft">Approval</span>'}</td><td>${esc((CB_ROLES[l.role||'approver']||CB_ROLES.approver)[0])}${l.role?'':'<div class="hint">shared link</div>'}</td><td class="hint">${eff.map(m=>esc(cbModName(m, c))).join(', ')||'—'}</td><td class="hint">${esc(dShort(String(l.expiresAt).slice(0,10)))}</td><td class="hint">${l.lastUsedAt?esc(ago(l.lastUsedAt))+' · '+(l.uses||0)+'×':'not opened yet'}</td>
         <td><span class="badge ${s==='Active'?'b-approved':s==='Deactivated'?'b-scheduled':'b-draft'}">${s}</span></td>
         <td style="white-space:nowrap">${s==='Revoked'?'':`<button class="btn" style="padding:3px 9px;font-size:12px" onclick="cbEditRep('${l.id}')">Edit</button> <button class="btn" style="padding:3px 9px;font-size:12px" onclick="cbResend('${l.id}')">Resend</button> <button class="btn ghost" style="padding:3px 9px;font-size:12px" onclick="cbTogglePause('${l.id}')">${l.paused?'Reactivate':'Deactivate'}</button> <button class="btn ghost" style="padding:3px 9px;font-size:12px" onclick="cbRevokeClick('${l.id}')">Revoke</button>`}</td></tr>`; }).join('')}</tbody></table></div>`:'<div class="hint">No representatives invited yet.</div>'}`;
 }
@@ -34445,20 +34447,22 @@ function cbTabActivity(c){
 function cbOpenItem(id){ const t = TASKS.find(x=>x.id===id); if(!t) return; if(t.hubPost && typeof cphOpen==='function') return cphOpen(id); followLink({view:'tasks', task:id}); }
 async function cbGenerate(){
   try{ const mods = [...document.querySelectorAll('.cbMod:checked')].map(x=>x.value); if(!mods.length) return toast('Choose at least one service');
-    const r = await cbCreateLink({client:el('cbClient').value, brand:el('cbBrand').value, label:el('cbLabel').value.trim(), days:+el('cbDays').value, name:el('cbName2').value, email:el('cbEmail').value, role:el('cbRole').value, modules:mods}); CBU.fresh = r; CBU.tab = 'reps'; cbAccessModal(r.link.client); toast('Invitation created — copy the link or email it'); }catch(e){ toast(e.message); } }
+    const r = await cbCreateLink({client:el('cbClient').value, brand:el('cbBrand').value, label:el('cbLabel').value.trim(), days:+el('cbDays').value, name:el('cbName2').value, email:el('cbEmail').value, role:el('cbRole').value, modules:mods, ...cbfReadAccess('cbN')}); CBU.fresh = r; CBU.tab = 'reps'; cbAccessModal(r.link.client); toast('Invitation created — copy the link or email it'); }catch(e){ toast(e.message); } }
 function cbEditRep(id){
   const l = CBLINKS.find(x=>x.id===id); if(!l) return; const c = client(l.client), pk = cbModList(c), eff = cbEffFor(l, c);
   openModal(`Edit — ${l.name||l.label}`, `<div class="grid cols-2"><div class="field"><label>Name</label><input id="ceName" value="${esc(l.name||'')}" maxlength="80"></div><div class="field"><label>Email</label><input id="ceEmail" value="${esc(l.email||'')}"></div></div>
     <div class="field"><label>Role</label><select id="ceRole">${Object.entries(CB_ROLES).map(([k,[n,d]])=>`<option value="${k}" ${(l.role||'approver')===k?'selected':''}>${n} — ${d}</option>`).join('')}</select></div>
     <div class="field"><label>Services</label><div style="display:flex;gap:12px;flex-wrap:wrap">${pk.map(m=>`<label style="display:flex;gap:6px;align-items:center;font-size:13px"><input type="checkbox" class="ceMod" value="${esc(m.id)}" ${eff.includes(m.id)?'checked':''} style="width:auto"> ${esc(m.name)}</label>`).join('')}</div></div>
+    ${cbfAccessHTML('ceN', l)}
     <div class="field"><label>Extend the link until</label><input id="ceExp" type="date" value="${esc(String(l.expiresAt).slice(0,10))}" max="${new Date(Date.now()+179*864e5).toISOString().slice(0,10)}"></div>
     <button class="btn primary" style="width:100%" onclick="cbSaveRep('${id}')">Save</button><div class="hint" style="margin-top:6px">Changes apply the next time the person opens or refreshes their portal.</div>`);
 }
 function cbSaveRep(id){
   const l = CBLINKS.find(x=>x.id===id), c = client(l.client), pk = cbModulesFor(c), mods = [...document.querySelectorAll('.ceMod:checked')].map(x=>x.value), email = el('ceEmail').value.trim();
   if(!mods.length) return toast('Choose at least one service'); if(email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return toast('Check the email address'); const exp = el('ceExp').value;
-  const role0 = l.role||'approver', role = el('ceRole').value; const patch = {name:el('ceName').value.trim(), email, role, modules:mods.length<pk.length?mods:null, ...(exp?{expiresAt:new Date(exp+'T23:59:59').toISOString()}:{})};
-  cbSet(id, patch, role!==role0 ? `role changed to ${role}` : 'updated'); closeModal(); cbAccessModal(l.client); toast('Saved'); }
+  const role0 = l.role||'approver', role = el('ceRole').value; const acc = cbfReadAccess('ceN'); if(acc.access==='full' && !mods.includes('content')) return toast('Full Board Access needs the Content Planning service switched on');
+  const patch = {name:el('ceName').value.trim(), email, role, modules:mods.length<pk.length?mods:null, ...(exp?{expiresAt:new Date(exp+'T23:59:59').toISOString()}:{}), access:acc.access, perms:acc.access==='full'?acc.perms:null};
+  const acc0 = l.access||'approval'; cbSet(id, patch, role!==role0 ? `role changed to ${role}` : acc0!==acc.access ? `access changed to ${acc.access==='full'?'Full Board Access':'Simple Approval Access'}` : 'updated'); closeModal(); cbAccessModal(l.client); toast('Saved'); }
 async function cbResend(id){ const o = CBLINKS.find(x=>x.id===id); if(!o) return;
   try{ const days = Math.max(1, Math.min(180, Math.round((new Date(o.expiresAt)-Date.now())/864e5)||30)); const pk = cbModulesFor(client(o.client)), mods = Array.isArray(o.modules) && o.modules.length ? o.modules.filter(m=>pk.includes(m)) : null;   /* only services still in the package carry over — never more */
     if(mods && !mods.length) return toast('None of this person’s services are in the package any more — invite them again with the services they should have');
@@ -34500,6 +34504,7 @@ const cbDemoNotifyKeys = (db, c, md) => uniq([...(c.pms||[]), c.mgr, ...Object.e
 function cbDemoLog(l, who, ev, detail){ const id = 'CL-'+Math.random().toString(36).slice(2,12); return {collection:'cblog', id, data:{id, client:l.client, link:l.id, rep:who, role:l.role||'approver', event:ev, detail:detail||'', at:nowISO(), by:'client'}}; }
 async function cbDemo(action, a){
   const db = DemoBackend.read(); const bad = {ok:false, error:CB_INVALID}; if(!db) return bad; const l = await cbDemoLink(db); if(!l) return bad;
+  if(action==='fload' || action==='fwrite') return cbfDemo(db, l, action, a);
   const c = db.clients[l.client], thread = Object.values(db.cbmsg||{}), eff = cbEffFor(l, c), role = l.role||'approver', nobrand = !l.brand, who0 = l.name || '';
   const mine = t => t.client===l.client && (nobrand || (t.hubBrand||'')===l.brand) && cbPostLike(t) && eff.includes(cbTaskModule(t));
   if(action==='load'){
@@ -34574,6 +34579,8 @@ async function cbApi(action, a={}){
   if(LIVE){ try{ if(!CB.sb){ await loadScript('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js'); CB.sb = window.supabase.createClient(CC_CONFIG.SUPABASE_URL, CC_CONFIG.SUPABASE_ANON_KEY, {auth:{persistSession:false, autoRefreshToken:false}}); }
       const r = action==='load' ? await CB.sb.rpc('cc_cb_load', {p_link:CB.link, p_secret:CB.secret})
         : action==='note' ? await CB.sb.rpc('cc_cb_note', {p_link:CB.link, p_secret:CB.secret, p_kind:a.kind, p_ref:a.ref, p_text:a.text||'', p_name:a.name||''})
+        : action==='fload' ? await CB.sb.rpc('cc_cbf_load', {p_link:CB.link, p_secret:CB.secret})
+        : action==='fwrite' ? await CB.sb.rpc('cc_cbf_write', {p_link:CB.link, p_secret:CB.secret, p_op:a.op, p_col:a.col, p_id:String(a.id), p_data:a.data||{}, p_name:CB.name||''})
         : await CB.sb.rpc('cc_cb_act', {p_link:CB.link, p_secret:CB.secret, p_task:a.task, p_action:a.action, p_text:a.text||'', p_name:a.name||''});
       if(r.error) return {ok:false, error:'We could not reach Cross Core. Please check your connection and try again.', net:true}; return r.data; }catch(e){ return {ok:false, error:'We could not reach Cross Core. Please check your connection and try again.', net:true}; } }
   return cbDemo(action, a);
@@ -35812,6 +35819,303 @@ function mxpChatLive(t){ const b = el('mxBody'); const s = b && [...b.querySelec
     return _ac.apply(this, arguments); }; }
 (function(){ const s = document.createElement('style'); s.textContent = `.mxp-text{white-space:pre-wrap;font-size:13.5px;line-height:1.5;margin-top:8px}.mxp-live .mxp-text{animation:none}
 .mxp-state{font-size:12.5px;margin:6px 0;display:flex;gap:8px;align-items:center;flex-wrap:wrap}.mxp-state .btn{padding:4px 10px;font-size:12px}`; document.head.appendChild(s); })();
+
+/* ===== t13_cbfull.js — Client Access: FULL BOARD ACCESS (Oct 27 2026) =====
+   A client access link is either
+     • Simple Approval Access — the review / approve portal (unchanged), or
+     • Full Board Access — the client works in the SAME Content Planning Board their VA and PM use: the very same hub
+       (Home · Calendar · Board · Backlog · Resources …, drag-and-drop, the record view, feedback threads, filters, the
+       Excel downloads), on the SAME records. One board, three portals: what the client changes the VA and PM see, and
+       the other way round (the client's board refreshes every few seconds and right after each change).
+   The client still has no login. Every read and every change goes through cc_cbf_load / cc_cbf_write
+   (supabase/update-oct27-client-full-board.sql), which check the link and only touch that client's own posts and board
+   records — never other clients, HR, Payroll or Finance. Demo mode runs the same rules here (cbfDemo).
+   Client permissions are set per link (sections + abilities); publishing controls always apply (see CBF_RULES). */
+const CBF_TABS = [['home','Home'],['calendar','Calendar'],['board','Board'],['backlog','Backlog'],['feedback','Feedback Log'],['digest','Monday Digest'],['resources','Resources'],['activity','Activity']];
+const CBF_DEF = {tabs:['home','calendar','board','backlog','resources'], create:true, edit:true, move:true, backlog:true, events:true, resources:false};
+const CBF_ABIL = [['create','Add new posts'],['edit','Edit titles, captions, text on the graphic, links and post dates'],['move','Move cards (No status · In Progress · For Review) and request changes (For Revision)'],
+  ['backlog','Add backlog ideas'],['events','Add calendar events'],['resources','Edit the Resources links']];
+const CBF_RULES = ['Scheduling, queuing and posting are done by your team only.', 'The client approves only after the PM sends a post for client approval — and only with the Approver role.',
+  'Approved, scheduled and posted content can’t be edited by the client — they move it to For Revision instead.', 'The client can’t reassign posts, reopen approved work, or delete anything except drafts they added.',
+  'Every client change is saved in the post’s history and the activity log, and the post owner and PM are notified.'];
+const cbfCleanPerms = p => { const o = {...CBF_DEF, ...(p||{})}; o.tabs = uniq((Array.isArray(o.tabs) ? o.tabs : CBF_DEF.tabs).filter(t=>CBF_TABS.some(([k])=>k===t))); if(!o.tabs.length) o.tabs = ['board'];
+  CBF_ABIL.forEach(([k])=>{ o[k] = !!o[k]; }); return Object.fromEntries(Object.entries(o).filter(([k])=>k==='tabs' || CBF_ABIL.some(([a])=>a===k))); };
+const cbfPerms = l => cbfCleanPerms(l?.perms);
+/* ---------- internal: the access choice in the invite / edit forms ---------- */
+function cbfAccessHTML(pref, l){ const full = l?.access==='full'; const p = cbfPerms(l);
+  return `<div class="field cbf-acc"><label>Access</label>
+    <label class="cbf-opt"><input type="radio" name="${pref}Acc" value="approval" ${full?'':'checked'} onchange="el('${pref}Perms').hidden=true"> <span><b>Simple Approval Access</b><small>Preview, comment, approve or request changes on content sent for their review.</small></span></label>
+    <label class="cbf-opt"><input type="radio" name="${pref}Acc" value="full" ${full?'checked':''} onchange="el('${pref}Perms').hidden=false"> <span><b>Full Board Access</b><small>The same Content Planning Board the VA and PM use — calendar, board, backlog, editing, moving cards and comments, on the same posts, live.</small></span></label>
+    <div id="${pref}Perms" class="cbf-perms" ${full?'':'hidden'}>
+      <div class="hint" style="margin:6px 0 4px"><b>Sections they see</b></div><div class="cbf-chk">${CBF_TABS.map(([k,n])=>`<label><input type="checkbox" class="${pref}Tab" value="${k}" ${p.tabs.includes(k)?'checked':''}> ${n}</label>`).join('')}</div>
+      <div class="hint" style="margin:8px 0 4px"><b>What they can do</b> <span>(their role still applies — Viewers can only look)</span></div><div class="cbf-chk col">${CBF_ABIL.map(([k,n])=>`<label><input type="checkbox" class="${pref}Ab" value="${k}" ${p[k]?'checked':''}> ${n}</label>`).join('')}</div>
+      <details class="cbf-rules"><summary>Publishing controls (always on)</summary><ul>${CBF_RULES.map(r=>`<li>${esc(r)}</li>`).join('')}</ul><div class="hint">Feedback notes on their posts are visible to them.</div></details></div></div>`; }
+function cbfReadAccess(pref){ const access = document.querySelector(`input[name="${pref}Acc"]:checked`)?.value==='full' ? 'full' : 'approval';
+  if(access!=='full') return {access, perms:null};
+  const perms = {tabs:[...document.querySelectorAll(`.${pref}Tab:checked`)].map(x=>x.value)}; CBF_ABIL.forEach(([k])=>{ perms[k] = !!document.querySelector(`.${pref}Ab[value="${k}"]`)?.checked; });
+  return {access, perms:cbfCleanPerms(perms)}; }
+/* the team's board shows who “client” is */
+{ const _s = cphSync; cphSync = function(){ const o = _s.apply(this, arguments); const _p = o.user.profiles;
+    o.user.profiles = async ids => { const r = await _p(ids); ids.forEach(k=>{ if(k==='client' || String(k).startsWith('client:')) r[k] = {name:'Client'}; }); return r; }; return o; }; }
+
+/* ===================== the client's side ===================== */
+const CBF = {on:null, data:null, sig:'', clients:[], listeners:new Set(), frame:null, ready:false, timer:null, busy:0, lastCheck:0, err:null};
+const cbfMe = () => CBF.data?.me || {role:'viewer', perms:CBF_DEF, name:'Client'};
+const cbfHex = (h, i) => typeof cphHex==='function' ? cphHex(h, i) : (h || '#7A6F9B');
+const cbfTint = h => typeof cphTint==='function' ? cphTint(h) : '120,110,150';
+function cbfBuildClients(){ const c = CBF.data?.client; if(!c){ CBF.clients = []; return; } const out = []; const B = c.brands||[];
+  B.forEach((b, j)=>{ const col = cbfHex(b.color, j); out.push({id:`${c.id}~${b.id}`, name:b.name, short:b.short||b.name, color:col, tint:cbfTint(col), platforms:b.platforms||'Facebook & Instagram', pillars:b.pillars||['Social Proof','Educate','Testimonial'], acct:c.id}); });
+  if(!B.length || c.general){ const col = cbfHex((c.colors||[])[0], B.length); out.push({id:c.id, name:B.length?`${c.name} (general)`:c.name, short:c.name, color:col, tint:cbfTint(col), platforms:c.hubPlatforms||'Facebook & Instagram', pillars:c.hubPillars||['Social Proof','Educate','Testimonial'], acct:c.id}); }
+  CBF.clients = out; }
+async function cbfLoad(force){ if(CBF.busy && !force) return CBF.on;
+  const r = await cbApi('fload'); CBF.lastCheck = Date.now();
+  if(!r || !r.ok){ if(!r?.net) CBF.on = false; return CBF.on; }
+  const first = !CBF.on; CBF.on = true; const sig = JSON.stringify([r.posts, r.docs, r.client, r.me, r.team]);
+  if(sig!==CBF.sig || force){ CBF.sig = sig; CBF.data = r; cbfBuildClients(); CBF.listeners.forEach(cbfFire); cbfStrip(); }
+  if(first){ const m = (CB.data?.modules||[]).find(x=>x.id==='content'); if(m) m.name = 'Content Planning Board'; if(CB.view==='overview') CB.view = 'content'; if(CB.data) cbRender(); }
+  return true; }
+/* ---------- the Firestore-style adapter the hub talks to (same shape as the team's) ---------- */
+const cbfClone = o => o==null ? o : JSON.parse(JSON.stringify(o));
+const cbfSnap = (id, data) => ({id, exists:data!=null, data:()=>cbfClone(data)??undefined, metadata:{fromCache:false, hasPendingWrites:false}});
+const cbfHub = p => { const {history, awaitingClient, byClient, ...h} = p; return h; };
+function cbfColl(col){ const D = CBF.data; if(!D) return [];
+  if(col==='content') return (D.posts||[]).map(p=>[p.id, cbfHub(p)]);
+  return (D.docs||[]).filter(d=>d.col===col && !d.deleted).map(d=>[d.did, d.d]); }
+function cbfDocData(path){ const [col, id] = path.split('/'); const D = CBF.data; if(!D) return null;
+  if(col==='content'){ const p = (D.posts||[]).find(x=>x.id===id); return p ? cbfHub(p) : null; }
+  if(col==='meta'){ if(id==='resources'){ const out = {}; (D.docs||[]).filter(d=>d.col==='res' && !d.deleted).forEach(d=>{ out[d.did] = d.d; }); return {clients:out, hostClients:CBF.clients.map(c=>[c.id, c.name, c.color, c.platforms])}; }
+    const r = (D.docs||[]).find(d=>d.col==='meta' && d.did===id); return r ? r.d : null; }
+  const r = (D.docs||[]).find(d=>d.col===col && d.did===id && !d.deleted); return r ? r.d : null; }
+function cbfQuerySnap(col, order, lim){ let L = cbfColl(col).map(([id, d])=>cbfSnap(id, d));
+  if(order) L.sort((a, b)=>{ const x = String(a.data()?.[order[0]]||''), y = String(b.data()?.[order[0]]||''); return order[1]==='desc' ? y.localeCompare(x) : x.localeCompare(y); });
+  if(lim) L = L.slice(0, lim); return {docs:L, size:L.length, empty:!L.length, docChanges:()=>[], metadata:{fromCache:false, hasPendingWrites:false}}; }
+function cbfListen(make, next, err){ const l = {make, next, err, sig:null}; CBF.listeners.add(l); setTimeout(()=>cbfFire(l), 0); return ()=>CBF.listeners.delete(l); }
+function cbfFire(l){ try{ const s = l.make(); const sig = JSON.stringify(s.docs ? s.docs.map(d=>[d.id, d.data()]) : [s.exists, s.data()]); if(sig===l.sig) return; l.sig = sig; l.next(s); }catch(e){ console.warn('client board', e); } }
+const cbfDeny = (m, code='denied') => Object.assign(new Error(m), {code});
+const cbfNewId = col => (col==='content' ? 'cb-' : 'cb') + [...crypto.getRandomValues(new Uint8Array(8))].map(b=>'abcdefghijklmnopqrstuvwxyz0123456789'[b%36]).join('');
+/* what the change looks like on this screen at once (the server's answer replaces it a moment later) */
+function cbfLocal(op, col, id, data){ const D = CBF.data; if(!D) return;
+  if(col==='content'){ const i = D.posts.findIndex(p=>p.id===id);
+    if(op==='delete'){ if(i>=0) D.posts.splice(i, 1); } else if(i>=0) D.posts[i] = {...D.posts[i], ...data}; else D.posts.push({id, ...data}); }
+  else if(col==='meta' && id==='resources'){ D.docs = D.docs.filter(d=>d.col!=='res'); Object.entries(data?.clients||{}).forEach(([hid, d])=>D.docs.push({id:'res|'+hid, col:'res', did:hid, d})); }
+  else if(col!=='meta'){ const i = D.docs.findIndex(d=>d.col===col && d.did===id);
+    if(op==='delete'){ if(i>=0) D.docs.splice(i, 1); } else if(i>=0) D.docs[i] = {...D.docs[i], d:op==='update' ? {...D.docs[i].d, ...data} : data}; else D.docs.push({id:col+'|'+id, col, did:id, d:data}); }
+  CBF.listeners.forEach(cbfFire); }
+async function cbfWrite(op, col, id, data){
+  if(cbfMe().role==='viewer') throw cbfDeny('You have view-only access to this board.');
+  const before = JSON.stringify([CBF.data?.posts, CBF.data?.docs]); CBF.busy++;
+  try{ cbfLocal(op, col, id, cbfClone(data));
+    const r = await cbApi('fwrite', {op, col, id, data:cbfClone(data)||{}});
+    if(!r || !r.ok){ const b = JSON.parse(before); CBF.data.posts = b[0]; CBF.data.docs = b[1]; CBF.listeners.forEach(cbfFire);
+      throw cbfDeny(r?.error || 'That change couldn’t be saved.', r?.net ? 'unavailable' : 'denied'); }
+    return r;
+  } finally { CBF.busy--; setTimeout(()=>{ cbfLoad(true); try{ cbRefresh(); }catch(e){} }, 250); } }
+function cbfDocRef(path){ const [col, id] = path.split('/');
+  return {id, path, get:async ()=>cbfSnap(id, cbfDocData(path)),
+    set:d => cbfWrite('set', col, id, d), update:d => cbfWrite('update', col, id, d), delete:() => cbfWrite('delete', col, id, {}),
+    onSnapshot:(next, err) => cbfListen(()=>cbfSnap(id, cbfDocData(path)), next, err)}; }
+function cbfQuery(col, order, lim){ return {orderBy:(f, dir)=>cbfQuery(col, [f, dir||'asc'], lim), limit:n=>cbfQuery(col, order, n), where:()=>cbfQuery(col, order, lim),
+  get:async ()=>cbfQuerySnap(col, order, lim), onSnapshot:(next, err)=>cbfListen(()=>cbfQuerySnap(col, order, lim), next, err)}; }
+function cbfCollection(col){ const q = cbfQuery(col); q.path = col; q.doc = id => cbfDocRef(`${col}/${id || cbfNewId(col)}`);
+  q.add = async d => { const id = cbfNewId(col); await cbfWrite('add', col, id, d); return cbfDocRef(`${col}/${id}`); }; return q; }
+const CBF_DB = {collection:cbfCollection, doc:cbfDocRef};
+function cbfDefRes(hid){ const [cid, bid] = String(hid||'').split('~'); const c = CBF.data?.client||{}; const b = bid ? (c.brands||[]).find(x=>x.id===bid) : null;
+  const web = String(b?.website || c.website || '').trim(); return {website:web && web!=='—' ? (/^https?:/i.test(web) ? web : 'https://'+web) : '', instagram:b?.instagram||'', instaHandle:b?.instaHandle||'', canva:b?.canva||'', photos:b?.photos||'', photosLink:''}; }
+function cbfHost(){ return {clients:()=>CBF.clients, owners:()=>(CBF.data?.team||[]).map(t=>({id:t.id, name:t.name})), defaultOwner:()=>(CBF.data?.team||[])[0]?.id || '',
+  authors:()=>[cbfMe().name || 'Client', 'Client'], resources:cbfDefRes}; }
+function cbfSync(){ return {db:CBF_DB, seedIfEmpty:false, user:{id:async()=>cbfMe().id || 'client', can:async cap=>cap!=='data.write' || cbfMe().role!=='viewer',
+  profiles:async ids=>Object.fromEntries(ids.map(k=>[k, {name: k===cbfMe().id ? `${cbfMe().name} (you)` : (k==='client' || String(k).startsWith('client:')) ? 'Client' : ((CBF.data?.team||[]).find(x=>x.id===k)?.name || 'Cross Core team')}]))}}; }
+function cbfTabsFilter(T){ const allow = cbfMe().perms?.tabs || CBF_DEF.tabs; const L = T.filter(t=>allow.includes(t.id)); return L.length ? L : T.filter(t=>t.id==='board'); }
+function cbfHubJS(){ let js = CPHUB_JS;
+  js = js.replace(/const TABS = \[[\s\S]*?\];/, m => 'const TABS = (window.__CBF_TABS||(x=>x))(' + m.slice('const TABS = '.length, -1) + ');');
+  js = js.replace('function dbErrorMessage(e){\n  const code = e && e.code;', 'function dbErrorMessage(e){\n  const code = e && e.code;\n  if (code === \'denied\' && e.message) return e.message;');
+  js = js.replace(/(const state\s*=\s*\{\s*tab:\s*)'home'/, (m, a)=>a+"(window.__CBF_FIRST||'home')");
+  return js; }
+function cbfDoc(){ const c = CBF.data?.client || {}; const first = (cbfMe().perms?.tabs||CBF_DEF.tabs)[0] || 'board';
+  return `<!doctype html><html lang="en" data-theme="light"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></` + `script>
+<style>${CPHUB_CSS}
+.shell{padding:14px 18px 40px}.brand small{max-width:46ch;white-space:normal}.legend-item.add{display:none!important}</style></head><body>
+<div class="shell"><header class="hub-head"><div class="hub-title"><div class="brand">Content Plan<small>Content Planning Board · ${esc(c.name||'')}</small></div><div class="live-badge" id="liveBadge"><i></i>Connecting…</div></div><nav class="tabs" id="tabs" aria-label="Sections"></nav></header>
+<div class="client-strip"><span class="legend-title">Brands</span><div id="legend"></div></div><main class="main" id="main"></main></div>
+<div class="drawer-backdrop" id="drawerBackdrop"></div><aside class="drawer" id="drawer" aria-label="Day preview"></aside>
+<div class="modal-backdrop" id="modalBackdrop"></div><div class="record-modal" id="recordModal" role="dialog" aria-modal="true" aria-label="Post record"></div>
+<script>window.__CBF_TABS = parent.cbfTabsFilter; window.__CBF_FIRST = ${JSON.stringify(first)}; window.ContentHubHost = parent.cbfHost(); window.ContentHubSync = parent.cbfSync();</` + `script>
+<script>${cbfHubJS()}</` + `script>
+<script>(function(){ const team = ['Scheduled','Queued','Posted']; const lock = () => { document.querySelectorAll('select option').forEach(o=>{ if(team.includes(o.value) && !o.selected && !o.disabled){ o.disabled = true; o.textContent += ' (team only)'; } });
+    const ow = document.getElementById('fOwner'); if(ow && !ow.disabled){ ow.disabled = true; ow.title = 'Your Cross Core team assigns who works on each post'; } };
+  new MutationObserver(lock).observe(document.body, {childList:true, subtree:true}); lock(); })();</` + `script></body></html>`; }
+/* ---------- the board inside the client portal ---------- */
+function cbfStripHTML(){ const P = (CBF.data?.posts||[]).filter(p=>p.awaitingClient); const me = cbfMe();
+  return `<div class="cbf-strip">${P.length ? `<b>⏳ ${P.length} post${P.length>1?'s':''} waiting for your approval</b><span class="hint">${me.role==='approver' ? 'Open one and move it to <b>Approved</b>, or to <b>For Revision</b> with your feedback.' : me.role==='reviewer' ? 'Open one and leave feedback, or move it to <b>For Revision</b>. An approver on your team approves.' : 'Your team will review these.'}</span>
+      <div class="cbf-ps">${P.slice(0, 8).map(p=>`<button onclick="cbfOpen('${esc(p.id)}')">${esc(p.title)}<small>${esc(cbFmt(p.date))}</small></button>`).join('')}</div>`
+    : `<b>✓ Nothing is waiting for your approval</b><span class="hint">This is the same live board your Cross Core team works in — your changes reach them right away.</span>`}
+    ${me.role==='viewer' ? '<span class="cbf-ro">👁 View only</span>' : ''}</div>`; }
+function cbfStrip(){ const s = document.querySelector('#cbApp .cbf-strip'); if(s) s.outerHTML = cbfStripHTML(); }
+/* the portal's header pill and menu counts, updated in place while the board stays mounted */
+function cbfChrome(){ try{ const P = cbPosts(), need = P.filter(p=>p.stage==='review').length;
+  const top = document.querySelector('#cbApp .cb-top > div'); if(top) top.innerHTML = need ? `<button class="cb-pill" onclick="CB.view='overview';cbRender()">${need} awaiting your review</button>` : '<span class="cb-pill ok">All caught up</span>';
+  const ids = ['overview', ...cbMods().map(m=>m.id)]; document.querySelectorAll('#cbApp .cb-nav button').forEach((b, i)=>{ const id = ids[i]; if(!id) return;
+    const n = id==='overview' ? need : (id==='leadgen'||id==='social') ? 0 : P.filter(p=>p.module===id && p.stage==='review').length; let tag = b.querySelector('i');
+    if(n){ if(!tag){ tag = document.createElement('i'); b.appendChild(tag); } tag.textContent = n; } else tag?.remove(); }); }catch(e){} }
+function cbfOpen(id){ try{ CBF.frame?.contentWindow?.__hub?.open(id); }catch(e){} }
+function cbfMount(){ const body = document.querySelector('#cbApp .cb-body'); if(!body) return;
+  body.innerHTML = `${cbfStripHTML()}<div class="cbf-wrap"><div class="cbf-load">Opening your Content Planning Board…</div></div>`;
+  const f = document.createElement('iframe'); f.className = 'cbf-frame'; f.title = 'Content Planning Board'; CBF.ready = false; CBF.listeners.clear();
+  f.addEventListener('load', ()=>{ CBF.ready = true; body.querySelector('.cbf-load')?.remove(); cbfFit(); });
+  f.srcdoc = cbfDoc(); body.querySelector('.cbf-wrap').appendChild(f); CBF.frame = f; cbfFit(); }
+function cbfFit(){ const f = CBF.frame; if(!f || !document.body.contains(f)) return; const top = f.getBoundingClientRect().top; f.style.height = Math.max(520, Math.round(innerHeight - Math.max(0, top) - 16)) + 'px'; }
+addEventListener('resize', ()=>cbfFit());
+{ const _r = cbRender; cbRender = function(){
+    const board = CBF.on && CB.view==='content';
+    if(board && CBF.frame && document.body.contains(CBF.frame)){ cbfStrip(); cbfChrome(); return; }   /* the board keeps its own live state — never rebuilt by a refresh */
+    const r = _r.apply(this, arguments);
+    if(board){ cbfMount(); document.querySelector('#cbApp .cb-top h1') && (document.querySelector('#cbApp .cb-top h1').textContent = 'Content Planning Board'); }
+    else if(CBF.frame && !document.body.contains(CBF.frame)){ CBF.frame = null; CBF.listeners.clear(); }
+    return r; }; }
+{ const _rf = cbRefresh; cbRefresh = async function(first){ const r = await _rf.apply(this, arguments);
+    if(first || CBF.on===null || (!CBF.on && Date.now() - CBF.lastCheck > 60e3)) await cbfLoad(true);
+    else if(CBF.on && CBF.data){ const m = (CB.data?.modules||[]).find(x=>x.id==='content'); if(m) m.name = 'Content Planning Board'; }
+    return r; }; }
+setInterval(()=>{ if(CBF.on && CB.view==='content' && !document.hidden && !CBF.busy) cbfLoad(); }, 4000);
+document.addEventListener('visibilitychange', ()=>{ if(!document.hidden && CBF.on) cbfLoad(true); });
+try{ const bc = new BroadcastChannel('cc-v8'); bc.addEventListener('message', ()=>{ if(CBF.on && !CBF.busy) setTimeout(()=>cbfLoad(), 120); }); }catch(e){}
+
+/* ===================== demo mode: the same rules as the database ===================== */
+const cbfDemoHid = t => t.client + (t.hubBrand ? '~'+t.hubBrand : '');
+const cbfDemoIn = (l, hid) => String(hid||'').split('~')[0]===l.client && (!l.brand || String(hid||'').split('~')[1]===l.brand);
+const cbfDemoPostlike = t => !t.core && !t.archived && (t.hubPost || ['Caption','Design','Video / reel','Theme / idea','Campaign'].includes(t.type));
+const CBF_TO_BOARD = {'':'Draft', 'In Progress':'In Progress', 'For Review':'For Approval', 'For Revision':'Revisions Needed', 'Approved':'Approved', 'Scheduled':'Completed', 'Queued':'Completed', 'Posted':'Completed'};
+function cbfDemoHubStatus(t){ const PCA_ = 'Pending Client Approval';
+  if(t.status===PCA_) return 'For Review';
+  if(t.hubStatus!=null && (CBF_TO_BOARD[t.hubStatus]===t.status || (t.hubStatus==='Approved' && t.status===PCA_))) return t.hubStatus;
+  return ({'Draft':'', 'In Progress':'In Progress', 'For Approval':'For Review', 'Revisions Needed':'For Revision', 'Approved':'Approved', 'Completed':'Posted'})[t.status] ?? ''; }
+const cbfDay = v => { if(!v) return ''; if(/^\d{4}-\d{2}-\d{2}$/.test(String(v))) return String(v); const d = new Date(v); return isNaN(d) ? '' : new Date(d.getTime()+8*3600e3).toISOString().slice(0,10); };
+function cbfDemoPost(t, db){ const e = (db.employees||{})[t.assignee];
+  return {id:t.id, client:cbfDemoHid(t), date:cbfDay(t.postDate) || cbfDay(t.due) || cbfDay(t.createdAt), title:t.title||'(untitled)', type:t.hubType ?? (t.type==='Video / reel' ? 'Reel' : t.type==='Design' ? 'Still Image' : ''),
+    bucket:t.bucket||'', platforms:t.platforms||'', sourceLink:t.sourceLink||'', topicCaption:t.topicCaption||'', caption:t.caption||'', outputLink:t.outputLink || ((t.outputs||[]).find(f=>f && f.url)||{}).url || '', photoLink:t.photoLink||'',
+    status:cbfDemoHubStatus(t), editedAt:t.updatedAt||t.createdAt||'', editedById:t.updatedBy==='client' ? 'client' : (t.updatedBy||t.createdBy||''), owner:t.assignee||'', ownerName:e ? String(e.name||'').split(' ')[0] : '', boardStatus:t.status,
+    awaitingClient:t.status==='Pending Client Approval', byClient:t.createdBy==='client',
+    history:(t.history||[]).map(h=>({at:h.at, by:h.client ? h.by : String(h.by||'Cross Core').split(' ')[0], act:h.act, note:h.client || /^(Edited|Feedback|Client)/i.test(h.act||'') ? String(h.note||'').slice(0,300) : null}))}; }
+function cbfDemoDocOk(l, h, perms){ if(h.deleted) return false;
+  if(h.col==='meta') return ['meta|holidays','meta|lists'].includes(h.id);
+  if(h.col==='activity') return !l.brand && perms.tabs.includes('activity') && (h.acct===l.client || (h.accts||[]).includes(l.client));
+  if(h.col==='events') return (h.acct===l.client || !h.acct) && (!h.d?.client || h.d.client==='all' || cbfDemoIn(l, h.d.client));
+  if(h.col==='res') return cbfDemoIn(l, h.did);
+  return ['feedback','backlog'].includes(h.col) && (h.acct===l.client || (h.accts||[]).includes(l.client)) && cbfDemoIn(l, h.d?.client); }
+async function cbfDemo(db, l, action, a){
+  const fail = error => ({ok:false, error}); if(l.access!=='full') return fail('Full board access is not switched on for this link.');
+  const c = db.clients[l.client]; if(!cbEffFor(l, c).includes('content')) return fail('Full board access is not switched on for this link.');
+  const perms = cbfPerms(l), role = l.role||'approver', me = 'client:'+l.id, who = l.name || 'Client', cn = c.name || 'The client', at = nowISO(), when = new Date().toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit',timeZone:'Asia/Manila'});
+  const tasks = Object.values(db.tasks||{});
+  if(action==='fload'){
+    const teamIds = uniq([...(c.team||[]), ...(c.pms||[]), c.mgr].filter(Boolean)).filter(k=>(db.employees||{})[k]);
+    return {ok:true, serverTime:at, me:{id:me, name:who, role, perms, brand:l.brand||null},
+      client:{id:c.id, name:c.name, colors:c.colors||[], website:c.website||'', hubPlatforms:c.hubPlatforms, hubPillars:c.hubPillars,
+        brands:(c.hubBrands||[]).filter(b=>b && b.id && !b.hidden && (!l.brand || b.id===l.brand)).map(b=>({id:b.id, name:b.name, short:b.short, color:b.color, platforms:b.platforms, pillars:b.pillars, website:b.website, instagram:b.instagram, instaHandle:b.instaHandle, canva:b.canva, photos:b.photos})),
+        general:!l.brand && tasks.some(t=>t.client===c.id && !t.hubBrand && cbfDemoPostlike(t))},
+      team:teamIds.map(k=>({id:k, name:String(db.employees[k].name||k).split(' ')[0]})).sort((x,y)=>x.name.localeCompare(y.name)),
+      posts:tasks.filter(t=>t.client===l.client && cbfDemoPostlike(t) && cbfDemoIn(l, cbfDemoHid(t))).map(t=>cbfDemoPost(t, db)),
+      docs:Object.values(db.hubdocs||{}).filter(h=>cbfDemoDocOk(l, h, perms)).map(h=>({id:h.id, col:h.col, did:h.did, d:h.d, at:h.at}))};
+  }
+  const {op, col} = a; const id = String(a.id||''); const d = a.data||{};
+  if(role==='viewer') return fail('You have view-only access to this board. Ask your Cross Core contact if you need to make changes.');
+  if(!['set','update','delete','add'].includes(op) || !/^[A-Za-z0-9_|~.-]{1,80}$/.test(id)) return fail('That change isn’t supported.');
+  if(col==='meta' && ['holidays','lists'].includes(id)) return {ok:true, skipped:true};
+  if(col==='activity' && op==='delete') return {ok:true, skipped:true};
+  const ups = [], esc2 = s => String(s||'').replace(/</g,'&lt;');
+  const notifyTeam = (ttype, text, task) => uniq([...cbDemoNotifyKeys(db, c, 'content'), task?.assignee].filter(Boolean)).forEach(k=>{ const nid = 'N-'+Math.random().toString(36).slice(2,12); ups.push({collection:'notifs', id:nid, data:{id:nid, to:k, type:ttype, text, link:task?{view:'cphub', task:task.id}:{view:'cphub'}, by:'client-board', at, read:false}}); });
+  const hist = (act, note, extra={}) => ({by:`Client (${who})`, who:null, act, note:note||'', when, at, cv:true, client:true, ...extra});
+  if(col==='content'){
+    let t = (db.tasks||{})[id] ? {...db.tasks[id]} : null;
+    if(!t && ['set','add'].includes(op)){
+      if(!perms.create) return fail('Adding posts isn’t switched on for your access — ask your Cross Core contact.');
+      const hid = d.client||'', brand = hid.split('~')[1] || null; if(!cbfDemoIn(l, hid)) return fail('You can only add posts to your own board.');
+      if(brand && !(c.hubBrands||[]).some(b=>b.id===brand)) return fail('That brand is not on your board.');
+      const ns = d.status||''; if(['Approved','Scheduled','Queued','Posted','For Revision'].includes(ns)) return fail('New posts start as No status, In Progress or For Review — your Cross Core team reviews, approves and schedules them.');
+      if(!/^cb-[a-z0-9]{6,30}$/.test(id)) return fail('That change isn’t supported.');
+      const owner = (c.team||[]).find(k=>(db.employees||{})[k]) || (c.pms||[])[0] || c.mgr || null; const date = String(d.date||'').slice(0,10);
+      t = {id, title:String(d.title||'').trim().slice(0,200)||'(untitled)', client:l.client, hubBrand:brand, assignee:owner, status:CBF_TO_BOARD[ns]==='For Approval'?'For Approval':ns==='In Progress'?'In Progress':'Draft', hubStatus:ns,
+        plat:/facebook/i.test(d.platforms||'')?'fb':/instagram/i.test(d.platforms||'')?'ig':/linkedin/i.test(d.platforms||'')?'li':'', platforms:String(d.platforms||'').slice(0,120),
+        due:new Date((date || manilaDate(new Date(Date.now()+3*864e5)))+'T00:00:00+08:00').toISOString(), postDate:date, type:/reel|video/i.test(d.type||'')?'Video / reel':/carousel|still|image|graphic/i.test(d.type||'')?'Design':'Caption',
+        hubType:String(d.type||'').slice(0,60), bucket:String(d.bucket||'').slice(0,80), theme:String(d.bucket||'').slice(0,80), caption:String(d.caption||'').slice(0,6000), topicCaption:String(d.topicCaption||'').slice(0,3000),
+        sourceLink:String(d.sourceLink||'').slice(0,1000), outputLink:String(d.outputLink||'').slice(0,1000), photoLink:String(d.photoLink||'').slice(0,1000), notes:'', sources:[], refs:[], outputs:[], core:false, hubPost:true,
+        createdBy:'client', clientLink:l.id, createdAt:at, updatedAt:at, updatedBy:'client', history:[hist('Created by the client in the Content Planning Board')]};
+      ups.push({collection:'tasks', id, data:t}); notifyTeam('assignment', `🆕 <b>${esc2(cn)}</b> (${esc2(who)}) added a post on the Content Planning Board: <b>${esc2(t.title)}</b>${ns==='For Review'?' — ready for your review':''}`, t);
+      ups.push(cbDemoLog(l, who, 'added a post', t.title)); await DemoBackend.write(ups, []); return {ok:true, post:cbfDemoPost(t, db)};
+    }
+    if(!t) return fail('That post was deleted.'); if(!cbfDemoPostlike(t) || t.client!==l.client || !cbfDemoIn(l, cbfDemoHid(t))) return fail('That post is not on your board.');
+    if(op==='delete'){ if(t.createdBy!=='client' || t.status!=='Draft') return fail('Only drafts you added yourself can be deleted. Ask your Cross Core team to remove other posts.');
+      t.archived = true; t.updatedAt = at; t.updatedBy = 'client'; t.history = [...(t.history||[]), hist('Deleted by the client (kept in the archive)')];
+      ups.push({collection:'tasks', id, data:t}); notifyTeam('assignment', `🗑 <b>${esc2(cn)}</b> (${esc2(who)}) deleted their draft <b>${esc2(t.title)}</b> (kept in the archive)`, t); ups.push(cbDemoLog(l, who, 'deleted a draft', t.title));
+      await DemoBackend.write(ups, []); return {ok:true}; }
+    const cur = cbfDemoHubStatus(t); let nb = t.status; const changed = []; const H = []; let notif = null, ntype = 'assignment', logev = null;
+    const FLD = {title:'title', bucket:'bucket', platforms:'platforms', sourceLink:'content link', topicCaption:'text on the graphic', caption:'caption', outputLink:'output link', photoLink:'photo source', type:'content type'};
+    Object.entries(FLD).forEach(([k, label])=>{ if(!(k in d)) return; const v = String(d[k]??'').slice(0, k==='caption'?6000:3000); const key = k==='type' ? 'hubType' : k;
+      const now = k==='type' ? (t.hubType ?? (t.type==='Video / reel'?'Reel':t.type==='Design'?'Still Image':'')) : (t[key]??''); if(v===String(now)) return; t[key] = v; changed.push(label); if(k==='bucket' && !t.theme) t.theme = v; });
+    if(changed.length){ if(!perms.edit) return fail('Editing posts isn’t switched on for your access — leave feedback instead.'); if(['Approved','Completed'].includes(nb)) return fail(`This post is already approved${nb==='Completed'?' and scheduled / posted':''} — move it to For Revision to ask for changes.`); }
+    const curDate = cbfDemoPost(db.tasks[id], db).date;
+    if(d.date && String(d.date).slice(0,10)!==curDate){ if(nb==='Completed') return fail('This post is already scheduled or posted — ask your Cross Core team to move it.'); if(!(perms.edit||perms.move)) return fail('Rescheduling isn’t switched on for your access.');
+      const nd = String(d.date).slice(0,10); changed.push(`post date ${curDate} → ${nd}`); t.postDate = nd; t.due = new Date(nd+'T00:00:00+08:00').toISOString(); }
+    if(d.owner && d.owner!==(t.assignee||'')) return fail('Your Cross Core team assigns who works on each post.');
+    if('status' in d && (d.status||'')!==cur){ const ns = d.status||'';
+      if(['Scheduled','Queued','Posted'].includes(ns)) return fail('Scheduling and publishing are done by your Cross Core team after the post is approved.');
+      if(!perms.move) return fail('Moving cards isn’t switched on for your access — leave feedback instead.');
+      if(ns==='Approved'){ if(nb!=='Approved'){ if(nb!=='Pending Client Approval') return fail('Your Cross Core PM reviews this post first — it comes to you for approval right after.');
+          if(role!=='approver') return fail('Your role can comment and request changes. Only an approver can approve — please ask one of your colleagues.');
+          t.clientDecision = {kind:'approval', at, name:who, note:'', role}; H.push(hist('Client approved', 'Approved on the Content Planning Board', {from:nb})); nb = 'Approved';
+          notif = `✅ <b>${esc2(cn)}</b> (${esc2(who)}) approved <b>${esc2(t.title)}</b> on the Content Planning Board`; ntype = 'approval'; logev = 'approved'; } }
+      else if(ns==='For Revision'){ if(nb==='Completed') return fail('This post is already scheduled or posted — message your Cross Core team about changes.');
+        if(nb==='Pending Client Approval') t.clientDecision = {kind:'revision', at, name:who, note:'', role};
+        H.push(hist('Client requested changes', 'Moved to For Revision on the Content Planning Board', {from:nb})); nb = 'Revisions Needed'; notif = `✏️ <b>${esc2(cn)}</b> (${esc2(who)}) moved <b>${esc2(t.title)}</b> to For Revision — see their feedback on the post`; ntype = 'revision'; logev = 'requested changes'; }
+      else if(['','In Progress','For Review'].includes(ns)){ if(!['Draft','In Progress','For Approval','Revisions Needed'].includes(nb)) return fail('Only your Cross Core PM can reopen content that is waiting for approval, approved or scheduled.');
+        const to = CBF_TO_BOARD[ns]; H.push(hist(to==='For Approval'?'For Approval':to, 'Moved by the client on the Content Planning Board', {from:nb})); nb = to; notif = `🗂 <b>${esc2(cn)}</b> (${esc2(who)}) moved <b>${esc2(t.title)}</b> to ${ns||'No status'}`; logev = `moved a post to ${ns||'No status'}`; }
+      else return fail('That status isn’t available.');
+      t.hubStatus = ns; t.status = nb; }
+    let quiet = false;
+    if(changed.length){ H.unshift(hist('Edited by the client in the Content Planning Board', changed.join(', ')));
+      if(!notif){ quiet = (t.history||[]).some(h=>h.act==='Edited by the client in the Content Planning Board' && Date.now()-new Date(h.at) < 6e5); notif = `✏️ <b>${esc2(cn)}</b> (${esc2(who)}) edited <b>${esc2(t.title)}</b>: ${esc2(changed.join(', '))}`; logev = 'edited a post'; } }
+    if(H.length){ t.updatedAt = at; t.updatedBy = 'client'; t.history = [...(t.history||[]), ...H]; ups.push({collection:'tasks', id, data:t}); }
+    if(notif && !quiet){ notifyTeam(ntype, notif, t); if(logev) ups.push(cbDemoLog(l, who, logev, t.title)); }
+    if(ups.length) await DemoBackend.write(ups, []); return {ok:true, post:cbfDemoPost(t, db)};
+  }
+  if(!['feedback','backlog','events','activity','meta'].includes(col)) return fail('That part of the board can’t be changed from here.');
+  if(col==='meta'){ if(id!=='resources') return {ok:true, skipped:true}; if(!perms.resources) return fail('The resource links are kept by your Cross Core team — ask them to update a link.');
+    const hids = [l.client, ...(c.hubBrands||[]).map(b=>`${l.client}~${b.id}`)].filter(h=>cbfDemoIn(l, h));
+    hids.forEach(hid=>{ const key = 'res|'+hid; const v = d.clients?.[hid];
+      if(v && typeof v==='object'){ const clean = Object.fromEntries(Object.entries(v).filter(([k, x])=>/^[A-Za-z]{1,30}$/.test(k) && ['string','number'].includes(typeof x)).map(([k, x])=>[k, String(x).slice(0,500)])); ups.push({collection:'hubdocs', id:key, data:{id:key, col:'res', did:hid, d:{...clean, client:hid}, at, by:me, acct:l.client, deleted:false}}); }
+      else if((db.hubdocs||{})[key]) ups.push({collection:'hubdocs', id:key, data:{...db.hubdocs[key], deleted:true, at, by:me}}); });
+    ups.push(cbDemoLog(l, who, 'updated the resource links', '')); await DemoBackend.write(ups, []); return {ok:true}; }
+  const key = `${col}|${id}`, r = (db.hubdocs||{})[key];
+  if(col==='activity'){ if(!r) ups.push({collection:'hubdocs', id:key, data:{id:key, col:'activity', did:id, d:{at, text:String(d.text||'').slice(0,400), actorLabel:`Client (${who})`}, at, by:me, acct:l.client, accts:[l.client], deleted:false}}); if(ups.length) await DemoBackend.write(ups, []); return {ok:true}; }
+  const hid = d.client || r?.d?.client || '';
+  if(col==='events'){ if(!perms.events) return fail('Adding calendar events isn’t switched on for your access.'); if(hid && hid!=='all' && !cbfDemoIn(l, hid)) return fail('You can only add events to your own board.'); }
+  else if(col==='backlog'){ if(!perms.backlog) return fail('Adding backlog ideas isn’t switched on for your access.'); if(!cbfDemoIn(l, hid)) return fail('You can only add ideas to your own board.'); }
+  else { if(!cbfDemoIn(l, hid)) return fail('You can only leave feedback on your own board.'); const tt = d.contentId && (db.tasks||{})[d.contentId]; if(d.contentId && (!tt || tt.client!==l.client || !cbfDemoIn(l, cbfDemoHid(tt)))) return fail('That post is not on your board.'); }
+  if(r && r.by!==me) return fail(op==='delete' ? 'You can only delete what you added yourself.' : 'You can only change what you added yourself — leave a new note instead.');
+  if(r && r.deleted && op!=='delete') return fail('That item was deleted.');
+  if(op==='delete'){ if(r) ups.push({collection:'hubdocs', id:key, data:{...r, deleted:true, at, by:me}}); await DemoBackend.write(ups, []); return {ok:true}; }
+  let v = {...(op==='update' && r ? r.d : {}), ...cbScrub(d)};
+  if(col==='feedback'){ v = {...v, author:'Client', clientName:who, viaClient:true, byId:me, note:String(v.note||'').slice(0,2000), kind:['note','changes','approval'].includes(v.kind)?v.kind:'note', status:['Pending','Addressed'].includes(v.status)?v.status:'Pending', createdAt:v.createdAt||at}; if(v.kind==='approval') v.kind = 'note'; }
+  else if(col==='events') v = {...v, client:v.client||'all', byClient:who}; else v = {...v, byClient:who, createdAt:v.createdAt||at};
+  ups.push({collection:'hubdocs', id:key, data:{id:key, col, did:id, d:v, at, by:me, acct:l.client, deleted:false}});
+  if(col==='feedback' && ['set','add'].includes(op)){ const t = v.contentId && (db.tasks||{})[v.contentId];
+    if(t) ups.push({collection:'tasks', id:t.id, data:{...t, history:[...(t.history||[]), hist(v.kind==='changes'?'Feedback — changes requested':'Client comment', String(v.note).slice(0,400))]}});
+    notifyTeam(v.kind==='changes'?'revision':'assignment', `💬 <b>${esc2(cn)}</b> (${esc2(who)}) left feedback on <b>${esc2(t?.title||'the board')}</b>: “${esc2(String(v.note).slice(0,140))}”`, t||null); ups.push(cbDemoLog(l, who, 'commented', t?.title||'the board')); }
+  else if(['set','add'].includes(op)) ups.push(cbDemoLog(l, who, col==='backlog'?'added a backlog idea':'updated a calendar event', String(v.title||v.idea||v.name||'').slice(0,120)));
+  await DemoBackend.write(ups, []); return {ok:true};
+}
+(function(){ const s = document.createElement('style'); s.textContent = `
+.cbf-acc .cbf-opt{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--line);border-radius:12px;padding:9px 12px;margin:6px 0;cursor:pointer;font-size:13px}.cbf-acc .cbf-opt small{display:block;color:var(--ink-3);font-size:12px;margin-top:2px}
+.cbf-acc .cbf-opt input{width:auto;margin-top:3px}.cbf-perms{border-left:3px solid rgba(242,169,59,.6);padding:4px 0 4px 12px;margin:6px 0 10px}.cbf-chk{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12.5px}.cbf-chk.col{flex-direction:column}.cbf-chk input{width:auto;margin-right:4px}
+.cbf-rules{margin-top:8px;font-size:12.5px}.cbf-rules summary{cursor:pointer;font-weight:700}.cbf-rules ul{margin:6px 0 6px 18px}
+#cbApp .cbf-strip{display:flex;gap:6px 12px;align-items:center;flex-wrap:wrap;background:#fff;border:1px solid var(--line);border-radius:16px;padding:10px 14px;margin-bottom:12px;font-size:13px}
+#cbApp .cbf-strip .hint{color:var(--dim)}#cbApp .cbf-ps{display:flex;gap:6px;flex-wrap:wrap;width:100%}#cbApp .cbf-ps button{border:1px solid #f0d59a;background:#fff8e8;border-radius:10px;padding:6px 10px;font:600 12.5px Inter,sans-serif;cursor:pointer;text-align:left}
+#cbApp .cbf-ps small{display:block;font-weight:500;color:var(--dim);font-size:11px}#cbApp .cbf-ro{margin-left:auto;font-weight:700;color:var(--dim)}
+#cbApp .cbf-wrap{border-radius:18px;overflow:hidden;border:1px solid var(--line);background:#FAF5EE;position:relative}#cbApp .cbf-frame{display:block;width:100%;min-height:520px;border:0}
+#cbApp .cbf-load{padding:40px;text-align:center;color:var(--dim)}`; document.head.appendChild(s); })();
 
 /* <<< OCT24 MODULES <<< */
 </script>

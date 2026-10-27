@@ -20914,7 +20914,7 @@ async function cooPostFromModal(){ const ch = CHATS.find(c=>c.id===el('paPostC')
    The footer shows which build is running ("Build 2026-10-07 · 1"), and every open portal checks every few minutes
    (and whenever it comes back to the foreground) whether a newer build has been published. If so it shows
    "New version available — Update now" instead of quietly running old code. */
-const BUILD_ID = '2026-10-28 · 4';
+const BUILD_ID = '2026-10-28 · 5';
 function verStamp(){ const f = el('footNote'); if(f && !f.dataset.v){ f.dataset.v = 1; f.textContent = `Cross Core Ops Suite v8 · Build ${BUILD_ID}`; } }
 async function verCheck(){
   if(!/^https?:/.test(location.protocol)) return;
@@ -33727,7 +33727,7 @@ function lvSignModal({title, role, action, r, then}){
     <div class="sg-wrap"><canvas id="sgCv" aria-label="Signature area — draw with a mouse, trackpad, finger or stylus"></canvas><div id="sgPh" class="sg-ph">Sign here</div><div class="sg-line"></div></div>
     <div class="sg-bar"><button class="btn" onclick="sgClear()">Clear</button><button class="btn" onclick="sgUndo()">Redraw last stroke</button><span class="hint" style="margin-left:auto">Mouse · trackpad · touch · stylus</span></div>
     <label class="hint" style="display:flex;gap:8px;align-items:flex-start;margin:10px 0"><input id="sgOk" type="checkbox" style="width:auto;margin-top:3px"> I confirm this is my signature and I intend to sign this ${esc(lvWord(r))} (version ${r.version}) electronically. My signature is stored with the date, time and document version, and can’t be reused on another document.</label>
-    <button class="btn primary" style="width:100%" id="sgGo" onclick="sgConfirm('${r.id}','${role}')">Confirm signature</button>
+    <button class="btn primary" style="width:100%" id="sgGo" onclick="lvSigConfirm('${r.id}','${role}')">Confirm signature</button>
     <div class="hint" style="margin-top:8px">Electronic signatures are used under the Philippines’ Electronic Commerce Act (RA 8792). Your signature and personal data are handled under the Data Privacy Act of 2012 (RA 10173).</div>`);
   requestAnimationFrame(sgInit);
 }
@@ -33757,7 +33757,8 @@ function sgExport(){   /* tight transparent PNG of the drawing */
   const out = document.createElement('canvas'); const ow = Math.min(520, Math.ceil((x1-x0)*scale)), k = ow/Math.ceil((x1-x0)*scale); out.width = ow; out.height = Math.max(20, Math.ceil((y1-y0)*scale*k));
   out.getContext('2d').drawImage(cv, x0*scale, y0*scale, (x1-x0)*scale, (y1-y0)*scale, 0, 0, out.width, out.height); return out.toDataURL('image/png');
 }
-async function sgConfirm(reqId, role){
+/* named lvSigConfirm: the old name (sgConfirm) replaced the HR-document “Confirm & sign” button, so that click did nothing */
+async function lvSigConfirm(reqId, role){
   const r = lvDoc(reqId); if(!r) return; if(sgInk() < 60) return toast('Please draw your signature first'); if(!el('sgOk').checked) return toast('Tick the confirmation to sign');
   const btn = el('sgGo'); btn.disabled = true; btn.textContent = 'Signing…'; const img = sgExport();
   try{ const cb = SIGP.done; await lvAddSignature(r, role, img, role==='requester'?'Submitted':role==='hr'?'Endorsed':'Endorsed'); await lvSettle(); await cb(r); }
@@ -36820,7 +36821,7 @@ setInterval(()=>{ try{ idmScan(); }catch(e){} }, 60000);
 .idm-filters{display:flex;gap:8px;flex-wrap:wrap}.idm-filters input{flex:1;min-width:180px}.idm-bulk{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px}.idm-tbl td{vertical-align:middle}.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px}
 .idm-dlg{display:grid;grid-template-columns:auto minmax(0,1fr);gap:18px}.idm-dlg-l .idm-prev{flex-direction:column;align-items:center}.idm-check{margin:12px 0;padding:10px 12px;border-radius:12px;background:var(--panel-2);font-size:13px}.idm-check ul{margin:6px 0 0 18px}
 .idm-acts{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.idm-map{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px 12px}.idm-imp tr.warn td{background:rgba(242,169,59,.06)}.idm-cf{display:flex;gap:6px;margin-top:4px}
-.idm-exp{display:flex;gap:8px;flex-wrap:wrap}.idm-dash{margin-bottom:12px}.idm-dash .card-b{display:flex;gap:12px;align-items:center;flex-wrap:wrap}.idm-dash .card-b>span{font-size:24px}.idm-dash .card-b>div{flex:1;min-width:180px}
+body.es-open .toast{z-index:400}.idm-exp{display:flex;gap:8px;flex-wrap:wrap}.idm-dash{margin-bottom:12px}.idm-dash .card-b{display:flex;gap:12px;align-items:center;flex-wrap:wrap}.idm-dash .card-b>span{font-size:24px}.idm-dash .card-b>div{flex:1;min-width:180px}
 .idm-hist a{color:inherit;text-decoration:none;border-bottom:1px solid var(--line)}.idm-my>.card,.idm-dlg>div{min-width:0}
 @media(max-width:860px){.idm-my,.idm-dlg{grid-template-columns:minmax(0,1fr)}.idm-dlg-l .idm-prev{flex-direction:row}}
 @media(max-width:520px){.idm-req{flex-direction:column}.idm-prev{gap:8px}.idm-prev .idm-card{width:min(40vw,200px)!important}.idm-kv{grid-template-columns:repeat(2,minmax(0,1fr))}}`; document.head.appendChild(s); })();

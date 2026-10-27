@@ -20914,7 +20914,7 @@ async function cooPostFromModal(){ const ch = CHATS.find(c=>c.id===el('paPostC')
    The footer shows which build is running ("Build 2026-10-07 · 1"), and every open portal checks every few minutes
    (and whenever it comes back to the foreground) whether a newer build has been published. If so it shows
    "New version available — Update now" instead of quietly running old code. */
-const BUILD_ID = '2026-10-27 · 1';
+const BUILD_ID = '2026-10-28 · 3';
 function verStamp(){ const f = el('footNote'); if(f && !f.dataset.v){ f.dataset.v = 1; f.textContent = `Cross Core Ops Suite v8 · Build ${BUILD_ID}`; } }
 async function verCheck(){
   if(!/^https?:/.test(location.protocol)) return;
@@ -36116,6 +36116,673 @@ async function cbfDemo(db, l, action, a){
 #cbApp .cbf-ps small{display:block;font-weight:500;color:var(--dim);font-size:11px}#cbApp .cbf-ro{margin-left:auto;font-weight:700;color:var(--dim)}
 #cbApp .cbf-wrap{border-radius:18px;overflow:hidden;border:1px solid var(--line);background:#FAF5EE;position:relative}#cbApp .cbf-frame{display:block;width:100%;min-height:520px;border:0}
 #cbApp .cbf-load{padding:40px;text-align:center;color:var(--dim)}`; document.head.appendChild(s); })();
+
+/* ===== t14_companyid.js — Company ID Management (Oct 28 2026) =====
+   Company IDs for every employee and independent contractor, from the moment they join to the printed PVC card:
+     • a pending ID record is created automatically for new personnel (the database does it in the live portal —
+       supabase/update-oct28-company-id.sql; demo mode does it here), linked to their account, with no duplicates;
+     • each person uploads a 2×2 photo (crop, zoom, position) and an electronic signature in “My Company ID”;
+     • their department head reviews and forwards it, HR verifies the details and the classification, approves and releases it;
+     • ID numbers (CC-EMP-### / CC-IC-###) are unique, kept for life and never given to anyone else — the database assigns them
+       one at a time (cc_id_assign), so two people creating IDs at the same moment can't get the same number;
+     • HR imports the Excel registry (column mapping, preview, conflicts), exports the registry, and downloads print-ready
+       CR80 PVC files (front + back, 300 dpi PNG or PDF), one by one or in bulk; renewals, replacements and revocations;
+     • the COO / company heads get a read-only overview with the history.
+   The card follows the approved Cross Core design (black, orange and ivory; logo, photo frame, name, position,
+   classification bar, ID number). The signature sits under the ID number; there is no “SAMPLE” text or watermark —
+   a released card carries its validity date in that place. An ID never changes a person's employment or contract classification. */
+let IDREC = [], IDMEDIA = [], IDNUMS = [], IDCFG = [];
+const IDM_ST = {PEND:'Pending Requirements', DEPT:'For Department Review', HR:'For HR Approval', FIN:'For Final Approval', RET:'Returned', REL:'Released', REV:'Revoked', SUP:'Superseded'};
+const IDM_OPEN = [IDM_ST.PEND, IDM_ST.DEPT, IDM_ST.HR, IDM_ST.FIN, IDM_ST.RET];
+const IDM_BADGE = {'Pending Requirements':'b-draft', 'For Department Review':'b-review', 'For HR Approval':'b-scheduled', 'For Final Approval':'b-forapproval', Returned:'b-missed', Released:'b-approved', Revoked:'b-missed', Superseded:'b-draft', Expired:'b-missed'};
+const IDM_EMP = 'Employee', IDM_IC = 'Independent Contractor', IDM_TBC = 'To confirm';
+const IDM_DEPT_HEADS = {'Operations':['ja'], 'Creative Studio':['norman'], 'Content':['norman'], 'Growth':['tricia','yam'], 'Executive Office':[]};
+const IDM_LEADER_DEPT = {paul:'Executive Office', ja:'Executive Office', norman:'Creative Studio', tricia:'Operations', yam:'Operations'};
+const IDM_ALIASES = {paul:['pauline vicente','pauline','pau'], ja:['jose andres ygot jr','jose andres ygot','jose andres','ja'], norman:['norman']};
+const IDM_SINCE = '2026-10-28T00:00:00+08:00';   /* personnel added after this get a pending ID automatically; older records come from the registry or HR's bulk action */
+/* the approved registry (Cross Core OPC — ID Creation Registry) — the database migration loads the same rows */
+const IDM_REGISTRY = [
+  {person:'paul', name:'Pauline Vicente', position:'Chief Executive Officer', no:'CC-EMP-001', cls:IDM_EMP, dept:'Executive Office', regPhoto:'To collect', regStatus:'For ID creation'},
+  {person:'ja', name:'Jose Andres Ygot Jr.', position:'Chief Operating Officer', no:'CC-EMP-002', cls:IDM_EMP, dept:'Executive Office', regPhoto:'JA ID CC', regStatus:'For ID creation'},
+  {person:'norman', name:'Norman', position:'Co-Founder & Creative Director', no:'CC-EMP-003', cls:IDM_EMP, dept:'Creative Studio', regPhoto:'To collect', regStatus:'Pending details', note:'Position in the registry read “Co- Founder & Creaive Director” — spelling corrected. Full name needed.'},
+  {person:'kiara', name:'Kiara V. San Luis', position:'Marketing & Sales Head', no:'CC-EMP-004', cls:IDM_EMP, dept:'Operations', regPhoto:'kiaraformal.png', regStatus:'Pending details'},
+  {person:'charisse', name:'Charisse Mih Sotto', position:'Finance & Accounting Officer', no:'CC-EMP-005', cls:IDM_EMP, dept:'Operations', regPhoto:'Cha', regStatus:'Pending details'},
+  {person:'luane', name:'Luane Gail Vinzon', position:'HR Generalist', no:'CC-EMP-006', cls:IDM_EMP, dept:'Operations', regPhoto:'Luane', regStatus:'Pending details'},
+  {person:'tricia', name:'Tricia S. Caber', position:'Project Manager', no:'CC-EMP-007', cls:IDM_TBC, dept:'Operations', regPhoto:'To collect', regStatus:'Pending details', note:'Classification is “To confirm” in the registry — HR confirms Employee or Independent Contractor before release.'},
+  {person:'sam', name:'Michael Sam J. Flores', position:'Graphics — Video Editor', no:'CC-IC-001', cls:IDM_IC, dept:'Creative Studio', regPhoto:'Sam', regStatus:'Pending details'},
+];
+const idmCfg = () => ({validityMonths:12, deptHeads:IDM_DEPT_HEADS, printHeads:[], empPrefix:'CC-EMP-', icPrefix:'CC-IC-', site:'crosscoreopc.com', ...(IDCFG.find(x=>x.id==='global')||{})});
+const idmIsHr = (k=PERSON) => !!k && (lvIsHr(k) || isFullAccess(k) || HEADS.includes(k));   /* HR and the company heads: create → verify → approve */
+const idmIsFinal = (k=PERSON) => HEADS.includes(k);   /* final approval before release: one company head (CEO, COO or Co-Founder) */
+const idmIsExec = (k=PERSON) => HEADS.includes(k);
+const idmEmpRec = k => EMPLOYEES.find(e=>e.id===k);
+const idmDeptOf = k => idmEmpRec(k)?.dept || IDM_LEADER_DEPT[k] || 'Operations';
+const idmHeadsFor = (person, dept) => uniq((idmCfg().deptHeads||{})[dept || idmDeptOf(person)] || []).filter(x=>x && x!==person && PEOPLE[x]);
+const idmAllHeads = () => uniq(Object.values(idmCfg().deptHeads||{}).flat()).filter(k=>PEOPLE[k]);
+const idmIsDeptHead = (rec, k=PERSON) => !!rec && idmHeadsFor(rec.person, rec.dept).includes(k);
+const idmCanManageAny = (k=PERSON) => idmIsHr(k) || idmIsExec(k) || idmAllHeads().includes(k);
+const idmCanEdit = (rec, k=PERSON) => idmIsHr(k) || idmIsDeptHead(rec, k);
+const idmAud = r => uniq([r.person, ...HR_KEYS(), ...HEADS, ...idmHeadsFor(r.person, r.dept)]).filter(Boolean);
+const idmMediaAud = m => idmAud(IDREC.find(r=>r.person===m.person) || {person:m.person, dept:idmDeptOf(m.person)});
+COLL.idcfg   = {get:()=>IDCFG,   set:v=>IDCFG=v,   aud:()=>null};
+COLL.idmedia = {get:()=>IDMEDIA, set:v=>IDMEDIA=v, aud:idmMediaAud};   /* before compids: a photo / signature must reach the database before the record that points to it */
+COLL.idnums  = {get:()=>IDNUMS,  set:v=>IDNUMS=v,  aud:()=>uniq([...HR_KEYS(), ...HEADS, ...idmAllHeads()])};
+COLL.compids = {get:()=>IDREC,   set:v=>IDREC=v,   aud:idmAud};
+try{ if(typeof LIVE_HEAVY!=='undefined' && !LIVE_HEAVY.includes('idmedia')) LIVE_HEAVY.push('idmedia'); }catch(e){}
+Object.assign(NTYPES, {companyid:'Company ID'});
+
+const idmRec = id => IDREC.find(r=>r.id===id);
+const idmMine = (k=PERSON) => IDREC.filter(r=>r.person===k).sort((a,b)=>(b.createdAt||'').localeCompare(a.createdAt||''));
+const idmCurrent = (k=PERSON) => { const L = idmMine(k); return L.find(r=>IDM_OPEN.includes(r.status)) || L.find(r=>r.status===IDM_ST.REL) || L[0] || null; };
+const idmMedia = id => id ? IDMEDIA.find(m=>m.id===id) : null;
+const idmExpired = r => r.status===IDM_ST.REL && r.expiresAt && r.expiresAt.slice(0,10) < manilaDate();
+const idmShownStatus = r => idmExpired(r) ? 'Expired' : r.status;
+const idmBadge = r => { const s = idmShownStatus(r); return `<span class="badge ${IDM_BADGE[s]||'b-draft'}">${esc(s)}</span>`; };
+const idmHist = (r, act, note, extra) => { (r.history = r.history || []).push({at:nowISO(), by:PERSON, act, note:note||'', ...(extra||{})}); };
+const idmPrefix = cls => cls===IDM_IC ? idmCfg().icPrefix : cls===IDM_EMP ? idmCfg().empPrefix : null;
+const idmNoOk = r => !!(r.no && idmPrefix(r.cls) && r.no.startsWith(idmPrefix(r.cls)));
+const idmClsLabel = r => r.cls===IDM_IC ? 'Contractor' : 'Employee';
+const idmNorm = s => String(s||'').toLowerCase().normalize('NFKD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9 ]+/g,' ').replace(/\s+/g,' ').trim();
+const idmClean = s => String(s||'').replace(/\s+/g,' ').replace(/\s*-\s+/g,'-').trim();
+function idmFullName(k){ const e = idmEmpRec(k); if(e?.name) return e.name; const reg = IDM_REGISTRY.find(x=>x.person===k); return reg?.name || PEOPLE[k]?.name || k; }
+function idmPositionOf(k){ const e = idmEmpRec(k); return e?.role || PEOPLE[k]?.sub || ''; }
+/* the classification comes from verified engagement records (Finance's pay profile) — never guessed. Without one, HR confirms it. */
+function idmClsFromRecords(k){ const pr = typeof payProfile==='function' ? payProfile(k) : null; return pr?.cls==='employee' ? IDM_EMP : pr?.cls==='contractor' ? IDM_IC : null; }
+function idmClsSuggest(k){ try{ return payClass(k)==='contractor' ? IDM_IC : IDM_EMP; }catch(e){ return IDM_EMP; } }
+const idmMissing = r => { const m = []; if(!idmMedia(r.photoId)) m.push('2×2 photo'); if(!idmMedia(r.sigId)) m.push('signature'); return m; };
+function idmIssues(r){ const L = [];
+  if(!String(r.name||'').trim()) L.push('Full name is missing'); else if(String(r.name).trim().split(/\s+/).length < 2) L.push('Full name looks incomplete (one word)');
+  if(!String(r.position||'').trim()) L.push('Position / service role is missing');
+  if(r.cls===IDM_TBC || !r.clsVerified) L.push('Classification not yet confirmed by HR');
+  if(!r.no) L.push('No ID number yet'); else if(!idmNoOk(r) && r.cls!==IDM_TBC) L.push(`ID number ${r.no} doesn’t match the classification — assign ${r.cls===IDM_IC?'a contractor':'an employee'} number`);
+  idmMissing(r).forEach(x=>L.push(`Missing ${x}`)); return L; }
+const idmReady = r => !idmIssues(r).filter(x=>!/one word/.test(x)).length;
+
+/* ---------- ID numbers: unique, kept for life, never reassigned ---------- */
+const idmNumOwner = no => IDNUMS.find(n=>n.id===no)?.person ?? IDREC.find(r=>r.no===no)?.person;
+function idmNextNoLocal(cls, person){
+  const pre = idmPrefix(cls); if(!pre) throw new Error('Confirm the classification first (Employee or Independent Contractor).');
+  const own = IDNUMS.find(n=>n.person===person && person && n.id.startsWith(pre) && n.status!=='void'); if(own) return own.id;   /* a person keeps their number */
+  const used = new Set([...IDNUMS.map(n=>n.id), ...IDREC.map(r=>r.no).filter(Boolean)]);
+  let n = Math.max(0, ...[...used].filter(x=>x.startsWith(pre)).map(x=>+x.slice(pre.length)||0)) + 1;
+  while(used.has(pre + String(n).padStart(3,'0'))) n++; return pre + String(n).padStart(3,'0'); }
+async function idmAssignNo(r, wanted){
+  if(!idmCanEdit(r)) throw new Error('Only HR, a company head or the person’s department head can assign ID numbers.');
+  if(!IDM_OPEN.includes(r.status)) throw new Error('This ID is already released — renew or replace it instead.');
+  if(wanted) wanted = String(wanted).trim().toUpperCase();
+  const pre = idmPrefix(r.cls) || (wanted && [idmCfg().empPrefix, idmCfg().icPrefix].find(p=>wanted.startsWith(p)));   /* a registry number can be reserved before the classification is confirmed */
+  if(!pre) throw new Error('Confirm the classification first (Employee or Independent Contractor).');
+  if(wanted){ wanted = String(wanted).trim().toUpperCase(); if(!new RegExp('^'+pre.replace(/-/g,'\\-')+'\\d{3,}$').test(wanted)) throw new Error(`${wanted} doesn’t follow the ${pre}### format for this classification.`);
+    const ow = idmNumOwner(wanted); if(ow && ow!==r.person) throw new Error(`${wanted} already belongs to ${pname(ow)} — numbers are never reassigned.`); }
+  if((idmNoOk(r) && !wanted) || (wanted && wanted===r.no)) return r.no;
+  if(pvLive()){ await lvSettle(); const {data, error} = await BACKEND.sb.rpc('cc_id_assign', {p_id:r.id, p_no:wanted||null}); if(error) throw new Error(error.message); return data; }   /* the server updates the record (and its history); the change arrives in real time */
+  const no = wanted || idmNextNoLocal(r.cls, r.person); const old = r.no; const ncls = no.startsWith(idmCfg().icPrefix) ? IDM_IC : IDM_EMP;
+  if(old && old!==no){ const o = IDNUMS.find(n=>n.id===old); if(o) o.status = 'retired'; }
+  if(!IDNUMS.some(n=>n.id===no)) IDNUMS.push({id:no, no, cls:ncls, person:r.person, name:r.name, rec:r.id, status:'assigned', at:nowISO(), by:PERSON});
+  r.no = no; idmHist(r, old ? `ID number changed ${old} → ${no}` : `ID number ${no} assigned`, old ? 'The earlier number stays retired and is never reused' : ''); return no; }
+
+/* ---------- records ---------- */
+function idmNewRec(person, src={}){
+  const reg = IDM_REGISTRY.find(x=>x.person===person); const fromRec = idmClsFromRecords(person);
+  const cls = src.cls || fromRec || IDM_TBC;
+  const r = {id: src.id || (person ? `ID-${person}` : uid('ID-X')), person:person||null, name:idmClean(src.name || idmFullName(person)), position:idmClean(src.position || idmPositionOf(person)),
+    dept:src.dept || idmDeptOf(person), cls, clsVerified: src.clsVerified ?? !!(fromRec && cls===fromRec && (idmIsHr() || !PERSON)), clsSuggest: cls===IDM_TBC ? idmClsSuggest(person) : null,
+    no:null, status:IDM_ST.PEND, photoId:null, sigId:null, version:1, source:src.source||'auto', regPhoto:src.regPhoto||reg?.regPhoto||'', regStatus:src.regStatus||'',
+    createdAt:nowISO(), createdBy:PERSON || 'system', history:[], prints:[]};
+  if(IDREC.some(x=>x.id===r.id)) r.id = `${r.id}-${Date.now().toString(36)}`;
+  idmHist(r, src.act || 'ID record created', src.note || ''); IDREC.unshift(r); return r; }
+function idmOpenFor(person){ return IDREC.find(r=>r.person===person && IDM_OPEN.includes(r.status)); }
+function idmNotifyNew(r){
+  notify([r.person], 'companyid', `🪪 Your Company ID was started. Please upload your <b>2×2 photo</b> and <b>electronic signature</b> in My Company ID.`, {view:'myid'});
+  notify(uniq([...HR_KEYS(), ...idmHeadsFor(r.person, r.dept)]), 'companyid', `🪪 New Company ID record for <b>${esc(r.name)}</b> (${esc(r.cls===IDM_TBC?'classification to confirm':r.cls)}) — waiting for their photo and signature.`, {view:'idmgmt', idrec:r.id}); }
+async function idmCreateFor(person, src={}){
+  if(!person || !PEOPLE[person]) throw new Error('Choose a person with a portal account.');
+  const dept = src.dept || idmDeptOf(person);
+  if(!(idmIsHr() || idmHeadsFor(person, dept).includes(PERSON) || (person===PERSON && !src.no))) throw new Error('Only HR or the person’s department head can start an ID for someone else.');
+  const ex = idmOpenFor(person); if(ex) throw new Error(`${pname(person)} already has an ID in progress (${ex.status}).`);
+  if(IDREC.some(r=>r.person===person && r.status===IDM_ST.REL && !idmExpired(r)) && !src.force) throw new Error(`${pname(person)} already has a released ID — use Renew or Replace.`);
+  const r = idmNewRec(person, {...src, dept}); if(r.cls!==IDM_TBC && (idmIsHr() || idmIsDeptHead(r))) { try{ await idmAssignNo(r, src.no); }catch(e){ if(src.no) throw e; } }
+  idmNotifyNew(r); audit(`Company ID record created for ${r.name}`); recordChange(); return r; }
+
+/* photo & signature (stored separately, used only for the ID card) */
+function idmSaveMedia(r, kind, img, meta={}){
+  const self = r.person===PERSON; if(!(self || idmIsHr())) throw new Error(kind==='photo' ? 'Only the person or HR can upload the ID photo.' : 'Only the person can provide their signature.');
+  if(kind==='sig' && !self && !meta.onBehalf) throw new Error('Only the person can provide their signature.');
+  if(!IDM_OPEN.includes(r.status)) throw new Error('This ID is already released. Ask HR for a replacement to change the photo or signature.');
+  const m = {id:uid(kind==='photo'?'IDP':'IDS'), person:r.person, kind, img, w:meta.w||0, h:meta.h||0, src:meta.src||'', at:nowISO(), by:PERSON}; IDMEDIA.push(m);
+  if(kind==='photo') r.photoId = m.id; else r.sigId = m.id;
+  idmHist(r, kind==='photo' ? (self?'Photo uploaded':'Photo uploaded by HR') : (meta.src==='upload'?'Signature uploaded':'Signature drawn'));
+  if(self && [IDM_ST.DEPT, IDM_ST.HR, IDM_ST.FIN].includes(r.status)){ r.status = IDM_ST.PEND; idmHist(r, 'Requirements changed — submit again'); }
+  recordChange(); return m; }
+function idmSubmit(r){
+  const self = r.person===PERSON, dh = idmIsDeptHead(r), hr = idmIsHr();
+  if(!(self || dh || hr)) throw new Error('Not allowed.');
+  if(![IDM_ST.PEND, IDM_ST.RET].includes(r.status) && !(r.status===IDM_ST.DEPT && (dh||hr))) throw new Error('This ID can’t be submitted now.');
+  const miss = idmMissing(r); if(miss.length) throw new Error(`Add the ${miss.join(' and ')} first.`);
+  const heads = idmHeadsFor(r.person, r.dept); const toHr = dh || hr || !heads.length;
+  r.status = toHr ? IDM_ST.HR : IDM_ST.DEPT; r.submittedAt = nowISO(); r.returnNote = null;
+  idmHist(r, self && !dh && !hr ? 'Requirements submitted' : 'Submitted to HR', toHr ? 'Sent to HR for approval' : `Sent to ${heads.map(first).join(', ')} for department review`);
+  if(toHr) notify(HR_KEYS(), 'companyid', `🪪 <b>${esc(r.name)}</b>’s Company ID is ready for HR approval.`, {view:'idmgmt', idrec:r.id});
+  else notify(heads, 'companyid', `🪪 <b>${esc(r.name)}</b> submitted their Company ID photo and signature — please review and send it to HR.`, {view:'idmgmt', idrec:r.id});
+  if(!self) notify([r.person], 'companyid', `🪪 Your Company ID was sent to HR for approval.`, {view:'myid'});
+  recordChange(); }
+function idmReturn(r, note){
+  if(!(idmIsHr() || (idmIsDeptHead(r) && r.status===IDM_ST.DEPT))) throw new Error('Not allowed.');
+  if(![IDM_ST.DEPT, IDM_ST.HR, IDM_ST.FIN].includes(r.status)) throw new Error('Only a submitted ID can be returned.');
+  if(String(note||'').trim().length < 3) throw new Error('Say what needs to change.');
+  r.status = IDM_ST.RET; r.returnNote = note.trim(); idmHist(r, 'Returned for changes', note.trim());
+  notify([r.person], 'companyid', `↩️ Your Company ID needs changes: “${esc(note.trim().slice(0,160))}”`, {view:'myid'}); recordChange(); }
+function idmAddMonths(iso, m){ const d = new Date(iso); const t = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth()+m, d.getUTCDate(), d.getUTCHours(), d.getUTCMinutes())); return t.toISOString(); }
+/* HR approval → the company heads give the final approval, which releases the card */
+function idmHrApprove(r){
+  if(!idmIsHr()) throw new Error('Only HR or a company head approves IDs.');
+  if(![IDM_ST.PEND, IDM_ST.DEPT, IDM_ST.HR, IDM_ST.RET].includes(r.status)) throw new Error('This ID can’t be approved now.');
+  const iss = idmIssues(r).filter(x=>!/one word/.test(x)); if(iss.length) throw new Error(iss[0]);
+  r.status = IDM_ST.FIN; r.hrApprovedAt = nowISO(); r.hrApprovedBy = PERSON; idmHist(r, 'Approved by HR — sent for final approval', 'A company head gives the final approval before release');
+  const heads = HEADS.filter(k=>k!==r.person && PEOPLE[k]);
+  notify(heads, 'companyid', `🖋 Final approval needed: <b>${esc(r.name)}</b>’s Company ID ${esc(r.no)} (${esc(r.cls)}) — approved by ${esc(first(PERSON))}.`, {view:'idmgmt', idrec:r.id});
+  notify([r.person], 'companyid', `🪪 Your Company ID was approved by HR and is waiting for the final approval of the company heads.`, {view:'myid'});
+  recordChange(); }
+function idmRelease(r){
+  if(!idmIsFinal()) throw new Error('Only a company head (CEO, COO or Co-Founder) gives the final approval that releases an ID.');
+  if(r.person===PERSON) throw new Error('Another company head gives the final approval for your own ID.');
+  if(!IDM_OPEN.includes(r.status)) throw new Error('This ID can’t be released now.');
+  const iss = idmIssues(r).filter(x=>!/one word/.test(x)); if(iss.length) throw new Error(iss[0]);
+  if(r.status!==IDM_ST.FIN) idmHist(r, 'Approved by a company head (HR step included)');
+  const at = nowISO(); r.status = IDM_ST.REL; r.issuedAt = at; r.expiresAt = idmAddMonths(at, +idmCfg().validityMonths || 12); r.releasedBy = PERSON;
+  r.finalBy = PERSON; idmHist(r, 'Final approval — released', `Valid until ${dstr(r.expiresAt)}`);
+  IDREC.filter(x=>x.person===r.person && x.id!==r.id && x.status===IDM_ST.REL).forEach(x=>{ x.status = IDM_ST.SUP; x.supersededBy = r.id; idmHist(x, 'Superseded', `Replaced by ${r.id}`); });
+  notify([r.person], 'companyid', `✅ Your Company ID <b>${esc(r.no)}</b> was approved and released. Valid until ${dstr(r.expiresAt)}.`, {view:'myid'});
+  notify(uniq([...HR_KEYS(), ...idmHeadsFor(r.person, r.dept), r.hrApprovedBy].filter(k=>k && k!==PERSON)), 'companyid', `✅ <b>${esc(r.name)}</b>’s Company ID ${esc(r.no)} got final approval from ${esc(first(PERSON))} and is released — ready to print.`, {view:'idmgmt', idrec:r.id});
+  audit(`Company ID ${r.no} released for ${r.name}`); recordChange(); }
+function idmRevoke(r, reason){
+  if(!idmIsHr()) throw new Error('Only HR or a company head revokes IDs.'); if(r.status!==IDM_ST.REL) throw new Error('Only a released ID can be revoked.');
+  if(String(reason||'').trim().length < 3) throw new Error('Give the reason for revoking.');
+  r.status = IDM_ST.REV; r.revokedAt = nowISO(); r.revokedBy = PERSON; r.revokeReason = reason.trim(); idmHist(r, 'Revoked', reason.trim());
+  notify([r.person], 'companyid', `⛔ Your Company ID ${esc(r.no)} was revoked: ${esc(reason.trim().slice(0,160))}`, {view:'myid'}); audit(`Company ID ${r.no} revoked (${reason.trim()})`); recordChange(); }
+function idmRenew(r, kind, reason, revokeOld){
+  if(!idmIsHr()) throw new Error('Only HR or a company head renews or replaces IDs.');
+  if(![IDM_ST.REL, IDM_ST.REV].includes(r.status) && !idmExpired(r)) throw new Error('Only a released, expired or revoked ID can be renewed or replaced.');
+  if(idmOpenFor(r.person)) throw new Error('A renewal or replacement is already in progress.');
+  if(String(reason||'').trim().length < 3) throw new Error('Give the reason.');
+  if(revokeOld && r.status===IDM_ST.REL) idmRevoke(r, `${kind==='replacement'?'Replaced':'Renewed'}: ${reason.trim()}`);
+  const n = idmNewRec(r.person, {id:`${r.id.replace(/-R\d+$/,'')}-R${IDREC.filter(x=>x.person===r.person).length}`, name:r.name, position:r.position, dept:r.dept, cls:r.cls, clsVerified:r.clsVerified, source:kind, act:kind==='replacement'?'Replacement started':'Renewal started', note:reason.trim()});
+  Object.assign(n, {no:r.no, photoId:r.photoId, sigId:r.sigId, renewalOf:r.id, kind, status:IDM_ST.HR});
+  idmHist(r, kind==='replacement'?'Replacement requested':'Renewal requested', reason.trim());
+  notify([r.person], 'companyid', `🪪 HR started a ${kind} of your Company ID ${esc(r.no)}. You can update your photo or signature in My Company ID until it is released.`, {view:'myid'});
+  recordChange(); return n; }
+function idmEditDetails(r, f){
+  if(!idmCanEdit(r)) throw new Error('Only HR or the department head can edit ID details.');
+  if(!IDM_OPEN.includes(r.status)) throw new Error('A released ID can’t be edited — renew or replace it.');
+  const ch = []; ['name','position','dept'].forEach(k=>{ if(f[k]==null) return; const v = idmClean(f[k]); if(v!==(r[k]||'')){ ch.push(`${k==='dept'?'department':k}: “${r[k]||'—'}” → “${v}”`); r[k] = v; } });
+  if(f.cls!=null && f.cls!==r.cls){ if(!idmIsHr()) throw new Error('Only HR can change the classification.'); ch.push(`classification: ${r.cls} → ${f.cls}`); r.cls = f.cls; r.clsVerified = f.cls!==IDM_TBC; r.clsSuggest = null; }
+  else if(f.clsVerified && !r.clsVerified && r.cls!==IDM_TBC){ if(!idmIsHr()) throw new Error('Only HR can confirm the classification.'); r.clsVerified = true; ch.push(`classification confirmed: ${r.cls}`); }
+  if(ch.length){ r.version = (r.version||1)+1; idmHist(r, 'Details updated', ch.join('; ')); recordChange(); } return ch.length; }
+function idmLogPrint(r, kind){ (r.prints = r.prints || []).push({at:nowISO(), by:PERSON, kind}); idmHist(r, 'Downloaded for printing', kind); recordChange(); }
+const idmCanPrint = r => r.status===IDM_ST.REL && !idmExpired(r) && (idmIsHr() || (idmIsDeptHead(r) && (idmCfg().printHeads||[]).includes(PERSON)));
+
+/* ---------- automation: new personnel get a pending ID; expiry reminders ---------- */
+let IDM_SCAN = 0;
+function idmScan(){
+  if(!SYNC?.ready || !PEOPLE[PERSON] || !idmIsHr() || Date.now()-IDM_SCAN < 4000) return; IDM_SCAN = Date.now();
+  let ch = 0;
+  if(!pvLive()){   /* in the live portal the database creates these (cc_id_on_employee) */
+    if(!IDREC.length && !IDCFG.some(x=>x.id==='global' && x.seeded)){ IDM_REGISTRY.forEach(g=>{ if(!PEOPLE[g.person] || IDREC.some(r=>r.person===g.person)) return;
+        const r = idmNewRec(g.person, {...g, clsVerified:g.cls!==IDM_TBC, source:'registry', act:'Imported from the ID Creation Registry'}); r.no = g.no;
+        if(!IDNUMS.some(n=>n.id===g.no)) IDNUMS.push({id:g.no, no:g.no, cls:g.cls, person:g.person, name:g.name, rec:r.id, status:'assigned', at:nowISO(), by:'registry'}); ch++; });
+      const c = IDCFG.find(x=>x.id==='global') || (IDCFG.push({id:'global'}), IDCFG.find(x=>x.id==='global')); c.seeded = true; ch++; }
+    EMPLOYEES.forEach(e=>{ if(empLeft(e.status) || !PEOPLE[e.id] || IDREC.some(r=>r.person===e.id)) return; const made = Date.parse(e.account?.created||e.createdAt||''); if(!(made >= Date.parse(IDM_SINCE))) return;
+      const r = idmNewRec(e.id, {source:'auto', act:'Created automatically for new personnel'}); if(r.cls!==IDM_TBC){ try{ r.no = idmNextNoLocal(r.cls, r.person); IDNUMS.push({id:r.no, no:r.no, cls:r.cls, person:r.person, name:r.name, rec:r.id, status:'assigned', at:nowISO(), by:'system'}); idmHist(r, `ID number ${r.no} reserved`); }catch(x){} }
+      idmNotifyNew(r); ch++; });
+  }
+  const soon = new Date(Date.now()+30*864e5).toISOString().slice(0,10);
+  IDREC.filter(r=>r.status===IDM_ST.REL && r.expiresAt && r.expiresAt.slice(0,10)<=soon && !r.remind30).forEach(r=>{ r.remind30 = true; ch++;
+    notify([r.person], 'companyid', `⏳ Your Company ID ${esc(r.no)} expires on ${dstr(r.expiresAt)}. HR will arrange the renewal.`, {view:'myid'});
+    notify(HR_KEYS(), 'companyid', `⏳ <b>${esc(r.name)}</b>’s Company ID ${esc(r.no)} expires on ${dstr(r.expiresAt)} — renew it.`, {view:'idmgmt', idrec:r.id}); });
+  if(ch){ recordChange(); if(CURRENT==='idmgmt' || CURRENT==='myid') setTimeout(()=>RENDER[CURRENT]?.(), 0); } }
+{ const _rc = recordChange; recordChange = function(){ const r = _rc.apply(this, arguments); try{ setTimeout(idmScan, 0); }catch(e){} return r; }; }
+
+/* ---------- the card (approved design; units = the reference artwork, 550 × 877) ---------- */
+const IDM_LOGO_TXT = 'data:image/png;base64,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';
+const IDM_C = {K:'#1C1C1A', O:'#FCA221', W:'#F7F4EC', T:'#141413', hole:'#D9D5CE'};
+const IDM_FF = 'Montserrat, "Plus Jakarta Sans", Inter, Arial, sans-serif';
+const idmImgCache = new Map();
+function idmImg(src){ if(!src) return Promise.resolve(null); if(idmImgCache.has(src)) return idmImgCache.get(src);
+  const p = new Promise(ok=>{ const i = new Image(); i.onload = ()=>ok(i); i.onerror = ()=>ok(null); i.src = src; }); idmImgCache.set(src, p); return p; }
+let IDM_FONTP = null;
+function idmFonts(){ if(IDM_FONTP) return IDM_FONTP;
+  if(!document.querySelector('link[data-idm-font]')){ const l = document.createElement('link'); l.rel = 'stylesheet'; l.dataset.idmFont = '1'; l.href = 'https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap'; document.head.appendChild(l); }
+  IDM_FONTP = Promise.race([Promise.all(['400','500','600','700','800'].map(w=>document.fonts.load(`${w} 20px Montserrat`))).catch(()=>null), new Promise(r=>setTimeout(r, 2500))]); return IDM_FONTP; }
+function idmSpline(ctx, pts, move){ if(move) ctx.moveTo(pts[0][0], pts[0][1]); else ctx.lineTo(pts[0][0], pts[0][1]);
+  for(let i=0;i<pts.length-1;i++){ const p0 = pts[i-1]||pts[i], p1 = pts[i], p2 = pts[i+1], p3 = pts[i+2]||p2;
+    ctx.bezierCurveTo(p1[0]+(p2[0]-p0[0])/6, p1[1]+(p2[1]-p0[1])/6, p2[0]-(p3[0]-p1[0])/6, p2[1]-(p3[1]-p1[1])/6, p2[0], p2[1]); } }
+function idmRR(ctx, x, y, w, h, r){ r = Math.min(r, w/2, h/2); ctx.beginPath(); ctx.moveTo(x+r, y); ctx.arcTo(x+w, y, x+w, y+h, r); ctx.arcTo(x+w, y+h, x, y+h, r); ctx.arcTo(x, y+h, x, y, r); ctx.arcTo(x, y, x+w, y, r); ctx.closePath(); }
+/* centred text with tracking; shrinks to fit maxW */
+function idmText(ctx, s, cx, y, o){ let size = o.size; const ls = o.ls||0; s = String(s||'');
+  const wOf = sz => { ctx.font = `${o.weight||400} ${sz}px ${IDM_FF}`; return [...s].reduce((a,ch)=>a+ctx.measureText(ch).width, 0) + ls*sz*Math.max(0, [...s].length-1); };
+  const kernW = sz => { ctx.font = `${o.weight||400} ${sz}px ${IDM_FF}`; return ctx.measureText(s).width; };
+  let w = ls ? wOf(size) : kernW(size); while(o.maxW && w > o.maxW && size > (o.min||8)){ size -= 0.5; w = ls ? wOf(size) : kernW(size); }
+  ctx.fillStyle = o.color; ctx.textBaseline = 'alphabetic'; ctx.font = `${o.weight||400} ${size}px ${IDM_FF}`;
+  if(!ls){ ctx.textAlign = 'center'; ctx.fillText(s, cx, y); ctx.textAlign = 'left'; return size; }
+  let x = cx - w/2; ctx.textAlign = 'left'; [...s].forEach(ch=>{ ctx.fillText(ch, x, y); x += ctx.measureText(ch).width + ls*size; }); return size; }
+/* split a long line into two balanced lines */
+function idmTwoLines(ctx, s, font, maxW){ ctx.font = font; if(ctx.measureText(s).width <= maxW) return [s]; const w = s.split(' '); let best = null;
+  for(let i=1;i<w.length;i++){ const a = w.slice(0,i).join(' '), b = w.slice(i).join(' '); const m = Math.max(ctx.measureText(a).width, ctx.measureText(b).width); if(!best || m < best[0]) best = [m, a, b]; }
+  return best ? [best[1], best[2]] : [s]; }
+async function idmLogo(ctx, x, y, w, h, r){ ctx.fillStyle = IDM_C.O; idmRR(ctx, x, y, w, h, r); ctx.fill(); const t = await idmImg(IDM_LOGO_TXT); if(!t) return;
+  const th = h*0.74, tw = th*t.width/t.height; ctx.drawImage(t, x + (w-tw)/2, y + (h-th)/2, tw, th); }
+const idmFoot = (r, official) => official ? `VALID UNTIL ${new Date(r.expiresAt).toLocaleDateString('en-US',{month:'short', year:'numeric', timeZone:'Asia/Manila'}).toUpperCase()}` : '';   /* no “SAMPLE” text or watermark on any card — only the validity date, once released */
+/* draw one side. opts: width (px), print (edge-to-edge, no slot graphic), placeholders (show empty photo / signature boxes) */
+async function idmDraw(r, side, opts={}){
+  await idmFonts(); const W = 550, H = 877, pw = opts.width || 638, ph = Math.round(pw*85.6/54);
+  const cv = document.createElement('canvas'); cv.width = pw; cv.height = ph; const ctx = cv.getContext('2d'); ctx.scale(pw/W, ph/H);
+  const official = r.status===IDM_ST.REL && !opts.sample; const ic = r.cls===IDM_IC;
+  if(!opts.print){ idmRR(ctx, 0, 0, W, H, 26); ctx.clip(); }
+  if(side==='front'){
+    ctx.fillStyle = IDM_C.W; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = IDM_C.O; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(W, 0); ctx.lineTo(W, 345); idmSpline(ctx, [[550,345],[488,305],[422,284],[300,272],[200,265],[114,258],[60,249],[0,235]]); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = IDM_C.K; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(W, 0); ctx.lineTo(W, 318); idmSpline(ctx, [[550,318],[488,289],[422,275],[300,265],[200,256],[114,244],[60,224],[0,190]]); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = IDM_C.O; ctx.beginPath(); ctx.moveTo(0, H); ctx.lineTo(0, 716); idmSpline(ctx, [[0,716],[26,748],[70,785],[114,813],[180,841],[246,858],[312,869],[360,877]]); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = IDM_C.K; ctx.beginPath(); ctx.moveTo(0, H); ctx.lineTo(0, 746); idmSpline(ctx, [[0,746],[26,774],[70,806],[114,827],[180,850],[246,864],[300,873],[342,877]]); ctx.closePath(); ctx.fill();
+    if(!opts.print){ ctx.fillStyle = IDM_C.hole; idmRR(ctx, 215, 30, 120, 27, 13.5); ctx.fill(); }
+    await idmLogo(ctx, 219, 80, 114, 115, 11);
+    ctx.fillStyle = IDM_C.O; idmRR(ctx, 133, 210, 284, 310, 17); ctx.fill(); ctx.fillStyle = '#FFFFFF'; idmRR(ctx, 141, 218, 268, 294, 11); ctx.fill();
+    const ph_ = await idmImg(idmMedia(r.photoId)?.img);
+    ctx.save(); idmRR(ctx, 141, 218, 268, 294, 11); ctx.clip();
+    if(ph_){ const s = Math.max(268/ph_.width, 294/ph_.height); const dw = ph_.width*s, dh = ph_.height*s; ctx.drawImage(ph_, 141 + (268-dw)/2, 218 + (294-dh)/2, dw, dh); }
+    else { ctx.fillStyle = '#ECE8DF'; ctx.fillRect(141, 218, 268, 294); ctx.fillStyle = '#C9C2B4'; ctx.beginPath(); ctx.arc(275, 330, 52, 0, 7); ctx.fill(); ctx.beginPath(); ctx.ellipse(275, 512, 112, 100, 0, Math.PI, 0); ctx.fill();
+      if(opts.placeholders) idmText(ctx, '2×2 PHOTO', 275, 470, {size:16, weight:700, color:'#8E8676', ls:0.12}); }
+    ctx.restore();
+    const name = String(r.name||'').toUpperCase() || 'FULL NAME';
+    ctx.font = `800 31px ${IDM_FF}`; const nmLines = ctx.measureText(name).width > 500 ? idmTwoLines(ctx, name, `800 27px ${IDM_FF}`, 500) : [name];
+    if(nmLines.length===1) idmText(ctx, name, 275, 577, {size:31, weight:800, color:IDM_C.T, maxW:500, min:22});
+    else { idmText(ctx, nmLines[0], 275, 556, {size:25, weight:800, color:IDM_C.T, maxW:500, min:18}); idmText(ctx, nmLines[1], 275, 583, {size:25, weight:800, color:IDM_C.T, maxW:500, min:18}); }
+    const pos = String(r.position||'') || 'Position';
+    ctx.font = `500 25px ${IDM_FF}`; if(ctx.measureText(pos).width <= 490) idmText(ctx, pos, 275, 615, {size:25, weight:500, color:IDM_C.T, maxW:490, min:19});
+    else { const L = idmTwoLines(ctx, pos, `500 19px ${IDM_FF}`, 490); idmText(ctx, L[0], 275, L[1]?606:615, {size:19, weight:500, color:IDM_C.T, maxW:490, min:14}); if(L[1]) idmText(ctx, L[1], 275, 628, {size:19, weight:500, color:IDM_C.T, maxW:490, min:14}); }
+    ctx.fillStyle = IDM_C.O; idmRR(ctx, 37, 641, 480, 69, 11); ctx.fill();
+    if(r.cls===IDM_EMP) idmText(ctx, 'EMPLOYEE', 275, 688, {size:36, weight:700, color:IDM_C.T, ls:0.13, maxW:440});
+    else if(ic) idmText(ctx, 'INDEPENDENT CONTRACTOR', 275, 686, {size:29, weight:700, color:IDM_C.T, ls:0.02, maxW:456, min:20});
+    else idmText(ctx, 'CLASSIFICATION TO CONFIRM', 275, 685, {size:24, weight:700, color:IDM_C.T, ls:0.04, maxW:450, min:16});
+    idmText(ctx, `${ic?'Contractor':'Employee'} ID No. ${r.no || '— — —'}`, 275, 742, {size:23, weight:500, color:IDM_C.T, maxW:470, min:16});
+    const sg = await idmImg(idmMedia(r.sigId)?.img);
+    if(sg){ const bw = 190, bh = 44; const s = Math.min(bw/sg.width, bh/sg.height); const dw = sg.width*s, dh = sg.height*s; ctx.drawImage(sg, 275-dw/2, 750 + (bh-dh)/2, dw, dh); }
+    else if(opts.placeholders){ ctx.strokeStyle = '#C9C2B4'; ctx.setLineDash([4,4]); ctx.lineWidth = 1.2; idmRR(ctx, 185, 752, 180, 40, 6); ctx.stroke(); ctx.setLineDash([]); idmText(ctx, 'signature', 275, 777, {size:13, weight:500, color:'#9A9282'}); }
+    ctx.fillStyle = IDM_C.O; ctx.fillRect(238, 802, 76, 3);
+    if(official) idmText(ctx, idmFoot(r, true), 275, 834, {size:13, weight:500, color:IDM_C.T, ls:0.14, maxW:230, min:10});
+  } else {
+    ctx.fillStyle = IDM_C.K; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = IDM_C.O; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(228, 0); idmSpline(ctx, [[228,0],[180,6],[136,20],[92,41],[48,71],[26,93],[0,126]]); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = IDM_C.O; ctx.beginPath(); ctx.moveTo(W, H); ctx.lineTo(70, H); idmSpline(ctx, [[70,877],[114,871],[180,859],[246,843],[312,819],[378,786],[444,739],[488,700],[532,653],[550,634]]); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = IDM_C.W; ctx.beginPath(); ctx.moveTo(W, H); ctx.lineTo(140, H); idmSpline(ctx, [[140,877],[202,861],[268,845],[334,823],[400,795],[444,771],[488,742],[532,708],[550,693]]); ctx.closePath(); ctx.fill();
+    if(!opts.print){ ctx.fillStyle = IDM_C.hole; idmRR(ctx, 215, 30, 120, 27, 13.5); ctx.fill(); }
+    await idmLogo(ctx, 189, 112, 172, 183, 15);
+    ctx.fillStyle = IDM_C.O; ctx.fillRect(223, 330, 104, 3);
+    idmText(ctx, ic ? 'CONTRACTOR' : 'EMPLOYEE', 275, 395, {size:33, weight:600, color:'#FFFFFF', ls:0.14, maxW:470});
+    idmText(ctx, 'IDENTIFICATION', 275, 438, {size:33, weight:600, color:'#FFFFFF', ls:0.12, maxW:470});
+    ctx.fillStyle = IDM_C.O; ctx.fillRect(222, 479, 106, 3);
+    idmText(ctx, 'Issued for identification and', 275, 538, {size:23, weight:400, color:'#FFFFFF', ls:0.02, maxW:470});
+    idmText(ctx, 'authorized access only.', 275, 573, {size:23, weight:400, color:'#FFFFFF', ls:0.02, maxW:470});
+    idmText(ctx, idmCfg().site || 'crosscoreopc.com', 275, 663, {size:23, weight:600, color:IDM_C.O, ls:0.1, maxW:440});
+    ctx.fillStyle = IDM_C.O; ctx.fillRect(236, 754, 80, 3);
+    if(official) idmText(ctx, idmFoot(r, true), 275, 793, {size:12, weight:500, color:'#FFFFFF', ls:0.12, maxW:190, min:9});
+  }
+  return cv; }
+async function idmPreviewInto(host, r, opts={}){ if(!host) return; const w = opts.w || 220;
+  const [f, b] = await Promise.all([idmDraw(r, 'front', {width:w*2, placeholders:true}), idmDraw(r, 'back', {width:w*2})]);
+  host.innerHTML = ''; [f, b].forEach((c, i)=>{ c.className = 'idm-card'; c.style.width = w+'px'; c.setAttribute('role','img'); c.setAttribute('aria-label', `${i?'Back':'Front'} of ${r.name}’s Company ID`); const fig = document.createElement('figure'); fig.appendChild(c); const cap = document.createElement('figcaption'); cap.textContent = i ? 'Back' : 'Front'; fig.appendChild(cap); host.appendChild(fig); }); }
+/* print-ready files: CR80 (54 × 85.6 mm) at 300 dpi, edge to edge — the slot is punched by the printer */
+const idmFile = (r, s) => `${(r.no||'ID').replace(/[^\w-]+/g,'')}_${idmNorm(r.name).replace(/ /g,'_')}_${s}`;
+function idmSave(blobOrUrl, name){ const a = document.createElement('a'); a.href = typeof blobOrUrl==='string' ? blobOrUrl : URL.createObjectURL(blobOrUrl); a.download = name; document.body.appendChild(a); a.click(); a.remove(); }
+async function idmDownloadPNG(id, side){ const r = idmRec(id); if(!r || !idmCanPrint(r)) return toast('Only released IDs can be downloaded for printing.');
+  const c = await idmDraw(r, side, {width:638, print:true}); idmSave(c.toDataURL('image/png'), idmFile(r, `${side}.png`)); idmLogPrint(r, `PNG ${side}`); }
+async function idmPdf(list, name){ await loadScript(JSPDF_SRC); const doc = new window.jspdf.jsPDF({unit:'mm', format:[54, 85.6], orientation:'portrait', compress:true}); let first_ = true;
+  for(const r of list){ for(const side of ['front','back']){ const c = await idmDraw(r, side, {width:638, print:true}); if(!first_) doc.addPage([54, 85.6], 'portrait'); first_ = false; doc.addImage(c.toDataURL('image/png'), 'PNG', 0, 0, 54, 85.6, undefined, 'FAST'); } }
+  doc.setProperties({title:name, subject:'Cross Core Company ID — CR80 PVC print file', creator:'Cross Core Ops Suite'}); doc.save(name); }
+async function idmDownloadPDF(id){ const r = idmRec(id); if(!r || !idmCanPrint(r)) return toast('Only released IDs can be downloaded for printing.');
+  await idmPdf([r], idmFile(r, 'CR80.pdf')); idmLogPrint(r, 'PDF (front + back)'); }
+async function idmBulkPDF(ids){ const L = ids.map(idmRec).filter(r=>r && idmCanPrint(r)); if(!L.length) return toast('Select released IDs to print.');
+  toast(`Preparing ${L.length} ID${L.length>1?'s':''}…`); await idmPdf(L, `crosscore-company-ids-${manilaDate()}-${L.length}.pdf`); L.forEach(r=>{ (r.prints = r.prints||[]).push({at:nowISO(), by:PERSON, kind:`Bulk PDF (${L.length} IDs)`}); idmHist(r, 'Downloaded for printing', `Bulk PDF (${L.length} IDs)`); }); recordChange(); }
+
+/* ===================== photo: upload, crop, zoom, position ===================== */
+const IDM_FR = {w:268, h:294};   /* the photo window on the card */
+const IDC = {img:null, rec:null, s:1, min:1, x:0, y:0, VW:300, VH:329, drag:null, name:'', rot:0, src:null};
+const IDM_TYPES = /^image\/(jpeg|jpg|png|webp|heic|heif)$/i;
+function idmPhotoModal(recId){ const r = idmRec(recId); if(!r) return; IDC.rec = recId; IDC.img = null;
+  openModal('Your 2×2 ID photo', `<div class="hint" style="margin-bottom:10px">Use a recent, front-facing photo on a plain light background — face and shoulders, no sunglasses or filters. JPG, PNG, WEBP or HEIC, up to 20 MB.</div>
+    <label class="btn primary" style="display:inline-flex;gap:6px;cursor:pointer">📷 Choose photo<input type="file" id="idmFile" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif,.jpg,.jpeg,.png,.webp" style="display:none" onchange="idmPickPhoto(this.files[0])"></label>
+    <div class="idm-crop" id="idmCropWrap" hidden><div class="idm-stage" id="idmStage"><canvas id="idmCropCv"></canvas><div class="idm-guide" aria-hidden="true"></div></div>
+      <div class="idm-tools"><label class="hint" for="idmZoom">Zoom</label><input type="range" id="idmZoom" min="1" max="4" step="0.01" value="1" oninput="idmZoomTo(+this.value)">
+        <button class="btn" type="button" onclick="idmRotate()" title="Rotate 90°">⟳ Rotate</button><button class="btn" type="button" onclick="idmCropReset()">Reset</button></div>
+      <div class="hint">Drag the photo to position it. The oval shows where your face should be.</div><div id="idmQual" class="hint"></div>
+      <button class="btn primary" style="width:100%;margin-top:10px" id="idmPhotoGo" onclick="idmPhotoSave()">Use this photo</button></div>`); }
+async function idmDecode(file){
+  if(!file) throw new Error('Choose a photo.'); if(file.size > 20*1024*1024) throw new Error('That file is larger than 20 MB.');
+  const heic = /heic|heif/i.test(file.type) || /\.(heic|heif)$/i.test(file.name||'');
+  if(!IDM_TYPES.test(file.type||'') && !heic) throw new Error('Use a JPG, PNG, WEBP or HEIC photo.');
+  const load = blob => new Promise((ok, bad)=>{ const u = URL.createObjectURL(blob); const i = new Image(); i.onload = ()=>ok(i); i.onerror = ()=>bad(new Error('decode')); i.src = u; });
+  try{ return await load(file); }catch(e){ if(!heic) throw new Error('That photo could not be opened — try another file.'); }
+  try{ await loadScript('https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js'); const out = await window.heic2any({blob:file, toType:'image/jpeg', quality:0.92}); return await load(Array.isArray(out)?out[0]:out); }
+  catch(e){ throw new Error('This HEIC photo could not be converted here. On iPhone, choose “Most Compatible” in Settings → Camera → Formats, or export it as JPG.'); } }
+async function idmPickPhoto(file){ try{ const img = await idmDecode(file); IDC.src = img; IDC.rot = 0; IDC.name = file.name; idmCropSetup(img); }catch(e){ toast(e.message); } }
+function idmCropSetup(img){ IDC.img = img; el('idmCropWrap').hidden = false; const st = el('idmStage'); const cv = el('idmCropCv'); const w = Math.min(300, st.clientWidth || 300);
+  IDC.VW = w; IDC.VH = Math.round(w*IDM_FR.h/IDM_FR.w); cv.width = IDC.VW*2; cv.height = IDC.VH*2; cv.style.width = IDC.VW+'px'; cv.style.height = IDC.VH+'px'; st.style.height = IDC.VH+'px'; st.style.width = IDC.VW+'px';
+  IDC.min = Math.max(IDC.VW/img.width, IDC.VH/img.height); idmCropReset();
+  cv.onpointerdown = e => { cv.setPointerCapture(e.pointerId); IDC.drag = {x:e.clientX, y:e.clientY, ox:IDC.x, oy:IDC.y}; };
+  cv.onpointermove = e => { if(!IDC.drag) return; IDC.x = IDC.drag.ox + e.clientX - IDC.drag.x; IDC.y = IDC.drag.oy + e.clientY - IDC.drag.y; idmCropDraw(); };
+  cv.onpointerup = cv.onpointercancel = () => { IDC.drag = null; };
+  cv.onwheel = e => { e.preventDefault(); idmZoomTo(IDC.s/IDC.min * (e.deltaY < 0 ? 1.06 : 1/1.06)); };
+  cv.onkeydown = e => { const d = {ArrowLeft:[6,0], ArrowRight:[-6,0], ArrowUp:[0,6], ArrowDown:[0,-6]}[e.key]; if(d){ e.preventDefault(); IDC.x += d[0]; IDC.y += d[1]; idmCropDraw(); } }; cv.tabIndex = 0; cv.setAttribute('aria-label','Photo crop area — drag or use the arrow keys to position'); }
+function idmCropReset(){ IDC.s = IDC.min; IDC.x = (IDC.VW - IDC.img.width*IDC.s)/2; IDC.y = (IDC.VH - IDC.img.height*IDC.s)/2; const z = el('idmZoom'); if(z) z.value = 1; idmCropDraw(); }
+function idmZoomTo(z){ z = Math.max(1, Math.min(4, z)); const cx = IDC.VW/2, cy = IDC.VH/2, ns = IDC.min*z; IDC.x = cx - (cx-IDC.x)*ns/IDC.s; IDC.y = cy - (cy-IDC.y)*ns/IDC.s; IDC.s = ns; const el_ = el('idmZoom'); if(el_) el_.value = z; idmCropDraw(); }
+function idmRotate(){ if(!IDC.img) return; const i = IDC.img; const c = document.createElement('canvas'); c.width = i.height; c.height = i.width; const x = c.getContext('2d'); x.translate(c.width/2, c.height/2); x.rotate(Math.PI/2); x.drawImage(i, -i.width/2, -i.height/2); idmCropSetup(c); }
+function idmCropDraw(){ const cv = el('idmCropCv'); if(!cv || !IDC.img) return; const i = IDC.img;
+  const w = i.width*IDC.s, h = i.height*IDC.s; IDC.x = Math.min(0, Math.max(IDC.VW - w, IDC.x)); IDC.y = Math.min(0, Math.max(IDC.VH - h, IDC.y));   /* the photo always covers the frame — never stretched */
+  const ctx = cv.getContext('2d'); ctx.setTransform(2,0,0,2,0,0); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, IDC.VW, IDC.VH); ctx.imageSmoothingQuality = 'high'; ctx.drawImage(i, IDC.x, IDC.y, w, h);
+  const srcW = IDC.VW/IDC.s, q = el('idmQual'); if(q){ q.textContent = srcW < 260 ? `⚠️ Low resolution (${Math.round(srcW)} px across) — the printed photo may look blurry. Zoom out or use a sharper photo.` : `✓ Good quality (${Math.round(srcW)} px across the frame)`; q.style.color = srcW < 260 ? 'var(--bad)' : 'var(--ok)'; } }
+async function idmPhotoSave(){ const r = idmRec(IDC.rec); if(!r || !IDC.img) return; const srcW = IDC.VW/IDC.s;
+  if(srcW < 160) return toast('This photo is too small to print clearly — please use a higher-resolution photo.');
+  const OW = 536, OH = 588, k = OW/IDC.VW; const c = document.createElement('canvas'); c.width = OW; c.height = OH; const x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0,0,OW,OH); x.imageSmoothingQuality = 'high';
+  x.drawImage(IDC.img, IDC.x*k, IDC.y*k, IDC.img.width*IDC.s*k, IDC.img.height*IDC.s*k);
+  try{ idmSaveMedia(r, 'photo', c.toDataURL('image/jpeg', 0.9), {w:OW, h:OH, src:IDC.name}); closeModal(); toast('Photo saved'); idmRerender(); }catch(e){ toast(e.message); } }
+
+/* ===================== signature: draw or upload ===================== */
+const IDSG = {up:null};
+function idmSigModal(recId){ const r = idmRec(recId); if(!r) return; IDSG.up = null; SIGP.strokes = []; SIGP.cur = null;
+  openModal('Your electronic signature', `<div class="hint" style="margin-bottom:8px">Sign the way you normally do. It appears under your ID number on the card.</div>
+    <div class="tabs" style="margin-bottom:10px"><button class="tab on" id="idmSgT1" onclick="idmSigTab(1)">Draw</button><button class="tab" id="idmSgT2" onclick="idmSigTab(2)">Upload an image</button></div>
+    <div id="idmSgDraw"><div class="sg-wrap"><canvas id="sgCv" aria-label="Signature area — draw with a mouse, trackpad, finger or stylus"></canvas><div id="sgPh" class="sg-ph">Sign here</div><div class="sg-line"></div></div>
+      <div class="sg-bar"><button class="btn" onclick="sgClear()">Clear</button><button class="btn" onclick="sgUndo()">Undo last stroke</button><span class="hint" style="margin-left:auto">Mouse · trackpad · touch · stylus</span></div></div>
+    <div id="idmSgUp" hidden><label class="btn" style="cursor:pointer">Choose image (PNG or JPG)<input type="file" accept="image/png,image/jpeg,image/webp" style="display:none" onchange="idmSigUpload(this.files[0])"></label>
+      <div class="hint" style="margin-top:6px">Sign on white paper with a dark pen and take a sharp photo or scan. The background is removed automatically.</div><div class="idm-sgprev" id="idmSgPrev"></div></div>
+    <label class="hint" style="display:flex;gap:8px;align-items:flex-start;margin:12px 0"><input id="idmSgOk" type="checkbox" style="width:auto;margin-top:3px"> This is my signature. I allow Cross Core to use it only on my Company ID card.</label>
+    <button class="btn primary" style="width:100%" onclick="idmSigSave()">Save signature</button>`);
+  requestAnimationFrame(sgInit); }
+function idmSigTab(n){ el('idmSgDraw').hidden = n!==1; el('idmSgUp').hidden = n!==2; el('idmSgT1').classList.toggle('on', n===1); el('idmSgT2').classList.toggle('on', n===2); if(n===1) requestAnimationFrame(sgInit); }
+async function idmSigUpload(file){ try{ if(!file) return; if(file.size > 10*1024*1024) throw new Error('Use an image under 10 MB.'); const img = await idmDecode(file);
+    const k = Math.min(1, 1400/img.width); const c = document.createElement('canvas'); c.width = Math.round(img.width*k); c.height = Math.round(img.height*k); const x = c.getContext('2d'); x.drawImage(img, 0, 0, c.width, c.height);
+    const d = x.getImageData(0, 0, c.width, c.height), p = d.data; let x0 = c.width, y0 = c.height, x1 = 0, y1 = 0;
+    for(let i=0;i<p.length;i+=4){ const L = 0.299*p[i]+0.587*p[i+1]+0.114*p[i+2]; const a = L > 185 ? 0 : Math.min(255, Math.round((185-L)*2.2)); p[i] = p[i+1] = p[i+2] = 20; p[i+3] = Math.min(p[i+3], a);
+      if(a > 40){ const px = (i/4) % c.width, py = Math.floor(i/4/c.width); if(px<x0) x0 = px; if(px>x1) x1 = px; if(py<y0) y0 = py; if(py>y1) y1 = py; } }
+    if(x1 <= x0 || y1 <= y0) throw new Error('No signature found in that image — use dark ink on white paper.');
+    x.putImageData(d, 0, 0); const pad = 6; const w = x1-x0+pad*2, h = y1-y0+pad*2; const s = Math.min(1, 600/w); const o = document.createElement('canvas'); o.width = Math.round(w*s); o.height = Math.round(h*s);
+    o.getContext('2d').drawImage(c, x0-pad, y0-pad, w, h, 0, 0, o.width, o.height); IDSG.up = o.toDataURL('image/png');
+    el('idmSgPrev').innerHTML = `<img src="${IDSG.up}" alt="Signature preview">`; }catch(e){ toast(e.message); } }
+function idmSigSave(){ const r = idmRec(IDC.sigRec || MODAL_IDREC); if(!r) return;
+  if(!el('idmSgOk').checked) return toast('Tick the confirmation to save your signature');
+  let img = null, src = 'draw'; if(!el('idmSgUp').hidden){ img = IDSG.up; src = 'upload'; if(!img) return toast('Choose a signature image first'); }
+  else { if(sgInk() < 60) return toast('Please draw your signature first'); img = sgExport(); }
+  try{ idmSaveMedia(r, 'sig', img, {src}); closeModal(); toast('Signature saved'); idmRerender(); }catch(e){ toast(e.message); } }
+let MODAL_IDREC = null;
+{ const _o = idmSigModal; idmSigModal = function(id){ MODAL_IDREC = id; IDC.sigRec = id; return _o.apply(this, arguments); }; }
+const IDMU = {tab:'overview', q:'', st:'', cls:'', dept:'', sel:new Set(), reopen:null, imp:null};
+const idmRerender = () => { if(CURRENT==='myid') RENDER.myid(); else if(CURRENT==='idmgmt') RENDER.idmgmt(); if(IDMU.reopen){ const id = IDMU.reopen; IDMU.reopen = null; idmOpen(id); } };
+
+/* ===================== My Company ID (every employee and contractor) ===================== */
+function idmSteps(r){ const hasHead = idmHeadsFor(r.person, r.dept).length; const sub = !!r.submittedAt && r.status!==IDM_ST.PEND && r.status!==IDM_ST.RET;
+  const S = [['2×2 photo', !!idmMedia(r.photoId)], ['Signature', !!idmMedia(r.sigId)], ['Submitted', sub || r.status===IDM_ST.REL], ...(hasHead ? [['Department review', [IDM_ST.HR, IDM_ST.REL].includes(r.status)]] : []), ['HR approval', [IDM_ST.FIN, IDM_ST.REL].includes(r.status)], ['Final approval (heads)', r.status===IDM_ST.REL], ['Released', r.status===IDM_ST.REL]];
+  return `<div class="lv-steps idm-steps">${S.map(([l, d])=>`<div class="${d?'done':''}"><i>${d?'✓':''}</i><b>${esc(l)}</b></div>`).join('')}</div>`; }
+const idmKV = r => `<div class="lv-kv idm-kv">${[['Full name', r.name], ['Position / service role', r.position||'—'], ['Department', r.dept||'—'], ['Classification', r.cls===IDM_TBC ? 'To be confirmed by HR' : r.cls + (r.clsVerified ? '' : ' (to be confirmed)')],
+  [`${idmClsLabel(r)} ID number`, r.no || 'Not assigned yet'], ['Company ID status', idmShownStatus(r)], ['Date issued', r.issuedAt ? dstr(r.issuedAt) : '—'], ['Expiration date', r.expiresAt ? dstr(r.expiresAt) : '—']].map(([k,v])=>`<div><span>${esc(k)}</span><b>${esc(v)}</b></div>`).join('')}</div>`;
+RENDER.myid = function(){ const v = el('v-myid'); if(!v) return; const r = idmCurrent(PERSON);
+  const head = `<div class="page-head"><div><h2>My Company ID</h2><p>Your official Cross Core identification card — upload your photo and signature, then track it until HR releases it.</p></div></div>`;
+  if(!r){ v.innerHTML = `${head}<div class="card"><div class="card-b"><div class="empty" style="padding:26px">Your Company ID hasn’t been started yet.<br><span class="hint">HR or your department head usually starts it — you can also start it now and upload your requirements.</span><br><br><button class="btn primary" onclick="idmStartMine()">Start my Company ID</button></div></div></div>`; return; }
+  const self = r.person===PERSON, open = IDM_OPEN.includes(r.status), miss = idmMissing(r);
+  const ph = idmMedia(r.photoId), sg = idmMedia(r.sigId);
+  v.innerHTML = `${head}
+    ${r.status===IDM_ST.RET ? `<div class="card idm-alert bad"><div class="card-b"><b>Changes requested</b><div>${esc(r.returnNote||'')}</div></div></div>` : ''}
+    ${r.status===IDM_ST.PEND && miss.length ? `<div class="card idm-alert"><div class="card-b"><b>To do:</b> upload your ${esc(miss.join(' and '))}, then submit.</div></div>` : ''}
+    <div class="idm-my">
+      <div class="card"><div class="card-h"><b>${esc(r.name)}</b>${idmBadge(r)}</div><div class="card-b">${idmSteps(r)}${idmKV(r)}
+        ${r.regPhoto && !ph ? `<div class="hint" style="margin-top:10px">Registry note: photo “${esc(r.regPhoto)}” — please upload it here so it can be placed on your card.</div>` : ''}</div></div>
+      <div class="card"><div class="card-h"><b>Preview</b><span class="hint">${r.status===IDM_ST.REL ? 'Official card' : 'Not valid until released'}</span></div><div class="card-b"><div class="idm-prev" id="idmMyPrev"><div class="hint">Loading preview…</div></div>
+        ${r.status===IDM_ST.REL && self ? `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px"><button class="btn" onclick="idmMyCopy()">⬇ Digital copy (PNG)</button></div>` : ''}</div></div>
+    </div>
+    ${open ? `<div class="grid cols-2" style="margin-top:14px">
+      <div class="card"><div class="card-h"><b>1 · 2×2 photo</b>${ph?'<span class="badge b-approved">Uploaded</span>':'<span class="badge b-draft">Needed</span>'}</div><div class="card-b idm-req">
+        ${ph ? `<img class="idm-thumb" src="${ph.img}" alt="Your ID photo">` : '<div class="idm-thumb empty">2×2</div>'}
+        <div><div class="hint">Front-facing, plain light background, shoulders visible. You can crop, zoom and position it.</div><button class="btn ${ph?'':'primary'}" style="margin-top:8px" onclick="idmPhotoModal('${r.id}')">${ph?'Replace photo':'Upload photo'}</button></div></div></div>
+      <div class="card"><div class="card-h"><b>2 · Electronic signature</b>${sg?'<span class="badge b-approved">Saved</span>':'<span class="badge b-draft">Needed</span>'}</div><div class="card-b idm-req">
+        ${sg ? `<img class="idm-sig" src="${sg.img}" alt="Your signature">` : '<div class="idm-sig empty">signature</div>'}
+        <div><div class="hint">Draw it with your mouse or finger, or upload a photo of it. Used only on your Company ID.</div>${self ? `<button class="btn ${sg?'':'primary'}" style="margin-top:8px" onclick="idmSigModal('${r.id}')">${sg?'Redo signature':'Add signature'}</button>` : ''}</div></div></div></div>
+      ${self && [IDM_ST.PEND, IDM_ST.RET].includes(r.status) ? `<div style="margin-top:14px"><button class="btn primary" ${miss.length?'disabled':''} onclick="idmMySubmit('${r.id}')">Submit for review</button> <span class="hint">${miss.length ? 'Add your photo and signature first.' : idmHeadsFor(r.person, r.dept).length ? `Goes to ${esc(idmHeadsFor(r.person, r.dept).map(first).join(', '))}, then HR.` : 'Goes to HR for approval.'}</span></div>` : ''}
+      ${[IDM_ST.DEPT, IDM_ST.HR, IDM_ST.FIN].includes(r.status) ? `<div class="hint" style="margin-top:12px">Submitted ${dtstr(r.submittedAt)} — ${r.status===IDM_ST.DEPT ? 'your department head is reviewing it.' : r.status===IDM_ST.FIN ? 'approved by HR, waiting for the final approval of the company heads.' : 'HR is reviewing it.'} Changing your photo or signature now means submitting again.</div>` : ''}` : ''}
+    <details class="card" style="margin-top:14px"><summary class="card-h" style="cursor:pointer"><b>History</b></summary><div class="card-b">${idmHistHTML(r)}</div></details>`;
+  idmPreviewInto(el('idmMyPrev'), r, {w:Math.min(230, Math.floor(((el('idmMyPrev')?.clientWidth)||480)/2) - 12)}); };
+const idmHistHTML = r => `<div class="idm-hist">${[...(r.history||[])].reverse().map(h=>`<div><span class="hint">${dtstr(h.at)}</span><b>${esc(h.act)}</b><span>${esc(h.by==='system'||h.by==='registry'?'System':pname(h.by))}${h.note?` — ${esc(h.note)}`:''}</span></div>`).join('') || '<div class="hint">No history yet.</div>'}</div>`;
+async function idmStartMine(){ try{ const r = idmNewRec(PERSON, {source:'self', act:'Started by the person', cls:IDM_TBC, clsVerified:false}); idmNotifyNew(r); recordChange(); RENDER.myid(); toast('Started — upload your photo and signature'); }catch(e){ toast(e.message); } }
+function idmMySubmit(id){ try{ idmSubmit(idmRec(id)); RENDER.myid(); toast('Submitted for review'); }catch(e){ toast(e.message); } }
+async function idmMyCopy(){ const r = idmCurrent(PERSON); if(!r || r.status!==IDM_ST.REL) return; const c = await idmDraw(r, 'front', {width:638}); idmSave(c.toDataURL('image/png'), idmFile(r, 'digital.png')); }
+
+/* ===================== Company ID Management (HR · department heads · COO / company heads) ===================== */
+const idmVisible = () => idmIsHr() || idmIsExec() ? IDREC : IDREC.filter(r=>idmIsDeptHead(r) || r.person===PERSON);
+const idmStaff = () => activePeople().filter(k=>!['client','applicant'].includes(PEOPLE[k]?.role) && !PEOPLE[k]?.teamOnly && !(typeof isAssistantKey==='function' && isAssistantKey(k)));
+const idmMyPeople = () => idmStaff().filter(k=>idmIsHr() || idmHeadsFor(k, idmDeptOf(k)).includes(PERSON));
+const idmWithout = () => idmMyPeople().filter(k=>!IDREC.some(r=>r.person===k && (IDM_OPEN.includes(r.status) || r.status===IDM_ST.REL)));
+const IDM_TABS = () => [['overview','Overview'], ['registry','ID registry'], ['queue','Approvals'], ...(idmIsHr()?[['import','Import from Excel']]:[]), ...(idmIsHr()||idmIsExec()?[['exports','Exports & printing']]:[]), ...(idmIsHr()?[['settings','Settings']]:[])];
+RENDER.idmgmt = function(){ const v = el('v-idmgmt'); if(!v) return;
+  if(!idmCanManageAny()){ v.innerHTML = '<div class="empty">Company ID Management is available to HR, department heads and the company heads.</div>'; return; }
+  idmScan(); const tabs = IDM_TABS(); if(!tabs.some(t=>t[0]===IDMU.tab)) IDMU.tab = 'overview';
+  const q = idmQueue();
+  v.innerHTML = `<div class="page-head"><div><h2>Company ID Management</h2><p>${idmIsFinal() ? 'Create, verify and approve Company IDs — a company head gives the final approval that releases each card.' : idmIsHr() ? 'Create, verify and approve Company IDs; a company head gives the final approval, then you print them.' : idmIsExec() && !idmAllHeads().includes(PERSON) ? 'Company-wide ID requests, releases, renewals, revocations and the audit history.' : 'IDs of the people in your department — start them, review them and send them to HR.'}</p></div>
+      <div class="head-actions">${idmWithout().length && (idmIsHr() || idmAllHeads().includes(PERSON)) ? `<button class="btn primary" onclick="idmNewModal()">＋ New ID record</button>` : ''}</div></div>
+    <div class="tabs">${tabs.map(([k,l])=>`<button class="tab ${IDMU.tab===k?'on':''}" onclick="IDMU.tab='${k}';RENDER.idmgmt()">${l}${k==='queue'&&q.length?` <span class="badge b-new">${q.length}</span>`:''}</button>`).join('')}</div>
+    <div id="idmBody">${({overview:idmOverviewHTML, registry:idmRegistryHTML, queue:idmQueueHTML, import:idmImportHTML, exports:idmExportsHTML, settings:idmSettingsHTML}[IDMU.tab]||idmOverviewHTML)()}</div>`; };
+function idmQueue(){ return idmVisible().filter(r=>(idmIsFinal() && r.status===IDM_ST.FIN && r.person!==PERSON) || (idmIsHr() && r.status===IDM_ST.HR) || (r.status===IDM_ST.DEPT && (idmIsDeptHead(r) || idmIsHr()))); }
+function idmOverviewHTML(){ const L = idmVisible(), rel = L.filter(r=>r.status===IDM_ST.REL && !idmExpired(r)), today = manilaDate(), soon = new Date(Date.now()+30*864e5).toISOString().slice(0,10);
+  const c = s => L.filter(r=>r.status===s).length, exp = L.filter(idmExpired).length, expSoon = rel.filter(r=>r.expiresAt.slice(0,10)<=soon).length;
+  const month = today.slice(0,7), relMonth = L.filter(r=>(r.issuedAt||'').slice(0,7)===month).length;
+  const depts = uniq(L.map(r=>r.dept||'—')).sort();
+  const events = L.flatMap(r=>(r.history||[]).map(h=>({...h, r}))).sort((a,b)=>b.at.localeCompare(a.at)).slice(0, 14);
+  return `<div class="grid cols-4" style="margin-bottom:14px">${pvKpi('Issued (valid)', rel.length, `${relMonth} released this month`, 'var(--ok)')}${pvKpi('Employees · Contractors', `${rel.filter(r=>r.cls===IDM_EMP).length} · ${rel.filter(r=>r.cls===IDM_IC).length}`, `all records: ${L.filter(r=>r.cls===IDM_EMP).length} · ${L.filter(r=>r.cls===IDM_IC).length} · ${L.filter(r=>r.cls===IDM_TBC).length} to confirm`)}
+      ${pvKpi('Pending approval', `${c(IDM_ST.HR)} · ${c(IDM_ST.FIN)}`, `HR · final (heads) — ${c(IDM_ST.DEPT)} with department heads`, c(IDM_ST.HR)+c(IDM_ST.FIN)?'var(--warn)':'')}${pvKpi('Waiting for requirements', c(IDM_ST.PEND) + c(IDM_ST.RET), `${c(IDM_ST.RET)} returned for changes`)}
+      ${pvKpi('Expiring in 30 days', expSoon, `${exp} expired`, expSoon||exp?'var(--bad)':'')}${pvKpi('Renewals & replacements', L.filter(r=>['renewal','replacement'].includes(r.source)).length, `${c(IDM_ST.SUP)} superseded cards`)}${pvKpi('Revoked', c(IDM_ST.REV), 'kept in the history')}${pvKpi('Personnel without an ID', idmWithout().length, 'active personnel', idmWithout().length?'var(--warn)':'')}</div>
+    <div class="grid cols-2"><div class="card"><div class="card-h"><b>By department</b></div><div class="card-b" style="overflow-x:auto"><table class="tbl"><thead><tr><th>Department</th><th>Released</th><th>In progress</th><th>Employees</th><th>Contractors</th></tr></thead><tbody>${depts.map(d=>{ const D = L.filter(r=>(r.dept||'—')===d);
+      return `<tr><td>${esc(d)}</td><td>${D.filter(r=>r.status===IDM_ST.REL).length}</td><td>${D.filter(r=>IDM_OPEN.includes(r.status)).length}</td><td>${D.filter(r=>r.cls===IDM_EMP).length}</td><td>${D.filter(r=>r.cls===IDM_IC).length}</td></tr>`; }).join('') || '<tr><td colspan="5" class="hint">No ID records yet.</td></tr>'}</tbody></table></div></div>
+      <div class="card"><div class="card-h"><b>Recent activity</b><span class="hint">audit trail</span></div><div class="card-b idm-hist">${events.map(e=>`<div><span class="hint">${dtstr(e.at)}</span><b><a href="#" onclick="idmOpen('${e.r.id}');return false">${esc(e.r.name)}</a> — ${esc(e.act)}</b><span>${esc(e.by==='system'||e.by==='registry'?'System':pname(e.by))}${e.note?` · ${esc(e.note)}`:''}</span></div>`).join('') || '<div class="hint">Nothing yet.</div>'}</div></div></div>`; }
+function idmFiltered(){ const q = idmNorm(IDMU.q); return idmVisible().filter(r=>(!q || idmNorm(`${r.name} ${r.no} ${r.position}`).includes(q)) && (!IDMU.st || idmShownStatus(r)===IDMU.st) && (!IDMU.cls || r.cls===IDMU.cls) && (!IDMU.dept || r.dept===IDMU.dept))
+  .sort((a,b)=>(a.no||'zz').localeCompare(b.no||'zz') || a.name.localeCompare(b.name)); }
+function idmRegistryHTML(){ const L = idmFiltered(), all = idmVisible(); const hr = idmIsHr();
+  const opt = (v, list, cur) => `<option value="">${v}</option>${list.map(x=>`<option ${x===cur?'selected':''}>${esc(x)}</option>`).join('')}`;
+  return `<div class="card" style="margin-bottom:12px"><div class="card-b idm-filters"><input type="search" placeholder="Search name or ID number…" value="${esc(IDMU.q)}" oninput="IDMU.q=this.value;clearTimeout(IDMU.t);IDMU.t=setTimeout(()=>{RENDER.idmgmt();const i=document.querySelector('.idm-filters input');if(i){i.focus();i.setSelectionRange(i.value.length,i.value.length);}},250)">
+      <select onchange="IDMU.st=this.value;RENDER.idmgmt()">${opt('All statuses', [...Object.values(IDM_ST), 'Expired'], IDMU.st)}</select><select onchange="IDMU.cls=this.value;RENDER.idmgmt()">${opt('All classifications', [IDM_EMP, IDM_IC, IDM_TBC], IDMU.cls)}</select>
+      <select onchange="IDMU.dept=this.value;RENDER.idmgmt()">${opt('All departments', uniq(all.map(r=>r.dept).filter(Boolean)).sort(), IDMU.dept)}</select></div></div>
+    ${hr ? `<div class="idm-bulk"><span class="hint">${IDMU.sel.size} selected</span><button class="btn" onclick="idmBulkNumbers()">Generate missing numbers</button><button class="btn" onclick="idmBulkPDF([...IDMU.sel])">⬇ Print-ready PDF (selected)</button>${idmWithout().length?`<button class="btn" onclick="idmBulkCreate()">Create IDs for ${idmWithout().length} personnel without one</button>`:''}</div>` : ''}
+    <div class="card"><div class="card-b" style="overflow-x:auto"><table class="tbl idm-tbl"><thead><tr>${hr?`<th><input type="checkbox" aria-label="Select all" onchange="idmSelAll(this.checked)"></th>`:''}<th>ID number</th><th>Name</th><th>Position / role</th><th>Classification</th><th>Department</th><th>Photo</th><th>Signature</th><th>Status</th><th>Valid until</th></tr></thead>
+    <tbody>${L.map(r=>`<tr>${hr?`<td><input type="checkbox" ${IDMU.sel.has(r.id)?'checked':''} onchange="this.checked?IDMU.sel.add('${r.id}'):IDMU.sel.delete('${r.id}');RENDER.idmgmt()" aria-label="Select ${esc(r.name)}"></td>`:''}<td class="mono">${esc(r.no||'—')}</td><td><a href="#" onclick="idmOpen('${r.id}');return false"><b>${esc(r.name)}</b></a>${r.person?'':' <span class="badge b-draft">no portal account</span>'}</td><td>${esc(r.position||'—')}</td>
+      <td>${esc(r.cls)}${r.cls!==IDM_TBC && !r.clsVerified?' <span class="hint">(unconfirmed)</span>':''}</td><td>${esc(r.dept||'—')}</td><td>${idmMedia(r.photoId)?'✓':'<span class="hint">—</span>'}</td><td>${idmMedia(r.sigId)?'✓':'<span class="hint">—</span>'}</td><td>${idmBadge(r)}</td><td>${r.expiresAt?dstr(r.expiresAt):'—'}</td></tr>`).join('') || `<tr><td colspan="10" class="hint">No IDs match.</td></tr>`}</tbody></table></div></div>`; }
+function idmSelAll(on){ idmFiltered().forEach(r=>on?IDMU.sel.add(r.id):IDMU.sel.delete(r.id)); RENDER.idmgmt(); }
+function idmQueueHTML(){ const q = idmQueue(); return `<div class="card"><div class="card-b" style="overflow-x:auto"><table class="tbl"><thead><tr><th>Name</th><th>ID number</th><th>Classification</th><th>Stage</th><th>Submitted</th><th>Check</th><th></th></tr></thead><tbody>
+  ${q.map(r=>{ const iss = idmIssues(r).filter(x=>!/one word/.test(x)); return `<tr><td><b>${esc(r.name)}</b><div class="hint">${esc(r.position||'')}</div></td><td class="mono">${esc(r.no||'—')}</td><td>${esc(r.cls)}</td><td>${idmBadge(r)}</td><td>${r.submittedAt?dtstr(r.submittedAt):'—'}</td><td>${iss.length?`<span class="hint" style="color:var(--bad)">${esc(iss[0])}${iss.length>1?` (+${iss.length-1})`:''}</span>`:'<span style="color:var(--ok)">✓ ready</span>'}</td><td><button class="btn" onclick="idmOpen('${r.id}')">Review</button></td></tr>`; }).join('') || '<tr><td colspan="7" class="hint">Nothing waiting for you.</td></tr>'}</tbody></table></div></div>`; }
+
+/* ---------- one ID record ---------- */
+function idmOpen(id){ const r = idmRec(id); if(!r) return toast('That ID record is not available'); MODAL_IDREC = id;
+  const hr = idmIsHr(), dh = idmIsDeptHead(r), ed = idmCanEdit(r) && IDM_OPEN.includes(r.status), iss = idmIssues(r);
+  const act = [];
+  if(ed && !idmNoOk(r) && r.cls!==IDM_TBC) act.push(`<button class="btn" onclick="idmDo('no','${id}')">${r.no?'Assign a matching number':'Generate ID number'}</button>`);
+  if((dh || hr) && r.status===IDM_ST.DEPT) act.push(`<button class="btn primary" onclick="idmDo('fwd','${id}')">Send to HR</button>`);
+  if((dh || hr) && [IDM_ST.PEND, IDM_ST.RET].includes(r.status) && !idmMissing(r).length) act.push(`<button class="btn" onclick="idmDo('fwd','${id}')">Submit to HR</button>`);
+  const dis = idmReady(r) ? '' : 'disabled title="Complete the checklist first"';
+  if(hr && [IDM_ST.PEND, IDM_ST.DEPT, IDM_ST.HR, IDM_ST.RET].includes(r.status) && !(idmIsFinal() && r.person!==PERSON)) act.push(`<button class="btn primary" ${dis} onclick="idmDo('hrok','${id}')">✓ Approve — send for final approval</button>`);
+  if(idmIsFinal() && r.person!==PERSON && IDM_OPEN.includes(r.status)) act.push(`<button class="btn primary" ${dis} onclick="idmDo('rel','${id}')">✓ Final approval &amp; release</button>`);
+  if(r.status===IDM_ST.FIN && !idmIsFinal()) act.push(`<span class="hint">Waiting for the final approval of a company head.</span>`);
+  if(r.status===IDM_ST.FIN && idmIsFinal() && r.person===PERSON) act.push(`<span class="hint">Another company head gives the final approval for your own ID.</span>`);
+  if((hr && [IDM_ST.HR, IDM_ST.DEPT, IDM_ST.FIN].includes(r.status)) || (dh && r.status===IDM_ST.DEPT)) act.push(`<button class="btn" onclick="idmDo('ret','${id}')">Return for changes</button>`);
+  if(idmCanPrint(r)) act.push(`<button class="btn" onclick="idmDownloadPDF('${id}')">⬇ PVC print file (PDF)</button><button class="btn" onclick="idmDownloadPNG('${id}','front')">PNG front</button><button class="btn" onclick="idmDownloadPNG('${id}','back')">PNG back</button>`);
+  if(hr && (r.status===IDM_ST.REL || r.status===IDM_ST.REV) && !idmOpenFor(r.person)) act.push(`<button class="btn" onclick="idmDo('renew','${id}')">Renew</button><button class="btn" onclick="idmDo('replace','${id}')">Replace (lost / damaged)</button>`);
+  if(hr && r.status===IDM_ST.REL) act.push(`<button class="btn danger" onclick="idmDo('revoke','${id}')">Revoke</button>`);
+  openModal(`Company ID — ${r.name}`, `<div id="idmDlg" class="idm-dlg"><div class="idm-dlg-l"><div class="idm-prev" id="idmDlgPrev"><div class="hint">Loading preview…</div></div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">${(r.person===PERSON || hr) && IDM_OPEN.includes(r.status) ? `<button class="btn" onclick="IDMU.reopen='${id}';idmPhotoModal('${id}')">${idmMedia(r.photoId)?'Replace photo':'Upload photo'}</button>` : ''}${r.person===PERSON && IDM_OPEN.includes(r.status) ? `<button class="btn" onclick="IDMU.reopen='${id}';idmSigModal('${id}')">Signature</button>` : ''}</div></div>
+    <div class="idm-dlg-r"><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px">${idmBadge(r)}<span class="mono">${esc(r.no||'No number yet')}</span>${r.kind?`<span class="badge b-draft">${esc(r.kind)}</span>`:''}</div>
+      ${idmSteps(r)}
+      ${ed ? `<div class="grid cols-2"><div class="field"><label>Full name (as printed)</label><input id="idmFName" value="${esc(r.name)}"></div><div class="field"><label>${r.cls===IDM_IC?'Service role':'Official position'}</label><input id="idmFPos" value="${esc(r.position||'')}"></div>
+        <div class="field"><label>Department</label><input id="idmFDept" list="idmDepts" value="${esc(r.dept||'')}"><datalist id="idmDepts">${uniq([...Object.keys(idmCfg().deptHeads||{}), ...EMPLOYEES.map(e=>e.dept)].filter(Boolean)).map(d=>`<option value="${esc(d)}">`).join('')}</datalist></div>
+        <div class="field"><label>Classification ${hr?'':'<span class="hint">(HR only)</span>'}</label><select id="idmFCls" ${hr?'':'disabled'}>${[IDM_EMP, IDM_IC, IDM_TBC].map(c=>`<option ${c===r.cls?'selected':''}>${c}</option>`).join('')}</select>
+          ${hr && r.cls!==IDM_TBC ? `<label class="hint" style="display:flex;gap:6px;margin-top:4px"><input type="checkbox" id="idmFVer" style="width:auto" ${r.clsVerified?'checked disabled':''}> Verified against the engagement records</label>` : ''}${r.clsSuggest?`<div class="hint">Portal role suggests: ${esc(r.clsSuggest)} — confirm against the contract.</div>`:''}</div></div>
+        <button class="btn" onclick="idmDo('save','${id}')">Save details</button>` : idmKV(r)}
+      <div class="idm-check"><b>Release checklist</b>${iss.length ? `<ul>${iss.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>` : '<div style="color:var(--ok)">✓ Everything is complete</div>'}</div>
+      ${r.returnNote && r.status===IDM_ST.RET ? `<div class="hint" style="color:var(--bad)">Returned: ${esc(r.returnNote)}</div>` : ''}
+      ${r.revokeReason ? `<div class="hint" style="color:var(--bad)">Revoked ${dtstr(r.revokedAt)}: ${esc(r.revokeReason)}</div>` : ''}
+      ${r.regPhoto || r.regStatus ? `<div class="hint">Registry: photo “${esc(r.regPhoto||'—')}” · status “${esc(r.regStatus||'—')}”</div>` : ''}
+      <div class="idm-acts">${act.join('')}</div>
+      <details style="margin-top:10px"><summary class="hint" style="cursor:pointer">History (${(r.history||[]).length}) · printed ${(r.prints||[]).length}×</summary>${idmHistHTML(r)}</details></div></div>`, true);
+  idmPreviewInto(el('idmDlgPrev'), r, {w:180}); }
+async function idmDo(what, id){ const r = idmRec(id); if(!r) return;
+  try{
+    if(what==='save'){ const n = idmEditDetails(r, {name:el('idmFName').value, position:el('idmFPos').value, dept:el('idmFDept').value, cls:el('idmFCls')?.disabled ? null : el('idmFCls').value, clsVerified:!!el('idmFVer')?.checked}); toast(n ? 'Details saved' : 'No changes'); }
+    else if(what==='no'){ const no = await idmAssignNo(r); recordChange(); toast(`ID number ${no}`); }
+    else if(what==='fwd'){ idmSubmit(r); toast('Sent to HR'); }
+    else if(what==='hrok'){ idmHrApprove(r); toast('Approved — sent to the company heads for final approval'); }
+    else if(what==='rel'){ return confirmModal('Final approval — release this ID?', `<p><b>${esc(r.name)}</b> · ${esc(r.no)} · ${esc(r.cls)}</p><p class="hint">The card becomes official and valid until ${dstr(idmAddMonths(nowISO(), +idmCfg().validityMonths||12))}. Details can't be edited after release — changes need a renewal or replacement.</p>`, 'Final approval & release', ()=>{ try{ idmRelease(r); closeModal(); idmRerender(); idmOpen(id); toast('Released'); }catch(e){ toast(e.message); idmOpen(id); } }, {primary:true}); }
+    else if(['ret','revoke','renew','replace'].includes(what)){ const lbl = {ret:['Return for changes','What needs to change?','Return'], revoke:['Revoke this ID','Reason (kept in the record)','Revoke'], renew:['Renew this ID','Reason (e.g. expiring on …)','Start renewal'], replace:['Replace this ID','Reason (e.g. lost, damaged, new position)','Start replacement']}[what];
+      return openModal(lbl[0], `<div class="field"><label>${lbl[1]}</label><textarea id="idmWhy" rows="3"></textarea></div>${what==='replace'?`<label class="hint" style="display:flex;gap:6px"><input type="checkbox" id="idmRevOld" style="width:auto" checked> Revoke the current card now (lost or stolen)</label>`:''}
+        <div class="cf-acts"><button class="btn" onclick="idmOpen('${id}')">Cancel</button><button class="btn ${what==='revoke'?'danger':'primary'}" onclick="idmDo2('${what}','${id}')">${lbl[2]}</button></div>`); }
+    idmRerender(); idmOpen(id);
+  }catch(e){ toast(e.message); } }
+function idmDo2(what, id){ const r = idmRec(id); const why = el('idmWhy').value;
+  try{ let to = id; if(what==='ret') idmReturn(r, why); else if(what==='revoke') idmRevoke(r, why); else to = idmRenew(r, what==='replace'?'replacement':'renewal', why, what==='replace' && el('idmRevOld')?.checked).id;
+    idmRerender(); idmOpen(to); toast('Saved'); }catch(e){ toast(e.message); } }
+function idmNewModal(){ const L = idmWithout().sort((a,b)=>pname(a).localeCompare(pname(b)));
+  openModal('New Company ID record', `<div class="hint" style="margin-bottom:8px">Details are filled in from the person’s portal profile. They’re notified to upload their 2×2 photo and signature.</div>
+    <div class="field"><label>Person</label><select id="idmNP">${L.map(k=>`<option value="${k}">${esc(idmFullName(k))} — ${esc(idmPositionOf(k)||'')} (${esc(idmDeptOf(k))})</option>`).join('')}</select></div>
+    ${idmIsHr() ? `<div class="field"><label>Classification</label><select id="idmNC"><option value="">From verified records (or “To confirm”)</option><option>${IDM_EMP}</option><option>${IDM_IC}</option></select><div class="hint">Choose only when it’s confirmed by the contract or employment records.</div></div>` : ''}
+    <button class="btn primary" style="width:100%" onclick="idmNewGo()">Create ID record</button>`); }
+async function idmNewGo(){ try{ const k = el('idmNP').value, c = el('idmNC')?.value; const r = await idmCreateFor(k, c ? {cls:c, clsVerified:true, source:'manual'} : {source:'manual'}); closeModal(); idmRerender(); idmOpen(r.id); toast('ID record created'); }catch(e){ toast(e.message); } }
+async function idmBulkCreate(){ const L = idmWithout(); let n = 0; for(const k of L){ try{ await idmCreateFor(k, {source:'bulk'}); n++; }catch(e){} } RENDER.idmgmt(); toast(`${n} ID record${n===1?'':'s'} created`); }
+async function idmBulkNumbers(){ const L = idmVisible().filter(r=>IDM_OPEN.includes(r.status) && r.cls!==IDM_TBC && !idmNoOk(r) && idmCanEdit(r)); let n = 0, err = '';
+  for(const r of L){ try{ await idmAssignNo(r); n++; }catch(e){ err = e.message; } } recordChange(); RENDER.idmgmt(); toast(n ? `${n} number${n===1?'':'s'} generated` : err || 'No IDs are missing a number (classifications “To confirm” are skipped)'); }
+
+/* ===================== Excel registry import ===================== */
+const IDM_FIELDS = [['name','Full name',/full\s*name|^name$|personnel|employee\s*name/i, true], ['position','Position / role',/position|title|designation|role/i], ['no','ID number',/id\s*(no|num|number|#)|^id$|^number$/i],
+  ['cls','Classification',/class|engagement|employment\s*type|^type$/i], ['dept','Department',/dept|department|team/i], ['email','Email',/e-?mail/i], ['photo','ID photo (note)',/photo|picture|image/i], ['status','Status (note)',/^status$|id\s*status/i]];
+function idmImportHTML(){ const I = IDMU.imp;
+  if(!I) return `<div class="card"><div class="card-b"><p>Upload the Excel employee registry (.xlsx, .xls or .csv). You’ll map the columns and see every row before anything is saved — existing records are never overwritten automatically.</p>
+    <label class="btn primary" style="cursor:pointer">📄 Choose Excel file<input type="file" accept=".xlsx,.xls,.csv" style="display:none" onchange="idmImpFile(this.files[0])"></label></div></div>`;
+  const cols = I.header.map((h,i)=>[i, String(h||`Column ${i+1}`)]);
+  return `<div class="card" style="margin-bottom:12px"><div class="card-h"><b>${esc(I.fileName)}</b><button class="btn" onclick="IDMU.imp=null;RENDER.idmgmt()">Start over</button></div><div class="card-b">
+      <div class="idm-map"><div class="field"><label>Sheet</label><select onchange="idmImpSheet(this.value)">${I.sheets.map(n=>`<option ${n===I.sheet?'selected':''}>${esc(n)}</option>`).join('')}</select></div>
+      ${IDM_FIELDS.map(([k,l,,req])=>`<div class="field"><label>${l}${req?' *':''}</label><select onchange="IDMU.imp.map.${k}=this.value===''?null:+this.value;idmImpAnalyze();RENDER.idmgmt()"><option value="">— not in file —</option>${cols.map(([i,h])=>`<option value="${i}" ${I.map[k]===i?'selected':''}>${esc(h)}</option>`).join('')}</select></div>`).join('')}</div>
+      <label class="hint" style="display:flex;gap:6px;margin-top:6px"><input type="checkbox" style="width:auto" ${I.gen?'checked':''} onchange="IDMU.imp.gen=this.checked"> Generate numbers for rows without one (when the classification is known)</label></div></div>
+    ${idmImpPreview()}`; }
+async function idmImpFile(f){ if(!f) return; try{ await loadScript(XLSX_SRC); const wb = XLSX.read(await f.arrayBuffer(), {type:'array'});
+    const sheets = wb.SheetNames; const pick = sheets.find(n=>XLSX.utils.sheet_to_json(wb.Sheets[n], {header:1, blankrows:false}).slice(0,10).some(row=>row.some(c=>/name/i.test(String(c||''))))) || sheets[0];
+    IDMU.imp = {fileName:f.name, wb, sheets, sheet:pick, gen:true}; idmImpSheet(pick); }catch(e){ toast('Could not read that file: '+e.message); } }
+function idmImpSheet(n){ const I = IDMU.imp; I.sheet = n; const rows = XLSX.utils.sheet_to_json(I.wb.Sheets[n], {header:1, blankrows:false, defval:''});
+  const hi = Math.max(0, rows.slice(0,10).findIndex(row=>row.some(c=>/name/i.test(String(c||''))))); I.header = rows[hi] || []; I.rows = rows.slice(hi+1).filter(r=>r.some(c=>String(c).trim()));
+  I.map = {}; IDM_FIELDS.forEach(([k,,re])=>{ const i = I.header.findIndex((h,j)=>re.test(String(h||'')) && !Object.values(I.map).includes(j)); I.map[k] = i>=0 ? i : null; });
+  idmImpAnalyze(); RENDER.idmgmt(); }
+const idmImpCls = s => /indep|contract|\bic\b|freelanc/i.test(s) ? IDM_IC : /employ|regular|full.?time|part.?time/i.test(s) ? IDM_EMP : IDM_TBC;
+function idmMatch(name, email){ if(email){ const k = personByEmail(email); if(k) return [k, 'email']; }
+  const n = idmNorm(name); if(!n) return [null, ''];
+  const staff = uniq([...idmStaff(), ...Object.keys(IDM_ALIASES).filter(k=>PEOPLE[k])]);
+  const exact = staff.filter(k=>idmNorm(idmFullName(k))===n || idmNorm(PEOPLE[k]?.name)===n || (IDM_ALIASES[k]||[]).includes(n)); if(exact.length===1) return [exact[0], 'name'];
+  const reg = IDREC.filter(r=>r.person && idmNorm(r.name)===n); if(reg.length===1) return [reg[0].person, 'ID record'];
+  const toks = n.split(' '); const byFirst = staff.filter(k=>{ const c = idmNorm(idmFullName(k)).split(' '); return toks.length===1 ? c.includes(toks[0]) : toks.every(t=>c.includes(t)); });
+  return byFirst.length===1 ? [byFirst[0], 'first name — please check'] : [null, '']; }
+function idmImpAnalyze(){ const I = IDMU.imp; if(!I) return; const g = (row, k) => I.map[k]==null ? '' : idmClean(row[I.map[k]]);
+  const seenN = {}, seenNo = {};
+  I.list = I.rows.map((row, i)=>{ const o = {i, name:g(row,'name'), position:g(row,'position'), no:g(row,'no').toUpperCase(), clsRaw:g(row,'cls'), dept:g(row,'dept'), email:g(row,'email'), photo:g(row,'photo'), status:g(row,'status'), issues:[], conflicts:[], use:{}};
+    o.cls = o.clsRaw ? idmImpCls(o.clsRaw) : IDM_TBC; const [k, how] = o.override!==undefined ? [o.override, 'chosen'] : idmMatch(o.name, o.email); o.person = I.pick?.[i] !== undefined ? (I.pick[i]||null) : k; o.how = I.pick?.[i] !== undefined ? 'chosen by HR' : how;
+    if(!o.name){ o.issues.push('No name — skipped'); o.skip = true; }
+    if(o.name && o.name.split(' ').length < 2){ const full = o.person ? idmFullName(o.person) : ''; if(full && idmNorm(full).split(' ').length > 1 && idmNorm(full).includes(idmNorm(o.name))){ o.issues.push(`Short name — the portal’s full name “${full}” will be used`); o.name = full; } else o.issues.push('Full name looks incomplete'); }
+    if(o.person && idmNorm(o.position).replace(/ /g,'')===idmNorm(idmPositionOf(o.person)).replace(/ /g,'')) o.position = idmPositionOf(o.person);
+    if(!o.position) o.issues.push('Position missing'); if(o.cls===IDM_TBC) o.issues.push(`Classification ${o.clsRaw?`“${o.clsRaw}”`:'missing'} — HR confirms before release`);
+    if(!o.person) o.issues.push('No matching portal account');
+    const nk = idmNorm(o.name); if(nk){ if(seenN[nk]!=null) o.issues.push(`Duplicate of row ${seenN[nk]+1}`), o.dup = true; else seenN[nk] = i; }
+    if(o.no){ if(!/^CC-(EMP|IC)-\d{3,}$/.test(o.no)) { o.issues.push(`ID number “${o.no}” doesn’t follow CC-EMP-### / CC-IC-###`); o.noBad = true; }
+      if(seenNo[o.no]!=null){ o.issues.push(`ID number repeated (row ${seenNo[o.no]+1})`); o.noBad = true; } else seenNo[o.no] = i;
+      const ow = idmNumOwner(o.no); if(ow!==undefined && ow!==null && ow!==o.person){ o.issues.push(`${o.no} already belongs to ${pname(ow)} — it won’t be reassigned`); o.noBad = true; }
+      if(o.cls!==IDM_TBC && !o.noBad && !o.no.startsWith(idmPrefix(o.cls))) o.issues.push('ID number prefix doesn’t match the classification'); }
+    o.rec = o.person ? (IDREC.find(r=>r.person===o.person && IDM_OPEN.includes(r.status)) || IDREC.find(r=>r.person===o.person && r.status===IDM_ST.REL)) : IDREC.find(r=>o.no && r.no===o.no);
+    if(o.rec){ [['name',o.name],['position',o.position],['dept',o.dept],['cls',o.clsRaw?o.cls:''],['no',o.noBad?'':o.no]].forEach(([f,v])=>{ if(!v) return; const cur = o.rec[f]||''; if(!cur) o.use[f] = true; else if(idmNorm(cur)!==idmNorm(v)) o.conflicts.push({f, cur, v}); });
+      o.action = o.rec.status===IDM_ST.REL ? 'Released — compare only' : (Object.keys(o.use).length || o.conflicts.length) ? 'Update existing record' : 'Already in registry — no changes'; }
+    else o.action = o.skip||o.dup ? 'Skip' : o.person ? 'Create ID record' : 'Create (no portal account)';
+    o.include = I.inc?.[i] ?? !(o.skip || o.dup || o.action.startsWith('Already') || o.action.startsWith('Released') || (o.rec && !Object.keys(o.use).length));
+    return o; }); }
+function idmImpPreview(){ const I = IDMU.imp; if(!I.list) return ''; const n = I.list.filter(o=>o.include).length;
+  const ppl = idmStaff().sort((a,b)=>pname(a).localeCompare(pname(b)));
+  return `<div class="card"><div class="card-h"><b>Preview — ${I.list.length} rows</b><button class="btn primary" ${n?'':'disabled'} onclick="idmImpApply()">Import ${n} row${n===1?'':'s'}</button></div><div class="card-b" style="overflow-x:auto"><table class="tbl idm-imp"><thead><tr><th></th><th>Row</th><th>Name</th><th>Position</th><th>ID number</th><th>Classification</th><th>Portal account</th><th>Action</th><th>Checks</th></tr></thead><tbody>
+    ${I.list.map(o=>`<tr class="${o.issues.length?'warn':''}"><td><input type="checkbox" ${o.include?'checked':''} ${o.skip?'disabled':''} onchange="(IDMU.imp.inc=IDMU.imp.inc||{})[${o.i}]=this.checked;idmImpAnalyze();RENDER.idmgmt()" aria-label="Include row ${o.i+1}"></td><td>${o.i+1}</td><td><b>${esc(o.name||'—')}</b></td><td>${esc(o.position||'—')}</td><td class="mono">${esc(o.no||'—')}</td><td>${esc(o.cls)}</td>
+      <td><select onchange="(IDMU.imp.pick=IDMU.imp.pick||{})[${o.i}]=this.value;idmImpAnalyze();RENDER.idmgmt()" style="max-width:170px"><option value="">— none —</option>${ppl.map(k=>`<option value="${k}" ${o.person===k?'selected':''}>${esc(idmFullName(k))}</option>`).join('')}</select>${o.how?`<div class="hint">${esc(o.how)}</div>`:''}</td>
+      <td>${esc(o.action)}${o.conflicts.map(c=>`<label class="hint idm-cf"><input type="checkbox" style="width:auto" ${I.useFile?.[o.i+'.'+c.f]?'checked':''} onchange="(IDMU.imp.useFile=IDMU.imp.useFile||{})['${o.i}.${c.f}']=this.checked"> ${esc(c.f)}: keep “${esc(c.cur)}” or use “${esc(c.v)}”</label>`).join('')}</td>
+      <td>${o.issues.map(x=>`<div class="hint">• ${esc(x)}</div>`).join('') || '<span style="color:var(--ok)">✓</span>'}</td></tr>`).join('')}</tbody></table>
+    <div class="hint" style="margin-top:8px">Conflicting values keep the current record unless you tick “use”. Numbers that belong to someone else are never reassigned.</div></div></div>`; }
+async function idmImpApply(){ const I = IDMU.imp; if(!idmIsHr()) return toast('Only HR imports the registry.'); let made = 0, upd = 0; const errs = [];
+  for(const o of I.list.filter(x=>x.include && !x.skip)){
+    try{ if(o.rec){ const r = o.rec; if(!IDM_OPEN.includes(r.status)) continue; const f = {}; const use = k => o.use[k] || I.useFile?.[o.i+'.'+k];
+        ['name','position','dept'].forEach(k=>{ if(use(k)) f[k] = o[k]; }); if(use('cls')) f.cls = o.cls;
+        if(Object.keys(f).length && idmEditDetails(r, f)) upd++;
+        if(use('no') && o.no && !o.noBad) await idmAssignNo(r, o.no); else if(!r.no && I.gen && r.cls!==IDM_TBC) await idmAssignNo(r);
+        idmHist(r, 'Reconciled with the Excel registry', I.fileName); }
+      else { if(o.person && idmOpenFor(o.person)) throw new Error(`${o.name}: already has an ID in progress`);
+        const r = idmNewRec(o.person, {name:o.name, position:o.position, dept:o.dept || (o.person ? idmDeptOf(o.person) : ''), cls:o.cls, clsVerified:o.cls!==IDM_TBC, source:'import', act:'Imported from Excel', note:I.fileName, regPhoto:o.photo, regStatus:o.status});
+        made++; await lvSettle?.();
+        if(o.no && !o.noBad) await idmAssignNo(r, o.no); else if(I.gen && r.cls!==IDM_TBC) await idmAssignNo(r);
+        if(r.person) idmNotifyNew(r); } }
+    catch(e){ errs.push(e.message); } }
+  audit(`Company ID registry imported from ${I.fileName}: ${made} created, ${upd} updated`); recordChange(); IDMU.imp = null; IDMU.tab = 'registry'; RENDER.idmgmt();
+  toast(`${made} created · ${upd} updated${errs.length?` · ${errs.length} not imported: ${errs[0]}`:''}`); }
+
+/* ===================== exports, print history, settings ===================== */
+const IDM_EXPORTS = [['all','Complete ID registry', ()=>true], ['emp','Employee ID list', r=>r.cls===IDM_EMP], ['ic','Independent contractor ID list', r=>r.cls===IDM_IC], ['pending','Pending IDs', r=>IDM_OPEN.includes(r.status)],
+  ['released','Released IDs (valid)', r=>r.status===IDM_ST.REL && !idmExpired(r)], ['expiring','Expired & expiring (30 days)', r=>idmExpired(r) || (r.status===IDM_ST.REL && r.expiresAt?.slice(0,10) <= new Date(Date.now()+30*864e5).toISOString().slice(0,10))], ['revoked','Revoked & superseded', r=>[IDM_ST.REV, IDM_ST.SUP].includes(r.status)]];
+function idmExportsHTML(){ const prints = idmVisible().flatMap(r=>(r.prints||[]).map(p=>({...p, r}))).sort((a,b)=>b.at.localeCompare(a.at));
+  return `<div class="card" style="margin-bottom:14px"><div class="card-h"><b>Export to Excel</b></div><div class="card-b idm-exp">${IDM_EXPORTS.map(([k,l,f])=>`<button class="btn" onclick="idmExport('${k}')">⬇ ${l} <span class="hint">(${idmVisible().filter(f).length})</span></button>`).join('')}</div></div>
+    <div class="card"><div class="card-h"><b>Printing history</b><span class="hint">${prints.length} downloads</span></div><div class="card-b" style="overflow-x:auto"><table class="tbl"><thead><tr><th>When</th><th>ID</th><th>Name</th><th>File</th><th>By</th></tr></thead><tbody>
+      ${prints.slice(0,200).map(p=>`<tr><td>${dtstr(p.at)}</td><td class="mono">${esc(p.r.no||'')}</td><td>${esc(p.r.name)}</td><td>${esc(p.kind)}</td><td>${esc(pname(p.by))}</td></tr>`).join('') || '<tr><td colspan="5" class="hint">No IDs printed yet.</td></tr>'}</tbody></table>
+      <div class="hint" style="margin-top:8px">Print files are CR80 PVC size (54 × 85.6 mm, 300 dpi), front and back, edge to edge. The lanyard slot is punched by the printer.</div></div></div>`; }
+async function idmExport(kind){ const [, label, f] = IDM_EXPORTS.find(x=>x[0]===kind); await loadScript(XLSX_SRC);
+  const rows = idmVisible().filter(f).sort((a,b)=>(a.no||'zz').localeCompare(b.no||'zz')).map(r=>({'ID Number':r.no||'', 'Full Name':r.name, 'Position / Service Role':r.position||'', 'Classification':r.cls + (r.cls!==IDM_TBC && !r.clsVerified ? ' (unconfirmed)' : ''), 'Department':r.dept||'',
+    'Status':idmShownStatus(r), 'Photo':idmMedia(r.photoId)?'Uploaded':'Missing', 'Signature':idmMedia(r.sigId)?'Provided':'Missing', 'Date Issued':r.issuedAt?dstr(r.issuedAt):'', 'Valid Until':r.expiresAt?dstr(r.expiresAt):'', 'Released By':r.releasedBy?pname(r.releasedBy):'',
+    'Portal Account':r.person?'Yes':'No', 'Times Printed':(r.prints||[]).length, 'Revocation Reason':r.revokeReason||'', 'Record':r.id}));
+  const wb = XLSX.utils.book_new(); const ws = XLSX.utils.json_to_sheet(rows.length ? rows : [{'ID Number':'(none)'}]); ws['!cols'] = Object.keys(rows[0]||{a:1}).map(k=>({wch:Math.max(12, Math.min(40, k.length+4))}));
+  XLSX.utils.book_append_sheet(wb, ws, label.slice(0,31)); XLSX.writeFile(wb, `crosscore-${kind==='all'?'id-registry':'ids-'+kind}-${manilaDate()}.xlsx`); audit(`Exported Company IDs: ${label}`); }
+function idmSettingsHTML(){ const c = idmCfg(); const depts = uniq([...Object.keys(c.deptHeads||{}), ...EMPLOYEES.map(e=>e.dept), ...IDREC.map(r=>r.dept)].filter(Boolean)).sort();
+  const ppl = uniq([...HEADS, ...Object.keys(PEOPLE).filter(k=>['manager','hr'].includes(PEOPLE[k]?.role)), ...idmStaff()]).filter(k=>PEOPLE[k]).sort((a,b)=>pname(a).localeCompare(pname(b)));
+  return `<div class="card" style="margin-bottom:14px"><div class="card-h"><b>Validity & numbering</b></div><div class="card-b"><div class="grid cols-2"><div class="field"><label>An ID is valid for (months)</label><input type="number" id="idmVal" min="1" max="60" value="${+c.validityMonths||12}"></div>
+      <div class="field"><label>Website on the back</label><input id="idmSite" value="${esc(c.site)}"></div></div><div class="hint">Numbers: employees ${esc(c.empPrefix)}###, independent contractors ${esc(c.icPrefix)}### (the registry’s convention). A number stays with its person for life and is never given to anyone else.</div></div></div>
+    <div class="card" style="margin-bottom:14px"><div class="card-h"><b>Department heads</b><span class="hint">who reviews and forwards IDs before HR</span></div><div class="card-b" style="overflow-x:auto"><table class="tbl"><thead><tr><th>Department</th><th>Heads (hold Ctrl / ⌘ to pick several)</th><th>May download print files</th></tr></thead><tbody>
+      ${depts.map(d=>`<tr><td>${esc(d)}</td><td><select multiple size="3" data-idmdept="${esc(d)}" style="min-width:220px">${ppl.map(k=>`<option value="${k}" ${(c.deptHeads?.[d]||[]).includes(k)?'selected':''}>${esc(pname(k))}</option>`).join('')}</select></td>
+        <td>${(c.deptHeads?.[d]||[]).map(k=>`<label class="hint" style="display:block"><input type="checkbox" style="width:auto" data-idmprint="${k}" ${(c.printHeads||[]).includes(k)?'checked':''}> ${esc(first(k))}</label>`).join('') || '<span class="hint">—</span>'}</td></tr>`).join('')}</tbody></table>
+      <div class="hint">Without a department head, IDs go straight to HR. Department heads can never release IDs.</div><button class="btn primary" style="margin-top:10px" onclick="idmSaveSettings()">Save settings</button></div></div>`; }
+function idmSaveSettings(){ if(!idmIsHr()) return toast('Only HR changes these settings.'); let r = IDCFG.find(x=>x.id==='global'); if(!r){ r = {id:'global'}; IDCFG.push(r); }
+  const dh = {}; document.querySelectorAll('[data-idmdept]').forEach(s=>{ dh[s.dataset.idmdept] = [...s.selectedOptions].map(o=>o.value); });
+  r.deptHeads = dh; r.printHeads = [...document.querySelectorAll('[data-idmprint]:checked')].map(x=>x.dataset.idmprint).filter(k=>Object.values(dh).flat().includes(k));
+  r.validityMonths = Math.max(1, Math.min(60, +el('idmVal').value||12)); r.site = el('idmSite').value.trim() || 'crosscoreopc.com'; r.updatedAt = nowISO(); r.updatedBy = PERSON;
+  audit('Company ID settings updated'); recordChange(); RENDER.idmgmt(); toast('Settings saved'); }
+
+/* ===================== navigation, links, dashboard ===================== */
+(function(){ const main = document.querySelector('main.main, main') || document.querySelector('.content'); const foot = el('footNote');
+  ['myid','idmgmt'].forEach(id=>{ if(el('v-'+id)) return; const d = document.createElement('div'); d.id = 'v-'+id; d.className = 'view'; (foot ? foot.parentNode : main).insertBefore(d, foot||null); });
+  const at = id => NAV.findIndex(n=>n.id===id); const icoId = 'M3 6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM8.5 11a2 2 0 1 0 0-4 2 2 0 0 0 0 4ZM5.5 16c.6-1.6 1.7-2.5 3-2.5s2.4.9 3 2.5M14 9h4M14 12.5h4';
+  if(at('myid')<0) NAV.splice((at('leave')>=0?at('leave'):at('mydocs'))+1, 0, {id:'myid', name:'My Company ID', roles:ALLR, ico:icoId});
+  if(at('idmgmt')<0) NAV.splice((at('leavehr')>=0?at('leavehr'):at('hrdocs'))+1, 0, {id:'idmgmt', name:'Company ID Management', roles:ALLR, ico:icoId}); })();
+{ const _n = navAllowed; navAllowed = function(n){ if(n && n.id==='idmgmt') return !['client','applicant'].includes(ROLE) && idmCanManageAny(); if(n && n.id==='myid') return !['client','applicant'].includes(ROLE); return _n.apply(this, arguments); }; }
+{ const _fl = followLink; followLink = function(link){ if(link && (link.view==='myid' || link.view==='idmgmt')){ closeOverlays(); go(link.view); if(link.idrec) setTimeout(()=>idmOpen(link.idrec), 90); return; } return _fl.apply(this, arguments); }; }
+{ const _d = RENDER.dashboard; RENDER.dashboard = function(){ const out = _d.apply(this, arguments); try{ const v = el('v-dashboard'); const r = idmCurrent(PERSON); const head = v?.querySelector('.page-head');
+    if(head && r && r.person===PERSON && [IDM_ST.PEND, IDM_ST.RET].includes(r.status) && !v.querySelector('.idm-dash')){ const miss = idmMissing(r);
+      head.insertAdjacentHTML('afterend', `<div class="card idm-dash"><div class="card-b"><span>🪪</span><div><b>${r.status===IDM_ST.RET?'Your Company ID needs changes':'Complete your Company ID'}</b><div class="hint">${r.status===IDM_ST.RET ? esc(r.returnNote||'') : miss.length ? `Upload your ${esc(miss.join(' and '))}.` : 'Your photo and signature are in — submit them for review.'}</div></div><button class="btn primary" onclick="go('myid')">Open My Company ID</button></div></div>`); }
+    const q = idmCanManageAny() ? idmQueue().length : 0;
+    if(head && q && !v.querySelector('.idm-dash-q')) head.insertAdjacentHTML('afterend', `<div class="card idm-dash idm-dash-q"><div class="card-b"><span>🪪</span><div><b>${q} Company ID${q>1?'s':''} waiting for your review</b></div><button class="btn" onclick="IDMU.tab='queue';go('idmgmt')">Review</button></div></div>`); }catch(e){} return out; }; }
+setInterval(()=>{ try{ idmScan(); }catch(e){} }, 60000);
+(function(){ const s = document.createElement('style'); s.textContent = `
+.idm-my{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:14px}.idm-prev{display:flex;gap:14px;flex-wrap:wrap;justify-content:center}.idm-prev figure{margin:0;display:flex;flex-direction:column;align-items:center;gap:4px}.idm-prev figcaption{font-size:11px;color:var(--ink-3);text-transform:uppercase;letter-spacing:.1em}
+.idm-card{height:auto;border-radius:12px;box-shadow:0 10px 24px rgba(20,20,20,.18),0 2px 6px rgba(20,20,20,.12);background:transparent;max-width:100%}
+.idm-kv{margin-top:6px}.idm-steps{margin-bottom:12px}.idm-alert{margin-bottom:12px;border-left:4px solid var(--warn)}.idm-alert.bad{border-left-color:var(--bad)}
+.idm-req{display:flex;gap:14px;align-items:flex-start}.idm-thumb{width:96px;height:105px;object-fit:cover;border-radius:10px;border:3px solid #FCA221;flex:none;background:#fff}.idm-thumb.empty,.idm-sig.empty{display:grid;place-items:center;color:var(--ink-3);font-size:12px;background:var(--panel-2);border-style:dashed}
+.idm-sig{width:150px;height:60px;object-fit:contain;border:1px solid var(--line);border-radius:10px;background:#fff;flex:none;padding:4px}.idm-sig.empty{border:1.5px dashed var(--line)}
+.idm-crop{margin-top:12px}.idm-stage{position:relative;margin:0 auto;border-radius:12px;overflow:hidden;border:3px solid #FCA221;background:#fff;max-width:100%}.idm-stage canvas{display:block;cursor:grab;touch-action:none}.idm-stage canvas:active{cursor:grabbing}
+.idm-guide{position:absolute;left:28%;right:28%;top:12%;height:52%;border:2px dashed rgba(255,255,255,.85);border-radius:50%;box-shadow:0 0 0 1px rgba(0,0,0,.25);pointer-events:none}
+.idm-tools{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:10px 0 4px}.idm-tools input[type=range]{flex:1;min-width:120px}
+.idm-sgprev{margin-top:10px;min-height:60px;border:1px dashed var(--line);border-radius:10px;display:grid;place-items:center;background:#fff}.idm-sgprev img{max-height:90px;max-width:100%}
+.idm-hist{display:flex;flex-direction:column;gap:8px;max-height:320px;overflow:auto}.idm-hist>div{display:flex;flex-direction:column;gap:1px;border-left:2px solid var(--line);padding-left:10px;font-size:12.5px}
+.idm-filters{display:flex;gap:8px;flex-wrap:wrap}.idm-filters input{flex:1;min-width:180px}.idm-bulk{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px}.idm-tbl td{vertical-align:middle}.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px}
+.idm-dlg{display:grid;grid-template-columns:auto minmax(0,1fr);gap:18px}.idm-dlg-l .idm-prev{flex-direction:column;align-items:center}.idm-check{margin:12px 0;padding:10px 12px;border-radius:12px;background:var(--panel-2);font-size:13px}.idm-check ul{margin:6px 0 0 18px}
+.idm-acts{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.idm-map{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px 12px}.idm-imp tr.warn td{background:rgba(242,169,59,.06)}.idm-cf{display:flex;gap:6px;margin-top:4px}
+.idm-exp{display:flex;gap:8px;flex-wrap:wrap}.idm-dash{margin-bottom:12px}.idm-dash .card-b{display:flex;gap:12px;align-items:center;flex-wrap:wrap}.idm-dash .card-b>span{font-size:24px}.idm-dash .card-b>div{flex:1;min-width:180px}
+.idm-hist a{color:inherit;text-decoration:none;border-bottom:1px solid var(--line)}.idm-my>.card,.idm-dlg>div{min-width:0}
+@media(max-width:860px){.idm-my,.idm-dlg{grid-template-columns:minmax(0,1fr)}.idm-dlg-l .idm-prev{flex-direction:row}}
+@media(max-width:520px){.idm-req{flex-direction:column}.idm-prev{gap:8px}.idm-prev .idm-card{width:min(40vw,200px)!important}.idm-kv{grid-template-columns:repeat(2,minmax(0,1fr))}}`; document.head.appendChild(s); })();
 
 /* <<< OCT24 MODULES <<< */
 </script>

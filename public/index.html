@@ -20914,7 +20914,7 @@ async function cooPostFromModal(){ const ch = CHATS.find(c=>c.id===el('paPostC')
    The footer shows which build is running ("Build 2026-10-07 · 1"), and every open portal checks every few minutes
    (and whenever it comes back to the foreground) whether a newer build has been published. If so it shows
    "New version available — Update now" instead of quietly running old code. */
-const BUILD_ID = '2026-10-28 · 3';
+const BUILD_ID = '2026-10-28 · 4';
 function verStamp(){ const f = el('footNote'); if(f && !f.dataset.v){ f.dataset.v = 1; f.textContent = `Cross Core Ops Suite v8 · Build ${BUILD_ID}`; } }
 async function verCheck(){
   if(!/^https?:/.test(location.protocol)) return;
@@ -36132,9 +36132,10 @@ async function cbfDemo(db, l, action, a){
    classification bar, ID number). The signature sits under the ID number; there is no “SAMPLE” text or watermark —
    a released card carries its validity date in that place. An ID never changes a person's employment or contract classification. */
 let IDREC = [], IDMEDIA = [], IDNUMS = [], IDCFG = [];
-const IDM_ST = {PEND:'Pending Requirements', DEPT:'For Department Review', HR:'For HR Approval', FIN:'For Final Approval', RET:'Returned', REL:'Released', REV:'Revoked', SUP:'Superseded'};
+const IDM_ST = {PEND:'Pending Requirements', DEPT:'For Department Review', HR:'For HR Approval', FIN:'For Final Approval', RET:'Returned', REJ:'Rejected', REL:'Released', REV:'Revoked', SUP:'Superseded'};
+const IDM_LABEL = {Released:'Approved and Released'};
 const IDM_OPEN = [IDM_ST.PEND, IDM_ST.DEPT, IDM_ST.HR, IDM_ST.FIN, IDM_ST.RET];
-const IDM_BADGE = {'Pending Requirements':'b-draft', 'For Department Review':'b-review', 'For HR Approval':'b-scheduled', 'For Final Approval':'b-forapproval', Returned:'b-missed', Released:'b-approved', Revoked:'b-missed', Superseded:'b-draft', Expired:'b-missed'};
+const IDM_BADGE = {'Pending Requirements':'b-draft', 'For Department Review':'b-review', 'For HR Approval':'b-scheduled', 'For Final Approval':'b-forapproval', Returned:'b-missed', Rejected:'b-missed', Released:'b-approved', Revoked:'b-missed', Superseded:'b-draft', Expired:'b-missed'};
 const IDM_EMP = 'Employee', IDM_IC = 'Independent Contractor', IDM_TBC = 'To confirm';
 const IDM_DEPT_HEADS = {'Operations':['ja'], 'Creative Studio':['norman'], 'Content':['norman'], 'Growth':['tricia','yam'], 'Executive Office':[]};
 const IDM_LEADER_DEPT = {paul:'Executive Office', ja:'Executive Office', norman:'Creative Studio', tricia:'Operations', yam:'Operations'};
@@ -36153,16 +36154,17 @@ const IDM_REGISTRY = [
 ];
 const idmCfg = () => ({validityMonths:12, deptHeads:IDM_DEPT_HEADS, printHeads:[], empPrefix:'CC-EMP-', icPrefix:'CC-IC-', site:'crosscoreopc.com', ...(IDCFG.find(x=>x.id==='global')||{})});
 const idmIsHr = (k=PERSON) => !!k && (lvIsHr(k) || isFullAccess(k) || HEADS.includes(k));   /* HR and the company heads: create → verify → approve */
-const idmIsFinal = (k=PERSON) => HEADS.includes(k);   /* final approval before release: one company head (CEO, COO or Co-Founder) */
+const idmIsTop = (k=PERSON) => HEADS.includes(k);   /* JA (COO), Pau (CEO) and Norman: final approval; their own IDs are approved automatically */
+const idmIsFinal = (k=PERSON) => idmIsTop(k) || (idmCfg().finalExtra||[]).includes(k);   /* + anyone the heads explicitly authorize */
 const idmIsExec = (k=PERSON) => HEADS.includes(k);
 const idmEmpRec = k => EMPLOYEES.find(e=>e.id===k);
 const idmDeptOf = k => idmEmpRec(k)?.dept || IDM_LEADER_DEPT[k] || 'Operations';
 const idmHeadsFor = (person, dept) => uniq((idmCfg().deptHeads||{})[dept || idmDeptOf(person)] || []).filter(x=>x && x!==person && PEOPLE[x]);
 const idmAllHeads = () => uniq(Object.values(idmCfg().deptHeads||{}).flat()).filter(k=>PEOPLE[k]);
 const idmIsDeptHead = (rec, k=PERSON) => !!rec && idmHeadsFor(rec.person, rec.dept).includes(k);
-const idmCanManageAny = (k=PERSON) => idmIsHr(k) || idmIsExec(k) || idmAllHeads().includes(k);
+const idmCanManageAny = (k=PERSON) => idmIsHr(k) || idmIsExec(k) || idmIsFinal(k) || idmAllHeads().includes(k);
 const idmCanEdit = (rec, k=PERSON) => idmIsHr(k) || idmIsDeptHead(rec, k);
-const idmAud = r => uniq([r.person, ...HR_KEYS(), ...HEADS, ...idmHeadsFor(r.person, r.dept)]).filter(Boolean);
+const idmAud = r => uniq([r.person, ...HR_KEYS(), ...HEADS, ...(idmCfg().finalExtra||[]), ...idmHeadsFor(r.person, r.dept)]).filter(Boolean);
 const idmMediaAud = m => idmAud(IDREC.find(r=>r.person===m.person) || {person:m.person, dept:idmDeptOf(m.person)});
 COLL.idcfg   = {get:()=>IDCFG,   set:v=>IDCFG=v,   aud:()=>null};
 COLL.idmedia = {get:()=>IDMEDIA, set:v=>IDMEDIA=v, aud:idmMediaAud};   /* before compids: a photo / signature must reach the database before the record that points to it */
@@ -36177,7 +36179,7 @@ const idmCurrent = (k=PERSON) => { const L = idmMine(k); return L.find(r=>IDM_OP
 const idmMedia = id => id ? IDMEDIA.find(m=>m.id===id) : null;
 const idmExpired = r => r.status===IDM_ST.REL && r.expiresAt && r.expiresAt.slice(0,10) < manilaDate();
 const idmShownStatus = r => idmExpired(r) ? 'Expired' : r.status;
-const idmBadge = r => { const s = idmShownStatus(r); return `<span class="badge ${IDM_BADGE[s]||'b-draft'}">${esc(s)}</span>`; };
+const idmBadge = r => { const s = idmShownStatus(r); return `<span class="badge ${IDM_BADGE[s]||'b-draft'}">${esc(IDM_LABEL[s]||s)}</span>`; };
 const idmHist = (r, act, note, extra) => { (r.history = r.history || []).push({at:nowISO(), by:PERSON, act, note:note||'', ...(extra||{})}); };
 const idmPrefix = cls => cls===IDM_IC ? idmCfg().icPrefix : cls===IDM_EMP ? idmCfg().empPrefix : null;
 const idmNoOk = r => !!(r.no && idmPrefix(r.cls) && r.no.startsWith(idmPrefix(r.cls)));
@@ -36215,7 +36217,7 @@ async function idmAssignNo(r, wanted){
   if(wanted){ wanted = String(wanted).trim().toUpperCase(); if(!new RegExp('^'+pre.replace(/-/g,'\\-')+'\\d{3,}$').test(wanted)) throw new Error(`${wanted} doesn’t follow the ${pre}### format for this classification.`);
     const ow = idmNumOwner(wanted); if(ow && ow!==r.person) throw new Error(`${wanted} already belongs to ${pname(ow)} — numbers are never reassigned.`); }
   if((idmNoOk(r) && !wanted) || (wanted && wanted===r.no)) return r.no;
-  if(pvLive()){ await lvSettle(); const {data, error} = await BACKEND.sb.rpc('cc_id_assign', {p_id:r.id, p_no:wanted||null}); if(error) throw new Error(error.message); return data; }   /* the server updates the record (and its history); the change arrives in real time */
+  if(pvLive()){ await lvSettle(); const {data, error} = await BACKEND.sb.rpc('cc_id_assign', {p_id:r.id, p_no:wanted||null}); if(error) throw new Error(error.message); if(r.no!==data){ idmHist(r, r.no ? `ID number changed ${r.no} → ${data}` : `ID number ${data} assigned`); r.no = data; } return data; }   /* the server also records it; the number itself can only change there */
   const no = wanted || idmNextNoLocal(r.cls, r.person); const old = r.no; const ncls = no.startsWith(idmCfg().icPrefix) ? IDM_IC : IDM_EMP;
   if(old && old!==no){ const o = IDNUMS.find(n=>n.id===old); if(o) o.status = 'retired'; }
   if(!IDNUMS.some(n=>n.id===no)) IDNUMS.push({id:no, no, cls:ncls, person:r.person, name:r.name, rec:r.id, status:'assigned', at:nowISO(), by:PERSON});
@@ -36252,10 +36254,20 @@ function idmSaveMedia(r, kind, img, meta={}){
   const m = {id:uid(kind==='photo'?'IDP':'IDS'), person:r.person, kind, img, w:meta.w||0, h:meta.h||0, src:meta.src||'', at:nowISO(), by:PERSON}; IDMEDIA.push(m);
   if(kind==='photo') r.photoId = m.id; else r.sigId = m.id;
   idmHist(r, kind==='photo' ? (self?'Photo uploaded':'Photo uploaded by HR') : (meta.src==='upload'?'Signature uploaded':'Signature drawn'));
-  if(self && [IDM_ST.DEPT, IDM_ST.HR, IDM_ST.FIN].includes(r.status)){ r.status = IDM_ST.PEND; idmHist(r, 'Requirements changed — submit again'); }
-  recordChange(); return m; }
+  if(self && !idmIsTop() && [IDM_ST.DEPT, IDM_ST.HR, IDM_ST.FIN].includes(r.status)){ r.status = IDM_ST.PEND; idmHist(r, 'Requirements changed — submit again'); }
+  recordChange(); if(self && idmIsTop()) idmAutoSelf(r); return m; }
+/* JA, Pau and Norman: their own ID is approved and released automatically once it is complete — no HR review */
+let IDM_AUTO = false;
+async function idmAutoSelf(r, quiet){ if(IDM_AUTO || !r || r.person!==PERSON || !idmIsTop() || !IDM_OPEN.includes(r.status) || idmMissing(r).length) return false;
+  IDM_AUTO = true;
+  try{ if(r.cls===IDM_TBC || !r.clsVerified){ r.cls = r.cls===IDM_TBC ? IDM_EMP : r.cls; r.clsVerified = true; idmHist(r, `Classification confirmed: ${r.cls}`, 'Company head'); }
+    if(!idmNoOk(r)) await idmAssignNo(r);
+    const iss = idmIssues(r).filter(x=>!/one word/.test(x)); if(iss.length){ if(!quiet) toast(iss[0]); return false; }
+    idmRelease(r, 'Automatic approval — company head'); if(!quiet) toast('Your Company ID is approved and released — ready to download'); idmRerender(); return true; }
+  catch(e){ if(!quiet) toast(e.message); return false; } finally { IDM_AUTO = false; } }
 function idmSubmit(r){
   const self = r.person===PERSON, dh = idmIsDeptHead(r), hr = idmIsHr();
+  if(self && idmIsTop()){ const miss = idmMissing(r); if(miss.length) throw new Error(`Add the ${miss.join(' and ')} first.`); idmAutoSelf(r); return; }
   if(!(self || dh || hr)) throw new Error('Not allowed.');
   if(![IDM_ST.PEND, IDM_ST.RET].includes(r.status) && !(r.status===IDM_ST.DEPT && (dh||hr))) throw new Error('This ID can’t be submitted now.');
   const miss = idmMissing(r); if(miss.length) throw new Error(`Add the ${miss.join(' and ')} first.`);
@@ -36267,7 +36279,7 @@ function idmSubmit(r){
   if(!self) notify([r.person], 'companyid', `🪪 Your Company ID was sent to HR for approval.`, {view:'myid'});
   recordChange(); }
 function idmReturn(r, note){
-  if(!(idmIsHr() || (idmIsDeptHead(r) && r.status===IDM_ST.DEPT))) throw new Error('Not allowed.');
+  if(!(idmIsHr() || (idmIsFinal() && r.person!==PERSON) || (idmIsDeptHead(r) && r.status===IDM_ST.DEPT))) throw new Error('Not allowed.');
   if(![IDM_ST.DEPT, IDM_ST.HR, IDM_ST.FIN].includes(r.status)) throw new Error('Only a submitted ID can be returned.');
   if(String(note||'').trim().length < 3) throw new Error('Say what needs to change.');
   r.status = IDM_ST.RET; r.returnNote = note.trim(); idmHist(r, 'Returned for changes', note.trim());
@@ -36276,25 +36288,35 @@ function idmAddMonths(iso, m){ const d = new Date(iso); const t = new Date(Date.
 /* HR approval → the company heads give the final approval, which releases the card */
 function idmHrApprove(r){
   if(!idmIsHr()) throw new Error('Only HR or a company head approves IDs.');
+  if(r.person===PERSON && !idmIsTop()) throw new Error('You can’t approve your own ID — another HR officer or a company head reviews it.');
   if(![IDM_ST.PEND, IDM_ST.DEPT, IDM_ST.HR, IDM_ST.RET].includes(r.status)) throw new Error('This ID can’t be approved now.');
   const iss = idmIssues(r).filter(x=>!/one word/.test(x)); if(iss.length) throw new Error(iss[0]);
   r.status = IDM_ST.FIN; r.hrApprovedAt = nowISO(); r.hrApprovedBy = PERSON; idmHist(r, 'Approved by HR — sent for final approval', 'A company head gives the final approval before release');
-  const heads = HEADS.filter(k=>k!==r.person && PEOPLE[k]);
-  notify(heads, 'companyid', `🖋 Final approval needed: <b>${esc(r.name)}</b>’s Company ID ${esc(r.no)} (${esc(r.cls)}) — approved by ${esc(first(PERSON))}.`, {view:'idmgmt', idrec:r.id});
+  const heads = uniq([...HEADS, ...(idmCfg().finalExtra||[])]).filter(k=>k!==r.person && PEOPLE[k]);
+  pvEmit(heads, 'companyid', `🖋 Final approval needed: <b>${esc(r.name)}</b>’s Company ID ${esc(r.no)} (${esc(r.cls)}) — approved by ${esc(first(PERSON))}.`, {view:'idmgmt', idrec:r.id});
   notify([r.person], 'companyid', `🪪 Your Company ID was approved by HR and is waiting for the final approval of the company heads.`, {view:'myid'});
   recordChange(); }
-function idmRelease(r){
-  if(!idmIsFinal()) throw new Error('Only a company head (CEO, COO or Co-Founder) gives the final approval that releases an ID.');
-  if(r.person===PERSON) throw new Error('Another company head gives the final approval for your own ID.');
+function idmRelease(r, remark){
+  if(!idmIsFinal()) throw new Error('Only JA, Pau or Norman (or an approver they authorize) gives the final approval that releases an ID.');
+  if(r.person===PERSON && !idmIsTop()) throw new Error('You can’t approve your own ID — a company head approves it.');
   if(!IDM_OPEN.includes(r.status)) throw new Error('This ID can’t be released now.');
   const iss = idmIssues(r).filter(x=>!/one word/.test(x)); if(iss.length) throw new Error(iss[0]);
-  if(r.status!==IDM_ST.FIN) idmHist(r, 'Approved by a company head (HR step included)');
+  const auto = r.person===PERSON;
+  if(r.status!==IDM_ST.FIN && !auto) idmHist(r, 'Approved by a company head (HR step included)');
   const at = nowISO(); r.status = IDM_ST.REL; r.issuedAt = at; r.expiresAt = idmAddMonths(at, +idmCfg().validityMonths || 12); r.releasedBy = PERSON;
-  r.finalBy = PERSON; idmHist(r, 'Final approval — released', `Valid until ${dstr(r.expiresAt)}`);
+  r.finalBy = PERSON; r.finalAt = at; r.finalNote = String(remark||'').trim(); r.autoApproved = auto;
+  idmHist(r, auto ? 'Approved and released automatically (company head)' : 'Final approval — approved and released', [r.finalNote, `Valid until ${dstr(r.expiresAt)}`].filter(Boolean).join(' · '));
   IDREC.filter(x=>x.person===r.person && x.id!==r.id && x.status===IDM_ST.REL).forEach(x=>{ x.status = IDM_ST.SUP; x.supersededBy = r.id; idmHist(x, 'Superseded', `Replaced by ${r.id}`); });
-  notify([r.person], 'companyid', `✅ Your Company ID <b>${esc(r.no)}</b> was approved and released. Valid until ${dstr(r.expiresAt)}.`, {view:'myid'});
-  notify(uniq([...HR_KEYS(), ...idmHeadsFor(r.person, r.dept), r.hrApprovedBy].filter(k=>k && k!==PERSON)), 'companyid', `✅ <b>${esc(r.name)}</b>’s Company ID ${esc(r.no)} got final approval from ${esc(first(PERSON))} and is released — ready to print.`, {view:'idmgmt', idrec:r.id});
+  if(!auto) notify([r.person], 'companyid', `✅ Your Company ID <b>${esc(r.no)}</b> was approved by ${esc(first(PERSON))} and released. You can view and download it in My Company ID. Valid until ${dstr(r.expiresAt)}.`, {view:'myid'});
+  notify(uniq([...HR_KEYS(), ...idmHeadsFor(r.person, r.dept), r.hrApprovedBy].filter(k=>k && k!==PERSON)), 'companyid', `✅ <b>${esc(r.name)}</b>’s Company ID ${esc(r.no)} ${auto ? 'was approved automatically (company head)' : `got final approval from ${esc(first(PERSON))}`} and is released — ready to print.`, {view:'idmgmt', idrec:r.id});
   audit(`Company ID ${r.no} released for ${r.name}`); recordChange(); }
+function idmReject(r, note){
+  if(!idmIsFinal()) throw new Error('Only JA, Pau or Norman (or an approver they authorize) rejects an ID application.');
+  if(![IDM_ST.DEPT, IDM_ST.HR, IDM_ST.FIN].includes(r.status)) throw new Error('Only a submitted ID can be rejected.');
+  if(String(note||'').trim().length < 3) throw new Error('Give the reason for rejecting.');
+  r.status = IDM_ST.REJ; r.returnNote = note.trim(); r.rejectedBy = PERSON; r.rejectedAt = nowISO(); idmHist(r, 'Rejected', note.trim());
+  notify([r.person], 'companyid', `⛔ Your Company ID application was not approved: “${esc(note.trim().slice(0,160))}”`, {view:'myid'});
+  notify(uniq([...HR_KEYS(), r.hrApprovedBy].filter(k=>k && k!==PERSON)), 'companyid', `⛔ ${esc(first(PERSON))} rejected <b>${esc(r.name)}</b>’s Company ID: ${esc(note.trim().slice(0,160))}`, {view:'idmgmt', idrec:r.id}); recordChange(); }
 function idmRevoke(r, reason){
   if(!idmIsHr()) throw new Error('Only HR or a company head revokes IDs.'); if(r.status!==IDM_ST.REL) throw new Error('Only a released ID can be revoked.');
   if(String(reason||'').trim().length < 3) throw new Error('Give the reason for revoking.');
@@ -36319,7 +36341,7 @@ function idmEditDetails(r, f){
   else if(f.clsVerified && !r.clsVerified && r.cls!==IDM_TBC){ if(!idmIsHr()) throw new Error('Only HR can confirm the classification.'); r.clsVerified = true; ch.push(`classification confirmed: ${r.cls}`); }
   if(ch.length){ r.version = (r.version||1)+1; idmHist(r, 'Details updated', ch.join('; ')); recordChange(); } return ch.length; }
 function idmLogPrint(r, kind){ (r.prints = r.prints || []).push({at:nowISO(), by:PERSON, kind}); idmHist(r, 'Downloaded for printing', kind); recordChange(); }
-const idmCanPrint = r => r.status===IDM_ST.REL && !idmExpired(r) && (idmIsHr() || (idmIsDeptHead(r) && (idmCfg().printHeads||[]).includes(PERSON)));
+const idmCanPrint = r => r.status===IDM_ST.REL && !idmExpired(r) && (idmIsHr() || r.person===PERSON || (idmIsDeptHead(r) && (idmCfg().printHeads||[]).includes(PERSON)));
 
 /* ---------- automation: new personnel get a pending ID; expiry reminders ---------- */
 let IDM_SCAN = 0;
@@ -36335,6 +36357,7 @@ function idmScan(){
       const r = idmNewRec(e.id, {source:'auto', act:'Created automatically for new personnel'}); if(r.cls!==IDM_TBC){ try{ r.no = idmNextNoLocal(r.cls, r.person); IDNUMS.push({id:r.no, no:r.no, cls:r.cls, person:r.person, name:r.name, rec:r.id, status:'assigned', at:nowISO(), by:'system'}); idmHist(r, `ID number ${r.no} reserved`); }catch(x){} }
       idmNotifyNew(r); ch++; });
   }
+  if(idmIsTop()){ const mine = idmOpenFor(PERSON); if(mine && !idmMissing(mine).length) setTimeout(()=>idmAutoSelf(mine, true), 0); }
   const soon = new Date(Date.now()+30*864e5).toISOString().slice(0,10);
   IDREC.filter(r=>r.status===IDM_ST.REL && r.expiresAt && r.expiresAt.slice(0,10)<=soon && !r.remind30).forEach(r=>{ r.remind30 = true; ch++;
     notify([r.person], 'companyid', `⏳ Your Company ID ${esc(r.no)} expires on ${dstr(r.expiresAt)}. HR will arrange the renewal.`, {view:'myid'});
@@ -36429,7 +36452,7 @@ async function idmDraw(r, side, opts={}){
   }
   return cv; }
 async function idmPreviewInto(host, r, opts={}){ if(!host) return; const w = opts.w || 220;
-  const [f, b] = await Promise.all([idmDraw(r, 'front', {width:w*2, placeholders:true}), idmDraw(r, 'back', {width:w*2})]);
+  const [f, b] = await Promise.all([idmDraw(r, 'front', {width:w*2, placeholders:r.status!==IDM_ST.REL}), idmDraw(r, 'back', {width:w*2})]);
   host.innerHTML = ''; [f, b].forEach((c, i)=>{ c.className = 'idm-card'; c.style.width = w+'px'; c.setAttribute('role','img'); c.setAttribute('aria-label', `${i?'Back':'Front'} of ${r.name}’s Company ID`); const fig = document.createElement('figure'); fig.appendChild(c); const cap = document.createElement('figcaption'); cap.textContent = i ? 'Back' : 'Front'; fig.appendChild(cap); host.appendChild(fig); }); }
 /* print-ready files: CR80 (54 × 85.6 mm) at 300 dpi, edge to edge — the slot is punched by the printer */
 const idmFile = (r, s) => `${(r.no||'ID').replace(/[^\w-]+/g,'')}_${idmNorm(r.name).replace(/ /g,'_')}_${s}`;
@@ -36519,24 +36542,29 @@ const IDMU = {tab:'overview', q:'', st:'', cls:'', dept:'', sel:new Set(), reope
 const idmRerender = () => { if(CURRENT==='myid') RENDER.myid(); else if(CURRENT==='idmgmt') RENDER.idmgmt(); if(IDMU.reopen){ const id = IDMU.reopen; IDMU.reopen = null; idmOpen(id); } };
 
 /* ===================== My Company ID (every employee and contractor) ===================== */
-function idmSteps(r){ const hasHead = idmHeadsFor(r.person, r.dept).length; const sub = !!r.submittedAt && r.status!==IDM_ST.PEND && r.status!==IDM_ST.RET;
-  const S = [['2×2 photo', !!idmMedia(r.photoId)], ['Signature', !!idmMedia(r.sigId)], ['Submitted', sub || r.status===IDM_ST.REL], ...(hasHead ? [['Department review', [IDM_ST.HR, IDM_ST.REL].includes(r.status)]] : []), ['HR approval', [IDM_ST.FIN, IDM_ST.REL].includes(r.status)], ['Final approval (heads)', r.status===IDM_ST.REL], ['Released', r.status===IDM_ST.REL]];
+function idmSteps(r){ const rel = r.status===IDM_ST.REL;
+  if(idmIsTop(r.person)) return `<div class="lv-steps idm-steps">${[['2×2 photo', !!idmMedia(r.photoId)], ['Signature', !!idmMedia(r.sigId)], ['Automatic approval (company head)', rel], ['Released', rel]].map(([l, d])=>`<div class="${d?'done':''}"><i>${d?'✓':''}</i><b>${esc(l)}</b></div>`).join('')}</div>`;
+  const hasHead = idmHeadsFor(r.person, r.dept).length; const sub = !!r.submittedAt && r.status!==IDM_ST.PEND && r.status!==IDM_ST.RET;
+  const S = [['2×2 photo', !!idmMedia(r.photoId)], ['Signature', !!idmMedia(r.sigId)], ['Submitted', sub || r.status===IDM_ST.REL], ...(hasHead ? [['Department review', [IDM_ST.HR, IDM_ST.REL].includes(r.status)]] : []), ['HR verification', [IDM_ST.FIN, IDM_ST.REL].includes(r.status)], ['Final approval (JA · Pau · Norman)', r.status===IDM_ST.REL], ['Released', r.status===IDM_ST.REL]];
   return `<div class="lv-steps idm-steps">${S.map(([l, d])=>`<div class="${d?'done':''}"><i>${d?'✓':''}</i><b>${esc(l)}</b></div>`).join('')}</div>`; }
 const idmKV = r => `<div class="lv-kv idm-kv">${[['Full name', r.name], ['Position / service role', r.position||'—'], ['Department', r.dept||'—'], ['Classification', r.cls===IDM_TBC ? 'To be confirmed by HR' : r.cls + (r.clsVerified ? '' : ' (to be confirmed)')],
-  [`${idmClsLabel(r)} ID number`, r.no || 'Not assigned yet'], ['Company ID status', idmShownStatus(r)], ['Date issued', r.issuedAt ? dstr(r.issuedAt) : '—'], ['Expiration date', r.expiresAt ? dstr(r.expiresAt) : '—']].map(([k,v])=>`<div><span>${esc(k)}</span><b>${esc(v)}</b></div>`).join('')}</div>`;
+  [`${idmClsLabel(r)} ID number`, r.no || 'Not assigned yet'], ['Company ID status', IDM_LABEL[idmShownStatus(r)] || idmShownStatus(r)], ...(r.finalBy ? [['Approved by', `${pname(r.finalBy)}${r.autoApproved?' (automatic)':''} · ${dtstr(r.finalAt||r.issuedAt)}`]] : []), ['Date issued', r.issuedAt ? dstr(r.issuedAt) : '—'], ['Expiration date', r.expiresAt ? dstr(r.expiresAt) : '—']].map(([k,v])=>`<div><span>${esc(k)}</span><b>${esc(v)}</b></div>`).join('')}</div>`;
 RENDER.myid = function(){ const v = el('v-myid'); if(!v) return; const r = idmCurrent(PERSON);
-  const head = `<div class="page-head"><div><h2>My Company ID</h2><p>Your official Cross Core identification card — upload your photo and signature, then track it until HR releases it.</p></div></div>`;
+  const head = `<div class="page-head"><div><h2>My Company ID</h2><p>Your official Cross Core identification card — upload your photo and signature, then track it until it is approved and released.</p></div></div>`;
+  if(r && idmIsTop() && r.person===PERSON && IDM_OPEN.includes(r.status) && !idmMissing(r).length && !IDM_AUTO) setTimeout(()=>idmAutoSelf(r, false), 0);
   if(!r){ v.innerHTML = `${head}<div class="card"><div class="card-b"><div class="empty" style="padding:26px">Your Company ID hasn’t been started yet.<br><span class="hint">HR or your department head usually starts it — you can also start it now and upload your requirements.</span><br><br><button class="btn primary" onclick="idmStartMine()">Start my Company ID</button></div></div></div>`; return; }
   const self = r.person===PERSON, open = IDM_OPEN.includes(r.status), miss = idmMissing(r);
   const ph = idmMedia(r.photoId), sg = idmMedia(r.sigId);
   v.innerHTML = `${head}
-    ${r.status===IDM_ST.RET ? `<div class="card idm-alert bad"><div class="card-b"><b>Changes requested</b><div>${esc(r.returnNote||'')}</div></div></div>` : ''}
+    ${r.status===IDM_ST.RET ? `<div class="card idm-alert bad"><div class="card-b"><b>Corrections requested</b><div>${esc(r.returnNote||'')}</div></div></div>` : ''}
+    ${r.status===IDM_ST.REJ ? `<div class="card idm-alert bad"><div class="card-b"><b>Application not approved</b><div>${esc(r.returnNote||'')}</div><div class="hint">HR will start a new application if needed.</div></div></div>` : ''}
+    ${idmIsTop() && self && IDM_OPEN.includes(r.status) ? `<div class="card idm-alert"><div class="card-b"><b>Company head:</b> your ID is approved and released automatically as soon as your photo and signature are in — no HR review.</div></div>` : ''}
     ${r.status===IDM_ST.PEND && miss.length ? `<div class="card idm-alert"><div class="card-b"><b>To do:</b> upload your ${esc(miss.join(' and '))}, then submit.</div></div>` : ''}
     <div class="idm-my">
       <div class="card"><div class="card-h"><b>${esc(r.name)}</b>${idmBadge(r)}</div><div class="card-b">${idmSteps(r)}${idmKV(r)}
         ${r.regPhoto && !ph ? `<div class="hint" style="margin-top:10px">Registry note: photo “${esc(r.regPhoto)}” — please upload it here so it can be placed on your card.</div>` : ''}</div></div>
       <div class="card"><div class="card-h"><b>Preview</b><span class="hint">${r.status===IDM_ST.REL ? 'Official card' : 'Not valid until released'}</span></div><div class="card-b"><div class="idm-prev" id="idmMyPrev"><div class="hint">Loading preview…</div></div>
-        ${r.status===IDM_ST.REL && self ? `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px"><button class="btn" onclick="idmMyCopy()">⬇ Digital copy (PNG)</button></div>` : ''}</div></div>
+        ${r.status===IDM_ST.REL && self && !idmExpired(r) ? `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;justify-content:center"><button class="btn primary" onclick="idmDownloadPDF('${r.id}')">⬇ PVC print file (PDF, front + back)</button><button class="btn" onclick="idmDownloadPNG('${r.id}','front')">PNG front</button><button class="btn" onclick="idmDownloadPNG('${r.id}','back')">PNG back</button></div>` : ''}</div></div>
     </div>
     ${open ? `<div class="grid cols-2" style="margin-top:14px">
       <div class="card"><div class="card-h"><b>1 · 2×2 photo</b>${ph?'<span class="badge b-approved">Uploaded</span>':'<span class="badge b-draft">Needed</span>'}</div><div class="card-b idm-req">
@@ -36545,8 +36573,8 @@ RENDER.myid = function(){ const v = el('v-myid'); if(!v) return; const r = idmCu
       <div class="card"><div class="card-h"><b>2 · Electronic signature</b>${sg?'<span class="badge b-approved">Saved</span>':'<span class="badge b-draft">Needed</span>'}</div><div class="card-b idm-req">
         ${sg ? `<img class="idm-sig" src="${sg.img}" alt="Your signature">` : '<div class="idm-sig empty">signature</div>'}
         <div><div class="hint">Draw it with your mouse or finger, or upload a photo of it. Used only on your Company ID.</div>${self ? `<button class="btn ${sg?'':'primary'}" style="margin-top:8px" onclick="idmSigModal('${r.id}')">${sg?'Redo signature':'Add signature'}</button>` : ''}</div></div></div></div>
-      ${self && [IDM_ST.PEND, IDM_ST.RET].includes(r.status) ? `<div style="margin-top:14px"><button class="btn primary" ${miss.length?'disabled':''} onclick="idmMySubmit('${r.id}')">Submit for review</button> <span class="hint">${miss.length ? 'Add your photo and signature first.' : idmHeadsFor(r.person, r.dept).length ? `Goes to ${esc(idmHeadsFor(r.person, r.dept).map(first).join(', '))}, then HR.` : 'Goes to HR for approval.'}</span></div>` : ''}
-      ${[IDM_ST.DEPT, IDM_ST.HR, IDM_ST.FIN].includes(r.status) ? `<div class="hint" style="margin-top:12px">Submitted ${dtstr(r.submittedAt)} — ${r.status===IDM_ST.DEPT ? 'your department head is reviewing it.' : r.status===IDM_ST.FIN ? 'approved by HR, waiting for the final approval of the company heads.' : 'HR is reviewing it.'} Changing your photo or signature now means submitting again.</div>` : ''}` : ''}
+      ${self && [IDM_ST.PEND, IDM_ST.RET].includes(r.status) && !idmIsTop() ? `<div style="margin-top:14px"><button class="btn primary" ${miss.length?'disabled':''} onclick="idmMySubmit('${r.id}')">Submit for review</button> <span class="hint">${miss.length ? 'Add your photo and signature first.' : idmHeadsFor(r.person, r.dept).length ? `Goes to ${esc(idmHeadsFor(r.person, r.dept).map(first).join(', '))}, then HR.` : 'Goes to HR for approval.'}</span></div>` : ''}
+      ${[IDM_ST.DEPT, IDM_ST.HR, IDM_ST.FIN].includes(r.status) ? `<div class="hint" style="margin-top:12px">Submitted ${dtstr(r.submittedAt)} — ${r.status===IDM_ST.DEPT ? 'your department head is reviewing it.' : r.status===IDM_ST.FIN ? 'verified by HR, waiting for the final approval of JA, Pau or Norman.' : 'HR is reviewing it.'} Changing your photo or signature now means submitting again.</div>` : ''}` : ''}
     <details class="card" style="margin-top:14px"><summary class="card-h" style="cursor:pointer"><b>History</b></summary><div class="card-b">${idmHistHTML(r)}</div></details>`;
   idmPreviewInto(el('idmMyPrev'), r, {w:Math.min(230, Math.floor(((el('idmMyPrev')?.clientWidth)||480)/2) - 12)}); };
 const idmHistHTML = r => `<div class="idm-hist">${[...(r.history||[])].reverse().map(h=>`<div><span class="hint">${dtstr(h.at)}</span><b>${esc(h.act)}</b><span>${esc(h.by==='system'||h.by==='registry'?'System':pname(h.by))}${h.note?` — ${esc(h.note)}`:''}</span></div>`).join('') || '<div class="hint">No history yet.</div>'}</div>`;
@@ -36555,7 +36583,7 @@ function idmMySubmit(id){ try{ idmSubmit(idmRec(id)); RENDER.myid(); toast('Subm
 async function idmMyCopy(){ const r = idmCurrent(PERSON); if(!r || r.status!==IDM_ST.REL) return; const c = await idmDraw(r, 'front', {width:638}); idmSave(c.toDataURL('image/png'), idmFile(r, 'digital.png')); }
 
 /* ===================== Company ID Management (HR · department heads · COO / company heads) ===================== */
-const idmVisible = () => idmIsHr() || idmIsExec() ? IDREC : IDREC.filter(r=>idmIsDeptHead(r) || r.person===PERSON);
+const idmVisible = () => idmIsHr() || idmIsExec() || idmIsFinal() ? IDREC : IDREC.filter(r=>idmIsDeptHead(r) || r.person===PERSON);
 const idmStaff = () => activePeople().filter(k=>!['client','applicant'].includes(PEOPLE[k]?.role) && !PEOPLE[k]?.teamOnly && !(typeof isAssistantKey==='function' && isAssistantKey(k)));
 const idmMyPeople = () => idmStaff().filter(k=>idmIsHr() || idmHeadsFor(k, idmDeptOf(k)).includes(PERSON));
 const idmWithout = () => idmMyPeople().filter(k=>!IDREC.some(r=>r.person===k && (IDM_OPEN.includes(r.status) || r.status===IDM_ST.REL)));
@@ -36568,7 +36596,7 @@ RENDER.idmgmt = function(){ const v = el('v-idmgmt'); if(!v) return;
       <div class="head-actions">${idmWithout().length && (idmIsHr() || idmAllHeads().includes(PERSON)) ? `<button class="btn primary" onclick="idmNewModal()">＋ New ID record</button>` : ''}</div></div>
     <div class="tabs">${tabs.map(([k,l])=>`<button class="tab ${IDMU.tab===k?'on':''}" onclick="IDMU.tab='${k}';RENDER.idmgmt()">${l}${k==='queue'&&q.length?` <span class="badge b-new">${q.length}</span>`:''}</button>`).join('')}</div>
     <div id="idmBody">${({overview:idmOverviewHTML, registry:idmRegistryHTML, queue:idmQueueHTML, import:idmImportHTML, exports:idmExportsHTML, settings:idmSettingsHTML}[IDMU.tab]||idmOverviewHTML)()}</div>`; };
-function idmQueue(){ return idmVisible().filter(r=>(idmIsFinal() && r.status===IDM_ST.FIN && r.person!==PERSON) || (idmIsHr() && r.status===IDM_ST.HR) || (r.status===IDM_ST.DEPT && (idmIsDeptHead(r) || idmIsHr()))); }
+function idmQueue(){ return idmVisible().filter(r=>(idmIsFinal() && [IDM_ST.FIN].includes(r.status) && r.person!==PERSON) || (idmIsHr() && r.status===IDM_ST.HR) || (r.status===IDM_ST.DEPT && (idmIsDeptHead(r) || idmIsHr()))); }
 function idmOverviewHTML(){ const L = idmVisible(), rel = L.filter(r=>r.status===IDM_ST.REL && !idmExpired(r)), today = manilaDate(), soon = new Date(Date.now()+30*864e5).toISOString().slice(0,10);
   const c = s => L.filter(r=>r.status===s).length, exp = L.filter(idmExpired).length, expSoon = rel.filter(r=>r.expiresAt.slice(0,10)<=soon).length;
   const month = today.slice(0,7), relMonth = L.filter(r=>(r.issuedAt||'').slice(0,7)===month).length;
@@ -36587,7 +36615,7 @@ function idmRegistryHTML(){ const L = idmFiltered(), all = idmVisible(); const h
   return `<div class="card" style="margin-bottom:12px"><div class="card-b idm-filters"><input type="search" placeholder="Search name or ID number…" value="${esc(IDMU.q)}" oninput="IDMU.q=this.value;clearTimeout(IDMU.t);IDMU.t=setTimeout(()=>{RENDER.idmgmt();const i=document.querySelector('.idm-filters input');if(i){i.focus();i.setSelectionRange(i.value.length,i.value.length);}},250)">
       <select onchange="IDMU.st=this.value;RENDER.idmgmt()">${opt('All statuses', [...Object.values(IDM_ST), 'Expired'], IDMU.st)}</select><select onchange="IDMU.cls=this.value;RENDER.idmgmt()">${opt('All classifications', [IDM_EMP, IDM_IC, IDM_TBC], IDMU.cls)}</select>
       <select onchange="IDMU.dept=this.value;RENDER.idmgmt()">${opt('All departments', uniq(all.map(r=>r.dept).filter(Boolean)).sort(), IDMU.dept)}</select></div></div>
-    ${hr ? `<div class="idm-bulk"><span class="hint">${IDMU.sel.size} selected</span><button class="btn" onclick="idmBulkNumbers()">Generate missing numbers</button><button class="btn" onclick="idmBulkPDF([...IDMU.sel])">⬇ Print-ready PDF (selected)</button>${idmWithout().length?`<button class="btn" onclick="idmBulkCreate()">Create IDs for ${idmWithout().length} personnel without one</button>`:''}</div>` : ''}
+    ${hr ? `<div class="idm-bulk"><span class="hint">${IDMU.sel.size} selected</span><button class="btn" onclick="idmBulkNumbers()">Generate missing numbers</button>${idmIsFinal() ? `<button class="btn primary" onclick="idmBulkApprove('rel')">✓ Approve &amp; release selected</button>` : `<button class="btn primary" onclick="idmBulkApprove('hrok')">✓ Verify selected → final approval</button>`}<button class="btn" onclick="idmBulkPDF([...IDMU.sel])">⬇ Print-ready PDF (selected)</button>${idmWithout().length?`<button class="btn" onclick="idmBulkCreate()">Create IDs for ${idmWithout().length} personnel without one</button>`:''}</div>` : ''}
     <div class="card"><div class="card-b" style="overflow-x:auto"><table class="tbl idm-tbl"><thead><tr>${hr?`<th><input type="checkbox" aria-label="Select all" onchange="idmSelAll(this.checked)"></th>`:''}<th>ID number</th><th>Name</th><th>Position / role</th><th>Classification</th><th>Department</th><th>Photo</th><th>Signature</th><th>Status</th><th>Valid until</th></tr></thead>
     <tbody>${L.map(r=>`<tr>${hr?`<td><input type="checkbox" ${IDMU.sel.has(r.id)?'checked':''} onchange="this.checked?IDMU.sel.add('${r.id}'):IDMU.sel.delete('${r.id}');RENDER.idmgmt()" aria-label="Select ${esc(r.name)}"></td>`:''}<td class="mono">${esc(r.no||'—')}</td><td><a href="#" onclick="idmOpen('${r.id}');return false"><b>${esc(r.name)}</b></a>${r.person?'':' <span class="badge b-draft">no portal account</span>'}</td><td>${esc(r.position||'—')}</td>
       <td>${esc(r.cls)}${r.cls!==IDM_TBC && !r.clsVerified?' <span class="hint">(unconfirmed)</span>':''}</td><td>${esc(r.dept||'—')}</td><td>${idmMedia(r.photoId)?'✓':'<span class="hint">—</span>'}</td><td>${idmMedia(r.sigId)?'✓':'<span class="hint">—</span>'}</td><td>${idmBadge(r)}</td><td>${r.expiresAt?dstr(r.expiresAt):'—'}</td></tr>`).join('') || `<tr><td colspan="10" class="hint">No IDs match.</td></tr>`}</tbody></table></div></div>`; }
@@ -36603,11 +36631,14 @@ function idmOpen(id){ const r = idmRec(id); if(!r) return toast('That ID record 
   if((dh || hr) && r.status===IDM_ST.DEPT) act.push(`<button class="btn primary" onclick="idmDo('fwd','${id}')">Send to HR</button>`);
   if((dh || hr) && [IDM_ST.PEND, IDM_ST.RET].includes(r.status) && !idmMissing(r).length) act.push(`<button class="btn" onclick="idmDo('fwd','${id}')">Submit to HR</button>`);
   const dis = idmReady(r) ? '' : 'disabled title="Complete the checklist first"';
-  if(hr && [IDM_ST.PEND, IDM_ST.DEPT, IDM_ST.HR, IDM_ST.RET].includes(r.status) && !(idmIsFinal() && r.person!==PERSON)) act.push(`<button class="btn primary" ${dis} onclick="idmDo('hrok','${id}')">✓ Approve — send for final approval</button>`);
-  if(idmIsFinal() && r.person!==PERSON && IDM_OPEN.includes(r.status)) act.push(`<button class="btn primary" ${dis} onclick="idmDo('rel','${id}')">✓ Final approval &amp; release</button>`);
-  if(r.status===IDM_ST.FIN && !idmIsFinal()) act.push(`<span class="hint">Waiting for the final approval of a company head.</span>`);
-  if(r.status===IDM_ST.FIN && idmIsFinal() && r.person===PERSON) act.push(`<span class="hint">Another company head gives the final approval for your own ID.</span>`);
-  if((hr && [IDM_ST.HR, IDM_ST.DEPT, IDM_ST.FIN].includes(r.status)) || (dh && r.status===IDM_ST.DEPT)) act.push(`<button class="btn" onclick="idmDo('ret','${id}')">Return for changes</button>`);
+  const own = r.person===PERSON;
+  if(own && idmIsTop() && IDM_OPEN.includes(r.status)) act.push(`<button class="btn primary" ${idmMissing(r).length?'disabled title="Add your photo and signature first"':''} onclick="idmDo('auto','${id}')">✓ Generate my official ID (automatic approval)</button>`);
+  if(hr && !own && [IDM_ST.PEND, IDM_ST.DEPT, IDM_ST.HR, IDM_ST.RET].includes(r.status) && !idmIsFinal()) act.push(`<button class="btn primary" ${dis} onclick="idmDo('hrok','${id}')">✓ Verify — send to JA / Pau / Norman for final approval</button>`);
+  if(idmIsFinal() && !own && IDM_OPEN.includes(r.status)) act.push(`<button class="btn primary" ${dis} onclick="idmDo('rel','${id}')">✓ Approve &amp; release</button>`);
+  if(idmIsFinal() && !own && [IDM_ST.DEPT, IDM_ST.HR, IDM_ST.FIN].includes(r.status)) act.push(`<button class="btn danger" onclick="idmDo('reject','${id}')">Reject</button>`);
+  if(r.status===IDM_ST.FIN && !idmIsFinal()) act.push(`<span class="hint">Waiting for the final approval of JA, Pau or Norman.</span>`);
+  if(own && !idmIsTop() && IDM_OPEN.includes(r.status)) act.push(`<span class="hint">You can’t approve your own ID.</span>`);
+  if(((hr || idmIsFinal()) && !own && [IDM_ST.HR, IDM_ST.DEPT, IDM_ST.FIN].includes(r.status)) || (dh && !own && r.status===IDM_ST.DEPT)) act.push(`<button class="btn" onclick="idmDo('ret','${id}')">Request corrections</button>`);
   if(idmCanPrint(r)) act.push(`<button class="btn" onclick="idmDownloadPDF('${id}')">⬇ PVC print file (PDF)</button><button class="btn" onclick="idmDownloadPNG('${id}','front')">PNG front</button><button class="btn" onclick="idmDownloadPNG('${id}','back')">PNG back</button>`);
   if(hr && (r.status===IDM_ST.REL || r.status===IDM_ST.REV) && !idmOpenFor(r.person)) act.push(`<button class="btn" onclick="idmDo('renew','${id}')">Renew</button><button class="btn" onclick="idmDo('replace','${id}')">Replace (lost / damaged)</button>`);
   if(hr && r.status===IDM_ST.REL) act.push(`<button class="btn danger" onclick="idmDo('revoke','${id}')">Revoke</button>`);
@@ -36633,14 +36664,15 @@ async function idmDo(what, id){ const r = idmRec(id); if(!r) return;
     else if(what==='no'){ const no = await idmAssignNo(r); recordChange(); toast(`ID number ${no}`); }
     else if(what==='fwd'){ idmSubmit(r); toast('Sent to HR'); }
     else if(what==='hrok'){ idmHrApprove(r); toast('Approved — sent to the company heads for final approval'); }
-    else if(what==='rel'){ return confirmModal('Final approval — release this ID?', `<p><b>${esc(r.name)}</b> · ${esc(r.no)} · ${esc(r.cls)}</p><p class="hint">The card becomes official and valid until ${dstr(idmAddMonths(nowISO(), +idmCfg().validityMonths||12))}. Details can't be edited after release — changes need a renewal or replacement.</p>`, 'Final approval & release', ()=>{ try{ idmRelease(r); closeModal(); idmRerender(); idmOpen(id); toast('Released'); }catch(e){ toast(e.message); idmOpen(id); } }, {primary:true}); }
-    else if(['ret','revoke','renew','replace'].includes(what)){ const lbl = {ret:['Return for changes','What needs to change?','Return'], revoke:['Revoke this ID','Reason (kept in the record)','Revoke'], renew:['Renew this ID','Reason (e.g. expiring on …)','Start renewal'], replace:['Replace this ID','Reason (e.g. lost, damaged, new position)','Start replacement']}[what];
+    else if(what==='auto'){ closeModal(); if(await idmAutoSelf(r)) idmOpen(id); else idmOpen(id); return; }
+    else if(what==='rel'){ return confirmModal('Approve and release this ID?', `<p><b>${esc(r.name)}</b> · ${esc(r.no)} · ${esc(r.cls)}${r.hrApprovedBy?` · verified by ${esc(first(r.hrApprovedBy))}`:''}</p><div class="field"><label>Approval remarks (optional)</label><textarea id="idmRemark" rows="2" placeholder="e.g. Approved for PVC printing"></textarea></div><p class="hint">The card is published to their My Company ID, valid until ${dstr(idmAddMonths(nowISO(), +idmCfg().validityMonths||12))}, and ready for PVC printing. Details can't be edited after release — changes need a renewal or replacement.</p>`, 'Approve & release', ()=>{ try{ idmRelease(r, el('idmRemark')?.value); closeModal(); idmRerender(); idmOpen(id); toast('Approved and released'); }catch(e){ toast(e.message); idmOpen(id); } }, {primary:true}); }
+    else if(['ret','reject','revoke','renew','replace'].includes(what)){ const lbl = {ret:['Request corrections','What needs to be corrected?','Send back for corrections'], reject:['Reject this ID application','Reason (sent to the person and HR)','Reject'], revoke:['Revoke this ID','Reason (kept in the record)','Revoke'], renew:['Renew this ID','Reason (e.g. expiring on …)','Start renewal'], replace:['Replace this ID','Reason (e.g. lost, damaged, new position)','Start replacement']}[what];
       return openModal(lbl[0], `<div class="field"><label>${lbl[1]}</label><textarea id="idmWhy" rows="3"></textarea></div>${what==='replace'?`<label class="hint" style="display:flex;gap:6px"><input type="checkbox" id="idmRevOld" style="width:auto" checked> Revoke the current card now (lost or stolen)</label>`:''}
-        <div class="cf-acts"><button class="btn" onclick="idmOpen('${id}')">Cancel</button><button class="btn ${what==='revoke'?'danger':'primary'}" onclick="idmDo2('${what}','${id}')">${lbl[2]}</button></div>`); }
+        <div class="cf-acts"><button class="btn" onclick="idmOpen('${id}')">Cancel</button><button class="btn ${['revoke','reject'].includes(what)?'danger':'primary'}" onclick="idmDo2('${what}','${id}')">${lbl[2]}</button></div>`); }
     idmRerender(); idmOpen(id);
   }catch(e){ toast(e.message); } }
 function idmDo2(what, id){ const r = idmRec(id); const why = el('idmWhy').value;
-  try{ let to = id; if(what==='ret') idmReturn(r, why); else if(what==='revoke') idmRevoke(r, why); else to = idmRenew(r, what==='replace'?'replacement':'renewal', why, what==='replace' && el('idmRevOld')?.checked).id;
+  try{ let to = id; if(what==='ret') idmReturn(r, why); else if(what==='reject') idmReject(r, why); else if(what==='revoke') idmRevoke(r, why); else to = idmRenew(r, what==='replace'?'replacement':'renewal', why, what==='replace' && el('idmRevOld')?.checked).id;
     idmRerender(); idmOpen(to); toast('Saved'); }catch(e){ toast(e.message); } }
 function idmNewModal(){ const L = idmWithout().sort((a,b)=>pname(a).localeCompare(pname(b)));
   openModal('New Company ID record', `<div class="hint" style="margin-bottom:8px">Details are filled in from the person’s portal profile. They’re notified to upload their 2×2 photo and signature.</div>
@@ -36648,6 +36680,10 @@ function idmNewModal(){ const L = idmWithout().sort((a,b)=>pname(a).localeCompar
     ${idmIsHr() ? `<div class="field"><label>Classification</label><select id="idmNC"><option value="">From verified records (or “To confirm”)</option><option>${IDM_EMP}</option><option>${IDM_IC}</option></select><div class="hint">Choose only when it’s confirmed by the contract or employment records.</div></div>` : ''}
     <button class="btn primary" style="width:100%" onclick="idmNewGo()">Create ID record</button>`); }
 async function idmNewGo(){ try{ const k = el('idmNP').value, c = el('idmNC')?.value; const r = await idmCreateFor(k, c ? {cls:c, clsVerified:true, source:'manual'} : {source:'manual'}); closeModal(); idmRerender(); idmOpen(r.id); toast('ID record created'); }catch(e){ toast(e.message); } }
+function idmBulkApprove(kind){ const L = [...IDMU.sel].map(idmRec).filter(r=>r && IDM_OPEN.includes(r.status)); let ok = 0; const errs = [];
+  L.forEach(r=>{ try{ if(r.person===PERSON){ if(idmIsTop()){ idmAutoSelf(r, true); ok++; } else throw new Error(`${r.name}: you can’t approve your own ID`); return; }
+      if(kind==='rel') idmRelease(r, 'Bulk approval'); else idmHrApprove(r); ok++; }catch(e){ errs.push(e.message); } });
+  IDMU.sel.clear(); RENDER.idmgmt(); toast(`${ok} ${kind==='rel'?'approved and released':'sent for final approval'}${errs.length?` · ${errs.length} skipped: ${errs[0]}`:''}`); }
 async function idmBulkCreate(){ const L = idmWithout(); let n = 0; for(const k of L){ try{ await idmCreateFor(k, {source:'bulk'}); n++; }catch(e){} } RENDER.idmgmt(); toast(`${n} ID record${n===1?'':'s'} created`); }
 async function idmBulkNumbers(){ const L = idmVisible().filter(r=>IDM_OPEN.includes(r.status) && r.cls!==IDM_TBC && !idmNoOk(r) && idmCanEdit(r)); let n = 0, err = '';
   for(const r of L){ try{ await idmAssignNo(r); n++; }catch(e){ err = e.message; } } recordChange(); RENDER.idmgmt(); toast(n ? `${n} number${n===1?'':'s'} generated` : err || 'No IDs are missing a number (classifications “To confirm” are skipped)'); }
@@ -36744,10 +36780,15 @@ function idmSettingsHTML(){ const c = idmCfg(); const depts = uniq([...Object.ke
     <div class="card" style="margin-bottom:14px"><div class="card-h"><b>Department heads</b><span class="hint">who reviews and forwards IDs before HR</span></div><div class="card-b" style="overflow-x:auto"><table class="tbl"><thead><tr><th>Department</th><th>Heads (hold Ctrl / ⌘ to pick several)</th><th>May download print files</th></tr></thead><tbody>
       ${depts.map(d=>`<tr><td>${esc(d)}</td><td><select multiple size="3" data-idmdept="${esc(d)}" style="min-width:220px">${ppl.map(k=>`<option value="${k}" ${(c.deptHeads?.[d]||[]).includes(k)?'selected':''}>${esc(pname(k))}</option>`).join('')}</select></td>
         <td>${(c.deptHeads?.[d]||[]).map(k=>`<label class="hint" style="display:block"><input type="checkbox" style="width:auto" data-idmprint="${k}" ${(c.printHeads||[]).includes(k)?'checked':''}> ${esc(first(k))}</label>`).join('') || '<span class="hint">—</span>'}</td></tr>`).join('')}</tbody></table>
-      <div class="hint">Without a department head, IDs go straight to HR. Department heads can never release IDs.</div><button class="btn primary" style="margin-top:10px" onclick="idmSaveSettings()">Save settings</button></div></div>`; }
-function idmSaveSettings(){ if(!idmIsHr()) return toast('Only HR changes these settings.'); let r = IDCFG.find(x=>x.id==='global'); if(!r){ r = {id:'global'}; IDCFG.push(r); }
+      <div class="hint">Without a department head, IDs go straight to HR. Department heads can’t release IDs unless JA, Pau or Norman authorize them below.</div></div></div>
+    <div class="card" style="margin-bottom:14px"><div class="card-h"><b>Final approval</b><span class="hint">JA, Pau and Norman always approve; their own IDs are approved automatically</span></div><div class="card-b">
+      <div class="field"><label>Also authorized to give final approval ${idmIsTop()?'':'<span class="hint">(only JA, Pau or Norman can change this)</span>'}</label><select multiple size="4" id="idmFinX" ${idmIsTop()?'':'disabled'} style="min-width:260px">${ppl.filter(k=>!HEADS.includes(k)).map(k=>`<option value="${k}" ${(c.finalExtra||[]).includes(k)?'selected':''}>${esc(pname(k))}</option>`).join('')}</select></div>
+      <div class="hint">One approval is enough. Nobody approves their own ID except JA, Pau and Norman (automatically).</div>
+      <button class="btn primary" style="margin-top:10px" onclick="idmSaveSettings()">Save settings</button></div></div>`; }
+function idmSaveSettings(){ if(!idmIsHr()) return toast('Only HR or a company head changes these settings.'); let r = IDCFG.find(x=>x.id==='global'); if(!r){ r = {id:'global'}; IDCFG.push(r); }
   const dh = {}; document.querySelectorAll('[data-idmdept]').forEach(s=>{ dh[s.dataset.idmdept] = [...s.selectedOptions].map(o=>o.value); });
   r.deptHeads = dh; r.printHeads = [...document.querySelectorAll('[data-idmprint]:checked')].map(x=>x.dataset.idmprint).filter(k=>Object.values(dh).flat().includes(k));
+  if(idmIsTop() && el('idmFinX')) r.finalExtra = [...el('idmFinX').selectedOptions].map(o=>o.value);
   r.validityMonths = Math.max(1, Math.min(60, +el('idmVal').value||12)); r.site = el('idmSite').value.trim() || 'crosscoreopc.com'; r.updatedAt = nowISO(); r.updatedBy = PERSON;
   audit('Company ID settings updated'); recordChange(); RENDER.idmgmt(); toast('Settings saved'); }
 

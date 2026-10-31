@@ -20914,7 +20914,7 @@ async function cooPostFromModal(){ const ch = CHATS.find(c=>c.id===el('paPostC')
    The footer shows which build is running ("Build 2026-10-07 · 1"), and every open portal checks every few minutes
    (and whenever it comes back to the foreground) whether a newer build has been published. If so it shows
    "New version available — Update now" instead of quietly running old code. */
-const BUILD_ID = '2026-10-28 · 5';
+const BUILD_ID = '2026-10-31 · 1';
 function verStamp(){ const f = el('footNote'); if(f && !f.dataset.v){ f.dataset.v = 1; f.textContent = `Cross Core Ops Suite v8 · Build ${BUILD_ID}`; } }
 async function verCheck(){
   if(!/^https?:/.test(location.protocol)) return;
@@ -32433,7 +32433,8 @@ const FIN_TABS = () => {
   const nNew = FINCLIENTS.filter(f=>['New','Changed'].includes(f.status)).length;
   const nLv = LVSYNC.filter(s=>s.review && !s.reviewed).length;
   const bd = (n, c='b-new') => n ? ` <span class="badge ${c}">${n}</span>` : '';
-  return [['payroll','Pre-Generated Payroll & Payslips'], ['ceo', `CEO review${bd(nCeo,'b-missed')}`], ['releases', `Release scheduler${bd(nRel)}`], ['tickets', `Concerns${bd(nTix)}`], ['leave', `Leave & time off${bd(nLv)}`],
+  const nB = typeof PAYBATCH!=='undefined' ? PAYBATCH.filter(b=>(pvIsApprover() && ['Submitted for Approval','Under Review'].includes(b.status)) || (isFinance() && b.status==='Returned to Finance')).length : 0;
+  return [['payroll','Pre-Generated Payroll & Payslips'], ['batch', `Bulk payroll review${bd(nB,'b-missed')}`], ['ceo', `CEO review${bd(nCeo,'b-missed')}`], ['releases', `Release scheduler${bd(nRel)}`], ['tickets', `Concerns${bd(nTix)}`], ['leave', `Leave & time off${bd(nLv)}`],
     ...(isHead(PERSON) ? [['oversight','COO oversight']] : []), ['rates', `Client rates${bd(nNew + pvMissingRates().length, pvMissingRates().length?'b-missed':'b-new')}`], ['profiles','Pay profiles & rates'], ['settings','Payroll settings'], ['archive','Earlier payslips']];
 };
 RENDER.finance = () => {
@@ -32447,7 +32448,7 @@ RENDER.finance = () => {
 };
 function pvTabBody(){
   switch(FIN.tab){
-    case 'payroll': return pvPayrollHTML(); case 'ceo': return pvCeoHTML(); case 'releases': return pvReleasesHTML(); case 'tickets': return typeof acAdminTicketsHTML==='function' ? acAdminTicketsHTML() : '';
+    case 'payroll': return pvPayrollHTML(); case 'batch': return typeof pbBatchHTML==='function' ? pbBatchHTML() : ''; case 'ceo': return pvCeoHTML(); case 'releases': return pvReleasesHTML(); case 'tickets': return typeof acAdminTicketsHTML==='function' ? acAdminTicketsHTML() : '';
     case 'leave': return pvLeaveSyncHTML(); case 'oversight': return pvOversightHTML(); case 'clients': case 'rates': return pvRatesHTML(); case 'profiles': return profilesHTML();
     case 'settings': return pvSettingsHTML(); case 'archive': return pvArchiveHTML(); default: return pvPayrollHTML(); }
 }
@@ -36825,6 +36826,222 @@ body.es-open .toast{z-index:400}.idm-exp{display:flex;gap:8px;flex-wrap:wrap}.id
 .idm-hist a{color:inherit;text-decoration:none;border-bottom:1px solid var(--line)}.idm-my>.card,.idm-dlg>div{min-width:0}
 @media(max-width:860px){.idm-my,.idm-dlg{grid-template-columns:minmax(0,1fr)}.idm-dlg-l .idm-prev{flex-direction:row}}
 @media(max-width:520px){.idm-req{flex-direction:column}.idm-prev{gap:8px}.idm-prev .idm-card{width:min(40vw,200px)!important}.idm-kv{grid-template-columns:repeat(2,minmax(0,1fr))}}`; document.head.appendChild(s); })();
+
+/* ===== t15_paybatch.js — Bulk payroll review & approval (Oct 31 2026) =====
+   One cutoff = one payroll batch, reviewed and approved as a whole:
+     • Cha (Finance) reviews / edits the pre-generated payslips, then SUBMITS THE WHOLE BATCH with a consolidated summary;
+     • CEO Pau approves — or the COO, only while the CEO has marked herself unavailable (the existing alternate-approver
+       setting, see the Finance → CEO review card); one decision covers the batch;
+     • from the payroll preview the approver sees every payslip and the consolidated summary, can EDIT a person's pay or
+       rate per assigned client (employee, client and overall totals recalculate at once), then APPROVES the batch or
+       RETURNS it to Finance with a comment;
+     • the approver's edits change the same payslip records Finance works on (no copies) — Cha's portal, the pre-generated
+       payslips, the applied rates and the cutoff totals are updated automatically; every edit, approval, return and
+       comment is kept with who did it;
+     • views: By VA / Employee · By Client · Overall summary, filtered by cutoff, client and person.
+   Who sees what: the batch, other people's pay and the client / company totals are visible to Finance and the company
+   heads only (database audience). Each VA / employee still sees only their own released payslips (Accounting).
+   The database enforces it: supabase/update-oct31-payroll-batch.sql (cc_pay_review_edit, cc_guard_paybatch). */
+let PAYBATCH = [];
+const PB_ST = {SUB:'Submitted for Approval', REV:'Under Review', RET:'Returned to Finance', OK:'Approved'};
+const PB_BADGE = {'Submitted for Approval':'b-pending', 'Under Review':'b-pending', 'Returned to Finance':'b-missed', Approved:'b-approved', 'Not submitted':'b-draft'};
+COLL.paybatch = {get:()=>PAYBATCH, set:v=>PAYBATCH=v, aud:()=>uniq([...financeKeys(), ...HEADS])};
+const pbId = pid => 'PB|' + pid;
+const pbOf = pid => PAYBATCH.find(b=>b.id===pbId(pid));
+const pbStatus = pid => pbOf(pid)?.status || 'Not submitted';
+const pbBadge = s => `<span class="badge ${PB_BADGE[s]||'b-draft'}">${esc(s)}</span>`;
+const pbDocsAll = pid => pvDocs(pid).filter(d=>!d.supersededBy);
+const pbHist = (b, act, note, extra) => { (b.history = b.history || []).push({at:nowISO(), by:PERSON, act, note:note||'', ...(extra||{})}); };
+const pbIsEarn = l => PV_EARN.includes(l.kind) || (l.kind==='adjust' && l.sign==='+');
+const pbClientOf = l => l.client || (l.internal ? 'Internal salary (Cross Core)' : (['basic','fee'].includes(l.kind) ? 'Not client-specific' : 'Other earnings'));
+/* can this person change this line right now? Finance while the record is a draft; the approver while it is waiting for approval */
+const pbCanEditLine = (d, l) => pbIsEarn(l) && !l.needs && ((isFinance() && pvEditable(d)) || (pvIsApprover() && [PV_ST.SUB, PV_ST.REV].includes(d.status)));
+const pbRateEditable = l => l.rate > 0 && ['monthly','semimonthly','hourly','project'].includes(l.rt);
+
+/* ---------- the numbers (always computed from the live payslip records, so every edit shows at once) ---------- */
+function pbData(pid, f={}){
+  const docs = pbDocsAll(pid).filter(d=>!f.emp || d.emp===f.emp);
+  const rows = docs.map(d=>{ const g = {}; d.lines.filter(pbIsEarn).forEach(l=>{ const c = pbClientOf(l); (g[c] = g[c] || {client:c, lines:[], amount:0}).lines.push(l); g[c].amount = pvR2(g[c].amount + (+l.amount||0)); });
+    return {d, clients:Object.values(g).sort((a,b)=>a.client.localeCompare(b.client))}; })
+    .filter(r=>!f.client || r.clients.some(c=>c.client===f.client));
+  const byClient = {}; rows.forEach(r=>r.clients.forEach(c=>{ if(f.client && c.client!==f.client) return; const x = byClient[c.client] = byClient[c.client] || {client:c.client, people:[], total:0}; x.people.push({d:r.d, lines:c.lines, amount:c.amount}); x.total = pvR2(x.total + c.amount); }));
+  const D = rows.map(r=>r.d), sum = k => pvR2(D.reduce((s,d)=>s+(+d[k]||0),0));
+  const clientTotal = pvR2(Object.values(byClient).reduce((s,c)=>s+c.total,0));
+  return {rows, byClient:Object.values(byClient).sort((a,b)=>b.total-a.total), clients:uniq(pbDocsAll(pid).flatMap(d=>d.lines.filter(pbIsEarn).map(pbClientOf))).sort(),
+    tot:{people:D.length, emp:D.filter(d=>d.class==='employee').length, ic:D.filter(d=>d.class!=='employee').length, gross:sum('gross'), deductions:sum('deductions'), reimb:sum('reimb'), net:sum('net'), clientTotal}};
+}
+function pbSummary(pid){ const x = pbData(pid);
+  return {at:nowISO(), people:x.tot.people, employees:x.tot.emp, contractors:x.tot.ic, gross:x.tot.gross, deductions:x.tot.deductions, reimb:x.tot.reimb, net:x.tot.net,
+    byClient:x.byClient.map(c=>({client:c.client, people:c.people.length, total:c.total})), byEmp:x.rows.map(r=>({emp:r.d.emp, name:pvName(r.d), cls:r.d.class, gross:r.d.gross, deductions:r.d.deductions, net:r.d.net, version:r.d.version}))}; }
+
+/* ---------- Finance: submit the whole cutoff ---------- */
+function pbBlockers(pid){ return pbDocsAll(pid).filter(d=>[PV_ST.DRAFT, PV_ST.RET].includes(d.status)).map(d=>({d, why:pvCanSubmit(d)})).filter(x=>x.why); }
+function pbSubmit(pid){
+  if(!isFinance()) throw new Error('Only Finance submits the payroll batch.');
+  const docs = pbDocsAll(pid); if(!docs.length) throw new Error('There are no payslips for this cutoff yet — generate them first.');
+  const b0 = pbOf(pid); if(b0 && [PB_ST.SUB, PB_ST.REV].includes(b0.status)) throw new Error('This batch is already waiting for approval.');
+  const bl = pbBlockers(pid); if(bl.length) throw new Error(`${bl.length} payslip${bl.length>1?'s':''} can't be submitted yet — first: ${pvName(bl[0].d)}: ${bl[0].why}`);
+  const todo = docs.filter(d=>[PV_ST.DRAFT, PV_ST.RET].includes(d.status)); if(!todo.length && !docs.some(d=>[PV_ST.SUB, PV_ST.REV].includes(d.status))) throw new Error('Every payslip of this cutoff is already approved or released.');
+  const id = pbId(pid); PB_QUIET = true;
+  try{ todo.forEach(d=>{ pvSubmit(d.id); d.batch = id; }); } finally { PB_QUIET = false; }
+  docs.filter(d=>[PV_ST.SUB, PV_ST.REV].includes(d.status)).forEach(d=>{ d.batch = id; });
+  let b = pbOf(pid); if(!b){ b = {id, period:pid, periodLabel:pvPeriodLabel(pv2Period(pid)), round:0, createdAt:nowISO(), history:[]}; PAYBATCH.push(b); }
+  Object.assign(b, {status:PB_ST.SUB, round:(b.round||0)+1, submittedBy:PERSON, submittedAt:nowISO(), summary:pbSummary(pid), decision:null, docs:pbDocsAll(pid).filter(d=>d.batch===id).map(d=>({id:d.id, version:d.version}))});
+  pbHist(b, b.round>1 ? 'Resubmitted for approval' : 'Submitted for approval', `${b.summary.people} payslips · net ${money(b.summary.net)}`);
+  const alt = pvAltOn() ? pvAlt().key : null;
+  pvEmit([pvCeo()], 'approval', `🧾 <b>Payroll batch for ${esc(b.periodLabel)}</b> — ${b.summary.people} payslips, net ${money(b.summary.net)} — was submitted for your approval.`, finLink('batch'));
+  if(alt) pvEmit([alt], 'approval', `🧾 Payroll batch for ${esc(b.periodLabel)} awaits approval — you are the backup approver while ${esc(first(pvCeo()))} is unavailable.`, finLink('batch'));
+  pvEmit([pvCoo()].filter(k=>k!==alt), 'payroll', `Payroll batch for ${esc(b.periodLabel)} was submitted to the CEO.`, finLink('batch'));
+  recordChange(); return b; }
+/* one notification for the batch instead of one per payslip (demo; the database does the same) */
+let PB_QUIET = false;
+{ const _n = notify; notify = function(){ if(PB_QUIET) return; return _n.apply(this, arguments); }; }   /* pvEmit → notify (demo); per-payslip messages are muted while a batch step runs */
+/* an individual submit / recall takes the record out of the batch */
+{ const _s = pvSubmit; pvSubmit = function(id){ const r = _s.apply(this, arguments); if(!PB_QUIET){ const d = pvDoc(id); if(d) d.batch = null; } return r; }; }
+
+/* ---------- the approver: open, edit, approve, return ---------- */
+function pbOpen(pid){ const b = pbOf(pid); if(!b || b.status!==PB_ST.SUB || !pvIsApprover()) return;
+  b.status = PB_ST.REV; pbHist(b, pvIsCeo() ? 'Opened by the CEO' : `Opened by ${pname(PERSON)} (backup approver)`);
+  PB_QUIET = true; try{ pbDocsAll(pid).filter(d=>d.batch===b.id && d.status===PV_ST.SUB).forEach(d=>pvCeoOpen(d.id)); } finally { PB_QUIET = false; }
+  recordChange(); }
+/* amount = the line's pay; rate = the applied rate for this cutoff (monthly / per cutoff / per hour / per project) */
+function pbApplyEdit(d, l, ch){
+  const prev = +l.amount||0, prevRate = l.rate;
+  if(ch.rate != null){ const r = +ch.rate; if(!(r >= 0)) throw new Error('Enter a valid rate.');
+    if(['hourly','project'].includes(l.rt)) l.amount = pvR2((+l.qty||0) * r);
+    else l.amount = prevRate > 0 ? pvR2(prev * r / prevRate) : pvR2(l.rt==='semimonthly' ? r : r/2);   /* keeps any proration of the cutoff */
+    l.rate = r; }
+  if(ch.amount != null){ const a = +ch.amount; if(!(a >= 0)) throw new Error('Enter a valid amount.'); l.amount = pvR2(a); }
+  if(l.amount===prev && l.rate===prevRate) return null;
+  l.manual = true; if(!String(l.reason||'').trim() || ch.reason) l.reason = ch.reason || l.reason || 'Adjusted in the bulk payroll review';
+  return {prev, next:l.amount, prevRate, nextRate:l.rate}; }
+async function pbEdit(docId, lid, field, value){
+  const d = pvDoc(docId), l = d?.lines.find(x=>x.id===lid); if(!d || !l) return;
+  if(!pbCanEditLine(d, l)) throw new Error(pvIsApprover() || isFinance() ? 'This line can’t be changed now.' : 'Only Finance or the approver changes pay.');
+  if(value==='' || isNaN(+value)) throw new Error('Enter a number.');
+  const ch = {[field]: +value}; const approver = pvIsApprover() && [PV_ST.SUB, PV_ST.REV].includes(d.status);
+  const who = approver ? (pvIsCeo() ? 'CEO' : 'backup approver') : 'Finance';
+  const reason = approver ? `Adjusted by ${pname(PERSON)} (${who}) during approval review` : `Adjusted in the bulk payroll review`;
+  let res;
+  if(approver){
+    if(pvLive()){ await lvSettle(); const {data, error} = await BACKEND.sb.rpc('cc_pay_review_edit', {p_doc:docId, p_line:lid, p_amount:field==='amount'?+value:null, p_rate:field==='rate'?+value:null, p_reason:reason});
+      if(error) throw new Error(error.message); if(data){ Object.keys(d).forEach(k=>{ if(!(k in data)) delete d[k]; }); Object.assign(d, data); try{ acceptLocal('payv2', d.id); }catch(e){} } res = {next:l.amount}; }
+    else { res = pbApplyEdit(d, l, {...ch, reason}); if(!res) return; pvRecalc(d); d.version = (d.version||0) + 1; if(d.status===PV_ST.SUB) d.status = PV_ST.REV;
+      pvHist(d, `Edited by ${who} during approval review`, `${l.client||l.label}: ${field==='rate'?`rate ${res.prevRate} → ${res.nextRate}, `:''}${money(res.prev)} → ${money(res.next)}`, {prev:res.prev, next:res.next, review:true}); }
+  } else {
+    pvMaterialEdit(d, l.label); res = pbApplyEdit(d, l, {...ch, reason}); if(!res) return; pvRecalc(d);
+    pvHist(d, 'Line edited (bulk review)', `${l.client||l.label}: ${field==='rate'?`rate ${res.prevRate} → ${res.nextRate}, `:''}${money(res.prev)} → ${money(res.next)}`, {prev:res.prev, next:res.next});
+  }
+  const b = pbOf(d.period.id);
+  if(b && !(approver && pvLive())){ pbHist(b, approver ? `Edited by ${pname(PERSON)} (${who})` : 'Edited by Finance', `${pvName(d)} · ${l.client||l.label}: ${field==='rate'?'rate → '+value+', ':''}pay ${money(res.prev ?? 0)} → ${money(l.amount)}`, {doc:d.id, line:lid, field, value:+value});
+    if(approver) b.reviewEdits = (b.reviewEdits||0) + 1; }
+  recordChange(); }
+function pbApprove(pid, comment){
+  const b = pbOf(pid); if(!pvIsApprover()) throw new Error(`Only ${pname(pvCeo())} (CEO) — or the COO as backup while the CEO is unavailable — approves payroll.`);
+  if(!b || ![PB_ST.SUB, PB_ST.REV].includes(b.status)) throw new Error('This batch is not waiting for approval.');
+  const L = pbDocsAll(pid).filter(d=>d.batch===b.id && [PV_ST.SUB, PV_ST.REV].includes(d.status)); if(!L.length) throw new Error('There is nothing left to approve in this batch.');
+  PB_QUIET = true; try{ L.forEach(d=>pvCeoApprove(d.id, comment)); } finally { PB_QUIET = false; }
+  const alt = PERSON !== pvCeo();
+  Object.assign(b, {status:PB_ST.OK, decision:{kind:'approved', by:PERSON, at:nowISO(), comment:String(comment||'').trim(), alt}, approvedSummary:pbSummary(pid)});
+  pbHist(b, alt ? `Approved by ${pname(PERSON)} (COO, backup approver) for ${pname(pvCeo())}` : 'Approved by the CEO', [`${L.length} payslips · net ${money(b.approvedSummary.net)}`, b.reviewEdits?`${b.reviewEdits} edit${b.reviewEdits>1?'s':''} made during review`:'', comment].filter(Boolean).join(' — '));
+  pvEmit(financeKeys(), 'approval', `✅ <b>Payroll batch approved — ${esc(b.periodLabel)}</b>${alt?` (by ${esc(first(PERSON))}, backup approver)`:''}: ${L.length} payslips, net ${money(b.approvedSummary.net)}${b.reviewEdits?` · ${b.reviewEdits} change${b.reviewEdits>1?'s':''} made during review are already in your records`:''}. Ready for release.`, finLink('batch'));
+  pvEmit([pvCoo(), pvCeo()].filter(k=>k!==PERSON), 'payroll', `Payroll batch for ${esc(b.periodLabel)} was approved by ${esc(first(PERSON))}.`, finLink('batch'));
+  recordChange(); }
+function pbReturn(pid, comment){
+  const b = pbOf(pid); if(!pvIsApprover()) throw new Error('Only the CEO — or the COO as backup — returns payroll to Finance.');
+  if(!b || ![PB_ST.SUB, PB_ST.REV].includes(b.status)) throw new Error('This batch is not waiting for approval.');
+  if(String(comment||'').trim().length < 3) throw new Error('Add a comment for Finance — what needs to change?');
+  PB_QUIET = true; try{ pbDocsAll(pid).filter(d=>d.batch===b.id && [PV_ST.SUB, PV_ST.REV].includes(d.status)).forEach(d=>pvCeoRevise(d.id, comment.trim())); } finally { PB_QUIET = false; }
+  Object.assign(b, {status:PB_ST.RET, decision:{kind:'returned', by:PERSON, at:nowISO(), comment:comment.trim(), alt:PERSON!==pvCeo()}});
+  pbHist(b, PERSON!==pvCeo() ? `Returned to Finance by ${pname(PERSON)} (backup approver)` : 'Returned to Finance by the CEO', comment.trim());
+  pvEmit(financeKeys(), 'revision', `↩️ <b>Payroll batch returned — ${esc(b.periodLabel)}</b>: ${esc(comment.trim())}`, finLink('batch'));
+  recordChange(); }
+function pbComment(pid, text){ const b = pbOf(pid); if(!b) throw new Error('Submit the batch first.'); if(!(isFinance() || pvIsApprover() || isHead(PERSON))) throw new Error('Not allowed.');
+  if(String(text||'').trim().length < 2) throw new Error('Write a comment.'); pbHist(b, 'Comment', text.trim(), {comment:true});
+  const to = isFinance() ? [pvCeo(), ...(pvAltOn()?[pvAlt().key]:[])] : financeKeys(); pvEmit(to.filter(k=>k!==PERSON), 'payroll', `💬 ${esc(first(PERSON))} on the ${esc(b.periodLabel)} payroll batch: “${esc(text.trim().slice(0,160))}”`, finLink('batch')); recordChange(); }
+/* the CEO can hand the decision to the COO while unavailable (same setting as Finance → CEO review → Alternate approver) */
+function pbBackupOn(days){ if(!pvIsCeo()) return toast('Only the CEO can hand approval to the COO'); const r = pvCfgRec(); const from = manilaDate(), to = shiftDate(from, Math.max(1, +days||7) - 1);
+  r.alt = {enabled:true, key:pvCoo(), from, to, reason:'CEO unavailable — COO is the backup approver', by:PERSON, at:nowISO()}; recordChange();
+  pvEmit([pvCoo()], 'approval', `🛡 <b>${esc(pname(PERSON))}</b> is unavailable — you are the backup payroll approver until ${dLong(to)}.`, finLink('batch')); toast(`${pname(pvCoo())} approves payroll until ${dShort(to)}`); RENDER.finance(); }
+function pbBackupOff(){ if(!pvIsCeo()) return; const r = pvCfgRec(); r.alt = {...(r.alt||{}), enabled:false, by:PERSON, at:nowISO()}; recordChange(); toast('You are the approver again'); RENDER.finance(); }
+
+/* ---------- the screen ---------- */
+const PBU = {view:'emp', client:'', emp:''};
+function pbBatchHTML(){
+  const pid = FIN.period, per = pv2Period(pid), b = pbOf(pid), st = pbStatus(pid), x = pbData(pid, {client:PBU.client, emp:PBU.emp}), all = pbDocsAll(pid);
+  const fin = isFinance(), apr = pvIsApprover(), ceo = pvIsCeo(), coo = PERSON===pvCoo(), altOn = pvAltOn(), waiting = b && [PB_ST.SUB, PB_ST.REV].includes(b.status);
+  if(apr && b?.status===PB_ST.SUB) setTimeout(()=>{ pbOpen(pid); }, 0);
+  const bl = fin && !waiting ? pbBlockers(pid) : [];
+  const approverLine = `<b>${esc(pname(pvCeo()))}</b> (CEO) approves · backup: <b>${esc(pname(pvCoo()))}</b> (COO) — ${altOn && pvAlt().key===pvCoo() ? `<span class="badge b-approved">active until ${esc(dShort(pvAlt().to||manilaDate()))}</span>` : altOn ? `<span class="badge b-approved">${esc(pname(pvAlt().key))} is the active backup</span>` : 'only when the CEO is unavailable'}`;
+  const head = `<div class="card" style="margin-bottom:14px"><div class="card-b pb-head">
+      <button class="btn" onclick="FIN.period=shiftPeriod(FIN.period,-1);RENDER.finance()" aria-label="Previous cutoff">←</button><div><b>${esc(pvPeriodLabel(per))}</b><div class="hint">cutoff ${esc(dShort(per.cutoff))}</div></div><button class="btn" onclick="FIN.period=shiftPeriod(FIN.period,1);RENDER.finance()" aria-label="Next cutoff">→</button>
+      <div style="margin-left:6px">${pbBadge(st)}${b?.round>1?` <span class="hint">round ${b.round}</span>`:''}</div>
+      <div class="hint pb-appr">${approverLine}</div>
+      <div class="pb-acts">
+        ${fin && !waiting && b?.status!==PB_ST.OK ? `<button class="btn primary" ${all.length?'':'disabled'} onclick="pbDo('submit')">${b?.status===PB_ST.RET?'Resubmit batch for approval':'Submit batch for approval'}</button>` : ''}
+        ${fin && b?.status===PB_ST.OK && all.some(d=>[PV_ST.DRAFT, PV_ST.RET].includes(d.status)) ? `<button class="btn" onclick="pbDo('submit')">Submit the changed payslips</button>` : ''}
+        ${apr && waiting ? `<button class="btn primary" onclick="pbDo('approve')">✓ Approve batch</button><button class="btn danger" onclick="pbDo('return')">Return to Finance</button>` : ''}
+        ${ceo && !altOn ? `<button class="btn ghost" onclick="pbDo('backup')">I'm unavailable — let ${esc(first(pvCoo()))} approve</button>` : ''}${ceo && altOn ? `<button class="btn ghost" onclick="pbBackupOff()">I'm back — I approve again</button>` : ''}
+        <button class="btn ghost" onclick="pbDo('comment')">💬 Comment</button></div></div>
+      ${coo && !apr && waiting ? `<div class="card-b hint" style="padding-top:0">You are the backup approver. You can approve or edit this batch only while ${esc(first(pvCeo()))} has marked herself unavailable.</div>` : ''}
+      ${b?.decision?.kind==='returned' && b.status===PB_ST.RET ? `<div class="card-b" style="padding-top:0"><div class="pb-note bad">↩️ Returned by ${esc(pname(b.decision.by))}${b.decision.alt?' (backup approver)':''} · ${esc(dtstr(b.decision.at))}: <b>${esc(b.decision.comment)}</b></div></div>` : ''}
+      ${b?.status===PB_ST.OK ? `<div class="card-b" style="padding-top:0"><div class="pb-note ok">✅ Approved by ${esc(pname(b.decision?.by))}${b.decision?.alt?' (COO, backup approver)':''} · ${esc(dtstr(b.decision?.at))}${b.decision?.comment?` — “${esc(b.decision.comment)}”`:''}. Release the payslips from the Release scheduler.</div></div>` : ''}
+      ${bl.length ? `<div class="card-b" style="padding-top:0"><div class="pb-note bad"><b>${bl.length} payslip${bl.length>1?'s':''} to finish before submitting:</b> ${bl.slice(0,6).map(y=>`<a href="#" onclick="openPv('${y.d.id}');return false">${esc(pvName(y.d))}</a> — ${esc(y.why)}`).join(' · ')}${bl.length>6?' …':''}</div></div>` : ''}</div>`;
+  const kpis = `<div class="grid cols-4" style="margin-bottom:14px">${pvKpi('Total payroll (net)', money(x.tot.net), `${x.tot.people} people · ${x.tot.emp} employees · ${x.tot.ic} contractors`, 'var(--ok)')}${pvKpi('Gross pay', money(x.tot.gross), `client & internal earnings ${money(x.tot.clientTotal)}`)}
+    ${pvKpi('Deductions', x.tot.deductions ? '−'+money(x.tot.deductions) : money(0), 'statutory & authorized')}${pvKpi('Reimbursements', money(x.tot.reimb), PBU.client||PBU.emp ? 'filtered view' : 'whole cutoff')}</div>`;
+  const filt = `<div class="card" style="margin-bottom:12px"><div class="card-b pb-filt"><div class="seg" role="group" aria-label="View">${[['emp','By VA / Employee'],['client','By Client'],['all','Overall summary']].map(([k,l])=>`<button class="${PBU.view===k?'on':''}" onclick="PBU.view='${k}';pvRefresh()">${l}</button>`).join('')}</div>
+      <select onchange="PBU.client=this.value;pvRefresh()" aria-label="Client"><option value="">All clients</option>${x.clients.map(c=>`<option ${c===PBU.client?'selected':''}>${esc(c)}</option>`).join('')}</select>
+      <select onchange="PBU.emp=this.value;pvRefresh()" aria-label="VA / employee"><option value="">All VAs & employees</option>${all.map(d=>`<option value="${d.emp}" ${d.emp===PBU.emp?'selected':''}>${esc(pvName(d))}</option>`).join('')}</select>
+      ${PBU.client||PBU.emp?`<button class="btn ghost" onclick="PBU.client='';PBU.emp='';pvRefresh()">Clear filters</button>`:''}</div></div>`;
+  if(!all.length) return `${head}<div class="empty">No payslips for this cutoff yet. ${fin?'Generate them in “Pre-Generated Payroll & Payslips”.':''}</div>`;
+  const body = PBU.view==='client' ? pbClientView(x) : PBU.view==='all' ? pbOverallView(x, pid) : pbEmpView(x);
+  return `${head}${kpis}${filt}${body}${pbHistHTML(b)}`; }
+const pbMoneyCell = (d, l) => pbCanEditLine(d, l) ? `<input class="pb-in" type="number" step="0.01" min="0" value="${l.amount}" aria-label="Pay for ${esc(l.client||l.label)}" onchange="pbDo('edit','${d.id}','${l.id}','amount',this.value)">` : `<b>${pvMoney(l.amount, d)}</b>`;
+const pbRateCell = (d, l) => !(l.rate > 0) ? '<span class="hint">—</span>' : pbCanEditLine(d, l) && pbRateEditable(l) ? `<input class="pb-in sm" type="number" step="0.01" min="0" value="${l.rate}" aria-label="Rate for ${esc(l.client||l.label)}" onchange="pbDo('edit','${d.id}','${l.id}','rate',this.value)"> <span class="hint">${esc(RTYPES[l.rt]?.short||'')}</span>` : `${pvMoney(l.rate, d)} <span class="hint">${esc(RTYPES[l.rt]?.short||'')}</span>`;
+const pbEdited = l => l.manual ? ` <span class="badge b-scheduled" title="${esc(l.reason||'')}">edited</span>` : '';
+function pbEmpView(x){
+  return x.rows.map(({d, clients})=>`<div class="card pb-emp" style="margin-bottom:12px"><div class="card-h"><b>${esc(pvName(d))}</b><span class="hint">${esc(d.class==='employee'?'Employee':'Contractor')} · ${esc(d.empRole||'')}</span>${pvBadge(d.status)}<span class="hint">v${d.version||0}</span>
+      <span style="margin-left:auto" class="pb-tot">Net <b>${pvMoney(d.net, d)}</b></span><button class="btn ghost sm" onclick="openPv('${d.id}')">Payslip</button></div>
+    <div class="tbl-wrap"><table class="tbl pb-tbl"><thead><tr><th>Client / assignment</th><th>Applied rate</th><th>Pay this cutoff</th></tr></thead><tbody>
+      ${clients.filter(c=>!PBU.client || c.client===PBU.client).map(c=>c.lines.map((l, i)=>`<tr><td>${i?'':`<b>${esc(c.client)}</b>`}<div class="hint">${esc(l.role||l.label)}${l.note?' · '+esc(l.note):''}</div>${pbEdited(l)}</td><td>${pbRateCell(d, l)}</td><td>${pbMoneyCell(d, l)}</td></tr>`).join('') + (c.lines.length>1?`<tr class="pb-sub"><td colspan="2">${esc(c.client)} total</td><td><b>${pvMoney(c.amount, d)}</b></td></tr>`:'')).join('')}
+      <tr class="pb-sum"><td colspan="2">Gross</td><td>${pvMoney(d.gross, d)}</td></tr>${d.deductions?`<tr class="pb-sum"><td colspan="2">Deductions</td><td>−${pvMoney(d.deductions, d)}</td></tr>`:''}${d.reimb?`<tr class="pb-sum"><td colspan="2">Reimbursements</td><td>${pvMoney(d.reimb, d)}</td></tr>`:''}
+      <tr class="pb-net"><td colspan="2">Total pay for the cutoff (net)</td><td>${pvMoney(d.net, d)}</td></tr></tbody></table></div></div>`).join('') || '<div class="empty">Nobody matches the filters.</div>'; }
+function pbClientView(x){
+  return x.byClient.map(c=>`<div class="card" style="margin-bottom:12px"><div class="card-h"><b>${esc(c.client)}</b><span class="hint">${c.people.length} assigned</span><span style="margin-left:auto" class="pb-tot">Client payroll <b>${money(c.total)}</b></span></div>
+    <div class="tbl-wrap"><table class="tbl pb-tbl"><thead><tr><th>VA / employee</th><th>Assignment</th><th>Applied rate</th><th>Pay this cutoff</th><th>Status</th></tr></thead><tbody>
+      ${c.people.map(p=>p.lines.map((l, i)=>`<tr><td>${i?'':`<b>${esc(pvName(p.d))}</b>`}</td><td>${esc(l.role||l.label)}${pbEdited(l)}</td><td>${pbRateCell(p.d, l)}</td><td>${pbMoneyCell(p.d, l)}</td><td>${i?'':pvBadge(p.d.status)}</td></tr>`).join('')).join('')}
+      <tr class="pb-net"><td colspan="3">Total for ${esc(c.client)}</td><td colspan="2">${money(c.total)}</td></tr></tbody></table></div></div>`).join('') || '<div class="empty">No client pay matches the filters.</div>'; }
+function pbOverallView(x, pid){ const b = pbOf(pid);
+  return `<div class="grid cols-2"><div class="card"><div class="card-h"><b>By client</b></div><div class="card-b" style="overflow-x:auto"><table class="tbl"><thead><tr><th>Client</th><th>People</th><th>Payroll</th><th>Share</th></tr></thead><tbody>
+      ${x.byClient.map(c=>`<tr style="cursor:pointer" onclick="PBU.view='client';PBU.client='${esc(c.client).replace(/'/g,'&#39;')}';pvRefresh()"><td>${esc(c.client)}</td><td>${c.people.length}</td><td><b>${money(c.total)}</b></td><td>${x.tot.clientTotal?Math.round(c.total/x.tot.clientTotal*100):0}%</td></tr>`).join('')}
+      <tr class="pb-net"><td>All clients & internal</td><td>${x.tot.people}</td><td>${money(x.tot.clientTotal)}</td><td>100%</td></tr></tbody></table></div></div>
+    <div class="card"><div class="card-h"><b>By VA / employee</b></div><div class="card-b" style="overflow-x:auto"><table class="tbl"><thead><tr><th>Name</th><th>Gross</th><th>Deductions</th><th>Net</th><th>Status</th></tr></thead><tbody>
+      ${x.rows.map(({d})=>`<tr style="cursor:pointer" onclick="PBU.view='emp';PBU.emp='${d.emp}';pvRefresh()"><td>${esc(pvName(d))}</td><td>${pvMoney(d.gross,d)}</td><td>${d.deductions?'−'+pvMoney(d.deductions,d):'—'}</td><td><b>${pvMoney(d.net,d)}</b></td><td>${pvBadge(d.status)}</td></tr>`).join('')}
+      <tr class="pb-net"><td>Total</td><td>${money(x.tot.gross)}</td><td>${x.tot.deductions?'−'+money(x.tot.deductions):'—'}</td><td>${money(x.tot.net)}</td><td></td></tr></tbody></table></div></div></div>
+    ${b?.summary ? `<div class="hint" style="margin-top:8px">Submitted summary (${esc(dtstr(b.summary.at))}): net ${money(b.summary.net)}${b.approvedSummary?` · approved: net ${money(b.approvedSummary.net)}`:''}${b.summary.net!==x.tot.net && !PBU.client && !PBU.emp?` · now ${money(x.tot.net)} after edits`:''}</div>` : ''}`; }
+function pbHistHTML(b){ if(!b) return ''; const H = [...(b.history||[])].reverse();
+  return `<details class="card" style="margin-top:14px" open><summary class="card-h" style="cursor:pointer"><b>History</b><span class="hint">${H.length} entries — edits, approvals, returns and comments</span></summary><div class="card-b pb-hist">
+    ${H.map(h=>`<div class="${h.comment?'cm':''}"><span class="hint">${esc(dtstr(h.at))}</span><b>${esc(h.act)}</b><span>${esc(h.by==='system'?'System':pname(h.by))}${h.note?` — ${esc(h.note)}`:''}</span></div>`).join('')}</div></details>`; }
+async function pbDo(what, ...a){ const pid = FIN.period;
+  try{
+    if(what==='submit'){ const s = pbSummary(pid); return confirmModal('Submit the payroll batch for approval?', `<p><b>${esc(pvPeriodLabel(pv2Period(pid)))}</b> · ${s.people} payslips · gross ${money(s.gross)} · net <b>${money(s.net)}</b></p><p class="hint">${esc(pname(pvCeo()))} (CEO) reviews the whole batch${pvAltOn()?` — ${esc(pname(pvAlt().key))} is the active backup approver`:''}. You'll be notified when it is approved or returned.</p>`, 'Submit batch', ()=>{ try{ pbSubmit(pid); closeModal(); pvRefresh(); toast('Batch submitted for approval'); }catch(e){ toast(e.message); closeModal(); pvRefresh(); } }, {primary:true}); }
+    if(what==='approve'){ const x = pbData(pid); return confirmModal('Approve the payroll batch?', `<p><b>${x.tot.people} payslips</b> · net <b>${money(x.tot.net)}</b></p><div class="field"><label>Comment (optional)</label><textarea id="pbCmt" rows="2"></textarea></div><p class="hint">Every payslip in the batch becomes “CEO Approved – Ready for Release”. Finance is notified.</p>`, 'Approve batch', ()=>{ try{ pbApprove(pid, el('pbCmt')?.value); closeModal(); pvRefresh(); toast('Batch approved'); }catch(e){ toast(e.message); } }, {primary:true}); }
+    if(what==='return' || what==='comment'){ return openModal(what==='return'?'Return the batch to Finance':'Comment on this batch', `<div class="field"><label>${what==='return'?'What should Finance change?':'Comment'}</label><textarea id="pbCmt" rows="3"></textarea></div><div class="cf-acts"><button class="btn" onclick="closeModal()">Cancel</button><button class="btn ${what==='return'?'danger':'primary'}" onclick="pbDo('${what}2')">${what==='return'?'Return to Finance':'Post comment'}</button></div>`); }
+    if(what==='return2'){ pbReturn(pid, el('pbCmt').value); closeModal(); toast('Returned to Finance'); }
+    if(what==='comment2'){ pbComment(pid, el('pbCmt').value); closeModal(); toast('Comment posted'); }
+    if(what==='backup'){ return openModal(`Let ${pname(pvCoo())} approve while you're unavailable`, `<div class="field"><label>For how many days?</label><input id="pbDays" type="number" min="1" max="60" value="7"></div><div class="cf-acts"><button class="btn" onclick="closeModal()">Cancel</button><button class="btn primary" onclick="closeModal();pbBackupOn(el('pbDays')?.value||7)">Confirm</button></div>`); }
+    if(what==='edit'){ await pbEdit(a[0], a[1], a[2], a[3]); toast('Saved — totals updated'); }
+    pvRefresh();
+  }catch(e){ toast(e.message); pvRefresh(); } }
+(function(){ const s = document.createElement('style'); s.textContent = `
+.pb-head{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.pb-appr{flex:1;min-width:220px}.pb-acts{display:flex;gap:8px;flex-wrap:wrap;margin-left:auto}
+.pb-filt{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.pb-filt select{padding:6px 8px;max-width:240px}
+.pb-in{width:120px;padding:5px 8px;font-variant-numeric:tabular-nums;text-align:right}.pb-in.sm{width:100px}
+.pb-tbl td{vertical-align:middle;font-variant-numeric:tabular-nums}.pb-tbl tr.pb-sub td{color:var(--ink-2);font-size:12.5px}.pb-tbl tr.pb-sum td{color:var(--ink-2)}.pb-net td,.pb-tbl tr.pb-net td{font-weight:800;border-top:2px solid var(--line)}
+.pb-tot{font-size:13px}.pb-note{padding:9px 12px;border-radius:10px;font-size:13px}.pb-note.bad{background:var(--bad-bg);color:var(--bad)}.pb-note.ok{background:var(--ok-bg);color:var(--ok)}
+.pb-hist{display:flex;flex-direction:column;gap:8px;max-height:360px;overflow:auto}.pb-hist>div{display:flex;flex-direction:column;gap:1px;border-left:2px solid var(--line);padding-left:10px;font-size:12.5px}.pb-hist>div.cm{border-left-color:var(--info)}
+.btn.sm{padding:4px 9px;font-size:12px}
+@media(max-width:700px){.pb-acts{margin-left:0;width:100%}.pb-in{width:96px}}`; document.head.appendChild(s); })();
 
 /* <<< OCT24 MODULES <<< */
 </script>

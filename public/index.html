@@ -11596,7 +11596,7 @@ function coraClients(){
   const mine = new Set([...(PEOPLE[PERSON].clients||[]), ...lgMyClients().map(c=>c.id)]);
   return CLIENTS.filter(c=>mine.has(c.id) && !isEnded(c));
 }
-const coraTrim = (s, n) => { s = String(s||'').replace(/\s+\n/g,'\n').trim(); return s.length>n ? s.slice(0,n)+'…' : s; };
+const coraTrim = (s, n) => { s = String(s||'').replace(/\s+\n/g,'\n').trim(); if(s.length<=n) return s; let k = n; if(/[\uD800-\uDBFF]/.test(s[k-1])) k--; return s.slice(0,k)+'…'; };
 /* Lead Gen details for a client this person works on (assigned team only) */
 function coraLGText(c){
   const cfg = LEADCFG.find(x=>x.id===c.id); if(!lgIsLeadGen(c) || !cfg || !canSee('leadcfg', cfg)) return '';
@@ -20916,7 +20916,7 @@ async function cooPostFromModal(){ const ch = CHATS.find(c=>c.id===el('paPostC')
    The footer shows which build is running ("Build 2026-10-07 · 1"), and every open portal checks every few minutes
    (and whenever it comes back to the foreground) whether a newer build has been published. If so it shows
    "New version available — Update now" instead of quietly running old code. */
-const BUILD_ID = '2026-11-02 · 3';
+const BUILD_ID = '2026-11-02 · 6';
 function verStamp(){ const f = el('footNote'); if(f && !f.dataset.v){ f.dataset.v = 1; f.textContent = `Cross Core Ops Suite v8 · Build ${BUILD_ID}`; } }
 async function verCheck(){
   if(!/^https?:/.test(location.protocol)) return;
@@ -37464,6 +37464,29 @@ setTimeout(()=>{ try{ compDemoSeed(); }catch(e){} }, 1500);
 /* client allowances appear in the payslip's Clients breakdown */
 { const _bd = pvBreakdown; pvBreakdown = function(d){ const out = _bd.apply(this, arguments); try{
     (d.lines||[]).filter(l=>l.kind==='allowance' && l.client).forEach(l=>out.push({name:l.client, amount:pvR2(l.amount), role:'Client allowance', detail:l.note||'', internal:false})); }catch(e){} return out; }; }
+
+/* ===== AI requests: always send well-formed text (Nov 2 · 6) =====
+   A post pasted with emoji (🔥 💰 1️⃣) could be cut in the middle of an emoji when long text is shortened for the prompt.
+   The half-emoji left behind made the AI provider reject the whole request ("Invalid body: failed to parse JSON value"),
+   so Marcus, Cora and the other assistants wrote nothing. Every request to the cc-admin function is now cleaned first:
+   lone halves are dropped, complete emoji are kept as they are. */
+function aiWF(s){ s = String(s==null?'':s); return s.toWellFormed ? s.toWellFormed().replace(/�/g,'') : s.replace(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g,''); }
+function aiWFDeep(v){ if(typeof v==='string') return aiWF(v); if(Array.isArray(v)) return v.map(aiWFDeep);
+  if(v && typeof v==='object' && Object.getPrototypeOf(v)===Object.prototype){ const o = {}; for(const k in v) o[k] = aiWFDeep(v[k]); return o; } return v; }
+(function(){
+  if(typeof aiInvoke==='function'){ const _inv = aiInvoke; aiInvoke = function(body){ return _inv.call(this, aiWFDeep(body)); }; }
+  const _f = window.fetch; if(!_f || _f.__aiwf) return;
+  const wrapped = function(input, init){
+    try{
+      const url = typeof input==='string' ? input : (input && input.url) || '';
+      if(/\/functions\/v1\/cc-admin\b/.test(url) && init && typeof init.body==='string' && /[\uD800-\uDFFF]|\\u[dD][89abAB]/.test(init.body)){
+        init = Object.assign({}, init, {body: JSON.stringify(aiWFDeep(JSON.parse(init.body)))});
+      }
+    }catch(e){ /* not JSON: send unchanged */ }
+    return _f.call(this, input, init);
+  };
+  wrapped.__aiwf = true; window.fetch = wrapped;
+})();
 
 /* <<< OCT24 MODULES <<< */
 </script>

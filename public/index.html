@@ -20916,7 +20916,7 @@ async function cooPostFromModal(){ const ch = CHATS.find(c=>c.id===el('paPostC')
    The footer shows which build is running ("Build 2026-10-07 · 1"), and every open portal checks every few minutes
    (and whenever it comes back to the foreground) whether a newer build has been published. If so it shows
    "New version available — Update now" instead of quietly running old code. */
-const BUILD_ID = '2026-11-02 · 2';
+const BUILD_ID = '2026-11-02 · 3';
 function verStamp(){ const f = el('footNote'); if(f && !f.dataset.v){ f.dataset.v = 1; f.textContent = `Cross Core Ops Suite v8 · Build ${BUILD_ID}`; } }
 async function verCheck(){
   if(!/^https?:/.test(location.protocol)) return;
@@ -22777,6 +22777,7 @@ function recNextAction(a){
 function recTouch(a, act, patch={}, note=''){
   const before = {stage:a.stage, status:a.status};
   Object.assign(a, patch); a.updatedAt = nowISO(); a.updatedBy = PERSON;
+  if(patch.stage && recStageIx(patch.stage) < recStageIx(before.stage)) a.stageMovedAt = a.updatedAt;   /* an intentional move back — the database only accepts a backward stage with this mark */
   if(patch.stage && patch.stage!==before.stage) a.owner = patch.owner || recDefaultOwner(patch.stage);
   a.next = recNextAction(a);
   (a.history = a.history||[]).push({at:a.updatedAt, by:PERSON, stage:a.stage, status:a.status, act, note:note||'', owner:a.owner, next:a.next});

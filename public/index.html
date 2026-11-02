@@ -13224,13 +13224,15 @@ function esDraw(){
       <div class="es-progress"><span class="es-bar"><i style="width:${tot?Math.round(done/tot*100):0}%"></i></span><span>${done} of ${tot} signed</span></div><button class="icon-btn" onclick="esClose()" title="Close">✕</button></div>
     <div class="es-main"><aside class="es-side"><div class="nav-label" style="padding:0 0 6px">Pages & signatures</div>
         ${ES.pages.map((_,i)=>{ const pg = i+1; const st = esPageStatus(pg); const F = ES.fields.filter(f=>f.page===pg);
-          return `<button class="es-pg ${ES.page===pg?'on':''} ${st}" onclick="esGo(${pg})"><b>Page ${pg}</b><small>${F.length?F.map(f=>`${f.kind==='signature'?'Signature':'Initials'} ${esDone(f)?'✓':'— needed'}`).join(' · '):'No signature needed'}${ES.viewed.has(pg)?'':' · not read yet'}</small></button>`; }).join('')}
+          return `<button class="es-pg ${ES.page===pg?'on':''} ${st}" onclick="esGo(${pg})"><b>Page ${pg}</b><small>${F.length?F.map(f=>`${f.kind==='signature'?'Signature':'Initials'} ${esDone(f)?'✓':'— needed'}`).join(' · '):'No signature needed'}${ES.viewed.has(pg)?'':' · <b style="color:var(--warn)">not read yet</b>'}</small></button>`; }).join('')}
         <div class="hint" style="margin-top:8px">Read every page. Fields marked “needed” must be signed before you can submit.</div></aside>
       <section class="es-scroll" id="esScroll">${esPageHTML(ES.page, false)}</section></div>
     <div class="es-bottom"><button class="btn" onclick="esGo(${ES.page-1})" ${ES.page<=1?'disabled':''}>← Previous page</button>
       <span class="es-mid">${unread?`${unread} page${unread>1?'s':''} left to read`:done<tot?`${tot-done} field${tot-done>1?'s':''} left to sign`:'All pages read and signed ✓'}</span>
-      ${ES.page<ES.pages.length?`<button class="btn primary" onclick="esGo(${ES.page+1})">Next page →</button>`:`<button class="btn primary" onclick="esFinish()" ${ready?'':'disabled title="Read every page and complete every field first"'}>Review & finish →</button>`}</div>`;
+      ${ES.page<ES.pages.length?`<button class="btn primary" onclick="esGo(${ES.page+1})">Next page →</button>`:`<button class="btn primary" onclick="esFinish()" ${ready?'':'title="Read every page and complete every field first"'}>${ready?'Review & finish →':esNextTodo()}</button>`}</div>`;
 }
+/* the last page's button always works: it takes the signer to the first page still unread (or still unsigned) */
+function esNextTodo(){ const u = ES.pages.map((_,i)=>i+1).filter(p=>!ES.viewed.has(p)); if(u.length) return `Read page ${u[0]} next →`; const m = ES.fields.find(f=>!esDone(f)); return m ? `Sign page ${m.page} →` : 'Review & finish →'; }
 function esGo(pg){ if(pg<1 || pg>ES.pages.length) return; ES.page = pg; ES.viewed.add(pg); esDraw(); el('esScroll')?.scrollTo(0,0); }
 function esFinish(){
   const miss = ES.fields.filter(f=>!esDone(f)); const unread = ES.pages.map((_,i)=>i+1).filter(p=>!ES.viewed.has(p));
@@ -20914,7 +20916,7 @@ async function cooPostFromModal(){ const ch = CHATS.find(c=>c.id===el('paPostC')
    The footer shows which build is running ("Build 2026-10-07 · 1"), and every open portal checks every few minutes
    (and whenever it comes back to the foreground) whether a newer build has been published. If so it shows
    "New version available — Update now" instead of quietly running old code. */
-const BUILD_ID = '2026-11-02 · 1';
+const BUILD_ID = '2026-11-02 · 2';
 function verStamp(){ const f = el('footNote'); if(f && !f.dataset.v){ f.dataset.v = 1; f.textContent = `Cross Core Ops Suite v8 · Build ${BUILD_ID}`; } }
 async function verCheck(){
   if(!/^https?:/.test(location.protocol)) return;

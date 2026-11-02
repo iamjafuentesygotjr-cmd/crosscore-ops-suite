@@ -20914,7 +20914,7 @@ async function cooPostFromModal(){ const ch = CHATS.find(c=>c.id===el('paPostC')
    The footer shows which build is running ("Build 2026-10-07 · 1"), and every open portal checks every few minutes
    (and whenever it comes back to the foreground) whether a newer build has been published. If so it shows
    "New version available — Update now" instead of quietly running old code. */
-const BUILD_ID = '2026-10-31 · 1';
+const BUILD_ID = '2026-11-02 · 1';
 function verStamp(){ const f = el('footNote'); if(f && !f.dataset.v){ f.dataset.v = 1; f.textContent = `Cross Core Ops Suite v8 · Build ${BUILD_ID}`; } }
 async function verCheck(){
   if(!/^https?:/.test(location.protocol)) return;
@@ -32435,7 +32435,7 @@ const FIN_TABS = () => {
   const bd = (n, c='b-new') => n ? ` <span class="badge ${c}">${n}</span>` : '';
   const nB = typeof PAYBATCH!=='undefined' ? PAYBATCH.filter(b=>(pvIsApprover() && ['Submitted for Approval','Under Review'].includes(b.status)) || (isFinance() && b.status==='Returned to Finance')).length : 0;
   return [['payroll','Pre-Generated Payroll & Payslips'], ['batch', `Bulk payroll review${bd(nB,'b-missed')}`], ['ceo', `CEO review${bd(nCeo,'b-missed')}`], ['releases', `Release scheduler${bd(nRel)}`], ['tickets', `Concerns${bd(nTix)}`], ['leave', `Leave & time off${bd(nLv)}`],
-    ...(isHead(PERSON) ? [['oversight','COO oversight']] : []), ['rates', `Client rates${bd(nNew + pvMissingRates().length, pvMissingRates().length?'b-missed':'b-new')}`], ['profiles','Pay profiles & rates'], ['settings','Payroll settings'], ['archive','Earlier payslips']];
+    ...(isHead(PERSON) ? [['oversight','COO oversight']] : []), ['comp','Compensation & allowances'], ['rates', `Client rates${bd(nNew + pvMissingRates().length, pvMissingRates().length?'b-missed':'b-new')}`], ['profiles','Pay profiles & rates'], ['settings','Payroll settings'], ['archive','Earlier payslips']];
 };
 RENDER.finance = () => {
   if(!finAuth()){ el('v-finance').innerHTML = '<div class="empty">Finance is available to the Finance team and company heads.</div>'; return; }
@@ -32450,7 +32450,7 @@ function pvTabBody(){
   switch(FIN.tab){
     case 'payroll': return pvPayrollHTML(); case 'batch': return typeof pbBatchHTML==='function' ? pbBatchHTML() : ''; case 'ceo': return pvCeoHTML(); case 'releases': return pvReleasesHTML(); case 'tickets': return typeof acAdminTicketsHTML==='function' ? acAdminTicketsHTML() : '';
     case 'leave': return pvLeaveSyncHTML(); case 'oversight': return pvOversightHTML(); case 'clients': case 'rates': return pvRatesHTML(); case 'profiles': return profilesHTML();
-    case 'settings': return pvSettingsHTML(); case 'archive': return pvArchiveHTML(); default: return pvPayrollHTML(); }
+    case 'comp': return typeof compHTML==='function' ? compHTML() : ''; case 'settings': return pvSettingsHTML(); case 'archive': return pvArchiveHTML(); default: return pvPayrollHTML(); }
 }
 const pvRefresh = () => { const b = el('finBody'); if(b && CURRENT==='finance') b.innerHTML = pvTabBody(); };
 
@@ -32531,9 +32531,10 @@ function openPv(id, keepScroll){
         ${group('Reimbursements', l=>l.kind==='reimb')}
         ${group('Employee statutory contributions & tax', l=>['sss','phic','hdmf','tax'].includes(l.kind))}
         ${group('Authorized deductions', l=>['deduction','unpaidleave'].includes(l.kind)||(l.kind==='adjust'&&l.sign==='-'))}
+        ${group('Company-paid benefits & employer contributions — not deducted from pay', l=>['cpaid','er'].includes(l.kind))}
         <tr class="pv-tot"><td>Gross ${d.reimb?'<span class="hint">(excl. reimbursements)</span>':''}</td><td style="text-align:right">${pvMoney(d.gross,d)}</td><td></td></tr>
         <tr class="pv-tot"><td>Total deductions</td><td style="text-align:right">−${pvMoney(d.deductions,d)}</td><td></td></tr>
-        <tr class="pv-net"><td>Net payable</td><td style="text-align:right">${pvMoney(d.net,d)}</td><td></td></tr></tbody></table>
+        <tr class="pv-net"><td>Net payable</td><td style="text-align:right">${pvMoney(d.net,d)}</td><td></td></tr>${d.companyCost?`<tr class="pv-tot"><td>Total company cost <span class="hint">(gross + reimbursements + company-paid benefits)</span></td><td style="text-align:right">${pvMoney(d.companyCost,d)}</td><td></td></tr>`:''}${d.att?`<tr><td colspan="3" class="hint">Attendance this cutoff: ${d.att.days} days · ${Math.floor(d.att.mins/60)}h ${d.att.mins%60}m · tardy ${d.att.tardy} · late ${d.att.late} · absent ${d.att.absent} · incomplete ${d.att.inc}</td></tr>`:''}</tbody></table>
       ${ed?`<details class="pv-add" ${d.lines.length<2?'open':''}><summary>+ Add an allowance, bonus, reimbursement, deduction or adjustment</summary>
         <div class="grid cols-2" style="margin-top:8px"><div class="field"><label>Type</label><select id="pvaKind">${['allowance','bonus','reimb','leavepay','deduction'].map(k=>`<option value="${k}">${PV_KIND_LABEL[k]}</option>`).join('')}</select></div>
         <div class="field"><label>Amount (${esc(d.cur)})</label><input id="pvaAmt" type="number" min="0" step="0.01"></div></div>
@@ -37042,6 +37043,424 @@ async function pbDo(what, ...a){ const pid = FIN.period;
 .pb-hist{display:flex;flex-direction:column;gap:8px;max-height:360px;overflow:auto}.pb-hist>div{display:flex;flex-direction:column;gap:1px;border-left:2px solid var(--line);padding-left:10px;font-size:12.5px}.pb-hist>div.cm{border-left-color:var(--info)}
 .btn.sm{padding:4px 9px;font-size:12px}
 @media(max-width:700px){.pb-acts{margin-left:0;width:100%}.pb-in{width:96px}}`; document.head.appendChild(s); })();
+
+/* ===== t16_attpay.js — Time tracking → automated payroll (Nov 2 2026) =====
+   Builds on the existing Time In · Break · Time Out and payroll v2 (nothing is replaced):
+   • WORK SCHEDULES (HR): fixed 9:00 AM–6:00 PM (Sales & Marketing Head, HR, Accounting & Finance) or flexible (Project
+     Manager) — 8 productive hours, breaks unpaid, Philippine time. VAs / contractors keep their time logs without tagging.
+   • DAILY STATUS: On Time · Tardy (minutes) · Late (30+ min) · Absent (time in 1 hour+ late, or no time in) · Incomplete
+     Hours (< 8 productive hours by 11:59 PM) · Missing time-out — plus Leave, Holiday, Rest day and HR-excused days, which
+     never carry a deduction. A live progress bar shows the share of the 8 hours done (breaks excluded).
+   • MIDNIGHT FINALIZATION: after the day ends (a shift that crosses midnight is closed first) the day is finalized once
+     (attday record, never duplicated). Employees can't change a finalized day; HR corrects it with a reason.
+   • PROPOSED DEDUCTIONS: at most one per date, with the reason and the calculation. They are proposals — they reach a
+     payslip as a proposed attendance deduction that CHA (Finance) keeps, adjusts or removes, and they only take effect when
+     PAU approves the payroll. HR reviews attendance and exceptions; HR does not approve deductions.
+   • COMPENSATION (CHA & PAU, Finance → Compensation & allowances): monthly basic, declared compensation, daily-rate basis,
+     allowances, client-based allowances, company-paid statutory contributions, effective date and notes — every change
+     keeps who / when / previous value / reason. The payroll drafts are rebuilt from these records automatically.
+   • COMPANY-PAID BENEFITS: for declared employees the company shoulders the employee share of SSS, PhilHealth and Pag-IBIG
+     (shown separately, never deducted from the basic salary); the employer shares and the total company cost are shown too.
+   The database enforces the access rules (supabase/update-nov02-time-payroll.sql). */
+let ATTPOL = [], ATTDAY = [], ATTEXC = [], COMP = [];
+const AP_SINCE = '2026-11-02';   /* days before this are never finalized or tagged (no retroactive deductions) */
+const AP_DEFAULT = {id:'global', since:AP_SINCE, requiredMins:480, lateAfter:30, absentAfter:60, mode:{absent:'day', incomplete:'day'}, cutoffTime:'23:59',
+  schedules:{kiara:{type:'fixed', start:'09:00', end:'18:00'}, charisse:{type:'fixed', start:'09:00', end:'18:00'}, luane:{type:'fixed', start:'09:00', end:'18:00'}, tricia:{type:'flexible'}},
+  holidays:[{date:'2026-11-30', name:'Bonifacio Day', type:'Regular'}, {date:'2026-12-08', name:'Feast of the Immaculate Conception', type:'Special non-working'}, {date:'2026-12-24', name:'Christmas Eve', type:'Special non-working'},
+    {date:'2026-12-25', name:'Christmas Day', type:'Regular'}, {date:'2026-12-30', name:'Rizal Day', type:'Regular'}, {date:'2026-12-31', name:'Last day of the year', type:'Special non-working'},
+    {date:'2027-01-01', name:'New Year’s Day', type:'Regular'}, {date:'2027-04-09', name:'Araw ng Kagitingan', type:'Regular'}, {date:'2027-05-01', name:'Labor Day', type:'Regular'}, {date:'2027-06-12', name:'Independence Day', type:'Regular'}]};
+const apCfg = () => { const r = ATTPOL.find(x=>x.id==='global') || {}; return {...AP_DEFAULT, ...r, mode:{...AP_DEFAULT.mode, ...(r.mode||{})}, schedules:r.schedules || AP_DEFAULT.schedules, holidays:r.holidays || AP_DEFAULT.holidays}; };
+const apSched = k => apCfg().schedules?.[k] || null;
+const apCovered = () => Object.keys(apCfg().schedules||{}).filter(k=>PEOPLE[k] && !empLeft(PEOPLE[k].status));
+const apIsHr = (k=PERSON) => lvIsHr(k) || isHead(k);
+const apIsPay = (k=PERSON) => isFinance(k) || k===pvCeo();               /* CHA (Finance) and PAU (CEO) */
+const apStaffAud = x => uniq([x.person, ...HR_KEYS(), ...financeKeys(), ...HEADS]).filter(Boolean);
+COLL.attpolicy = {get:()=>ATTPOL, set:v=>ATTPOL=v, aud:()=>null};
+COLL.attexc    = {get:()=>ATTEXC, set:v=>ATTEXC=v, aud:apStaffAud};
+COLL.attday    = {get:()=>ATTDAY, set:v=>ATTDAY=v, aud:apStaffAud};
+COLL.comp      = {get:()=>COMP,   set:v=>COMP=v,   aud:()=>uniq([...financeKeys(), ...HEADS])};
+Object.assign(NTYPES, {attpay:'Attendance & payroll'});
+const hhmm = t => { const [h, m] = String(t||'09:00').split(':').map(Number); return h*60 + (m||0); };
+const apT = mins => { const h = Math.floor(mins/60), m = mins%60; return `${((h+11)%12)+1}:${String(m).padStart(2,'0')} ${h<12?'AM':'PM'}`; };
+const apHM = m => { m = Math.max(0, Math.round(m||0)); return `${Math.floor(m/60)}h ${String(m%60).padStart(2,'0')}m`; };
+
+/* ---------- compensation ---------- */
+const compOf = k => COMP.find(c=>c.id===k) || null;
+const compBasic = k => { const c = compOf(k); if(c && c.basic != null) return +c.basic; const pr = (typeof payProfile==='function' ? payProfile(k)?.rates : []) || []; const cur = pr.filter(r=>!r.to).slice(-1)[0]; return cur ? +cur.monthly : 0; };
+const compDays = k => +(compOf(k)?.daysPerMonth || payCfg().daysPerMonth || 21.75);
+const compDaily = k => pvR2(compBasic(k) / compDays(k));
+const compPaysEE = k => { const c = compOf(k); return c && c.companyPaysEE != null ? !!c.companyPaysEE : (payCfg().companyPaysEE !== false); };
+
+/* ---------- one person, one day ---------- */
+function attFirstIn(r){ const S = attSessions(r); const t = S.map(s=>toMs(s.in)).filter(Boolean).sort((a,b)=>a-b)[0]; return t ? new Date(t).toISOString() : (r?.in || null); }
+function attEval(k, date, nowMs=Date.now()){
+  const sc = apSched(k); if(!sc) return null;
+  const cfg = apCfg(), today = manilaDate(new Date(nowMs)); let req = +cfg.requiredMins || 480;
+  const r = ATTLOG.find(x=>x.id===attId(k, date)); const first = r?.in ? attFirstIn(r) : null; const prod = r ? workedMins(r) : 0;
+  const open = !!(r?.in && !r.out); const past = date < today;
+  const out = {id:`AD|${k}|${date}`, person:k, date, sched:sc.type, start:sc.start||null, firstIn:first, prodMins:Math.round(prod), req, lateMins:0, status:'', tags:[], flags:[], proposed:null};
+  const hol = (cfg.holidays||[]).find(h=>h.date===date), rest = !(typeof workdaysOf==='function' ? workdaysOf(k) : [1,2,3,4,5]).includes(dow(date));
+  const leave = LVCAL.find(c=>c.emp===k && c.start<=date && c.end>=date);
+  const exc = ATTEXC.filter(x=>x.person===k && x.date===date && x.status!=='Cancelled').sort((a,b)=>(a.at||'').localeCompare(b.at||'')).slice(-1)[0];
+  if(exc) out.exception = {kind:exc.kind, note:exc.note, by:exc.by, mins:exc.mins||0};
+  if(exc && ['excused','official','leave','holiday'].includes(exc.kind)){ out.status = ({excused:'Excused (HR)', official:'Official business', leave:'On leave (HR)', holiday:'Holiday (HR)'})[exc.kind]; return out; }
+  if(leave){ out.status = 'On leave'; return out; }
+  if(hol){ out.status = `Holiday — ${hol.name}`; return out; }
+  if(rest && !first){ out.status = 'Rest day'; return out; }
+  if(exc?.kind==='undertime'){ req = Math.max(0, req - (+exc.mins||0)); out.req = req; out.tags.push(`Authorized undertime ${exc.mins} min`); }
+  if(!first){ if(!past){ out.status = 'Not in yet'; return out; } out.status = 'Absent'; out.flags.push('No time in'); out.proposed = attPropose(k, 'absent', 'No time in for the day', req, 0); return out; }
+  if(sc.type==='fixed' && !rest){
+    const lm = manilaMins(first) - hhmm(sc.start||'09:00'); out.lateMins = Math.max(0, lm);
+    if(lm >= (+cfg.absentAfter||60)){ out.status = 'Absent'; out.tags.push(`Time in ${apT(manilaMins(first))} — ${lm} min after ${apT(hhmm(sc.start||'09:00'))}`);
+      out.proposed = attPropose(k, 'absent', `Time in at ${apT(manilaMins(first))}, ${lm} minutes after the ${apT(hhmm(sc.start||'09:00'))} start (1 hour or more = absent)`, req, prod); return out; }
+    if(lm >= (+cfg.lateAfter||30)) out.tags.push(`Late — ${lm} min`); else if(lm > 0) out.tags.push(`Tardy — ${lm} min`); else out.tags.push('On time');
+  }
+  if(open && past) out.flags.push('Missing time-out');
+  if(prod >= req){ out.status = out.tags.find(t=>/Late|Tardy|On time/.test(t)) || 'Complete'; if(out.status==='On time') out.status = 'On Time'; if(sc.type==='flexible') out.status = 'Complete — 8h'; return out; }
+  if(!past){ out.status = open ? 'Working' : 'Timed out'; out.progress = true; out.preview = attPropose(k, 'incomplete', `Only ${apHM(prod)} of ${apHM(req)} so far`, req, prod); return out; }
+  out.status = 'Incomplete Hours'; out.proposed = attPropose(k, 'incomplete', `${apHM(prod)} productive time of the required ${apHM(req)} by the 11:59 PM cutoff${out.flags.includes('Missing time-out')?' (no time-out recorded)':''}`, req, prod);
+  return out; }
+/* proposed deduction (one per date): a full day as per company policy, or the minutes not worked — CHA can change it, PAU approves the payroll */
+function attPropose(k, rule, why, req, prod){
+  const mode = apCfg().mode?.[rule] || 'day'; if(mode==='none') return null;
+  const daily = compDaily(k), per = req ? daily / req : 0, missing = Math.max(0, req - prod);
+  const amount = mode==='minutes' ? pvR2(per * missing) : daily;
+  const calc = mode==='minutes' ? `${missing} min × ₱${pvR2(per)}/min (daily rate ₱${daily} ÷ ${req} min)` : `1 day × daily rate ₱${daily} (monthly basic ₱${compBasic(k)} ÷ ${compDays(k)} days)`;
+  return {rule, mode, days:mode==='day'?1:0, mins:missing, amount, reason:why, calc, label:rule==='absent'?'Absence':'Incomplete hours'}; }
+
+/* ---------- midnight finalization (HR / Finance / head portals; once per person and date) ---------- */
+let AP_FIN_AT = 0;
+function attFinalize(force){
+  if(!SYNC?.ready || !PEOPLE[PERSON] || !(apIsHr() || isFinance())) return 0; if(!force && Date.now()-AP_FIN_AT < 60000) return 0; AP_FIN_AT = Date.now();
+  const today = manilaDate(), since = apCfg().since || AP_SINCE; let n = 0;
+  apCovered().forEach(k=>{ for(let d = shiftDate(today, -40); d < today; d = shiftDate(d, 1)){ if(d < since) continue; const id = `AD|${k}|${d}`; if(ATTDAY.some(x=>x.id===id)) continue;
+      const r = ATTLOG.find(x=>x.id===attId(k, d)); if(r?.in && !r.out){ const last = toMs(attSessions(r).slice(-1)[0]?.in || r.in); if(last && Date.now()-last < ATT_OPEN_H*3600e3) continue; }   /* a shift still running past midnight */
+      const e = attEval(k, d); if(!e) continue;
+      ATTDAY.push({...e, finalized:true, finalizedAt:nowISO(), by:'system', history:[{at:nowISO(), by:'system', act:'Finalized at the daily cutoff', note:e.status + (e.proposed?` · proposed deduction ₱${e.proposed.amount}`:'')}]}); n++;
+      if(e.proposed) notify([k], 'attpay', `🕛 ${dLong(d)}: <b>${esc(e.status)}</b> — ${esc(e.proposed.reason)}. A deduction of ₱${e.proposed.amount} is proposed for payroll review. Talk to HR if this is wrong.`, {view:'attendance'});
+    } });
+  if(n){ notify(uniq([...HR_KEYS(), ...financeKeys()]), 'attpay', `🕛 ${n} attendance day${n>1?'s':''} finalized (${ATTDAY.filter(x=>x.proposed && !x.reviewedAt).length} with a proposed deduction to review).`, {view:'attreview'}); recordChange(); }
+  return n; }
+setInterval(()=>{ try{ attFinalize(); }catch(e){} }, 5*60000); setTimeout(()=>{ try{ attFinalize(); }catch(e){} }, 9000);
+const attDayRec = (k, d) => ATTDAY.find(x=>x.id===`AD|${k}|${d}`);
+/* HR: exceptions and corrections re-evaluate a finalized day (with history) */
+function attReeval(k, d, act, note){ const cur = attDayRec(k, d); const e = attEval(k, d); if(!e) return;
+  if(cur){ const prev = cur.status + (cur.proposed?` · ₱${cur.proposed.amount}`:''); Object.assign(cur, e, {finalized:true, history:[...(cur.history||[]), {at:nowISO(), by:PERSON, act, note:`${prev} → ${e.status}${e.proposed?` · ₱${e.proposed.amount}`:' · no deduction'}${note?' — '+note:''}`}]}); }
+  else if(d < manilaDate() && d >= (apCfg().since||AP_SINCE)) ATTDAY.push({...e, finalized:true, finalizedAt:nowISO(), by:PERSON, history:[{at:nowISO(), by:PERSON, act, note}]}); }
+function attAddException(k, d, kind, note, mins){
+  if(!apIsHr()) throw new Error('Only HR (or a company head) records attendance exceptions.'); if(String(note||'').trim().length < 3) throw new Error('Give the reason.');
+  ATTEXC.push({id:uid('AX'), person:k, date:d, kind, note:note.trim(), mins:+mins||0, by:PERSON, at:nowISO(), status:'Active'});
+  attReeval(k, d, `HR exception: ${kind}`, note.trim()); notify([k], 'attpay', `🗂 HR updated your attendance for ${dLong(d)}: ${esc(kind)} — ${esc(note.trim())}`, {view:'attendance'}); recordChange(); }
+function attCorrect(k, d, inT, outT, brk, note){
+  if(!apIsHr()) throw new Error('Only HR (or a company head) corrects attendance records.'); if(String(note||'').trim().length < 3) throw new Error('Give the reason for the correction.');
+  const iso = t => t ? new Date(`${d}T${t}:00+08:00`).toISOString() : null; const a = iso(inT), b = iso(outT); if(!a) throw new Error('Enter the time in.'); if(b && b <= a) throw new Error('Time out must be after time in.');
+  let r = ATTLOG.find(x=>x.id===attId(k, d)); if(!r){ r = {id:attId(k, d), person:k, date:d, in:null, out:null, breaks:[], client:'', project:'', events:[]}; ATTLOG.push(r); }
+  const before = `${showT(r.in)}–${showT(r.out)}, break ${Math.round(breakMins(r))} min`;
+  r.in = a; r.out = b; r.sessions = [{in:a, out:b}]; const bm = Math.max(0, +brk||0); r.breaks = bm ? [{s:new Date(new Date(a).getTime()+4*3600e3).toISOString(), e:new Date(new Date(a).getTime()+4*3600e3+bm*60000).toISOString()}] : [];
+  r.corrected = {by:PERSON, at:nowISO(), reason:note.trim(), before}; (r.events = r.events||[]).push({t:nowISO(), kind:'Corrected by HR', note:note.trim()});
+  attReeval(k, d, 'Corrected by HR', `${before} → ${inT}–${outT||'—'}, break ${bm} min — ${note.trim()}`); notify([k], 'attpay', `🗂 HR corrected your time record for ${dLong(d)} (${esc(note.trim())}).`, {view:'attendance'}); recordChange(); }
+
+/* ---------- the employee's live progress ---------- */
+function attProgressHTML(k=PERSON){
+  const sc = apSched(k); const d = manilaDate(); const r = attRec(k); const prod = r ? workedMins(r) : 0; const req = +apCfg().requiredMins || 480; const pct = Math.min(100, Math.round(prod / req * 100));
+  const e = sc ? attEval(k, d) : null; const onBreak = (r?.breaks||[]).some(b=>!b.e);
+  const tag = e ? (e.tags.find(t=>/Late|Tardy|On time/.test(t)) || (e.status==='Absent' ? 'Absent' : '')) : '';
+  const cls = /Absent|Late/.test(tag) ? 'bad' : /Tardy/.test(tag) ? 'warn' : 'ok';
+  return `<div class="card att-prog" id="attProg"><div class="card-b"><div class="ap-top"><div><div class="k-label">Productive time today</div><div class="ap-big" id="apBig">${apHM(prod)}</div>
+      <div class="hint">${sc ? (sc.type==='fixed' ? `Schedule ${apT(hhmm(sc.start))} – ${apT(hhmm(sc.end))} · 1-hour unpaid break` : 'Flexible schedule — any start time, 8 productive hours by 11:59 PM') : 'No fixed schedule — time logs only'}${onBreak?' · <b>on break (not counted)</b>':''}</div></div>
+      <div class="ap-right">${tag?`<span class="badge ${cls==='bad'?'b-missed':cls==='warn'?'b-scheduled':'b-approved'}">${esc(tag)}</span>`:''}<div class="ap-pct" id="apPct">${pct}%</div><div class="hint">of ${apHM(req)}</div></div></div>
+    <div class="ap-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}" aria-label="Share of the 8 required hours completed"><i id="apFill" style="width:${pct}%"></i>${[25,50,75].map(p=>`<s style="left:${p}%"></s>`).join('')}</div>
+    <div class="ap-marks"><span>0h</span><span>2h</span><span>4h</span><span>6h</span><span>8h</span></div>
+    ${e && (e.preview || e.proposed) ? `<div class="ap-ded">⚠️ <b>Payroll deduction preview:</b> ${esc((e.proposed||e.preview).reason)} → if the day ended now, a deduction of <b>₱${(e.proposed||e.preview).amount}</b> would be proposed (${esc((e.proposed||e.preview).calc)}). It goes to payroll review — CHA and PAU decide.</div>` : sc && prod >= req ? `<div class="ap-ok">✓ 8 productive hours completed today.</div>` : ''}</div></div>`; }
+setInterval(()=>{ try{ const b = el('apBig'); if(!b || !PEOPLE[PERSON]) return; const r = attRec(PERSON); const prod = r ? workedMins(r) : 0; const req = +apCfg().requiredMins || 480; const pct = Math.min(100, Math.round(prod/req*100));
+  b.textContent = apHM(prod); const p = el('apPct'); if(p) p.textContent = pct+'%'; const f = el('apFill'); if(f){ f.style.width = pct+'%'; f.parentNode.setAttribute('aria-valuenow', pct); } }catch(e){} }, 20000);
+function attMyHistoryHTML(k=PERSON){ const sc = apSched(k); if(!sc) return '';
+  const today = manilaDate(), since = apCfg().since || AP_SINCE; const days = []; for(let i=1;i<=14;i++){ const d = shiftDate(today, -i); if(d < since) break; days.push(d); }
+  if(!days.length) return '';
+  return `<div class="card" style="margin-top:14px"><div class="card-h"><h3>My attendance — last ${days.length} day${days.length>1?'s':''}</h3><span class="sub">finalized at 11:59 PM · ask HR to correct a wrong record</span></div><div class="card-b" style="overflow-x:auto"><table class="tbl"><thead><tr><th>Date</th><th>Status</th><th>Time in</th><th>Productive</th><th>Proposed deduction</th></tr></thead><tbody>
+    ${days.map(d=>{ const x = attDayRec(k, d) || attEval(k, d); return `<tr><td>${esc(dShort(d))}</td><td>${apStatusBadge(x)}${x.flags?.length?`<div class="hint">${esc(x.flags.join(' · '))}</div>`:''}</td><td>${x.firstIn?esc(clock(x.firstIn)):'—'}</td><td>${apHM(x.prodMins)}</td><td>${x.proposed?`₱${x.proposed.amount} <div class="hint">${esc(x.proposed.reason)}</div>`:'—'}${x.payroll?.status?`<div class="hint">${esc(x.payroll.status)}</div>`:''}</td></tr>`; }).join('')}</tbody></table></div></div>`; }
+function apStatusBadge(x){ const s = x.status || '—'; const tag = (x.tags||[]).find(t=>/Late|Tardy/.test(t));
+  const c = /Absent|Incomplete/.test(s) ? 'b-missed' : /Late/.test(s+tag) ? 'b-scheduled' : /Tardy/.test(s+tag) ? 'b-scheduled' : /leave|Holiday|Rest|Excused|Official/i.test(s) ? 'b-draft' : 'b-approved';
+  return `<span class="badge ${c}">${esc(s)}</span>${tag && !s.includes(tag) && s!=='Incomplete Hours' ? '' : ''}${s==='Incomplete Hours' && tag ? ` <span class="hint">${esc(tag)}</span>` : ''}`; }
+{ const _r = RENDER.attendance; RENDER.attendance = function(){ const out = _r.apply(this, arguments); try{ const v = el('v-attendance'); const head = v?.querySelector('.page-head');
+    if(v && !v.querySelector('#attProg') && !['client','applicant'].includes(ROLE)){ const html = attProgressHTML(); if(head) head.insertAdjacentHTML('afterend', html); else v.insertAdjacentHTML('afterbegin', html); }
+    if(v && apSched(PERSON) && !v.querySelector('.att-myhist')){ const h = attMyHistoryHTML(); if(h) v.insertAdjacentHTML('beforeend', `<div class="att-myhist">${h}</div>`); } }catch(e){ console.warn(e); } return out; }; }
+{ const _q = attQuickCard; attQuickCard = function(){ const h = _q.apply(this, arguments); try{ if(!apSched(PERSON)) return h; const r = attRec(PERSON); const prod = r ? workedMins(r) : 0; const pct = Math.min(100, Math.round(prod/(+apCfg().requiredMins||480)*100));
+    return h.replace(/<\/div>\s*$/, `<div class="ap-mini" title="Share of the 8 required productive hours"><div class="ap-bar sm"><i style="width:${pct}%"></i></div><span>${pct}% of 8h · ${apHM(prod)}</span></div></div>`); }catch(e){ return h; } }; }
+
+/* ---------- HR & Finance: attendance review ---------- */
+const APU = {from:null, to:null, person:'', only:''};
+RENDER.attreview = function(){ const v = el('v-attreview'); if(!v) return;
+  if(!(apIsHr() || isFinance() || isHead(PERSON))){ v.innerHTML = '<div class="empty">Attendance review is for HR, Finance and the company heads.</div>'; return; }
+  attFinalize(true);
+  const pid = FIN.period || defaultPayPeriod(), per = pv2Period(pid); APU.from = APU.from || per.start; APU.to = APU.to || (per.end < manilaDate() ? per.end : shiftDate(manilaDate(), -1));
+  const ppl = apCovered(); const L = ATTDAY.filter(x=>x.date>=APU.from && x.date<=APU.to && (!APU.person || x.person===APU.person) && (!APU.only || (APU.only==='ded' ? x.proposed : /Absent|Incomplete|Late|Tardy/.test(x.status+(x.tags||[]).join(' '))))).sort((a,b)=>b.date.localeCompare(a.date) || a.person.localeCompare(b.person));
+  const sum = k => { const D = ATTDAY.filter(x=>x.person===k && x.date>=APU.from && x.date<=APU.to); return {days:D.filter(x=>x.firstIn).length, mins:D.reduce((s,x)=>s+(x.prodMins||0),0), tardy:D.filter(x=>(x.tags||[]).some(t=>/Tardy/.test(t))).length, late:D.filter(x=>(x.tags||[]).some(t=>/^Late/.test(t))).length,
+    absent:D.filter(x=>x.status==='Absent').length, inc:D.filter(x=>x.status==='Incomplete Hours').length, ded:pvR2(D.filter(x=>x.proposed).reduce((s,x)=>s+x.proposed.amount,0))}; };
+  const c = apCfg(), hr = apIsHr();
+  v.innerHTML = `<div class="page-head"><div><h2>Attendance & deductions</h2><p>Finalized days for employees on a work schedule — status, productive hours, exceptions and proposed deductions. ${hr?'HR verifies exceptions and corrects records; ':''}CHA keeps or adjusts proposed deductions in payroll and PAU approves the payroll.</p></div></div>
+    <div class="card" style="margin-bottom:12px"><div class="card-b ap-filt"><label>From <input type="date" value="${APU.from}" onchange="APU.from=this.value;RENDER.attreview()"></label><label>To <input type="date" value="${APU.to}" onchange="APU.to=this.value;RENDER.attreview()"></label>
+      <select onchange="APU.person=this.value;RENDER.attreview()"><option value="">Everyone on a schedule</option>${ppl.map(k=>`<option value="${k}" ${APU.person===k?'selected':''}>${esc(pname(k))}</option>`).join('')}</select>
+      <select onchange="APU.only=this.value;RENDER.attreview()"><option value="">All days</option><option value="exc" ${APU.only==='exc'?'selected':''}>Late / tardy / absent / incomplete</option><option value="ded" ${APU.only==='ded'?'selected':''}>With a proposed deduction</option></select>
+      ${hr||isHead(PERSON)?`<button class="btn" style="margin-left:auto" onclick="apPolicyModal()">Schedules & rules</button>`:''}</div></div>
+    <div class="card" style="margin-bottom:12px"><div class="card-h"><b>Summary</b><span class="hint">${esc(dShort(APU.from))} – ${esc(dShort(APU.to))}</span></div><div class="card-b" style="overflow-x:auto"><table class="tbl"><thead><tr><th>Employee</th><th>Schedule</th><th>Days worked</th><th>Productive hours</th><th>Tardy</th><th>Late</th><th>Absent</th><th>Incomplete</th><th>Proposed deductions</th></tr></thead><tbody>
+      ${ppl.map(k=>{ const s = sum(k), sc = apSched(k); return `<tr><td><b>${esc(pname(k))}</b><div class="hint">${esc(P(k).sub||'')}</div></td><td>${sc.type==='fixed'?`Fixed ${apT(hhmm(sc.start))}–${apT(hhmm(sc.end))}`:'Flexible'}</td><td>${s.days}</td><td>${apHM(s.mins)}</td><td>${s.tardy}</td><td>${s.late}</td><td>${s.absent}</td><td>${s.inc}</td><td><b>₱${s.ded}</b></td></tr>`; }).join('')}</tbody></table></div></div>
+    <div class="card"><div class="card-h"><b>Days</b><span class="hint">${L.length}</span></div><div class="card-b" style="overflow-x:auto"><table class="tbl"><thead><tr><th>Date</th><th>Employee</th><th>Status</th><th>Time in</th><th>Productive</th><th>Proposed deduction (reason · calculation)</th><th>Payroll</th>${hr?'<th></th>':''}</tr></thead><tbody>
+      ${L.map(x=>`<tr><td>${esc(dShort(x.date))}</td><td>${esc(pname(x.person))}</td><td>${apStatusBadge(x)}${x.flags?.length?`<div class="hint">${esc(x.flags.join(' · '))}</div>`:''}${x.exception?`<div class="hint">HR: ${esc(x.exception.kind)} — ${esc(x.exception.note)}</div>`:''}</td><td>${x.firstIn?esc(clock(x.firstIn)):'—'}</td><td>${apHM(x.prodMins)}</td>
+        <td>${x.proposed?`<b>₱${x.proposed.amount}</b> <span class="hint">(${x.proposed.mode==='day'?'1 day':'minutes'})</span><div class="hint">${esc(x.proposed.reason)} · ${esc(x.proposed.calc)}</div>`:'—'}</td><td class="hint">${esc(x.payroll?.status || (x.proposed?'Goes to the payroll draft':''))}</td>
+        ${hr?`<td style="white-space:nowrap"><button class="btn sm" onclick="apExcModal('${x.person}','${x.date}')">Exception</button> <button class="btn sm" onclick="apCorrModal('${x.person}','${x.date}')">Correct times</button></td>`:''}</tr>`).join('') || `<tr><td colspan="8" class="hint">No finalized days in this range yet. Days are finalized after 11:59 PM.</td></tr>`}</tbody></table>
+      <div class="hint" style="margin-top:8px">⚖️ Policy: at most one proposed deduction per date. Default per company policy: 1 day for an absence (time in 1 hour or more late, or no time in) or for less than 8 productive hours. Philippine labor rules generally allow deducting only time not worked (“no work, no pay”) — confirm the policy with your labor adviser; HR can switch each rule to “minutes not worked” or “no deduction” in Schedules & rules.</div></div></div>`; };
+function apExcModal(k, d){ openModal(`Attendance exception — ${pname(k)}, ${dLong(d)}`, `<div class="field"><label>Type</label><select id="axKind"><option value="excused">Excused (no deduction)</option><option value="official">Official business</option><option value="leave">Approved leave not yet in the system</option><option value="holiday">Holiday / company non-working day</option><option value="undertime">Authorized undertime</option></select></div>
+    <div class="field"><label>Authorized undertime (minutes)</label><input id="axMins" type="number" min="0" max="480" value="0"></div><div class="field"><label>Reason</label><textarea id="axNote" rows="2"></textarea></div>
+    <div class="cf-acts"><button class="btn" onclick="closeModal()">Cancel</button><button class="btn primary" onclick="try{attAddException('${k}','${d}',el('axKind').value,el('axNote').value,el('axMins').value);closeModal();RENDER.attreview();toast('Saved — day re-evaluated');}catch(e){toast(e.message)}">Save</button></div>`); }
+function apCorrModal(k, d){ const r = ATTLOG.find(x=>x.id===attId(k, d)); const t = v => { const m = v ? manilaMins(v) : null; return m==null ? '' : `${String(Math.floor(m/60)).padStart(2,'0')}:${String(m%60).padStart(2,'0')}`; };
+  openModal(`Correct time record — ${pname(k)}, ${dLong(d)}`, `<div class="grid cols-2"><div class="field"><label>Time in</label><input id="acIn" type="time" value="${t(r?attFirstIn(r):null)}"></div><div class="field"><label>Time out</label><input id="acOut" type="time" value="${t(r?.out)}"></div></div>
+    <div class="field"><label>Total break (minutes)</label><input id="acBrk" type="number" min="0" value="${Math.round(r?breakMins(r):60)}"></div><div class="field"><label>Reason (kept in the record)</label><textarea id="acNote" rows="2"></textarea></div>
+    <div class="cf-acts"><button class="btn" onclick="closeModal()">Cancel</button><button class="btn primary" onclick="try{attCorrect('${k}','${d}',el('acIn').value,el('acOut').value,el('acBrk').value,el('acNote').value);closeModal();RENDER.attreview();toast('Corrected — day re-evaluated');}catch(e){toast(e.message)}">Save correction</button></div>`); }
+function apPolicyModal(){ const c = apCfg(); const ppl = idmStaff().filter(k=>payClass(k)==='employee' || c.schedules[k]).sort((a,b)=>pname(a).localeCompare(pname(b)));
+  openModal('Work schedules & attendance rules', `<div class="hint" style="margin-bottom:8px">Philippine time. Breaks never count toward the required hours. Changes apply to days not yet finalized.</div>
+    <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Employee</th><th>Schedule</th><th>Start</th><th>End</th></tr></thead><tbody>${ppl.map(k=>{ const s = c.schedules[k]||{type:'none'}; return `<tr><td>${esc(pname(k))}<div class="hint">${esc(P(k).sub||'')}</div></td>
+      <td><select data-aps="${k}"><option value="none" ${s.type==='none'?'selected':''}>No schedule (time logs only)</option><option value="fixed" ${s.type==='fixed'?'selected':''}>Fixed</option><option value="flexible" ${s.type==='flexible'?'selected':''}>Flexible</option></select></td>
+      <td><input type="time" data-apst="${k}" value="${esc(s.start||'09:00')}"></td><td><input type="time" data-apen="${k}" value="${esc(s.end||'18:00')}"></td></tr>`; }).join('')}</tbody></table></div>
+    <div class="grid cols-2" style="margin-top:10px"><div class="field"><label>Late after (minutes)</label><input id="apLate" type="number" value="${c.lateAfter}"></div><div class="field"><label>Absent after (minutes)</label><input id="apAbs" type="number" value="${c.absentAfter}"></div>
+      <div class="field"><label>Absent → deduction</label><select id="apMA">${['day','minutes','none'].map(m=>`<option value="${m}" ${c.mode.absent===m?'selected':''}>${m==='day'?'Propose 1 day':m==='minutes'?'Minutes not worked':'No deduction'}</option>`).join('')}</select></div>
+      <div class="field"><label>Incomplete hours → deduction</label><select id="apMI">${['day','minutes','none'].map(m=>`<option value="${m}" ${c.mode.incomplete===m?'selected':''}>${m==='day'?'Propose 1 day':m==='minutes'?'Minutes not worked':'No deduction'}</option>`).join('')}</select></div></div>
+    <div class="field"><label>Holidays (one per line: YYYY-MM-DD Name)</label><textarea id="apHol" rows="5">${esc((c.holidays||[]).map(h=>`${h.date} ${h.name}`).join('\n'))}</textarea></div>
+    <div class="field"><label>Reason for the change</label><input id="apWhy"></div>
+    <div class="cf-acts"><button class="btn" onclick="closeModal()">Cancel</button><button class="btn primary" onclick="apSavePolicy()">Save</button></div>`, true); }
+function apSavePolicy(){ if(!apIsHr()) return toast('Only HR or a company head changes schedules and rules.'); const why = el('apWhy').value.trim(); if(why.length < 3) return toast('Give the reason for the change.');
+  let r = ATTPOL.find(x=>x.id==='global'); if(!r){ r = {id:'global', since:AP_SINCE, history:[]}; ATTPOL.push(r); } const c = apCfg(); const sch = {};
+  document.querySelectorAll('[data-aps]').forEach(s=>{ const k = s.dataset.aps; if(s.value==='none') return; sch[k] = s.value==='fixed' ? {type:'fixed', start:document.querySelector(`[data-apst="${k}"]`).value||'09:00', end:document.querySelector(`[data-apen="${k}"]`).value||'18:00'} : {type:'flexible'}; });
+  const hol = el('apHol').value.split('\n').map(l=>l.trim()).filter(Boolean).map(l=>{ const m = l.match(/^(\d{4}-\d{2}-\d{2})\s+(.+)$/); return m ? {date:m[1], name:m[2]} : null; }).filter(Boolean);
+  const prev = JSON.stringify({s:c.schedules, l:c.lateAfter, a:c.absentAfter, m:c.mode});
+  Object.assign(r, {schedules:sch, lateAfter:+el('apLate').value||30, absentAfter:+el('apAbs').value||60, mode:{absent:el('apMA').value, incomplete:el('apMI').value}, holidays:hol, requiredMins:c.requiredMins, since:r.since||AP_SINCE});
+  (r.history = r.history||[]).push({at:nowISO(), by:PERSON, act:'Schedules & rules updated', note:why, prev}); recordChange(); closeModal(); RENDER.attreview(); toast('Saved'); }
+
+/* ================= part 2 — compensation, payroll sync, company-paid benefits, payslip, navigation ================= */
+Object.assign(PV_KIND_LABEL, {cpaid:'Paid by the company (employee share)', er:'Employer contribution'});
+/* live mode: finalize only once the full time-log history is loaded (attendance arrives in the background) */
+{ const _f = attFinalize; attFinalize = function(){ if(typeof LIVE_BG!=='undefined' && LIVE_BG.on) return 0; return _f.apply(this, arguments); }; }
+
+/* ---------- statutory: employer shares (company cost), from the same Payroll settings ---------- */
+function apStatShares(mon, cut, cfg){
+  const c = cfg || payCfg(); const share = c.contribSplit === 'second' ? (cut === 2 ? 1 : 0) : 0.5; if(!(mon > 0) || !share) return {ee:{sss:0, phic:0, hdmf:0}, er:{sss:0, ec:0, phic:0, hdmf:0}};
+  const msc = Math.min(c.sss.maxMSC, Math.max(c.sss.minMSC, Math.floor((mon + c.sss.step / 2) / c.sss.step) * c.sss.step));
+  const phTot = Math.min(c.philhealth.ceil, Math.max(c.philhealth.floor, mon)) * c.philhealth.rate;
+  const ee = {sss:pvR2(msc * c.sss.rate * share), phic:pvR2(phTot * c.philhealth.eeShare * share), hdmf:pvR2(Math.min(c.pagibig.cap, mon) * c.pagibig.rate * share)};
+  const er = {sss:pvR2(msc * (c.sss.erRate ?? 0.10) * share), ec:pvR2((msc < 15000 ? 10 : 30) * share), phic:pvR2(phTot * (1 - c.philhealth.eeShare) * share), hdmf:pvR2(Math.min(c.pagibig.cap, mon) * (c.pagibig.erRate ?? 0.02) * share)};
+  return {ee, er}; }
+
+/* ---------- attendance inside a cutoff ---------- */
+function attPeriodSum(k, per){ const D = ATTDAY.filter(x=>x.person===k && x.date>=per.start && x.date<=per.end);
+  return {days:D.filter(x=>x.firstIn).length, mins:D.reduce((s,x)=>s+(x.prodMins||0),0), onTime:D.filter(x=>(x.tags||[]).includes('On time')).length, tardy:D.filter(x=>(x.tags||[]).some(t=>/^Tardy/.test(t))).length, tardyMins:D.reduce((s,x)=>s+((x.tags||[]).some(t=>/^Tardy/.test(t))?x.lateMins||0:0),0),
+    late:D.filter(x=>(x.tags||[]).some(t=>/^Late/.test(t))).length, absent:D.filter(x=>x.status==='Absent').length, inc:D.filter(x=>x.status==='Incomplete Hours').length, finalized:D.length, proposed:pvR2(D.filter(x=>x.proposed).reduce((s,x)=>s+x.proposed.amount,0))}; }
+
+/* ---------- the payroll draft follows compensation + attendance (Draft / Returned only; manual edits always win) ---------- */
+const PV_SYNC_KINDS = ['basic','fee','sss','phic','hdmf','tax','unpaidleave','cpaid','er'];
+function pvCompTarget(d){
+  const c = compOf(d.emp), per = d.period, cfg = payCfg(), T = [], A = [];
+  const useComp = !!(c && c.basic != null && (!c.effective || c.effective <= per.end));
+  if(useComp){ const mon = +c.basic || 0;
+    T.push({id:'L-basic', kind:'basic', label:'Basic salary (semi-monthly)', amount:pvR2(mon/2), auto:true, src:'comp', internal:true, rate:mon, rt:'monthly', note:`₱${mon.toLocaleString()}/mo ÷ 2 · Compensation record`});
+    (c.allowances||[]).filter(a=>+a.monthly>0).forEach(a=>T.push({id:'L-al-'+a.id, kind:'allowance', label:a.label||'Allowance', amount:pvR2(a.monthly/2), auto:true, src:'comp', note:`₱${(+a.monthly).toLocaleString()}/mo ÷ 2`}));
+    (c.clients||[]).filter(x=>x.status==='Active' && +x.allowance>0 && (!x.from || x.from<=per.end) && (!x.to || x.to>=per.start)).forEach(x=>T.push({id:'L-ca-'+x.id, kind:'allowance', label:`Client allowance — ${x.client}`, client:x.client, amount:pvR2(x.allowance/2), auto:true, src:'comp', note:`₱${(+x.allowance).toLocaleString()}/mo ÷ 2`}));
+    (c.items||[]).filter(x=>x.active!==false && +x.amount>0).forEach(x=>T.push({id:'L-ci-'+x.id, kind:x.type==='deduction'?'deduction':'bonus', label:x.label, amount:pvR2(x.amount), auto:true, src:'comp', reason:x.reason||'', note:'per cutoff · Compensation record'}));
+    const unpaid = (d.leave||[]).filter(s=>s.paid==='unpaid' && s.class==='employee').reduce((s,x)=>s+(+x.days||0),0);
+    payCalc('employee', mon, per.cut, 1, unpaid, cfg).filter(l=>['unpaidleave','tax'].includes(l.kind)).forEach(l=>T.push({...l, src:'comp'}));
+    const st = apStatShares(mon, per.cut, cfg), pays = compPaysEE(d.emp);
+    [['sss','SSS'],['phic','PhilHealth'],['hdmf','Pag-IBIG']].forEach(([k, n])=>{ if(st.ee[k]>0) T.push(pays ? {id:'L-'+k, kind:'cpaid', stat:k, label:`${n} employee share — paid by the company`, amount:st.ee[k], auto:true, src:'comp', note:'not deducted from pay'} : {id:'L-'+k, kind:k, label:`${n} (employee share)`, amount:st.ee[k], auto:true, src:'comp'}); });
+    [['sss','SSS (employer)'],['ec','SSS EC (employer)'],['phic','PhilHealth (employer)'],['hdmf','Pag-IBIG (employer)']].forEach(([k, n])=>{ if(st.er[k]>0) T.push({id:'L-er-'+k, kind:'er', stat:k, label:n, amount:st.er[k], auto:true, src:'comp', note:'company cost'}); }); }
+  if(apSched(d.emp)) ATTDAY.filter(x=>x.person===d.emp && x.date>=per.start && x.date<=per.end && x.proposed && +x.proposed.amount>0).sort((a,b)=>a.date.localeCompare(b.date)).forEach(x=>A.push({id:'L-att-'+x.date, kind:'deduction', label:`Attendance — ${x.proposed.label}, ${dShort(x.date)}`, amount:+x.proposed.amount, auto:true, att:true, proposed:true, date:x.date, src:'att', reason:x.proposed.reason, note:`proposed · ${x.proposed.calc} · CHA keeps, adjusts or removes it`}));
+  return {useComp, T, A}; }
+function pvCompSync(d, quiet){
+  if(!d || !pvEditable(d) || d.supersededBy) return false;
+  const {useComp, T, A} = pvCompTarget(d); const hasAtt = !!apSched(d.emp);
+  if(!useComp && !hasAtt && !d.lines.some(l=>l.src==='comp' || l.att)) return false;
+  const removed = new Set(d.syncRemoved||[]);
+  const managed = l => l.src==='comp' || l.att || (useComp && l.auto && !l.adjId && PV_SYNC_KINDS.includes(l.kind));
+  const keep = d.lines.filter(l=>!managed(l) || l.manual), ids = new Set(keep.map(l=>l.id));
+  const lines = [...T.filter(l=>!ids.has(l.id) && !removed.has(l.id)), ...keep, ...A.filter(l=>!ids.has(l.id) && !removed.has(l.id))];
+  const sum = hasAtt ? attPeriodSum(d.emp, d.period) : null;
+  const cp = pvR2(lines.filter(l=>l.kind==='cpaid').reduce((s,l)=>s+(+l.amount||0),0)), er = pvR2(lines.filter(l=>l.kind==='er').reduce((s,l)=>s+(+l.amount||0),0));
+  const changed = JSON.stringify(lines) !== JSON.stringify(d.lines);
+  const tot = payTotals(lines), cost = pvR2(tot.gross + tot.reimb + cp + er);
+  if(!changed && JSON.stringify(sum) === JSON.stringify(d.att||null) && d.cpaid === cp && d.er === er && d.companyCost === cost) return false;
+  if(useComp && d.class!=='employee'){ d.class = 'employee'; pvHist(d, 'Classified as a declared employee', 'Compensation record on file'); }
+  if(changed){ const before = d.net; d.lines = lines; pvRecalc(d); pvHist(d, 'Updated from compensation & attendance', `${useComp?'Compensation record applied':''}${useComp&&A.length?' · ':''}${A.length?`${A.length} proposed attendance deduction${A.length>1?'s':''}`:''} — net ${before} → ${d.net}`); }
+  d.att = sum; d.cpaid = cp; d.er = er; d.companyCost = cost; d.syncedAt = nowISO();
+  if(!quiet) recordChange(); return true; }
+/* the deduction's place in payroll, shown to HR, CHA and the employee on the attendance day */
+function attPayrollMark(d){ if(!apSched(d.emp)) return false; let ch = false;
+  ATTDAY.filter(x=>x.person===d.emp && x.date>=d.period.start && x.date<=d.period.end && x.proposed).forEach(x=>{ const l = d.lines.find(y=>y.id==='L-att-'+x.date);
+    const st = !l ? ((d.syncRemoved||[]).includes('L-att-'+x.date) ? 'Removed by CHA — no deduction' : 'Not in payroll') : d.status===PV_ST.REL ? `Deducted ₱${l.amount} — released` : pvApprovedCurrent(d) ? `₱${l.amount} — approved by PAU` : [PV_ST.SUB, PV_ST.REV].includes(d.status) ? `₱${l.amount} — submitted to PAU` : `₱${l.amount} — in the payroll draft${l.manual?' (adjusted by CHA)':''}`;
+    if(x.payroll?.status !== st){ x.payroll = {doc:d.id, status:st, amount:l?+l.amount:0, at:nowISO()}; ch = true; } });
+  return ch; }
+let PV_SYNC_AT = 0;
+function pvSyncAll(force){
+  if(!SYNC?.ready || !PEOPLE[PERSON] || !isFinance() || (typeof LIVE_BG!=='undefined' && LIVE_BG.on)) return 0; if(!force && Date.now()-PV_SYNC_AT < 30000) return 0; PV_SYNC_AT = Date.now();
+  const from = shiftDate(manilaDate(), -62); let n = 0, m = false;
+  PAYV2.filter(d=>d.period?.end >= from && !d.supersededBy).forEach(d=>{ if(pvCompSync(d, true)) n++; if(attPayrollMark(d)) m = true; });
+  if(n || m) recordChange(); return n; }
+setInterval(()=>{ try{ pvSyncAll(); }catch(e){ console.warn(e); } }, 2*60000); setTimeout(()=>{ try{ pvSyncAll(); }catch(e){} }, 12000);
+/* a compensation record means a declared employee (unless the pay profile explicitly says otherwise) */
+{ const _pc = payClass; payClass = function(k){ const pr = payProfile(k); if(!pr?.cls && compOf(k)?.basic != null) return 'employee'; return _pc.apply(this, arguments); }; }
+/* new drafts (demo generation and "recalculate") start from the compensation record */
+{ const _d = pv2Draft; pv2Draft = function(p, pid){ const d = _d.apply(this, arguments); try{ pvCompSync(d, true); }catch(e){ console.warn(e); } return d; }; }
+/* every submission goes out with the latest compensation and attendance */
+{ const _s = pvSubmit; pvSubmit = function(id){ try{ const d = pvDoc(id); if(d && isFinance()) pvCompSync(d, true); }catch(e){} return _s.apply(this, arguments); }; }
+{ const _b = pbSubmit; pbSubmit = function(pid){ try{ if(isFinance()) pbDocsAll(pid).forEach(d=>pvCompSync(d, true)); }catch(e){} const r = _b.apply(this, arguments); try{ pbDocsAll(pid).forEach(attPayrollMark); }catch(e){} return r; }; }
+/* removing a managed line is remembered, so the sync never puts it back */
+{ const _r = pvRemoveLine; pvRemoveLine = function(id, lid){ const d = pvDoc(id), l = d?.lines.find(x=>x.id===lid); const out = _r.apply(this, arguments);
+    if(d && l && (l.src==='comp' || l.att) && !d.lines.some(x=>x.id===lid)){ d.syncRemoved = uniq([...(d.syncRemoved||[]), lid]); if(l.att) attPayrollMark(d); recordChange(); } return out; }; }
+{ const _rf = RENDER.finance; RENDER.finance = function(){ try{ pvSyncAll(true); }catch(e){} return _rf.apply(this, arguments); }; }
+
+/* ---------- payslip: attendance summary + company-paid benefits ---------- */
+{ const _o = pvOps; pvOps = function(d, m){ const ops = _o.apply(this, arguments); try{
+    if(d.class!=='employee') return ops; const cp = (d.lines||[]).filter(l=>l.kind==='cpaid'), er = (d.lines||[]).filter(l=>l.kind==='er'), a = d.att;
+    if(!a && !cp.length && !er.length) return ops;
+    const {W, H, M} = PS, GREY = [120,120,128], INK = [22,22,26]; const T = (s, x, y, o={}) => ops.push({t:'text', s:String(s), x, y, size:o.size||8.5, bold:!!o.bold, c:o.c||INK, a:o.a||'l'});
+    const full = ops.filter(o=>o.t==='line' && o.w===1.6 && o.x1===M && o.x2===W-M); let y0 = (full.length ? Math.max(...full.map(o=>o.y1)) : 420) + 22; const lim = H - 74;
+    if(a){ let y = y0; T('ATTENDANCE SUMMARY', 492, y, {size:9.5, bold:true}); y += 13;
+      [[`Days worked ${a.days} · ${apHM(a.mins)}`], [`On time ${a.onTime} · Tardy ${a.tardy}${a.tardyMins?` (${a.tardyMins} min)`:''}`], [`Late ${a.late} · Absent ${a.absent} · Incomplete ${a.inc}`]].forEach(r=>{ if(y < lim){ T(r[0], 492, y, {c:GREY}); y += 10.5; } });
+      const ad = pvR2((d.lines||[]).filter(l=>l.att).reduce((s,l)=>s+(+l.amount||0),0)); if(y < lim){ T('Attendance deductions', 492, y, {bold:true}); T(pvFmt(ad), 652, y, {a:'r', bold:true}); } }
+    if(cp.length || er.length){ let y = y0; const X = 672, XR = W - M; T('COMPANY-PAID BENEFITS', X, y, {size:9.5, bold:true}); y += 13;
+      cp.forEach(l=>{ if(y < lim){ T(({sss:'SSS (your share)', phic:'PhilHealth (your share)', hdmf:'Pag-IBIG (your share)'})[l.stat]||l.label.slice(0,24), X, y, {c:GREY}); T(pvFmt(l.amount), XR, y, {a:'r', c:GREY}); y += 10.5; } });
+      const ers = pvR2(er.reduce((s,l)=>s+(+l.amount||0),0)); if(ers && y < lim){ T('Employer contributions', X, y, {c:GREY}); T(pvFmt(ers), XR, y, {a:'r', c:GREY}); y += 10.5; }
+      if(y < lim){ T('Total company cost', X, y, {bold:true}); T(pvFmt(pvR2((+d.gross||0) + (+d.reimb||0) + pvR2(cp.reduce((s,l)=>s+(+l.amount||0),0)) + ers)), XR, y, {a:'r', bold:true}); y += 10.5; }
+      if(cp.length && y < lim) T('Not deducted from your pay', X, y, {size:7.5, c:GREY}); }
+  }catch(e){ console.warn(e); } return ops; }; }
+
+/* ---------- Finance → Compensation & allowances (CHA and PAU) ---------- */
+const COMPU = {q:''};
+const compStaff = () => uniq([...payEligible().filter(p=>p.cls==='employee').map(p=>p.id), ...COMP.map(c=>c.id)]).filter(k=>PEOPLE[k]).sort((a,b)=>pname(a).localeCompare(pname(b)));
+const compAllow = c => pvR2((c?.allowances||[]).reduce((s,a)=>s+(+a.monthly||0),0));
+const compClientAllow = c => pvR2((c?.clients||[]).filter(x=>x.status==='Active').reduce((s,x)=>s+(+x.allowance||0),0));
+function compSave(k, patch, reason){
+  if(!apIsPay()) throw new Error('Only Finance (CHA) and the CEO (PAU) change compensation.'); if(String(reason||'').trim().length < 3) throw new Error('Give the reason for the change — it is kept in the audit log.');
+  let c = compOf(k); if(!c){ c = {id:k, person:k, history:[], createdAt:nowISO(), createdBy:PERSON}; COMP.push(c); }
+  const ch = Object.keys(patch).filter(f=>JSON.stringify(patch[f]??null) !== JSON.stringify(c[f]??null)); if(!ch.length) throw new Error('Nothing changed.');
+  const show = v => v==null || v==='' ? '—' : typeof v==='object' ? JSON.stringify(v) : String(v);
+  ch.forEach(f=>(c.history = c.history||[]).push({at:nowISO(), by:PERSON, field:f, prev:show(c[f]), next:show(patch[f]), reason:reason.trim()}));
+  Object.assign(c, patch, {updatedAt:nowISO(), updatedBy:PERSON}); pvSyncAll(true);
+  notify(uniq([...financeKeys(), pvCeo()]).filter(x=>x!==PERSON), 'attpay', `💼 ${esc(first(PERSON))} updated <b>${esc(pname(k))}</b>’s compensation (${ch.join(', ')}) — ${esc(reason.trim())}`, finLink('comp'));
+  recordChange(); return c; }
+function compHTML(){
+  const L = compStaff().filter(k=>!COMPU.q || pname(k).toLowerCase().includes(COMPU.q.toLowerCase())), can = apIsPay();
+  const rows = L.map(k=>{ const c = compOf(k), sc = apSched(k); const last = (c?.history||[]).slice(-1)[0];
+    return `<tr><td><b>${esc(pname(k))}</b><div class="hint">${esc(P(k).sub||'')}${sc?` · ${sc.type==='fixed'?'Fixed '+apT(hhmm(sc.start))+'–'+apT(hhmm(sc.end)):'Flexible'}`:''}</div></td>
+      <td>${c?.basic!=null?`<b>${money(c.basic)}</b>`:`<span class="hint">from pay profile: ${money(compBasic(k))}</span>`}</td><td>${c?.declared!=null?money(c.declared):'—'}</td><td>${money(compDaily(k))}<div class="hint">÷ ${compDays(k)} days</div></td>
+      <td>${money(compAllow(c))}</td><td>${money(compClientAllow(c))}<div class="hint">${(c?.clients||[]).filter(x=>x.status==='Active').length} active</div></td>
+      <td>${compPaysEE(k)?'<span class="badge b-approved">Company pays</span>':'<span class="badge b-draft">Deducted</span>'}</td><td>${c?.effective?esc(dShort(c.effective)):'—'}</td>
+      <td class="hint">${last?`${esc(first(last.by))} · ${esc(dtstr(last.at))}<div>${esc(last.field)}: ${esc(String(last.prev).slice(0,22))} → ${esc(String(last.next).slice(0,22))}</div>`:'—'}</td>
+      <td>${can?`<button class="btn sm" onclick="compEditModal('${k}')">Edit</button>`:''}</td></tr>`; }).join('');
+  const CL = COMP.flatMap(c=>(c.clients||[]).map(x=>({...x, emp:c.id}))).sort((a,b)=>(a.status==='Active'?0:1)-(b.status==='Active'?0:1) || a.client.localeCompare(b.client));
+  const LOG = COMP.flatMap(c=>(c.history||[]).map(h=>({...h, emp:c.id}))).sort((a,b)=>(b.at||'').localeCompare(a.at||'')).slice(0, 60);
+  return `<div class="card" style="margin-bottom:14px"><div class="card-b" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center"><div style="flex:1;min-width:240px"><b>Compensation & allowances</b><div class="hint">Payroll drafts are rebuilt from these records automatically (draft and returned payslips only — manual edits are kept). ${can?'Every change needs a reason and is logged with the previous value.':'View only — CHA and PAU make changes.'}</div></div>
+      <input placeholder="Search employee" value="${esc(COMPU.q)}" oninput="COMPU.q=this.value;clearTimeout(window._cq);window._cq=setTimeout(pvRefresh,250)" style="max-width:220px">
+      <button class="btn" onclick="go('attreview')">Attendance & deductions →</button>${can?`<button class="btn ghost" onclick="compExport()">Export (Excel)</button>`:''}</div></div>
+    <div class="card" style="margin-bottom:14px"><div class="card-h"><b>Declared employees</b><span class="hint">monthly amounts · PHP</span></div><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Employee</th><th>Monthly basic</th><th>Declared compensation</th><th>Daily rate</th><th>Allowances</th><th>Client allowances</th><th>SSS · PhilHealth · Pag-IBIG (employee share)</th><th>Effective</th><th>Last change</th><th></th></tr></thead><tbody>${rows || '<tr><td colspan="10" class="hint">No declared employees.</td></tr>'}</tbody></table></div></div>
+    <div class="card" style="margin-bottom:14px"><div class="card-h"><b>Client assignments & allowances</b><span class="hint">internal payout = what the client pays Cross Core (internal only) · allowance = paid to the employee per month</span>${can?`<button class="btn sm" style="margin-left:auto" onclick="compClientModal()">+ Add client</button>`:''}</div><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Client</th><th>Internal payout</th><th>Employee</th><th>Allowance</th><th>Status</th><th>From</th><th></th></tr></thead><tbody>
+      ${CL.map(x=>`<tr><td><b>${esc(x.client)}</b>${x.note?`<div class="hint">${esc(x.note)}</div>`:''}</td><td>${x.payout!=null&&x.payout!==''?money(x.payout):'—'}</td><td>${esc(pname(x.emp))}</td><td>${money(x.allowance||0)}</td><td><span class="badge ${x.status==='Active'?'b-approved':'b-draft'}">${esc(x.status)}</span></td><td>${x.from?esc(dShort(x.from)):'—'}</td>
+        <td style="white-space:nowrap">${can?`<button class="btn sm" onclick="compClientModal('${x.emp}','${x.id}')">Edit</button> <button class="btn sm ghost" onclick="compClientModal('${x.emp}','${x.id}',1)">Remove</button>`:''}</td></tr>`).join('') || '<tr><td colspan="7" class="hint">No client assignments yet.</td></tr>'}</tbody></table></div></div>
+    <details class="card"><summary class="card-h" style="cursor:pointer"><b>Audit log</b><span class="hint">${LOG.length} latest changes — who, when, previous value, reason</span></summary><div class="card-b" style="overflow-x:auto"><table class="tbl"><thead><tr><th>When</th><th>By</th><th>Employee</th><th>Field</th><th>Previous</th><th>New</th><th>Reason</th></tr></thead><tbody>
+      ${LOG.map(h=>`<tr><td class="hint">${esc(dtstr(h.at))}</td><td>${esc(pname(h.by))}</td><td>${esc(pname(h.emp))}</td><td>${esc(h.field)}</td><td class="hint">${esc(String(h.prev).slice(0,80))}</td><td>${esc(String(h.next).slice(0,80))}</td><td>${esc(h.reason)}</td></tr>`).join('') || '<tr><td colspan="7" class="hint">No changes yet.</td></tr>'}</tbody></table></div></details>`; }
+const compLinesTxt = (arr, f) => (arr||[]).map(f).join('\n');
+function compEditModal(k){ const c = compOf(k) || {};
+  openModal(`Compensation — ${pname(k)}`, `<div class="grid cols-2"><div class="field"><label>Monthly basic salary (₱)</label><input id="cpBasic" type="number" min="0" step="0.01" value="${c.basic ?? compBasic(k)}"></div>
+      <div class="field"><label>Declared monthly compensation (₱)</label><input id="cpDecl" type="number" min="0" step="0.01" value="${c.declared ?? ''}"></div>
+      <div class="field"><label>Daily-rate basis (days per month)</label><input id="cpDays" type="number" min="1" step="0.01" value="${c.daysPerMonth ?? payCfg().daysPerMonth ?? 21.75}"></div>
+      <div class="field"><label>Effective date</label><input id="cpEff" type="date" value="${esc(c.effective||manilaDate())}"></div></div>
+    <label class="hint" style="display:flex;gap:8px;align-items:center;margin:4px 0 10px"><input id="cpPays" type="checkbox" ${compPaysEE(k)?'checked':''}> The company pays the employee share of SSS, PhilHealth and Pag-IBIG (never deducted from pay)</label>
+    <div class="field"><label>Monthly allowances — one per line: <code>Label | amount</code></label><textarea id="cpAllow" rows="3" placeholder="Transportation | 2000">${esc(compLinesTxt(c.allowances, a=>`${a.label} | ${a.monthly}`))}</textarea></div>
+    <div class="field"><label>Additional earnings / authorized deductions per cutoff — one per line: <code>earning or deduction | Label | amount | reason</code></label><textarea id="cpItems" rows="3" placeholder="deduction | Cash advance (1 of 4) | 1000 | Signed CA agreement Nov 2">${esc(compLinesTxt(c.items, x=>`${x.type} | ${x.label} | ${x.amount} | ${x.reason||''}`))}</textarea></div>
+    <div class="field"><label>Notes</label><textarea id="cpNotes" rows="2">${esc(c.notes||'')}</textarea></div>
+    <div class="field"><label>Reason for this change (required — kept in the audit log)</label><input id="cpWhy"></div>
+    <div class="cf-acts"><button class="btn" onclick="closeModal()">Cancel</button><button class="btn primary" onclick="compEditSave('${k}')">Save</button></div>`, true); }
+function compEditSave(k){ try{ const c = compOf(k) || {};
+    const allow = el('cpAllow').value.split('\n').map(l=>l.trim()).filter(Boolean).map((l, i)=>{ const [a, b] = l.split('|').map(s=>s.trim()); if(!a || isNaN(+b)) throw new Error(`Allowance line ${i+1}: use “Label | amount”.`); const o = (c.allowances||[]).find(x=>x.label===a); return {id:o?.id || uid('AL'), label:a, monthly:pvR2(b)}; });
+    const items = el('cpItems').value.split('\n').map(l=>l.trim()).filter(Boolean).map((l, i)=>{ const [t, a, b, r] = l.split('|').map(s=>s.trim()); if(!['earning','deduction'].includes((t||'').toLowerCase()) || !a || isNaN(+b)) throw new Error(`Line ${i+1}: use “earning or deduction | Label | amount | reason”.`);
+      if((t.toLowerCase()==='deduction') && String(r||'').length < 3) throw new Error(`Line ${i+1}: an authorized deduction needs its reason.`); const o = (c.items||[]).find(x=>x.label===a); return {id:o?.id || uid('CI'), type:t.toLowerCase(), label:a, amount:pvR2(b), reason:r||'', active:true}; });
+    const num = v => v==='' ? null : pvR2(v);
+    compSave(k, {basic:num(el('cpBasic').value), declared:num(el('cpDecl').value), daysPerMonth:num(el('cpDays').value), effective:el('cpEff').value||null, companyPaysEE:el('cpPays').checked, allowances:allow, items, notes:el('cpNotes').value.trim()}, el('cpWhy').value);
+    closeModal(); pvRefresh(); toast('Saved — payroll drafts updated'); }catch(e){ toast(e.message); } }
+function compClientModal(k, id, remove){ const c = k ? compOf(k) : null, x = (c?.clients||[]).find(y=>y.id===id) || {};
+  const names = uniq([...FINCLIENTS.map(f=>f.clientName), ...(typeof CLIENTS!=='undefined' ? CLIENTS.map(z=>z.name) : []), ...COMP.flatMap(z=>(z.clients||[]).map(y=>y.client))].filter(Boolean)).sort();
+  if(remove) return openModal(`Remove ${x.client} from ${pname(k)}?`, `<p class="hint">The assignment is marked Ended (kept in the log) and its allowance leaves the payroll drafts.</p><div class="field"><label>Reason</label><input id="ccWhy"></div><div class="cf-acts"><button class="btn" onclick="closeModal()">Cancel</button><button class="btn danger" onclick="compClientSave('${k}','${id}',1)">Remove</button></div>`);
+  openModal(id ? `Client assignment — ${x.client}` : 'Add a client assignment', `<div class="grid cols-2"><div class="field"><label>Employee</label><select id="ccEmp" ${id?'disabled':''}>${compStaff().map(e=>`<option value="${e}" ${e===k?'selected':''}>${esc(pname(e))}</option>`).join('')}</select></div>
+      <div class="field"><label>Client</label><input id="ccClient" list="ccNames" value="${esc(x.client||'')}"><datalist id="ccNames">${names.map(n=>`<option value="${esc(n)}">`).join('')}</datalist></div>
+      <div class="field"><label>Internal payout (₱/month, internal only)</label><input id="ccPay" type="number" min="0" step="0.01" value="${x.payout ?? ''}"></div>
+      <div class="field"><label>Client allowance to the employee (₱/month)</label><input id="ccAllow" type="number" min="0" step="0.01" value="${x.allowance ?? 0}"></div>
+      <div class="field"><label>Status</label><select id="ccSt">${['Active','Paused','Ended'].map(s=>`<option ${x.status===s?'selected':''}>${s}</option>`).join('')}</select></div>
+      <div class="field"><label>Effective from</label><input id="ccFrom" type="date" value="${esc(x.from||manilaDate())}"></div></div>
+    <div class="field"><label>Note</label><input id="ccNote" value="${esc(x.note||'')}"></div><div class="field"><label>Reason (required)</label><input id="ccWhy"></div>
+    <div class="cf-acts"><button class="btn" onclick="closeModal()">Cancel</button><button class="btn primary" onclick="compClientSave('${k||''}','${id||''}')">Save</button></div>`); }
+function compClientSave(k, id, remove){ try{ const emp = k || el('ccEmp').value; const c = compOf(emp); const list = JSON.parse(JSON.stringify(c?.clients||[]));
+    if(remove){ const x = list.find(y=>y.id===id); x.status = 'Ended'; x.to = manilaDate(); }
+    else { const client = el('ccClient').value.trim(); if(!client) throw new Error('Enter the client.'); const v = {client, payout:el('ccPay').value===''?null:pvR2(el('ccPay').value), allowance:pvR2(el('ccAllow').value||0), status:el('ccSt').value, from:el('ccFrom').value||null, note:el('ccNote').value.trim()};
+      if(v.status==='Ended') v.to = manilaDate(); const x = list.find(y=>y.id===id); if(x) Object.assign(x, v); else { if(list.some(y=>y.client.toLowerCase()===client.toLowerCase() && y.status==='Active')) throw new Error(`${client} is already an active assignment for ${pname(emp)}.`); list.push({id:uid('CA'), ...v}); } }
+    compSave(emp, {clients:list}, el('ccWhy').value); closeModal(); pvRefresh(); toast('Saved'); }catch(e){ toast(e.message); } }
+async function compExport(){ await loadScript(XLSX_SRC); const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(compStaff().map(k=>{ const c = compOf(k); return {Employee:pname(k), Position:P(k).sub||'', 'Monthly basic':compBasic(k), 'Declared compensation':c?.declared??'', 'Daily rate':compDaily(k), 'Days/month':compDays(k), Allowances:compAllow(c), 'Client allowances':compClientAllow(c), 'Company pays employee share':compPaysEE(k)?'Yes':'No', Effective:c?.effective||'', Notes:c?.notes||''}; })), 'Compensation');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(COMP.flatMap(c=>(c.clients||[]).map(x=>({Client:x.client, 'Internal payout':x.payout??'', Employee:pname(c.id), Allowance:x.allowance||0, Status:x.status, From:x.from||'', To:x.to||''})))), 'Client assignments');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(COMP.flatMap(c=>(c.history||[]).map(h=>({When:h.at, By:pname(h.by), Employee:pname(c.id), Field:h.field, Previous:h.prev, New:h.next, Reason:h.reason})))), 'Audit log');
+  XLSX.writeFile(wb, `crosscore-compensation-${manilaDate()}.xlsx`); audit('Exported compensation records'); }
+async function apExport(){ await loadScript(XLSX_SRC); const wb = XLSX.utils.book_new(); const L = ATTDAY.filter(x=>x.date>=APU.from && x.date<=APU.to && (!APU.person || x.person===APU.person)).sort((a,b)=>a.date.localeCompare(b.date));
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(L.map(x=>({Date:x.date, Employee:pname(x.person), Schedule:x.sched, Status:x.status, Tags:(x.tags||[]).join('; '), 'Time in':x.firstIn?clock(x.firstIn):'', 'Productive (min)':x.prodMins, 'Late (min)':x.lateMins||0, 'Proposed deduction':x.proposed?.amount||0, Reason:x.proposed?.reason||'', Calculation:x.proposed?.calc||'', 'HR exception':x.exception?`${x.exception.kind}: ${x.exception.note}`:'', Payroll:x.payroll?.status||''}))), 'Attendance');
+  XLSX.writeFile(wb, `crosscore-attendance-${APU.from}-to-${APU.to}.xlsx`); audit(`Exported attendance ${APU.from} to ${APU.to}`); }
+{ const _ar = RENDER.attreview; RENDER.attreview = function(){ const r = _ar.apply(this, arguments); try{ const f = document.querySelector('#v-attreview .ap-filt'); if(f && !f.querySelector('.ap-x')) f.insertAdjacentHTML('beforeend', `<button class="btn ghost ap-x" onclick="apExport()">Export (Excel)</button>`); }catch(e){} return r; }; }
+
+/* ---------- PAU approval wording (spec status names) + company cost in the batch ---------- */
+function pvSpecStatus(d){ if(d.status===PV_ST.REL) return d.pay?.status==='Paid' ? 'Paid' : 'Released — payment pending'; if(pvApprovedCurrent(d)) return 'Approved — Ready for Payment';
+  if([PV_ST.SUB, PV_ST.REV].includes(d.status)) return 'Submitted to PAU'; if(d.status===PV_ST.RET) return 'Returned for Revision'; return d.reviewAt ? 'Under CHA Review' : 'Draft'; }
+const pbCost = D => { const s = (f) => pvR2(D.reduce((t,d)=>t+(d.lines||[]).filter(f).reduce((u,l)=>u+(+l.amount||0),0),0)); const cp = s(l=>l.kind==='cpaid'), er = s(l=>l.kind==='er'), att = s(l=>l.att);
+  const gross = pvR2(D.reduce((t,d)=>t+(+d.gross||0)+(+d.reimb||0),0)); return {cp, er, att, cost:pvR2(gross + cp + er)}; };
+{ const _sm = pbSummary; pbSummary = function(pid){ const s = _sm.apply(this, arguments); try{ const c = pbCost(pbDocsAll(pid)); Object.assign(s, {companyPaid:c.cp, employer:c.er, attendance:c.att, companyCost:c.cost, allowances:pvR2(pbDocsAll(pid).reduce((t,d)=>t+d.lines.filter(l=>l.kind==='allowance').reduce((u,l)=>u+(+l.amount||0),0),0))}); }catch(e){} return s; }; }
+{ const _bh = pbBatchHTML; pbBatchHTML = function(){ let h = _bh.apply(this, arguments); try{
+    h = h.replace(/>Resubmit batch for approval</, '>Resubmit Payroll Summary to PAU<').replace(/>Submit batch for approval</, '>Submit Payroll Summary to PAU<');
+    const D = pbDocsAll(FIN.period).filter(d=>(!PBU.emp || d.emp===PBU.emp)); const c = pbCost(D);
+    if(D.length){ const n = st => D.filter(d=>pvSpecStatus(d)===st).length;
+      const strip = `<div class="grid cols-4" style="margin-bottom:14px">${pvKpi('Company-paid benefits', money(c.cp), 'employee share of SSS · PhilHealth · Pag-IBIG — not deducted')}${pvKpi('Employer contributions', money(c.er), 'SSS + EC · PhilHealth · Pag-IBIG')}${pvKpi('Total company cost', money(c.cost), 'gross + reimbursements + benefits', 'var(--info)')}${pvKpi('Attendance deductions', c.att?'−'+money(c.att):money(0), 'proposed → kept by CHA')}</div>
+        <div class="card" style="margin-bottom:12px"><div class="card-b pb-filt"><span class="hint">Status:</span>${['Draft','Under CHA Review','Submitted to PAU','Returned for Revision','Approved — Ready for Payment','Released — payment pending','Paid'].map(s=>n(s)?`<span class="badge ${/Approved|Paid/.test(s)?'b-approved':/Returned/.test(s)?'b-missed':/PAU/.test(s)?'b-pending':'b-draft'}">${esc(s)} · ${n(s)}</span>`:'').join(' ')}<button class="btn ghost" style="margin-left:auto" onclick="pbExport()">Export (Excel)</button></div></div>`;
+      const i = h.indexOf('<div class="card" style="margin-bottom:12px"><div class="card-b pb-filt">'); if(i>0) h = h.slice(0, i) + strip + h.slice(i); }
+  }catch(e){ console.warn(e); } return h; }; }
+async function pbExport(){ const pid = FIN.period, D = pbDocsAll(pid); await loadScript(XLSX_SRC); const wb = XLSX.utils.book_new(); const sum = f => d => pvR2(d.lines.filter(f).reduce((s,l)=>s+(+l.amount||0),0));
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(D.map(d=>({Employee:pvName(d), Class:d.class, Position:d.empRole||'', Basic:sum(l=>['basic','fee'].includes(l.kind)&&!l.client)(d), 'Client pay':sum(l=>['basic','fee'].includes(l.kind)&&!!l.client)(d), Allowances:sum(l=>l.kind==='allowance')(d), 'Additional earnings':sum(l=>['bonus','leavepay'].includes(l.kind)||(l.kind==='adjust'&&l.sign==='+'))(d),
+    Gross:d.gross, 'Attendance deductions':sum(l=>l.att)(d), 'Other deductions':pvR2(d.deductions - sum(l=>l.att)(d)), Reimbursements:d.reimb, Net:d.net, 'Company-paid benefits':sum(l=>l.kind==='cpaid')(d), 'Employer contributions':sum(l=>l.kind==='er')(d), 'Company cost':pvR2(d.gross + d.reimb + sum(l=>['cpaid','er'].includes(l.kind))(d)), Status:pvSpecStatus(d), Version:d.version||0}))), 'Summary');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(D.flatMap(d=>d.lines.map(l=>({Employee:pvName(d), Line:l.label, Kind:PV_KIND_LABEL[l.kind]||l.kind, Client:l.client||'', Amount:l.amount, Note:l.note||'', Reason:l.reason||''})))), 'Lines');
+  XLSX.writeFile(wb, `crosscore-payroll-summary-${pid}.xlsx`); audit(`Exported payroll summary ${pid}`); }
+{ const _ev = pbEmpView; pbEmpView = function(x){ let h = _ev.apply(this, arguments); try{ x.rows.forEach(({d})=>{ const tag = `<span class="hint">v${d.version||0}</span>`; const cp = pvR2(d.lines.filter(l=>['cpaid','er'].includes(l.kind)).reduce((s,l)=>s+(+l.amount||0),0));
+      h = h.replace(`${pvBadge(d.status)}${tag}`, `${pvBadge(d.status)}${tag} <span class="badge b-new">${esc(pvSpecStatus(d))}</span>${cp?` <span class="hint">company-paid benefits ${money(cp)}</span>`:''}`); }); }catch(e){} return h; }; }
+
+/* ---------- navigation ---------- */
+(function(){ const main = document.querySelector('main.main, main') || document.querySelector('.content'); const foot = el('footNote');
+  ['attreview','payapproval'].forEach(id=>{ if(el('v-'+id)) return; const d = document.createElement('div'); d.id = 'v-'+id; d.className = 'view'; (foot ? foot.parentNode : main).insertBefore(d, foot||null); });
+  const at = id => NAV.findIndex(n=>n.id===id);
+  if(at('attreview')<0) NAV.splice((at('attendance')>=0?at('attendance'):0)+1, 0, {id:'attreview', name:'Attendance & Deductions', roles:ALLR, ico:I.clock});
+  if(at('payapproval')<0) NAV.splice((at('finance')>=0?at('finance'):at('attreview'))+1, 0, {id:'payapproval', name:'Payroll Approval', roles:ALLR, ico:I.clock}); })();
+RENDER.payapproval = function(){ const v = el('v-payapproval'); if(v) v.innerHTML = '<div class="empty">Opening payroll approval…</div>'; setTimeout(()=>{ FIN.tab = 'batch'; go('finance'); }, 0); };
+{ const _n = navAllowed; navAllowed = function(n){ if(n && n.id==='attreview') return !['client','applicant'].includes(ROLE) && !!PEOPLE[PERSON] && (apIsHr() || isFinance() || isHead(PERSON));
+    if(n && n.id==='payapproval') return !!PEOPLE[PERSON] && (pvIsApprover() || PERSON===pvCoo()); return _n.apply(this, arguments); }; }
+{ const _fl = followLink; followLink = function(link){ if(link && link.view==='attreview'){ closeOverlays(); go('attreview'); return; } return _fl.apply(this, arguments); }; }
+
+/* ---------- demo: the compensation records from the brief (live: seeded by the SQL update) ---------- */
+function compDemoSeed(){ if(!(typeof pvIsDemo==='function' && pvIsDemo()) || COMP.length) return;
+  [['kiara',18000],['charisse',16500],['luane',16500],['tricia',30000]].forEach(([k, b])=>{ if(!PEOPLE[k]) return;
+    COMP.push({id:k, person:k, basic:b, declared:b, daysPerMonth:21.75, effective:AP_SINCE, companyPaysEE:true, allowances:[], clients:[], items:[], notes:k==='tricia'?'Declared ₱30,000 recorded as basic for now — split into basic + client allowances when confirmed.':'',
+      history:[{at:nowISO(), by:'system', field:'basic', prev:'—', next:String(b), reason:'Initial compensation record (Nov 2026 brief)'}], createdAt:nowISO(), createdBy:'system'}); }); }
+setTimeout(()=>{ try{ compDemoSeed(); }catch(e){} }, 1500);
+
+(function(){ const s = document.createElement('style'); s.textContent = `
+.att-prog{margin-bottom:14px}.ap-top{display:flex;gap:12px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap}.ap-big{font-size:28px;font-weight:800;font-variant-numeric:tabular-nums;line-height:1.1}
+.ap-right{text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:4px}.ap-pct{font-size:22px;font-weight:800;font-variant-numeric:tabular-nums}
+.ap-bar{position:relative;height:12px;border-radius:99px;background:var(--line);overflow:hidden;margin-top:12px}.ap-bar i{position:absolute;left:0;top:0;bottom:0;background:var(--ok);border-radius:99px;transition:width .6s}
+.ap-bar s{position:absolute;top:0;bottom:0;width:1px;background:rgba(0,0,0,.12)}.ap-bar.sm{height:6px;margin-top:6px}
+.ap-marks{display:flex;justify-content:space-between;font-size:11px;color:var(--ink-2);margin-top:3px;font-variant-numeric:tabular-nums}
+.ap-ded{margin-top:10px;padding:9px 12px;border-radius:10px;background:var(--bad-bg);color:var(--bad);font-size:13px}.ap-ok{margin-top:10px;padding:9px 12px;border-radius:10px;background:var(--ok-bg);color:var(--ok);font-size:13px}
+.ap-mini{margin-top:8px;font-size:12px;color:var(--ink-2)}.ap-filt{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.ap-filt label{display:flex;gap:6px;align-items:center;font-size:12.5px}.ap-filt select,.ap-filt input{padding:6px 8px;max-width:220px}
+@media(max-width:700px){.ap-right{align-items:flex-start;text-align:left}}`; document.head.appendChild(s); })();
+/* client allowances appear in the payslip's Clients breakdown */
+{ const _bd = pvBreakdown; pvBreakdown = function(d){ const out = _bd.apply(this, arguments); try{
+    (d.lines||[]).filter(l=>l.kind==='allowance' && l.client).forEach(l=>out.push({name:l.client, amount:pvR2(l.amount), role:'Client allowance', detail:l.note||'', internal:false})); }catch(e){} return out; }; }
 
 /* <<< OCT24 MODULES <<< */
 </script>

@@ -20916,7 +20916,7 @@ async function cooPostFromModal(){ const ch = CHATS.find(c=>c.id===el('paPostC')
    The footer shows which build is running ("Build 2026-10-07 · 1"), and every open portal checks every few minutes
    (and whenever it comes back to the foreground) whether a newer build has been published. If so it shows
    "New version available — Update now" instead of quietly running old code. */
-const BUILD_ID = '2026-11-02 · 6';
+const BUILD_ID = '2026-11-04 · 1';
 function verStamp(){ const f = el('footNote'); if(f && !f.dataset.v){ f.dataset.v = 1; f.textContent = `Cross Core Ops Suite v8 · Build ${BUILD_ID}`; } }
 async function verCheck(){
   if(!/^https?:/.test(location.protocol)) return;
@@ -37487,6 +37487,252 @@ function aiWFDeep(v){ if(typeof v==='string') return aiWF(v); if(Array.isArray(v
   };
   wrapped.__aiwf = true; window.fetch = wrapped;
 })();
+
+/* ===== Recruitment → Documents & e-signature (Nov 4 2026) =====
+   After orientation, HR, a company head or the COO prepares a contract, job offer (JO), Job Order or employment letter for an
+   applicant and sends it straight to the applicant portal. The applicant reviews every page and signs with a mouse, trackpad
+   or touchscreen (the existing Review & sign screen). HR is notified when it is signed and the signed PDF is saved to the
+   person's 201 file automatically. HR and the COO manage every document; other company heads manage the ones they prepared.
+   Documents are ordinary HR documents (HRDOCS) with a `rec` tag, so they share the e-signature, PDF and 201-file features. */
+const RD_TYPES = {
+  contract:{kind:'Employment contract', label:'Employment contract', sign:true},
+  offer:{kind:'Job offer', label:'Job offer (JO)', sign:true},
+  order:{kind:'Job Order', label:'Job Order', sign:true},
+  letter:{kind:'Employment letter', label:'Employment letter', sign:false},
+  other:{kind:'Letter', label:'Other letter', sign:false}};
+const RD_EMPTYPES = ['Probationary','Project-based','Regular','Part-time','Independent contractor'];
+const RD_TPL = {
+  contract:`EMPLOYMENT CONTRACT\n\nThis Employment Contract is made on {date} between Cross Core OPC ("the Company") and {name} ("the Employee").\n\n1. POSITION. The Employee is engaged as {position} ({emptype}) and reports to {supervisor}.\n\n2. START DATE AND PROBATION. Employment starts on {start}. The first {probation} are a probationary period, during which performance is reviewed against the standards explained at orientation.\n\n3. COMPENSATION. {pay}, paid on the Company's payroll schedule, less deductions required by law.\n\n4. DUTIES AND WORK HOURS. The Employee performs the duties of the position and of any client Job Order issued by the Company, during the schedule agreed with the Company.\n\n5. CONFIDENTIALITY. The Employee keeps all Company and client information confidential during and after employment and uses it only for assigned work.\n\n6. COMPANY POLICIES. The Employee follows the Company's policies and code of conduct as updated from time to time.\n\nEmployee initials: [initials]\n\n[page break]\n\n7. TERMINATION. Either party may end this contract by written notice, in line with applicable law and Company policy.\n\n8. ENTIRE AGREEMENT. This contract, with any Job Order issued under it, is the complete agreement between the parties. Changes must be in writing and issued by HR as a new version.\n\nFor the Company: Cross Core OPC, Human Resources\n\nEmployee signature: [signature]\nName: {name}\nDate: {date}`,
+  offer:`JOB OFFER\n\n{date}\n\nDear {name},\n\nWe are pleased to offer you the position of {position} at Cross Core OPC.\n\nPosition: {position}\nEmployment type: {emptype}\nStart date: {start}\nCompensation: {pay}\nReports to: {supervisor}\n\nThis offer is subject to the Company's policies and the employment contract that HR will issue. It is valid until {validuntil}.\n\nTo accept, please review and sign below.\n\nWarm regards,\nCross Core OPC, Human Resources\n\nAccepted by: [signature]\nName: {name}`,
+  order:`JOB ORDER\n\nEmployee: {name}\nRole: {position}\nReports to: {supervisor}\nStart date: {start}\n\nResponsibilities:\n- (list the main responsibilities)\n\nAgreed compensation: {pay}\n\nThis Job Order forms part of the Employee's agreement with Cross Core OPC.\n\nEmployee: [signature]`,
+  letter:`{date}\n\nDear {name},\n\nThis letter confirms your employment with Cross Core OPC as {position} ({emptype}), starting {start}, reporting to {supervisor}.\n\nWelcome to the team. Please keep this letter for your records.\n\nSincerely,\nCross Core OPC, Human Resources`,
+  other:`{date}\n\nDear {name},\n\n\n\nSincerely,\nCross Core OPC, Human Resources`};
+const RD = {f:'open', type:'', q:'', from:null};
+const rdAdmin = () => ROLE==='hr' || isFullAccess() || PERSON===cooKey();
+const rdCanManage = d => !!d && (rdAdmin() || d.by===PERSON);
+const rdDocs = app => HRDOCS.filter(d=>d.rec && (!app || d.rec.app===app));
+function rdEligible(a){
+  if(!a || !recVisible(a) || ['rejected','withdrawn'].includes(a.status)) return false;
+  return a.stage==='employee' || recStageIx(a.stage) > recStageIx('orientation') || (a.history||[]).some(h=>/orientation completed/i.test(h.act||''));
+}
+/* status of one document, derived from the document, the signature record and the 201 copy */
+const RD_ST = {draft:['Draft','b-draft'], awaiting:['Awaiting signature','b-pending'], 'awaiting-ack':['Awaiting acknowledgment','b-pending'], signed:['Signed','b-approved'], acknowledged:['Acknowledged','b-approved'],
+  filed:['Signed · in 201 file','b-approved'], 'filed-ack':['Acknowledged · in 201 file','b-approved'], replaced:['Replaced by a newer version','b-draft'], cancelled:['Cancelled','b-missed']};
+function rdState(d){
+  if(d.status==='Cancelled') return 'cancelled';
+  if(d.status==='Draft') return 'draft';
+  const k = d.rec.app;
+  if(esNeeds(d)){ const s = esSig(d.id, k); if(s) return HRFILES.some(f=>f.id===`HF-ES-${s.id}`) ? 'filed' : 'signed'; }
+  else { const r = docRead(d.id, k); if(r?.ackAt) return HRFILES.some(f=>f.id===`HF-ACK-${d.id}-${k}`) ? 'filed-ack' : 'acknowledged'; }
+  if(d.supersededBy) return 'replaced';
+  return esNeeds(d) ? 'awaiting' : 'awaiting-ack';
+}
+const rdDone = d => ['signed','acknowledged','filed','filed-ack'].includes(rdState(d));
+const rdWaiting = d => ['awaiting','awaiting-ack'].includes(rdState(d));
+const rdDays = d => d.sentAt ? Math.floor((Date.now() - new Date(d.sentAt).getTime())/864e5) : 0;
+const rdOverdue = d => rdWaiting(d) && rdDays(d) >= 3;
+const rdBadge = d => { const [l, c] = RD_ST[rdState(d)] || ['—','b-draft']; return `<span class="badge ${c}">${l}</span>${rdWaiting(d)?` <span class="hint" style="${rdOverdue(d)?'color:var(--bad);font-weight:600':''}">${rdDays(d)} day${rdDays(d)===1?'':'s'}</span>`:''}`; };
+function rdFill(type, f){
+  const v = {position:f.position||'', start:f.start?dstr(f.start):'', pay:f.pay||'', emptype:f.emptype||'', supervisor:f.supervisor||'', validuntil:f.validuntil?dstr(f.validuntil):'', probation:f.probation||'six (6) months'};
+  return String(RD_TPL[type]||'').replace(/\{(position|start|pay|emptype|supervisor|validuntil|probation)\}/g, (_, k)=>v[k] || `{${k}}`);
+}
+const rdMissing = body => uniq((String(body).match(/\{([a-z]+)\}/g)||[]).filter(x=>!['{name}','{date}'].includes(x)));
+
+/* ---------- prepare / edit ---------- */
+function rdPick(){
+  if(!recCan()) return;
+  const L = APPLICANTS.filter(rdEligible).sort((a,b)=>a.name.localeCompare(b.name));
+  openModal('Prepare a document', L.length ? `<div class="hint" style="margin-bottom:10px">Applicants who completed orientation (and new employees hired through Recruitment).</div>
+    ${L.map(a=>`<div class="list-row"><div style="flex:1"><b>${esc(a.name)}</b><div class="hint">${esc(a.position||'')} · ${esc(REC_STAGE[a.stage]||a.stage)}${a.account?'':' · <b style="color:var(--warn)">no applicant portal yet</b>'}</div></div><button class="btn primary" style="padding:5px 12px;font-size:12px" onclick="rdEdit(null,'${a.id}')">Prepare</button></div>`).join('')}`
+    : '<div class="empty">No one has completed orientation yet. Documents can be prepared once an applicant finishes orientation.</div>');
+  MODAL_CTX = null;
+}
+function rdEdit(id, app, type){
+  const d = id ? HRDOCS.find(x=>x.id===id) : null; app = d ? d.rec.app : app; const a = recApp(app);
+  if(!a || !recCan()) return; if(d && !rdCanManage(d)) return toast('Only HR, the COO or the person who prepared it can edit this document');
+  if(d && d.status!=='Draft') return toast('Sent documents cannot be edited. Use “Revise” to issue a new version.');
+  if(!d && !rdEligible(a)) return toast('Documents can be prepared after the applicant completes orientation');
+  type = d?.rec.type || type || 'offer'; const o = typeof recOb==='function' ? recOb(app) : null;
+  const f = d?.rec.fields || {position:o?.role||a.position||'', start:o?.start||shiftDate(manilaDate(), 7), pay:o?.payout?.amount?joPay(o.payout):'', emptype:'Probationary', supervisor:o?.pm?pname(o.pm):'', validuntil:shiftDate(manilaDate(), 7), probation:'six (6) months'};
+  const body = d ? d.body : rdFill(type, f); const sign = d ? !!d.sign?.required : RD_TYPES[type].sign;
+  RD.edit = {id:d?.id||null, app, touched:!!d};
+  openModal(d ? `Edit ${d.kind.toLowerCase()} · ${a.name}` : `Prepare a document · ${a.name}`, `<div id="rdEditor">
+    <div class="grid cols-2"><div class="field"><label>Document type</label><select id="rdType" onchange="rdTypeChange()">${Object.entries(RD_TYPES).map(([k,t])=>`<option value="${k}" ${k===type?'selected':''}>${t.label}</option>`).join('')}</select></div>
+      <div class="field"><label>Title</label><input id="rdTitle" value="${esc(d?.title || `${RD_TYPES[type].kind} · ${a.name}`)}"></div></div>
+    <div class="grid cols-3"><div class="field"><label>Position</label><input id="rdPos" value="${esc(f.position||'')}"></div>
+      <div class="field"><label>Employment type</label><select id="rdEmp">${RD_EMPTYPES.map(x=>`<option ${f.emptype===x?'selected':''}>${x}</option>`).join('')}</select></div>
+      <div class="field"><label>Start date</label><input id="rdStart" type="date" value="${esc(f.start||'')}"></div>
+      <div class="field"><label>Compensation</label><input id="rdPay" placeholder="e.g. PHP 25,000 per month" value="${esc(f.pay||'')}"></div>
+      <div class="field"><label>Reports to</label><input id="rdSup" value="${esc(f.supervisor||'')}"></div>
+      <div class="field"><label>Offer valid until</label><input id="rdValid" type="date" value="${esc(f.validuntil||'')}"></div></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap"><label style="font-weight:600;font-size:12.5px">Document text</label><button class="btn ghost" style="padding:4px 10px;font-size:12px" onclick="rdRefill()">↻ Fill the template with these details</button></div>
+    <textarea id="rdBody" rows="16" style="width:100%;font-family:inherit;line-height:1.5" oninput="RD.edit.touched=true">${esc(body)}</textarea>
+    <div class="hint" style="margin:6px 0 10px">Type <b>[signature]</b> or <b>[initials]</b> where the applicant signs, and <b>[page break]</b> on its own line to start a new page. {name} and {date} fill in automatically when it is sent.</div>
+    <label style="display:flex;gap:8px;align-items:center;margin-bottom:12px"><input type="checkbox" id="rdSign" style="width:auto" ${sign?'checked':''}> Needs the applicant's e-signature (otherwise they acknowledge receipt)</label>
+    <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" onclick="rdSave(false)">Save draft</button><button class="btn" onclick="rdPreview()">Preview</button><button class="btn primary" style="flex:1" onclick="rdSave(true)">Send to ${esc(first(app)||a.name)} for ${sign?'e-signature':'acknowledgment'}</button></div></div>`, true);
+  MODAL_CTX = null;
+}
+function rdTypeChange(){ const t = el('rdType').value; const a = recApp(RD.edit.app);
+  el('rdSign').checked = RD_TYPES[t].sign; const ti = el('rdTitle'); if(Object.values(RD_TYPES).some(x=>ti.value===`${x.kind} · ${a.name}`)) ti.value = `${RD_TYPES[t].kind} · ${a.name}`;
+  if(!RD.edit.touched || confirm('Replace the document text with the template for this type?')){ el('rdBody').value = rdFill(t, rdFields()); RD.edit.touched = false; } }
+function rdRefill(){ if(RD.edit.touched && !confirm('Replace the current text with the template filled with these details?')) return; el('rdBody').value = rdFill(el('rdType').value, rdFields()); RD.edit.touched = false; }
+const rdFields = () => ({position:el('rdPos').value.trim(), emptype:el('rdEmp').value, start:el('rdStart').value, pay:el('rdPay').value.trim(), supervisor:el('rdSup').value.trim(), validuntil:el('rdValid').value, probation:'six (6) months'});
+function rdPreview(){
+  const body = el('rdBody').value; const tmp = {title:el('rdTitle').value, sign:el('rdSign').checked?{required:true, mode:'auto'}:null};
+  const L = esLayout(tmp, fillDoc(body, RD.edit.app, nowISO())); const miss = rdMissing(body);
+  let w = el('rdPrev'); if(!w){ w = document.createElement('div'); w.id = 'rdPrev'; el('rdEditor').appendChild(w); }
+  w.innerHTML = `<div class="rec-sec"><h4>Preview <span class="hint">· ${L.pages.length} page${L.pages.length>1?'s':''}${tmp.sign?` · ${L.fields.length} field${L.fields.length>1?'s':''} to sign`:' · acknowledgment only'}</span></h4>${miss.length?`<div class="hint" style="color:var(--bad);margin-bottom:6px">Still to fill in: ${esc(miss.join(', '))}</div>`:''}
+    ${L.pages.map((p,i)=>`<div class="doc-paper" style="white-space:pre-wrap;margin-bottom:10px"><div class="hint" style="text-align:right">Page ${i+1} of ${L.pages.length}</div>${esc(p).replace(/\[(signature|initials)\]/gi, (_, k)=>`<span class="badge b-pending">✍️ ${k.toLowerCase()==='signature'?'Signature':'Initials'}</span>`)}</div>`).join('')}</div>`;
+  w.scrollIntoView({behavior:'smooth', block:'start'});
+}
+async function rdSave(send){
+  const E = RD.edit; const a = recApp(E.app); if(!a) return;
+  const type = el('rdType').value, title = el('rdTitle').value.trim(), body = el('rdBody').value, sign = el('rdSign').checked, fields = rdFields();
+  if(!title) return toast('Give the document a title'); if(!body.trim()) return toast('The document text is empty');
+  let d = E.id ? HRDOCS.find(x=>x.id===E.id) : null;
+  if(d && (d.status!=='Draft' || !rdCanManage(d))) return toast('This document can no longer be edited');
+  const t = nowISO();
+  if(!d){ d = {id:uid('HD'), kind:RD_TYPES[type].kind, title, body, files:[], needsCoo:false, sign:sign?{required:true, mode:'auto'}:null, version:1, by:PERSON, at:t, updatedAt:t, status:'Draft', sentTo:[],
+      rec:{app:a.id, type, fields}, history:[{at:t, by:PERSON, act:`Prepared for ${a.name}`, note:''}]}; HRDOCS.unshift(d); E.id = d.id; }
+  else { Object.assign(d, {kind:RD_TYPES[type].kind, title, body, sign:sign?{required:true, mode:'auto'}:null, updatedAt:t}); d.rec = {...d.rec, type, fields}; d.history.push({at:t, by:PERSON, act:'Edited', note:''}); }
+  recordChange();
+  if(!send){ toast('Draft saved'); return rdBack(a.id); }
+  return rdSend(d.id);
+}
+async function rdSend(id){
+  const d = HRDOCS.find(x=>x.id===id); if(!d || !rdCanManage(d)) return toast('You can’t send this document');
+  const a = recApp(d.rec.app); if(!a) return toast('Applicant not found');
+  if(d.status!=='Draft') return toast('Already sent');
+  const miss = rdMissing(d.body); if(miss.length) return toast(`Fill in ${miss.join(', ')} before sending`);
+  if(!a.account && a.stage!=='employee') return toast(`${a.name} has no applicant portal yet. Open it from their profile (Open applicant portal), then send.`);
+  if(a.access?.state==='ended') return toast(`${a.name}'s portal access has ended. Restore access first.`);
+  const t = nowISO();
+  d.status = 'Sent'; d.sentTo = [a.id]; d.sentAt = t; d.updatedAt = t; d.sentBy = PERSON;
+  if(d.prevVersion){ const pv = HRDOCS.find(x=>x.id===d.prevVersion); if(pv && !pv.supersededBy){ pv.supersededBy = d.id; pv.history = [...(pv.history||[]), {at:t, by:PERSON, act:`Replaced by version ${d.version} (${d.id})`, note:''}]; } }
+  d.history.push({at:t, by:PERSON, act:`Sent to ${a.name} for ${esNeeds(d)?'e-signature':'acknowledgment'}`, note:''});
+  recTouch(a, `${d.kind} sent for ${esNeeds(d)?'e-signature':'acknowledgment'}: ${d.title}`);
+  recordChange();
+  const v = await avSaved([mk('hrdocs', d.id)]); if(!v.ok) toast(`Saved here, but the server hasn’t confirmed yet (${v.why}). It will keep retrying.`);
+  notify(a.id, 'hr', esNeeds(d) ? `✍️ New <b>${esc(d.kind)}</b> to review and sign: <b>${esc(d.title)}</b>` : `📄 New <b>${esc(d.kind)}</b>: <b>${esc(d.title)}</b>`, {view: PEOPLE[a.id]?.role==='applicant' ? 'appletters' : 'mydocs', doc:d.id});
+  notify(uniq([...HR_KEYS(), cooKey()]).filter(k=>k!==PERSON), 'hr', `📤 ${esc(pname(PERSON))} sent <b>${esc(d.title)}</b> to ${esc(a.name)} for ${esNeeds(d)?'e-signature':'acknowledgment'}`, {view:'recruit', tab:'docs', app:a.id});
+  try{ if(EMPLOYEES.some(x=>x.id===a.id) && h201SaveOriginal(d, a.id)) recordChange(); }catch(e){}
+  recordChange(); toast(`Sent — ${a.name} can ${esNeeds(d)?'review and sign it':'open it'} in their portal now`); rdBack(a.id);
+}
+function rdBack(app){ if(RD.from==='profile'){ closeModal(); setTimeout(()=>recView(app), 60); } else { closeModal(); } if(CURRENT==='recruit') RENDER.recruit(); }
+function rdRemind(id){ const d = HRDOCS.find(x=>x.id===id); if(!d || !rdWaiting(d)) return; const a = recApp(d.rec.app);
+  notify(a.id, 'reminder', `⏰ Reminder: <b>${esc(d.title)}</b> is waiting for your ${esNeeds(d)?'signature':'acknowledgment'}`, {view: PEOPLE[a.id]?.role==='applicant' ? 'appletters' : 'mydocs', doc:d.id});
+  d.reminders = [...(d.reminders||[]), {at:nowISO(), by:PERSON}]; d.history.push({at:nowISO(), by:PERSON, act:'Reminder sent', note:''}); recordChange(); toast('Reminder sent'); rdRefresh(); }
+function rdCancel(id){ const d = HRDOCS.find(x=>x.id===id); if(!d || !rdCanManage(d) || rdDone(d)) return;
+  if(!confirm(`Cancel “${d.title}”? ${d.status==='Sent'?'It is withdrawn from the applicant’s portal and can no longer be signed. ':''}It stays in the history.`)) return;
+  d.status = 'Cancelled'; d.updatedAt = nowISO(); d.history.push({at:nowISO(), by:PERSON, act:'Cancelled', note:''}); const a = recApp(d.rec.app); if(a) recTouch(a, `${d.kind} cancelled: ${d.title}`); recordChange(); toast('Cancelled'); rdRefresh(); }
+function rdDelete(id){ const d = HRDOCS.find(x=>x.id===id); if(!d || !rdCanManage(d) || d.status!=='Draft' || !confirm('Delete this draft?')) return; HRDOCS = HRDOCS.filter(x=>x.id!==id); recordChange(); toast('Draft deleted'); rdRefresh(); }
+/* changes after sending: a new version (the sent or signed one stays as it is until the new one is sent) */
+function rdRevise(id){ const d = HRDOCS.find(x=>x.id===id); if(!d || !rdCanManage(d) || d.status==='Draft') return;
+  const ex = HRDOCS.find(x=>x.prevVersion===d.id && x.status==='Draft'); if(ex) return rdEdit(ex.id);
+  const v = (d.version||1)+1, t = nowISO();
+  const nd = {...JSON.parse(JSON.stringify({kind:d.kind, body:d.body, files:d.files||[], sign:d.sign, rec:d.rec})), id:uid('HD'), title:d.title.replace(/\s*\(v\d+\)$/,'')+` (v${v})`, needsCoo:false, version:v, prevVersion:d.id,
+    by:PERSON, at:t, updatedAt:t, status:'Draft', sentTo:[], history:[{at:t, by:PERSON, act:`Version ${v} started from ${d.id}`, note:''}]};
+  HRDOCS.unshift(nd); d.history.push({at:t, by:PERSON, act:`Version ${v} started (${nd.id})`, note:''}); recordChange(); rdEdit(nd.id); }
+function rdRefresh(){ if(el('rdView')) return rdView(el('rdView').dataset.id); if(el('recView')) return recView(el('recView').dataset.app || RD.app); if(CURRENT==='recruit') RENDER.recruit(); }
+
+/* ---------- one document: status, text, history, actions ---------- */
+function rdActions(d, compact){
+  const B = (cls, js, txt) => `<button class="btn ${cls}" style="padding:4px 10px;font-size:12px" onclick="event.stopPropagation();${js}">${txt}</button>`;
+  const st = rdState(d), m = rdCanManage(d), k = d.rec.app; const s = esNeeds(d) && esSig(d.id, k); const out = [];
+  if(st==='draft' && m) out.push(B('primary', `RD.from='${compact?'list':'profile'}';rdEdit('${d.id}')`, 'Edit & send'));
+  if(rdWaiting(d)) out.push(B('', `rdRemind('${d.id}')`, 'Remind'));
+  if(s){ out.push(B('', `esViewSigned('${s.id}')`, 'View signed'), B('', `esDownload('${s.id}')`, '⬇ PDF')); }
+  if(!compact) out.push(B('ghost', `rdView('${d.id}')`, 'Details'));
+  if(m && st!=='draft' && st!=='cancelled' && !d.supersededBy && !HRDOCS.some(x=>x.prevVersion===d.id && x.status!=='Cancelled')) out.push(B('ghost', `RD.from='${compact?'list':'profile'}';rdRevise('${d.id}')`, 'Revise'));
+  if(m && ['draft','awaiting','awaiting-ack'].includes(st)) out.push(B('ghost', st==='draft'?`rdDelete('${d.id}')`:`rdCancel('${d.id}')`, `<span style="color:var(--bad)">${st==='draft'?'Delete':'Cancel'}</span>`));
+  return out.join('');
+}
+function rdView(id){
+  const d = HRDOCS.find(x=>x.id===id); if(!d?.rec || !recCan()) return; const a = recApp(d.rec.app); const k = d.rec.app;
+  const s = esNeeds(d) && esSig(d.id, k); const ack = !esNeeds(d) && docRead(d.id, k); const f201 = s ? HRFILES.find(f=>f.id===`HF-ES-${s.id}`) : ack?.ackAt ? HRFILES.find(f=>f.id===`HF-ACK-${d.id}-${k}`) : null;
+  const text = d.status==='Draft' ? d.body : fillDoc(d.body, k, d.sentAt);
+  openModal(`${d.kind} · ${a?.name||pname(k)}`, `<div id="rdView" data-id="${d.id}">
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px">${rdBadge(d)} <b>${esc(d.title)}</b> <span class="hint">v${d.version||1} · ${esc(d.id)}</span></div>
+    <div class="hint" style="margin-bottom:10px">Prepared by ${esc(pname(d.by))} · ${esc(dtstr(d.at))}${d.sentAt?` · sent ${esc(dtstr(d.sentAt))}${d.sentBy&&d.sentBy!==d.by?' by '+esc(pname(d.sentBy)):''}`:''}${s?` · signed ${esc(dtstr(s.signedAt))}`:''}${ack?.ackAt?` · acknowledged ${esc(dtstr(ack.ackAt))}`:''}${(d.reminders||[]).length?` · ${d.reminders.length} reminder${d.reminders.length>1?'s':''}`:''}</div>
+    ${s||ack?.ackAt ? `<div class="hint" style="margin-bottom:10px">${f201?'✓ Saved to the 201 file (Contracts & Renewals / Memos)':'Saving to the 201 file…'}${a && a.stage!=='employee' && !EMPLOYEES.some(e=>e.id===k)?' · it appears in the 201 file once they are registered as a new employee':''}</div>`:''}
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">${rdActions(d, true)}</div>
+    <div class="doc-paper" style="white-space:pre-wrap;max-height:50vh;overflow:auto">${esc(text).replace(/\[(signature|initials)\]/gi, (_, x)=>`<span class="badge ${s?'b-approved':'b-pending'}">${s?'✓ ':'✍️ '}${x.toLowerCase()==='signature'?'Signature':'Initials'}</span>`).replace(/\[page break\]/gi,'<hr>')}</div>
+    <div class="rec-sec"><h4>History</h4>${(d.history||[]).slice().reverse().map(h=>`<div class="hint">${esc(dtstr(h.at))} · ${esc(PEOPLE[h.by]?pname(h.by):'System')} · ${esc(h.act)}</div>`).join('')}${s?`<div class="hint">${esc(dtstr(s.signedAt))} · ${esc(s.personName)} · Signed electronically</div>`:''}</div>
+    ${a?`<button class="btn ghost" style="margin-top:10px" onclick="RD.from=null;recView('${a.id}')">← ${esc(a.name)}’s profile</button>`:''}</div>`, true);
+  MODAL_CTX = {refresh:()=>{ if(el('rdView')?.dataset.id===id && !document.activeElement?.closest?.('#modalBody input, #modalBody textarea')) rdView(id); }};
+}
+
+/* ---------- the applicant profile: documents for this person ---------- */
+function rdProfileHTML(a){
+  const D = rdDocs(a.id).sort((x,y)=>(y.updatedAt||y.at||'').localeCompare(x.updatedAt||x.at||''));
+  const ok = rdEligible(a);
+  return `<div class="rec-sec" id="rdSec"><h4>Contracts, job offers & letters <span class="hint">· prepare, send and track e-signatures</span></h4>
+    ${ok ? `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">${['offer','contract','order','letter'].map(t=>`<button class="btn ${t==='offer'?'primary':''}" style="padding:5px 11px;font-size:12px" onclick="RD.from='profile';rdEdit(null,'${a.id}','${t}')">+ ${RD_TYPES[t].label}</button>`).join('')}<button class="btn ghost" style="padding:5px 11px;font-size:12px" onclick="RD.from='profile';rdEdit(null,'${a.id}','other')">+ Other letter</button></div>`
+      : '<div class="hint" style="margin-bottom:8px">Available after the applicant completes orientation.</div>'}
+    ${D.map(d=>`<div class="list-row" style="flex-wrap:wrap"><div style="flex:1;min-width:200px"><b style="font-size:12.5px;cursor:pointer" onclick="rdView('${d.id}')">${esc(d.title)}</b> ${rdBadge(d)}<div class="hint">${esc(d.kind)} · v${d.version||1} · ${esc(pname(d.by))} · ${esc(dtstr(d.sentAt||d.at))}</div></div><div style="display:flex;gap:6px;flex-wrap:wrap">${rdActions(d, false)}</div></div>`).join('') || (ok?'<div class="hint">Nothing prepared yet.</div>':'')}</div>`;
+}
+{ const _rv = recView; recView = function(id){ const r = _rv.apply(this, arguments);
+    try{ const a = recApp(id); const v = el('recView'); if(a && v && !v.querySelector('#rdSec')){ v.dataset.app = id; RD.app = id; const at = v.querySelector('.rec-acts.sm'); (at || v.firstElementChild).insertAdjacentHTML('afterend', rdProfileHTML(a)); } }catch(e){ console.warn('recruitment documents', e); }
+    return r; }; }
+
+/* ---------- Recruitment → Documents & e-signature tab (HR, company heads; the COO oversees everything) ---------- */
+function rdStats(){ const D = rdDocs(); const month = manilaDate().slice(0,7);
+  return {draft:D.filter(d=>rdState(d)==='draft').length, waiting:D.filter(rdWaiting).length, overdue:D.filter(rdOverdue).length,
+    signedMonth:D.filter(d=>{ const s = esNeeds(d) ? esSig(d.id, d.rec.app)?.signedAt : docRead(d.id, d.rec.app)?.ackAt; return s && s.slice(0,7)===month; }).length,
+    filed:D.filter(d=>['filed','filed-ack'].includes(rdState(d))).length, total:D.length}; }
+function rdTabHTML(){
+  const S = rdStats(); const q = RD.q.trim().toLowerCase();
+  const F = {open:d=>['draft','awaiting','awaiting-ack'].includes(rdState(d)), waiting:rdWaiting, overdue:rdOverdue, draft:d=>rdState(d)==='draft', done:rdDone, closed:d=>['cancelled','replaced'].includes(rdState(d)), all:()=>true};
+  const D = rdDocs().filter(F[RD.f]||F.all).filter(d=>!RD.type || d.rec.type===RD.type)
+    .filter(d=>!q || [d.title, d.kind, recApp(d.rec.app)?.name, pname(d.by)].join(' ').toLowerCase().includes(q))
+    .sort((x,y)=>(rdOverdue(y)-rdOverdue(x)) || (y.updatedAt||y.at||'').localeCompare(x.updatedAt||x.at||''));
+  const ready = APPLICANTS.filter(rdEligible).filter(a=>a.stage!=='employee' && !rdDocs(a.id).some(d=>d.status!=='Cancelled'));
+  const card = (n, l, f, warn) => `<div style="cursor:pointer" onclick="RD.f='${f}';RENDER.recruit()"><b style="${warn&&n?'color:var(--bad)':''}">${n}</b><span>${l}</span></div>`;
+  return `<div class="card" style="margin-bottom:16px"><div class="card-h"><h3>Documents & e-signature</h3><button class="btn primary" onclick="RD.from='list';rdPick()">+ Prepare document</button></div>
+      <div class="card-b rec-funnel">${card(S.draft,'Drafts','draft')}${card(S.waiting,'Awaiting signature','waiting')}${card(S.overdue,'Waiting 3+ days','overdue',true)}${card(S.signedMonth,'Signed this month','done')}${card(S.filed,'Saved to 201 files','done')}</div>
+      <div class="card-b hint" style="padding-top:0">${rdAdmin()?'You can create, edit, send, track and manage every document here.':'You can prepare and send documents and manage the ones you prepared. HR and the COO manage all of them.'} Signed copies are saved to the employee’s 201 file automatically, and HR is notified when a document is signed.</div></div>
+    ${ready.length?`<div class="card" style="margin-bottom:16px"><div class="card-h"><h3>Ready for documents <span class="hint">· completed orientation, nothing prepared yet</span></h3></div><div class="card-b">${ready.map(a=>`<div class="list-row"><div style="flex:1"><b style="cursor:pointer" onclick="recView('${a.id}')">${esc(a.name)}</b><div class="hint">${esc(a.position||'')} · ${esc(REC_STAGE[a.stage]||a.stage)}</div></div><button class="btn" style="padding:5px 12px;font-size:12px" onclick="RD.from='list';rdEdit(null,'${a.id}','offer')">Prepare job offer</button><button class="btn" style="padding:5px 12px;font-size:12px" onclick="RD.from='list';rdEdit(null,'${a.id}','contract')">Prepare contract</button></div>`).join('')}</div></div>`:''}
+    <div class="rec-filter"><input placeholder="Search applicant, document or preparer" value="${esc(RD.q)}" oninput="RD.q=this.value;clearTimeout(RD.t);RD.t=setTimeout(()=>{RENDER.recruit();const i=document.querySelector('#rdSearch');i&&(i.focus(),i.setSelectionRange(i.value.length,i.value.length))},250)" id="rdSearch">
+      ${[['open','Open'],['waiting','Awaiting signature'],['overdue','Waiting 3+ days'],['draft','Drafts'],['done','Signed & completed'],['closed','Cancelled & replaced'],['all','All']].map(([k,l])=>`<button class="btn ${RD.f===k?'primary':'ghost'}" onclick="RD.f='${k}';RENDER.recruit()">${l}</button>`).join('')}
+      <select style="width:auto" onchange="RD.type=this.value;RENDER.recruit()"><option value="">All types</option>${Object.entries(RD_TYPES).map(([k,t])=>`<option value="${k}" ${RD.type===k?'selected':''}>${t.label}</option>`).join('')}</select></div>
+    <div class="card"><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Applicant / employee</th><th>Document</th><th>Prepared by</th><th>Sent</th><th>Status</th><th></th></tr></thead><tbody>
+      ${D.map(d=>{ const a = recApp(d.rec.app); return `<tr style="cursor:pointer" onclick="rdView('${d.id}')"><td><b>${esc(a?.name||pname(d.rec.app))}</b><div class="hint">${esc(a?REC_STAGE[a.stage]||a.stage:'')}</div></td><td><b>${esc(d.title)}</b><div class="hint">${esc(RD_TYPES[d.rec.type]?.label||d.kind)} · v${d.version||1}</div></td>
+        <td>${esc(pname(d.by))}</td><td>${d.sentAt?esc(dtstr(d.sentAt)):'—'}</td><td>${rdBadge(d)}</td><td><div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">${rdActions(d, true)}</div></td></tr>`; }).join('') || `<tr><td colspan="6" class="empty">${S.total?'Nothing matches this filter.':'No documents yet. Prepare one from an applicant’s profile or with “+ Prepare document”.'}</td></tr>`}</tbody></table></div></div>`;
+}
+{ const _rr = RENDER.recruit; RENDER.recruit = function(){
+    const docs = RCV.tab==='docs'; const r = _rr.apply(this, arguments);
+    try{ const v = el('v-recruit'); const tabs = v?.querySelector('.rec-tabs'); if(!tabs || !recCan()) return r;
+      const S = rdStats(); const n = S.waiting;
+      const b = `<button class="${docs?'on':''}" onclick="RCV.tab='docs';RENDER.recruit()">Documents & e-signature${n?` <small class="hint">${n}</small>`:''}</button>`;
+      const after = [...tabs.children].find(x=>/Onboarding/.test(x.textContent)); if(after) after.insertAdjacentHTML('afterend', b); else tabs.insertAdjacentHTML('beforeend', b);
+      if(docs){ el('recBody').innerHTML = rdTabHTML(); }
+      else if(RCV.tab==='overview' && S.total){ el('recBody')?.insertAdjacentHTML('afterbegin', `<div class="card" style="margin-bottom:16px;cursor:pointer" onclick="RCV.tab='docs';RD.f='open';RENDER.recruit()"><div class="card-h"><h3>Documents & e-signature</h3><span class="hint">Open →</span></div>
+        <div class="card-b rec-funnel"><div><b>${S.waiting}</b><span>Awaiting signature</span></div><div><b style="${S.overdue?'color:var(--bad)':''}">${S.overdue}</b><span>Waiting 3+ days</span></div><div><b>${S.draft}</b><span>Drafts</span></div><div><b>${S.signedMonth}</b><span>Signed this month</span></div></div></div>`); }
+    }catch(e){ console.warn('recruitment documents tab', e); }
+    return r; }; }
+
+/* ---------- after signing: job offers go to Contracts & Renewals; HR always hears about it ---------- */
+{ const _s = h201SaveSigned; h201SaveSigned = function(r){ const ok = _s.apply(this, arguments);
+    try{ const f = HRFILES.find(x=>x.id===`HF-ES-${r.id}`); if(f && /job offer|employment contract/i.test(r.docKind||'') && f.folder!=='contracts') f.folder = 'contracts'; }catch(e){}
+    return ok; }; }
+/* a signed or acknowledged recruitment document always reaches HR and the person who prepared it — even if the applicant's own
+   notification did not go through. Each staff device checks for its own person only, once per document. */
+function rdNotifySweep(){
+  if(!PEOPLE[PERSON] || !recCan() || (typeof SYNC!=='undefined' && SYNC.applying)) return;
+  const me = PERSON; let ch = false;
+  rdDocs().forEach(d=>{ if(!rdDone(d) || d.supersededBy && !rdDone(d)) return;
+    if(!(HR_KEYS().includes(me) || d.by===me)) return;
+    const k = d.rec.app; const s = esNeeds(d) ? esSig(d.id, k) : null; const at = s ? s.signedAt : docRead(d.id, k)?.ackAt; if(!at) return;
+    if(Date.now() - new Date(at).getTime() > 14*864e5) return;
+    const nid = `N-rdsig-${d.id}-${me}`;
+    if(NOTIFS2.some(n=>n.id===nid || n.to===me && n.link?.doc===d.id && /signed|acknowledged/i.test(n.text||''))) return;
+    NOTIFS2.unshift({id:nid, to:me, type:'hr', text:`✍️ <b>${esc(recApp(k)?.name||pname(k))}</b> ${s?'signed':'acknowledged'} <b>${esc(d.title)}</b> — saved to their 201 file`, link:{view:'recruit', tab:'docs', app:k, doc:d.id}, by:k, at, read:false}); ch = true; });
+  if(ch){ recordChange(); try{ renderNotifs(); buildNav(); }catch(e){} }
+}
+{ const _ore = onRemoteEvent; let t = 0; onRemoteEvent = function(ev){ _ore.apply(this, arguments); if(['esign','docreads','hrdocs','hrfiles'].includes(ev?.coll) && recCan()){ clearTimeout(t); t = setTimeout(()=>{ rdNotifySweep(); if(CURRENT==='recruit' && RCV.tab==='docs' && !el('modal').classList.contains('open')) RENDER.recruit(); }, 900); } }; }
+setInterval(rdNotifySweep, 60e3);
+/* a cancelled document can't be opened for signing (e.g. a stale screen in the applicant portal) */
+{ const _st = esStart; esStart = function(docId){ const d = HRDOCS.find(x=>x.id===docId); if(d?.status==='Cancelled') return toast('HR withdrew this document. It no longer needs your signature.'); return _st.apply(this, arguments); }; }
 
 /* <<< OCT24 MODULES <<< */
 </script>

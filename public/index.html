@@ -20916,7 +20916,7 @@ async function cooPostFromModal(){ const ch = CHATS.find(c=>c.id===el('paPostC')
    The footer shows which build is running ("Build 2026-10-07 · 1"), and every open portal checks every few minutes
    (and whenever it comes back to the foreground) whether a newer build has been published. If so it shows
    "New version available — Update now" instead of quietly running old code. */
-const BUILD_ID = '2026-11-04 · 1';
+const BUILD_ID = '2026-11-04 · 2';
 function verStamp(){ const f = el('footNote'); if(f && !f.dataset.v){ f.dataset.v = 1; f.textContent = `Cross Core Ops Suite v8 · Build ${BUILD_ID}`; } }
 async function verCheck(){
   if(!/^https?:/.test(location.protocol)) return;
@@ -37073,8 +37073,8 @@ const AP_DEFAULT = {id:'global', since:AP_SINCE, requiredMins:480, lateAfter:30,
     {date:'2026-12-25', name:'Christmas Day', type:'Regular'}, {date:'2026-12-30', name:'Rizal Day', type:'Regular'}, {date:'2026-12-31', name:'Last day of the year', type:'Special non-working'},
     {date:'2027-01-01', name:'New Year’s Day', type:'Regular'}, {date:'2027-04-09', name:'Araw ng Kagitingan', type:'Regular'}, {date:'2027-05-01', name:'Labor Day', type:'Regular'}, {date:'2027-06-12', name:'Independence Day', type:'Regular'}]};
 const apCfg = () => { const r = ATTPOL.find(x=>x.id==='global') || {}; return {...AP_DEFAULT, ...r, mode:{...AP_DEFAULT.mode, ...(r.mode||{})}, schedules:r.schedules || AP_DEFAULT.schedules, holidays:r.holidays || AP_DEFAULT.holidays}; };
-const apSched = k => apCfg().schedules?.[k] || null;
-const apCovered = () => Object.keys(apCfg().schedules||{}).filter(k=>PEOPLE[k] && !empLeft(PEOPLE[k].status));
+let apSched = k => apCfg().schedules?.[k] || null;
+let apCovered = () => Object.keys(apCfg().schedules||{}).filter(k=>PEOPLE[k] && !empLeft(PEOPLE[k].status));
 const apIsHr = (k=PERSON) => lvIsHr(k) || isHead(k);
 const apIsPay = (k=PERSON) => isFinance(k) || k===pvCeo();               /* CHA (Finance) and PAU (CEO) */
 const apStaffAud = x => uniq([x.person, ...HR_KEYS(), ...financeKeys(), ...HEADS]).filter(Boolean);
@@ -37756,6 +37756,301 @@ setInterval(rdNotifySweep, 60e3);
     try{ const v = el('v-appletters'); const D = HRDOCS.filter(d=>(d.sentTo||[]).includes(PERSON) && d.status==='Sent' && !d.supersededBy && (d.files||[]).length);
       if(v && D.length) v.querySelector('.page-head')?.insertAdjacentHTML('afterend', `<div class="card" style="margin-bottom:16px"><div class="card-h"><h3>Attachments from HR</h3></div><div class="card-b">${D.map(d=>`<div class="list-row" style="align-items:flex-start"><div style="flex:1"><b>${esc(d.title)}</b><div style="margin-top:4px">${fileChips(d.files)}</div></div></div>`).join('')}</div></div>`); }catch(e){}
     return r; }; }
+
+/* ===== t20_attflex.js — Time In / Time Out fixes, flexible Project Manager workdays, COO Attendance Monitor (Nov 4 2026) =====
+   1. DISAPPEARING TIME IN (the bug): a session that ran longer than 16 hours (a PM who started in the morning and worked past
+      midnight) stopped counting as "open" — the page showed Time In again and its hours dropped to 0, and the day could be
+      finalized while she was still working. Now an open session stays open until a real Time Out (any length, any date);
+      every Time In / Break / Time Out is also kept in a local outbox on the device until the server confirms it, so a refresh,
+      a navigation, a sign-out or a dropped connection can't lose it; an older copy from another device never rolls it back.
+   2. FLEXIBLE PROJECT MANAGERS: 8 productive hours (breaks excluded) per workday, any start time, past midnight included.
+      Hours after midnight belong to the workday the shift started on — also when the PM times out and back in within 4 hours
+      after midnight. A PM's day is finalized only at 12:00 noon the next day (no absence or deduction for working late).
+      Days already finalized are re-checked once with this rule (only ever in the employee's favour, with history).
+      Fixed schedules (HR, Sales & Marketing, Accounting & Finance: 9:00 AM – 6:00 PM, 1-hour unpaid break) are unchanged.
+   3. COO ATTENDANCE MONITOR: company-wide live status, exact timestamps, progress to 8 hours, PM overnight shifts, daily /
+      weekly / monthly history, reports (CSV), and correction requests the COO approves (reason + full audit trail) — approved
+      corrections re-evaluate the day, which flows into payroll as before. All times Asia/Manila. */
+const ATT_LIVE_H = 24;        /* an open session counts toward the hours for up to 24 h (a forgotten Time Out never inflates a day) */
+const ATT_REVIEW_H = 20;      /* a session longer than this is flagged for HR / COO review */
+const ATT_CONT_H = 4;         /* PMs: a new Time In within 4 h after midnight-crossing work continues the same workday */
+const ATT_CONT_UNTIL = 12*60; /* …if it is before 12:00 noon */
+const mNow = () => manilaMins(nowISO());
+/* ---------- who is on which schedule ---------- */
+const attFixedDept = k => /human resources|\bhr\b|sales|marketing|accounting|finance/i.test((EMPLOYEES.find(e=>e.id===k)||{}).dept || '') || /\bhr\b|human resources|sales|marketing|accounting|finance/i.test(PEOPLE[k]?.sub||'');
+const attIsPM = k => PEOPLE[k]?.role==='manager' && /project manager/i.test(PEOPLE[k]?.sub||'') && !attFixedDept(k);
+{ const _s = apSched; apSched = k => _s(k) || (attIsPM(k) && !empLeft(PEOPLE[k]?.status) ? {type:'flexible', auto:true, since:'2026-11-05'} : null); }
+{ const _c = apCovered; apCovered = () => uniq([..._c(), ...Object.keys(PEOPLE).filter(k=>attIsPM(k) && !empLeft(PEOPLE[k].status))]); }
+const attFlex = k => apSched(k)?.type==='flexible';
+
+/* ---------- 1. open sessions never disappear ---------- */
+function attSessAgeH(r){ const t = toMs(attSessions(r).slice(-1)[0]?.in || r?.in); return t ? (Date.now()-t)/3600e3 : 0; }
+attOpenRec = function(p){ const cut = Date.now() - 7*864e5;
+  return ATTLOG.filter(r=>r.person===p && r.in && !r.out).map(r=>({r, s:toMs(attSessions(r).slice(-1)[0]?.in||r.in)||0})).filter(x=>x.s>cut).sort((a,b)=>b.s-a.s)[0]?.r || null; };
+workedMins = function(r){
+  if(!r?.in) return 0;
+  const S_ = attSessions(r);
+  if(S_.every(x=>toMs(x.in))){ let t = 0;
+    S_.forEach(x=>{ const a = toMs(x.in); let b = x.out ? toMs(x.out) : (!r.out ? Date.now() : null);
+      if(!x.out && b && (b-a) > ATT_LIVE_H*3600e3) b = null;                 /* forgotten time out: not counted until corrected */
+      if(x.out && b && (b-a) > ATT_REVIEW_H*3600e3 && !r.corrected && !x.ok) b = null;   /* 20 h+ session: HR / COO confirms it first */
+      if(a && b) t += Math.max(0, (b-a)/60000); });
+    return Math.max(0, t - breakMins(r)); }
+  const a=toMs(r.in), b=r.out?toMs(r.out):(r.date===manilaDate()?Date.now():null);
+  if(a && b) return Math.max(0,(b-a)/60000 - breakMins(r));
+  const mi=manilaMins(r.in), mo=manilaMins(r.out); return (mi!=null&&mo!=null)? Math.max(0,mo-mi-breakMins(r)) : 0; };
+const attLongSess = r => attSessions(r).some(x=>{ const a = toMs(x.in), b = x.out ? toMs(x.out) : null; return a && b && (b-a) > ATT_REVIEW_H*3600e3 && !x.ok; }) && !r.corrected;
+
+/* local outbox: the last change to my own record is kept on this device until the server has it */
+const ATTQ_KEY = () => 'cc-att-outbox-'+PERSON;
+function attQRead(){ try{ return JSON.parse(localStorage.getItem(ATTQ_KEY())||'null'); }catch(e){ return null; } }
+function attQWrite(r){ try{ localStorage.setItem(ATTQ_KEY(), JSON.stringify({id:r.id, rec:r, at:Date.now()})); }catch(e){} }
+function attQClear(id){ try{ const q = attQRead(); if(q && (!id || q.id===id)) localStorage.removeItem(ATTQ_KEY()); }catch(e){} }
+const attLastT = r => (r?.events||[]).reduce((m, e)=>e.t > m ? e.t : m, '') || r?.out || attSessions(r).slice(-1)[0]?.in || r?.in || '';
+const ATT_SAVE = {state:'', why:'', id:''};
+async function attConfirmSave(r){
+  ATT_SAVE.state = 'saving'; ATT_SAVE.id = r.id; attSaveLine();
+  try{ const v = await avSaved([mk('attendance', r.id)], 20000);
+    if(v.ok){ ATT_SAVE.state = 'saved'; attQClear(r.id); }
+    else { ATT_SAVE.state = v.refused ? 'refused' : 'retry'; ATT_SAVE.why = v.why || '';
+      if(!v.refused) setTimeout(()=>{ try{ recordChange(); SYNC.flush?.(); attConfirmSave(r); }catch(e){} }, 8000); } }
+  catch(e){ ATT_SAVE.state = 'retry'; ATT_SAVE.why = e.message; }
+  attSaveLine(); }
+function attSaveLine(){ const t = ATT_SAVE.state==='saving' ? '⏳ Saving your time record…' : ATT_SAVE.state==='saved' ? '✓ Saved — it stays after a refresh and on every device' : ATT_SAVE.state==='retry' ? `⚠ Not confirmed by the server yet (${ATT_SAVE.why||'connection'}). It is kept on this device and retried automatically — don’t press Time In again.` : ATT_SAVE.state==='refused' ? `⚠ The server refused this change: ${ATT_SAVE.why}. Your session is kept on this device; ask HR or the COO to correct the record.` : '';
+  document.querySelectorAll('.att-saveline').forEach(x=>{ x.textContent = t; x.className = 'att-saveline hint '+(ATT_SAVE.state==='saved'?'ok':ATT_SAVE.state?'warn':''); }); }
+/* on start / sign-in / reconnect: anything still in the outbox goes back in, unless the server already has the same or newer */
+function attQRestore(){
+  if(!PEOPLE[PERSON] || !SYNC?.ready || (typeof LIVE_BG!=='undefined' && LIVE_BG.on)) return false; const q = attQRead(); if(!q?.rec || q.rec.person!==PERSON) return false;
+  if(Date.now() - q.at > 3*864e5){ attQClear(); return false; }
+  const cur = ATTLOG.find(r=>r.id===q.id);
+  if(cur && attLastT(cur) >= attLastT(q.rec)){ attQClear(q.id); return false; }
+  if(cur) Object.assign(cur, JSON.parse(JSON.stringify(q.rec))); else ATTLOG.push(JSON.parse(JSON.stringify(q.rec)));
+  recordChange(); try{ SYNC.flush?.(); }catch(e){} attConfirmSave(cur || q.rec); try{ attRefresh(); }catch(e){}
+  toast('Restored your time record from this device (it had not reached the server yet)'); return true; }
+{ const _sp = setPerson; setPerson = function(){ const r = _sp.apply(this, arguments); setTimeout(attQRestore, 2500); setTimeout(attQRestore, 12000); return r; }; }
+window.addEventListener('online', ()=>setTimeout(attQRestore, 1500));
+setInterval(()=>{ try{ attQRestore(); }catch(e){} }, 45000);
+/* an older copy of my own open record (another tab / device) never rolls back a newer Time In / Break / Time Out */
+{ const _ar = SYNC.applyRemote; SYNC.applyRemote = function(ups, dels){
+    try{ const mine = []; ups = (ups||[]).filter(r=>{ if(r.collection!=='attendance' || r.data?.person!==PERSON) return true; const loc = ATTLOG.find(x=>x.id===String(r.id)); if(!loc) return true;
+        if(r.data.corrected && JSON.stringify(r.data.corrected)!==JSON.stringify(loc.corrected)) return true;   /* an HR / COO correction always wins */
+        if(attLastT(r.data) < attLastT(loc)){ mine.push(loc); return false; } return true; });
+      if(mine.length) setTimeout(()=>{ mine.forEach(l=>{ const k = mk('attendance', l.id); SYNC.pending.set(k, {op:'up', c:'attendance', id:l.id}); }); SYNC.schedule(); }, 0); }catch(e){ console.warn('att guard', e); }
+    return _ar.call(this, ups, dels); }; }
+
+/* Time In / Break / Time Out: robust records, overnight continuation for PMs, outbox + save confirmation */
+{ const _do = attDo; attDo = function(kind, opts){
+    let r0 = attRec(PERSON); if(r0){ r0.events = r0.events || []; r0.breaks = r0.breaks || []; }
+    if(kind==='in' && attFlex(PERSON) && !(r0 && r0.in && !r0.out)){
+      const d = manilaDate(), y = shiftDate(d, -1), prev = ATTLOG.find(x=>x.id===attId(PERSON, y)), today = ATTLOG.find(x=>x.id===attId(PERSON, d));
+      const lastOut = prev?.out ? toMs(prev.out) : null, req = +apCfg().requiredMins || 480;
+      if(prev && lastOut && !today?.in && !attDayRec(PERSON, y) && Date.now()-lastOut < ATT_CONT_H*3600e3 && mNow() < ATT_CONT_UNTIL && workedMins(prev) < req){
+        const now = nowISO(), cl = attPickClient(opts), pj = (opts.project ?? el('attProject')?.value ?? '').trim();
+        prev.sessions = [...attSessions(prev), {in:now, out:null}]; prev.out = null; prev.client = cl; prev.project = pj; prev.events = prev.events||[]; prev.breaks = prev.breaks||[];
+        prev.events.push({t:now, kind:'Time in', client:cl, project:pj, session:prev.sessions.length, note:'Overnight: continues the '+dShort(y)+' workday'});
+        notify(clockInRecipients(PERSON), 'clockin', `🟢 <b>${esc(first(PERSON))}</b> timed in again at ${clock(now)} — continuing the ${esc(dShort(y))} workday (overnight)`, {view:'attendance'});
+        toast(`Timed in at ${clock(now)} — counts toward your ${dShort(y)} workday (${apHM(workedMins(prev))} so far)`); return true; } }
+    if(kind==='out' && r0 && r0.in && !r0.out && attSessAgeH(r0) > ATT_REVIEW_H && !confirm(`You timed in ${Math.round(attSessAgeH(r0))} hours ago. Time out now? The record will be flagged for HR / COO review.`)) return false;
+    return _do.apply(this, arguments); }; }
+{ const _aa = attAct; attAct = function(kind, opts){ const before = JSON.stringify(attRec(PERSON)||null); const res = _aa.apply(this, arguments);
+    try{ const r = attRec(PERSON) || ATTLOG.filter(x=>x.person===PERSON).sort((a,b)=>attLastT(b).localeCompare(attLastT(a)))[0];
+      if(r && JSON.stringify(r)!==before){ attQWrite(r); attConfirmSave(r); } }catch(e){ console.warn('att outbox', e); }
+    return res; }; }
+{ const _p = attPanelHTML; attPanelHTML = function(){ let h = _p.apply(this, arguments); const r = attRec(PERSON);
+    const extra = (r?.in && !r.out && attSessAgeH(r) > 16 ? `<div class="att-warn">⏰ This session started ${Math.round(attSessAgeH(r))} hours ago${r.date!==manilaDate()?` (${dShort(r.date)})`:''}. If you forgot to time out, time out now and ask HR / the COO to correct the time.</div>` : '')
+      + (r?.in && r.date!==manilaDate() && attFlex(PERSON) ? `<div class="hint" style="margin-top:6px">🌙 Overnight shift: these hours count toward your <b>${esc(dLong(r.date))}</b> workday.</div>` : '');
+    return h.replace(/<\/div><\/div>\s*$/, `${extra}<div class="att-saveline hint"></div></div></div>`); }; }
+{ const _ar2 = attRefresh; attRefresh = function(){ const r = _ar2.apply(this, arguments); try{ attSaveLine(); }catch(e){} return r; }; }
+{ const _sr = scheduleRender; scheduleRender = function(){ const r = _sr.apply(this, arguments); setTimeout(()=>{ try{ attSaveLine(); }catch(e){} }, 200); return r; }; }
+
+/* ---------- 2. flexible workday: overnight hours, finalization at noon the next day ---------- */
+/* an older split record (time out before midnight, time in again soon after) is counted toward the day it continues */
+function attContMins(k, d){
+  const r = ATTLOG.find(x=>x.id===attId(k, d)), n = ATTLOG.find(x=>x.id===attId(k, shiftDate(d, 1))); if(!r?.out || !n?.in) return 0;
+  let prevOut = toMs(r.out), mins = 0; const ss = attSessions(n).slice().sort((a,b)=>toMs(a.in)-toMs(b.in));
+  for(const s of ss){ const a = toMs(s.in), b = s.out ? toMs(s.out) : null; if(!a || !b || a - prevOut > ATT_CONT_H*3600e3 || manilaMins(s.in) >= ATT_CONT_UNTIL || manilaDate(new Date(a))!==shiftDate(d, 1)) break;
+    const br = (n.breaks||[]).reduce((t, x)=>{ const xs = toMs(x.s), xe = toMs(x.e); return xs && xe && xs>=a && xe<=b ? t + (xe-xs)/60000 : t; }, 0);
+    mins += Math.max(0, (b-a)/60000 - br); prevOut = b; }
+  return mins; }
+function attFlexMins(k, d){ const r = ATTLOG.find(x=>x.id===attId(k, d)); const req = +apCfg().requiredMins || 480; let own = r ? workedMins(r) : 0;
+  const fwd = own < req ? attContMins(k, d) : 0; const back = (()=>{ const p = ATTLOG.find(x=>x.id===attId(k, shiftDate(d, -1))); return p && workedMins(p) < req ? attContMins(k, shiftDate(d, -1)) : 0; })();
+  return {own, fwd, back, total:Math.max(0, own + fwd - back)}; }
+const attFlexFinalAt = d => new Date(`${shiftDate(d, 1)}T12:00:00+08:00`).getTime();
+{ const _ev = attEval; attEval = function(k, date, nowMs=Date.now()){
+    const out = _ev.apply(this, arguments); const sc = apSched(k); if(!out || sc?.type!=='flexible') return out;
+    if(/leave|Holiday|Rest day|Excused|Official/i.test(out.status||'')) return out;
+    if(sc.auto && date < (sc.since||'2026-11-05')){ out.status = 'Not tracked yet'; out.proposed = null; out.preview = null; return out; }
+    const req = out.req || (+apCfg().requiredMins || 480), M = attFlexMins(k, date), r = ATTLOG.find(x=>x.id===attId(k, date));
+    const open = !!(r?.in && !r.out), done = nowMs >= attFlexFinalAt(date), prod = M.total;
+    out.prodMins = Math.round(prod); out.proposed = null; out.preview = null; out.tags = out.tags.filter(t=>!/Late|Tardy|On time/.test(t)); out.flags = out.flags.filter(f=>f!=='Missing time-out');
+    if(M.fwd) out.tags.push(`${apHM(M.fwd)} after midnight counted (overnight)`); if(M.back) out.tags.push(`${apHM(M.back)} counted toward ${dShort(shiftDate(date, -1))} (overnight)`);
+    if(r && attLongSess(r)) out.flags.push('Session over 20 hours — needs HR / COO review');
+    if((!out.firstIn && !M.back && !prod) || (M.back && prod < 1 && M.own - M.back < 1)){   /* nothing worked that wasn't the previous night's shift */ out.status = done ? 'Absent' : (date===manilaDate(new Date(nowMs)) ? 'Not in yet' : 'Not in yet'); if(done) out.proposed = attPropose(k, 'absent', 'No time in for the workday', req, 0); return out; }
+    if(prod >= req){ out.status = 'Complete — 8h'; return out; }
+    if(open && done) out.flags.push('Missing time-out');
+    if(!done){ out.status = open ? 'Working' : 'Timed out'; out.progress = true; out.preview = attPropose(k, 'incomplete', `Only ${apHM(prod)} of ${apHM(req)} so far (the workday closes at 12:00 noon the next day)`, req, prod); return out; }
+    if(attLongSess(r)){ out.status = 'Needs review'; return out; }   /* no deduction until the long session is confirmed or corrected */
+    out.status = 'Incomplete Hours'; out.proposed = attPropose(k, 'incomplete', `${apHM(prod)} productive time of the required ${apHM(req)} for the workday (overnight hours included)${out.flags.includes('Missing time-out')?' (no time-out recorded)':''}`, req, prod);
+    return out; }; }
+/* finalization: fixed schedules after midnight as before; flexible PMs at 12:00 noon the next day; open shifts wait */
+{ const _bg = attFinalize; attFinalize = function(force){
+    if(typeof LIVE_BG!=='undefined' && LIVE_BG.on) return 0;
+    if(!SYNC?.ready || !PEOPLE[PERSON] || !(apIsHr() || isFinance())) return 0; if(!force && Date.now()-AP_FIN_AT < 60000) return 0; AP_FIN_AT = Date.now();
+    const today = manilaDate(), since = apCfg().since || AP_SINCE; let n = 0;
+    apCovered().forEach(k=>{ const sc = apSched(k); if(!sc) return; for(let d = shiftDate(today, -40); d < today; d = shiftDate(d, 1)){ if(d < since || (sc.auto && d < (sc.since||since))) continue; const id = `AD|${k}|${d}`; if(ATTDAY.some(x=>x.id===id)) continue;
+        if(sc.type==='flexible' && Date.now() < attFlexFinalAt(d)) continue;
+        const r = ATTLOG.find(x=>x.id===attId(k, d)); if(r?.in && !r.out && attSessAgeH(r) < ATT_LIVE_H) continue;   /* a shift still running */
+        const e = attEval(k, d); if(!e) continue;
+        ATTDAY.push({...e, finalized:true, finalizedAt:nowISO(), by:'system', history:[{at:nowISO(), by:'system', act:sc.type==='flexible'?'Finalized at 12:00 noon the next day (flexible workday)':'Finalized at the daily cutoff', note:e.status + (e.proposed?` · proposed deduction ₱${e.proposed.amount}`:'')}]}); n++;
+        if(e.proposed) notify([k], 'attpay', `🕛 ${dLong(d)}: <b>${esc(e.status)}</b> — ${esc(e.proposed.reason)}. A deduction of ₱${e.proposed.amount} is proposed for payroll review. Talk to HR if this is wrong.`, {view:'attendance'}); } });
+    if(n){ notify(uniq([...HR_KEYS(), ...financeKeys()]), 'attpay', `🕛 ${n} attendance day${n>1?'s':''} finalized (${ATTDAY.filter(x=>x.proposed && !x.reviewedAt).length} with a proposed deduction to review).`, {view:'attreview'}); recordChange(); }
+    attRecheck(); return n; }; }
+/* finalized days of flexible PMs (and any day whose time out arrived after the cutoff) are re-checked with the current
+   rule — only ever in the employee's favour; every change is written to the day's history */
+const AT_RANK = s => /Complete|On Time|^Late|Tardy/.test(s||'') ? 3 : /Needs review|Counted toward/.test(s||'') ? 2 : /Incomplete/.test(s||'') ? 1 : 0;
+function attRecheck(){
+  if(!SYNC?.ready || !PEOPLE[PERSON] || !(apIsHr() || isHead(PERSON))) return 0; let n = 0;
+  ATTDAY.filter(x=>x.finalized && !/leave|Holiday|Rest|Excused|Official/i.test(x.status||'')).forEach(x=>{ const sc = apSched(x.person); if(!sc) return;
+    const flex = sc.type==='flexible'; const e = attEval(x.person, x.date); if(!e) return;
+    const better = AT_RANK(e.status) > AT_RANK(x.status) || (AT_RANK(e.status)===AT_RANK(x.status) && (e.prodMins||0) > (x.prodMins||0) + 1 && (!!x.proposed === !!e.proposed || !e.proposed));
+    if(!better) return; if(!flex && !(x.flags||[]).includes('Missing time-out') && (e.prodMins||0) <= (x.prodMins||0)) return;
+    const prev = x.status + (x.proposed?` · ₱${x.proposed.amount}`:'');
+    Object.assign(x, e, {finalized:true, history:[...(x.history||[]), {at:nowISO(), by:PERSON, act:flex?'Re-checked: flexible PM workday (overnight hours counted)':'Re-checked: time out recorded after the cutoff', note:`${prev} → ${e.status}${e.proposed?` · ₱${e.proposed.amount}`:' · no deduction'} · ${apHM(e.prodMins)} productive`}]}); n++;
+    notify([x.person], 'attpay', `✅ ${dLong(x.date)} re-checked: <b>${esc(e.status)}</b> (${apHM(e.prodMins)}).`, {view:'attendance'}); });
+  if(n){ recordChange(); notify(uniq([...HR_KEYS(), cooKey()]).filter(k=>k && k!==PERSON), 'attpay', `🔁 ${n} attendance day${n>1?'s':''} re-checked with the flexible PM / overnight rule.`, {view:'attmon'}); }
+  return n; }
+{ const _ore = onRemoteEvent; let t = 0; onRemoteEvent = function(ev){ _ore.apply(this, arguments); if(ev?.coll==='attendance' && (apIsHr() || isHead(PERSON))){ clearTimeout(t); t = setTimeout(()=>{ try{ attRecheck(); }catch(e){} }, 1500); } }; }
+/* HR / COO corrections: overnight times (a time out earlier than the time in is the next morning) */
+attCorrect = function(k, d, inT, outT, brk, note, opts={}){
+  if(!(apIsHr() || isHead(PERSON))) throw new Error('Only HR, the COO or a company head corrects attendance records.'); if(String(note||'').trim().length < 3) throw new Error('Give the reason for the correction.');
+  const iso = (t, dd) => t ? new Date(`${dd}T${t}:00+08:00`).toISOString() : null; const a = iso(inT, d); if(!a) throw new Error('Enter the time in.');
+  let b = iso(outT, d); if(b && b <= a) b = iso(outT, shiftDate(d, 1));   /* overnight */
+  if(b && (toMs(b)-toMs(a)) > ATT_LIVE_H*3600e3) throw new Error('A shift can’t be longer than 24 hours.');
+  let r = ATTLOG.find(x=>x.id===attId(k, d)); if(!r){ r = {id:attId(k, d), person:k, date:d, in:null, out:null, breaks:[], client:'', project:'', events:[]}; ATTLOG.push(r); }
+  const before = `${showT(r.in)}–${showT(r.out)}${r.out && manilaDate(new Date(toMs(r.out)))!==d?' (next day)':''}, break ${Math.round(breakMins(r))} min, ${apHM(workedMins(r))}`;
+  r.in = a; r.out = b; r.sessions = [{in:a, out:b, ok:true}]; const bm = Math.max(0, +brk||0); const mid = b ? (toMs(a)+toMs(b))/2 : toMs(a)+4*3600e3;
+  r.breaks = bm ? [{s:new Date(mid - bm*30000).toISOString(), e:new Date(mid + bm*30000).toISOString()}] : [];
+  r.corrected = {by:PERSON, at:nowISO(), reason:note.trim(), before, approvedBy:opts.approvedBy||PERSON, request:opts.request||null}; (r.events = r.events||[]).push({t:nowISO(), kind:'Corrected', note:note.trim(), by:PERSON});
+  const after = `${inT}–${outT||'—'}${b && manilaDate(new Date(toMs(b)))!==d?' (next day)':''}, break ${bm} min, ${apHM(workedMins(r))}`;
+  attReeval(k, d, opts.request ? 'Correction approved by the COO' : 'Corrected', `${before} → ${after} — ${note.trim()}`);
+  (r.audit = r.audit||[]).push({at:nowISO(), by:PERSON, before, after, reason:note.trim(), request:opts.request||null});
+  notify([k], 'attpay', `🗂 Your time record for ${dLong(d)} was corrected: ${esc(after)} (${esc(note.trim())}).`, {view:'attendance'}); recordChange(); return r; };
+/* wording on the employee's screens */
+{ const _ph = attProgressHTML; attProgressHTML = function(k=PERSON){ const h = _ph.apply(this, arguments); return attFlex(k) ? h.replace('Flexible schedule — any start time, 8 productive hours by 11:59 PM', 'Flexible schedule — any start time, 8 productive hours per workday; hours after midnight count toward the day the shift started') : h; }; }
+{ const _mh = attMyHistoryHTML; attMyHistoryHTML = function(k=PERSON){ const h = _mh.apply(this, arguments); return attFlex(k) ? h.replace('finalized at 11:59 PM · ask HR to correct a wrong record', 'flexible workday · finalized at 12:00 noon the next day · ask for a correction if something is wrong') : h; }; }
+{ const _ex = attExceptions; attExceptions = function(date){ return _ex.apply(this, arguments).filter(x=>{ if(x.kind!=='Missing time out') return true; const r = attRec(x.k, date); return !(r && r.in && !r.out && attSessAgeH(r) < ATT_LIVE_H); }); }; }
+
+/* ---------- 3. COO Attendance Monitor ---------- */
+let ATTCORR = [];
+COLL.attcorr = {get:()=>ATTCORR, set:v=>ATTCORR=v, aud:x=>uniq([x.person, x.by, ...HR_KEYS(), ...HEADS, cooKey()]).filter(Boolean)};
+const amCoo = (k=PERSON) => k===cooKey() || isSysAdmin(k);
+const amCan = (k=PERSON) => !!PEOPLE[k] && (amCoo(k) || isHead(k) || ROLE==='hr' || lvIsHr(k));
+const AM = {tab:'live', date:null, from:null, to:null, preset:'week', who:''};
+function amPeople(){ return uniq([...allStaff(), ...apCovered()]).filter(k=>PEOPLE[k] && !['client','applicant'].includes(PEOPLE[k].role) && !empLeft(PEOPLE[k].status)).sort((a,b)=>pname(a).localeCompare(pname(b))); }
+function amSchedTxt(k){ const s = apSched(k); return !s ? 'Time logs only' : s.type==='fixed' ? `Fixed ${apT(hhmm(s.start))}–${apT(hhmm(s.end))}` : 'Flexible (PM)'; }
+/* the record that is "today" for a person right now: an open shift (even from yesterday), else today's */
+function amLive(k){ const r = attRec(k); const sc = apSched(k); const req = +apCfg().requiredMins || 480; const day = r?.date || manilaDate();
+  const prod = sc?.type==='flexible' ? attFlexMins(k, day).total : (r ? workedMins(r) : 0); const [st] = attState(r);
+  let status = st==='Not in' ? 'Not in' : st; if(prod >= req) status = r?.out ? 'Completed 8h' : status + ' · 8h done';
+  if(st==='Not in' && sc && sc.type==='fixed' && mNow() > hhmm(sc.start||'09:00') + (+apCfg().absentAfter||60) && !/Holiday|leave|Rest/i.test(attEval(k, manilaDate())?.status||'')) status = 'Absent (no time in)';
+  return {k, r, day, prod, req, pct:Math.min(100, Math.round(prod/req*100)), status, overnight:!!(r?.in && r.date!==manilaDate()), sc}; }
+const amBar = (p, ok) => `<div class="ap-bar sm" style="min-width:120px"><i style="width:${p}%;${ok?'background:var(--ok)':''}"></i></div>`;
+const amCls = s => /Absent/.test(s) ? 'b-missed' : /On break/.test(s) ? 'b-onbreak' : /Working/.test(s) ? 'b-working' : /Completed|8h done|Complete/.test(s) ? 'b-approved' : /Timed out/.test(s) ? 'b-timedout' : 'b-notin';
+function amTimes(r){ if(!r?.in) return '—'; const ss = attSessions(r);
+  return ss.map((s, i)=>`${clock(s.in)} → ${s.out?clock(s.out)+(manilaDate(new Date(toMs(s.out)))!==r.date?' <span class="hint">(+1 day)</span>':''):'<b>working</b>'}`).join('<br>') + ((r.breaks||[]).length?`<div class="hint">Breaks: ${r.breaks.map(b=>`${clock(b.s)}–${b.e?clock(b.e):'now'}`).join(', ')}</div>`:''); }
+function amDayRow(k, d){ const x = attDayRec(k, d) || attEval(k, d); const r = ATTLOG.find(y=>y.id===attId(k, d)); return {k, d, x, r}; }
+RENDER.attmon = function(){
+  const v = el('v-attmon'); if(!v) return; if(!amCan()){ v.innerHTML = '<div class="empty">The Attendance Monitor is for the COO, the company heads and HR.</div>'; return; }
+  try{ attFinalize(); }catch(e){}
+  const today = manilaDate(); AM.date = AM.date || today; if(!AM.from){ const r = attRange ? attRange(AM.preset) : [shiftDate(today,-6), today]; AM.from = r[0]; AM.to = r[1]; }
+  const ppl = amPeople(); const L = ppl.map(amLive); const pend = ATTCORR.filter(c=>c.status==='Pending');
+  const cnt = f => L.filter(f).length;
+  const tabs = [['live','Live now'],['records','Time records'],['pm','Project Managers'],['history','History & reports'],['corr',`Corrections${pend.length?` (${pend.length})`:''}`]];
+  let body = '';
+  if(AM.tab==='live'){
+    body = `<div class="grid cols-4" style="margin-bottom:14px">${[['Working', cnt(x=>/Working/.test(x.status))],['On break', cnt(x=>/On break/.test(x.status))],['Completed 8h', cnt(x=>x.prod>=x.req)],['Timed out', cnt(x=>/Timed out/.test(x.status))],['Not in yet', cnt(x=>x.status==='Not in')],['Absent (fixed schedule)', cnt(x=>/Absent/.test(x.status))],['Overnight shifts', cnt(x=>x.overnight)],['Corrections to review', pend.length]].map(([l,n])=>`<div class="card"><div class="card-b"><div class="k-label">${l}</div><div style="font-size:24px;font-weight:700">${n}</div></div></div>`).join('')}</div>
+      <div class="card"><div class="card-h"><h3>Everyone · live</h3><span class="sub">updates automatically · Philippine time</span></div><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Employee</th><th>Schedule</th><th>Status</th><th>Time in → out</th><th>Worked / 8h</th><th></th></tr></thead><tbody>
+      ${L.map(x=>`<tr><td>${av(P(x.k))} <b>${esc(pname(x.k))}</b><div class="hint">${esc(P(x.k).sub||'')}</div></td><td class="hint">${esc(amSchedTxt(x.k))}</td><td><span class="badge ${amCls(x.status)}">${esc(x.status)}</span>${x.overnight?`<div class="hint">🌙 overnight · workday ${esc(dShort(x.day))}</div>`:''}${x.r && attLongSess(x.r)?'<div class="hint" style="color:var(--bad)">session over 20 h — review</div>':''}</td>
+        <td style="font-size:12.5px">${amTimes(x.r)}</td><td>${amBar(x.pct, x.prod>=x.req)}<span class="hint" data-amw="${x.k}">${apHM(x.prod)} · ${x.pct}%</span></td><td><button class="btn sm" onclick="AM.tab='records';AM.who='${x.k}';RENDER.attmon()">Records</button></td></tr>`).join('')}</tbody></table></div></div>`;
+  } else if(AM.tab==='records'){
+    const who = AM.who ? [AM.who] : ppl;
+    body = `<div class="card" style="margin-bottom:12px"><div class="card-b ap-filt"><button class="btn sm" onclick="AM.date=shiftDate(AM.date,-1);RENDER.attmon()">← Prev day</button><input type="date" value="${AM.date}" onchange="AM.date=this.value;RENDER.attmon()"><button class="btn sm" ${AM.date>=today?'disabled':''} onclick="AM.date=shiftDate(AM.date,1);RENDER.attmon()">Next day →</button>
+      <select onchange="AM.who=this.value;RENDER.attmon()"><option value="">Everyone</option>${ppl.map(k=>`<option value="${k}" ${AM.who===k?'selected':''}>${esc(pname(k))}</option>`).join('')}</select></div></div>
+      <div class="card"><div class="card-h"><h3>Time records · ${esc(dLong(AM.date))}</h3><span class="sub">exact timestamps, breaks excluded from worked time</span></div><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Employee</th><th>Sessions (in → out)</th><th>Breaks</th><th>Worked</th><th>Day status</th><th>History</th><th></th></tr></thead><tbody>
+      ${who.map(k=>{ const {x, r} = amDayRow(k, AM.date); const M = attFlex(k) ? attFlexMins(k, AM.date) : null;
+        return `<tr><td><b>${esc(pname(k))}</b><div class="hint">${esc(amSchedTxt(k))}</div></td><td style="font-size:12.5px">${amTimes(r)}</td><td>${r?Math.round(breakMins(r))+' min':'—'}</td><td><b>${apHM(x?.prodMins ?? (r?workedMins(r):0))}</b>${M&&(M.fwd||M.back)?`<div class="hint">${M.fwd?'+'+apHM(M.fwd)+' after midnight':''}${M.back?' −'+apHM(M.back)+' to previous day':''}</div>`:''}</td>
+          <td>${x?apStatusBadge(x):'—'}${x?.flags?.length?`<div class="hint">${esc(x.flags.join(' · '))}</div>`:''}${x?.finalized?'<div class="hint">finalized</div>':''}</td>
+          <td class="hint" style="max-width:260px;font-size:11.5px">${[...(r?.audit||[]).map(a=>`${dtstr(a.at)} ${pname(a.by)}: ${a.before} → ${a.after} (${a.reason})`), ...(x?.history||[]).slice(-3).map(h=>`${dtstr(h.at)} ${h.by==='system'?'System':pname(h.by)}: ${h.act}`)].map(esc).join('<br>')||'—'}</td>
+          <td style="white-space:nowrap">${amCoo()||apIsHr()?`<button class="btn sm" onclick="amCorrModal('${k}','${AM.date}')">Correct…</button>`:''}</td></tr>`; }).join('')}</tbody></table></div></div>`;
+  } else if(AM.tab==='pm'){
+    const pms = ppl.filter(attFlex); const days = Array.from({length:7}, (_, i)=>shiftDate(today, -6+i));
+    body = `<div class="card"><div class="card-h"><h3>Project Managers · flexible workdays</h3><span class="sub">8 productive hours per workday · overnight hours count toward the day the shift started · finalized at 12:00 noon the next day</span></div><div class="tbl-wrap"><table class="tbl"><thead><tr><th>PM</th><th>Now</th>${days.map(d=>`<th>${esc(dShort(d))}</th>`).join('')}</tr></thead><tbody>
+      ${pms.map(k=>{ const x = amLive(k); return `<tr><td><b>${esc(pname(k))}</b><div class="hint">${esc(P(k).sub||'')}</div></td><td><span class="badge ${amCls(x.status)}">${esc(x.status)}</span>${x.overnight?'<div class="hint">🌙 overnight</div>':''}${amBar(x.pct, x.prod>=x.req)}<span class="hint">${apHM(x.prod)}</span></td>
+        ${days.map(d=>{ const {x:e, r} = amDayRow(k, d); const night = r && attSessions(r).some(s=>s.out && manilaDate(new Date(toMs(s.out)))!==d) || attFlexMins(k, d).fwd; return `<td style="font-size:12px">${e?apStatusBadge(e):'—'}<div class="hint">${apHM(e?.prodMins||0)}${night?' 🌙':''}</div></td>`; }).join('')}</tr>`; }).join('') || `<tr><td colspan="9" class="hint">No Project Managers on a flexible schedule.</td></tr>`}</tbody></table></div></div>`;
+  } else if(AM.tab==='history'){
+    const D = []; for(let d = AM.from; d <= AM.to; d = shiftDate(d, 1)) D.push(d);
+    const rows = ppl.map(k=>{ const E = D.map(d=>amDayRow(k, d)); const ex = E.map(z=>z.x).filter(Boolean);
+      return {k, worked:E.filter(z=>z.r?.in).length, mins:ex.reduce((s, x)=>s+(x.prodMins||0),0) || E.reduce((s,z)=>s+(z.r?workedMins(z.r):0),0), complete:ex.filter(x=>/Complete|On Time|^Late|Tardy/.test(x.status)).length,
+        absent:ex.filter(x=>x.status==='Absent').length, late:ex.filter(x=>(x.tags||[]).some(t=>/^Late/.test(t))).length, tardy:ex.filter(x=>(x.tags||[]).some(t=>/^Tardy/.test(t))).length, inc:ex.filter(x=>x.status==='Incomplete Hours').length, review:ex.filter(x=>/Needs review/.test(x.status)).length}; });
+    AM.lastReport = {rows, from:AM.from, to:AM.to};
+    body = `<div class="card" style="margin-bottom:12px"><div class="card-b ap-filt"><select onchange="AM.preset=this.value;const r=attRange(this.value);AM.from=r[0];AM.to=r[1];RENDER.attmon()">${[['today','Today'],['week','This week'],['month','This month'],['lastmonth','Last month']].map(([k,l])=>`<option value="${k}" ${AM.preset===k?'selected':''}>${l}</option>`).join('')}</select>
+      <label>From <input type="date" value="${AM.from}" onchange="AM.from=this.value;RENDER.attmon()"></label><label>To <input type="date" value="${AM.to}" onchange="AM.to=this.value;RENDER.attmon()"></label><button class="btn" style="margin-left:auto" onclick="amCSV()">⬇ Download report (CSV)</button></div></div>
+      <div class="card"><div class="card-h"><h3>Attendance summary</h3><span class="sub">${esc(dLong(AM.from))} – ${esc(dLong(AM.to))}</span></div><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Employee</th><th>Schedule</th><th>Days worked</th><th>Completed workdays</th><th>Total hours</th><th>Absences</th><th>Late</th><th>Tardy</th><th>Incomplete</th><th>To review</th></tr></thead><tbody>
+      ${rows.map(s=>`<tr><td><b>${esc(pname(s.k))}</b></td><td class="hint">${esc(amSchedTxt(s.k))}</td><td>${s.worked}</td><td>${s.complete}</td><td>${apHM(s.mins)}</td><td>${s.absent}</td><td>${s.late}</td><td>${s.tardy}</td><td>${s.inc}</td><td>${s.review}</td></tr>`).join('')}</tbody></table></div></div>`;
+  } else {
+    const all = ATTCORR.slice().sort((a,b)=>(a.status==='Pending'?0:1)-(b.status==='Pending'?0:1) || (b.at||'').localeCompare(a.at||''));
+    body = `<div class="card"><div class="card-h"><h3>Attendance corrections</h3>${amCoo()||apIsHr()?`<button class="btn primary" onclick="amCorrModal('', '${shiftDate(today,-1)}')">+ New correction</button>`:''}</div><div class="card-b hint">Requests from employees or HR, approved by the COO. Every approval keeps the reason, who asked, who approved, and the record before and after; the day is re-evaluated and payroll follows.</div>
+      <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Requested</th><th>Employee · day</th><th>Correct to</th><th>Reason</th><th>Status</th><th></th></tr></thead><tbody>
+      ${all.map(c=>`<tr><td class="hint">${esc(dtstr(c.at))}<br>${esc(pname(c.by))}</td><td><b>${esc(pname(c.person))}</b><div class="hint">${esc(dLong(c.date))}</div></td><td>${esc(c.inT)} → ${esc(c.outT||'—')}${c.outT && c.outT<=c.inT?' (next day)':''} · break ${c.brk||0} min</td><td style="max-width:280px">${esc(c.reason)}</td>
+        <td><span class="badge ${c.status==='Approved'?'b-approved':c.status==='Rejected'?'b-missed':'b-pending'}">${esc(c.status)}</span>${c.decidedBy?`<div class="hint">${esc(pname(c.decidedBy))} · ${esc(dtstr(c.decidedAt))}${c.note?' · '+esc(c.note):''}</div>`:''}</td>
+        <td style="white-space:nowrap">${c.status==='Pending' && amCoo() ? `<button class="btn sm primary" onclick="amDecide('${c.id}',true)">Approve</button> <button class="btn sm" onclick="amDecide('${c.id}',false)">Reject</button>` : ''}</td></tr>`).join('') || '<tr><td colspan="6" class="hint">No correction requests yet.</td></tr>'}</tbody></table></div></div>`;
+  }
+  v.innerHTML = `<div class="page-head"><div><h2>Attendance Monitor</h2><p>Company-wide time records, live status and progress to 8 hours, Project Manager overnight shifts, history, reports and COO-approved corrections. Philippine time (Asia/Manila).</p></div></div>
+    <div class="rec-tabs">${tabs.map(([k,l])=>`<button class="${AM.tab===k?'on':''}" onclick="AM.tab='${k}';RENDER.attmon()">${l}</button>`).join('')}</div>${body}`; };
+setInterval(()=>{ try{ if(CURRENT==='attmon' && AM.tab==='live' && !el('modal').classList.contains('open')) document.querySelectorAll('[data-amw]').forEach(s=>{ const x = amLive(s.dataset.amw); s.textContent = `${apHM(x.prod)} · ${x.pct}%`; const b = s.previousElementSibling?.querySelector('i'); if(b) b.style.width = x.pct+'%'; }); }catch(e){} }, 30000);
+function amCorrModal(k, d){ const r = k ? ATTLOG.find(x=>x.id===attId(k, d)) : null; const t = v => { const m = v ? manilaMins(v) : null; return m==null ? '' : `${String(Math.floor(m/60)).padStart(2,'0')}:${String(m%60).padStart(2,'0')}`; };
+  const direct = amCoo();
+  openModal(direct ? 'Correct a time record' : 'Request an attendance correction', `${k?'':`<div class="field"><label>Employee</label><select id="amcK">${amPeople().map(p=>`<option value="${p}">${esc(pname(p))}</option>`).join('')}</select></div>`}
+    <div class="grid cols-2"><div class="field"><label>Workday</label><input id="amcD" type="date" value="${d}"></div><div class="field"><label>Total unpaid break (minutes)</label><input id="amcB" type="number" min="0" value="${Math.round(r?breakMins(r):60)}"></div>
+      <div class="field"><label>Time in</label><input id="amcI" type="time" value="${t(r?attFirstIn(r):null)}"></div><div class="field"><label>Time out <span class="hint">(earlier than time in = the next morning)</span></label><input id="amcO" type="time" value="${t(r?.out)}"></div></div>
+    <div class="field"><label>Reason and how it was verified *</label><textarea id="amcR" rows="3" placeholder="e.g. Worked 9:00 PM – 6:00 AM; the time out did not save (confirmed in the team chat and the client report)"></textarea></div>
+    ${r?`<div class="hint" style="margin-bottom:8px">Current record: ${amTimes(r)} · ${apHM(workedMins(r))}</div>`:''}
+    <div class="cf-acts"><button class="btn" onclick="closeModal()">Cancel</button><button class="btn primary" onclick="amCorrSave('${k}')">${direct?'Correct & approve':'Send to the COO for approval'}</button></div>`); }
+function amCorrSave(k){ k = k || el('amcK')?.value; const c = {id:uid('AC'), person:k, date:el('amcD').value, inT:el('amcI').value, outT:el('amcO').value, brk:+el('amcB').value||0, reason:el('amcR').value.trim(), by:PERSON, at:nowISO(), status:'Pending'};
+  if(!k || !c.date || !c.inT) return toast('Choose the employee, the day and the time in'); if(c.reason.length < 5) return toast('Give the reason and how it was verified');
+  ATTCORR.push(c);
+  if(amCoo()){ try{ amApply(c); }catch(e){ ATTCORR = ATTCORR.filter(x=>x.id!==c.id); return toast(e.message); } }
+  else notify([cooKey()].filter(Boolean), 'approval', `🕘 Attendance correction for <b>${esc(pname(k))}</b> (${esc(dLong(c.date))}) — ${esc(c.reason)}`, {view:'attmon'});
+  recordChange(); closeModal(); if(CURRENT==='attmon') RENDER.attmon(); else RENDER[CURRENT]?.(); toast(amCoo()?'Corrected and approved — the day was re-evaluated':'Sent to the COO for approval'); }
+function amApply(c){ attCorrect(c.person, c.date, c.inT, c.outT, c.brk, c.reason, {approvedBy:PERSON, request:c.id}); c.status = 'Approved'; c.decidedBy = PERSON; c.decidedAt = nowISO(); }
+function amDecide(id, ok){ const c = ATTCORR.find(x=>x.id===id); if(!c || !amCoo()) return; const note = ok ? '' : (prompt('Why is it rejected?')||'').trim();
+  try{ if(ok) amApply(c); else { c.status = 'Rejected'; c.decidedBy = PERSON; c.decidedAt = nowISO(); c.note = note || 'Rejected'; } }catch(e){ return toast(e.message); }
+  notify([c.by, c.person].filter(k=>k && k!==PERSON), 'attpay', `🕘 Attendance correction for ${esc(dLong(c.date))} was <b>${c.status.toLowerCase()}</b> by the COO${c.note?': '+esc(c.note):''}.`, {view:'attendance'});
+  recordChange(); RENDER.attmon(); toast(ok?'Approved — the day was re-evaluated and payroll follows':'Rejected'); }
+function amCSV(){ const R = AM.lastReport; if(!R) return; const q = v => { v = String(v==null?'':v); return /[",\n]/.test(v) ? '"'+v.replace(/"/g,'""')+'"' : v; };
+  const head = ['Employee','Position','Schedule','Days worked','Completed workdays','Total hours','Absences','Late','Tardy','Incomplete','To review'];
+  const lines = [head].concat(R.rows.map(s=>[pname(s.k), P(s.k).sub||'', amSchedTxt(s.k), s.worked, s.complete, (s.mins/60).toFixed(2), s.absent, s.late, s.tardy, s.inc, s.review]));
+  const days = [['Date','Employee','Status','First time in','Last time out','Breaks (min)','Worked (h)','Flags']]; for(let d = R.from; d <= R.to; d = shiftDate(d, 1)) amPeople().forEach(k=>{ const {x, r} = amDayRow(k, d); if(!r?.in && !x?.finalized) return; days.push([d, pname(k), x?.status||'', r?.in?clock(attFirstIn(r)):'', r?.out?clock(r.out):'', r?Math.round(breakMins(r)):'', ((x?.prodMins ?? (r?workedMins(r):0))/60).toFixed(2), (x?.flags||[]).join('; ')]); });
+  const csv = lines.map(r=>r.map(q).join(',')).join('\r\n') + '\r\n\r\n' + days.map(r=>r.map(q).join(',')).join('\r\n');
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob(['﻿'+csv], {type:'text/csv'})); a.download = `Attendance ${R.from} to ${R.to}.csv`; document.body.appendChild(a); a.click(); a.remove(); }
+/* employees ask for a correction from their own history */
+{ const _mh2 = attMyHistoryHTML; attMyHistoryHTML = function(k=PERSON){ const h = _mh2.apply(this, arguments); if(!h || k!==PERSON) return h; return h.replace('</h3>', '</h3><button class="btn sm" style="margin-left:auto" onclick="amSelfReq()">Request a correction</button>'); }; }
+function amSelfReq(){ openModal('Request an attendance correction', `<div class="grid cols-2"><div class="field"><label>Workday</label><input id="amcD" type="date" value="${shiftDate(manilaDate(),-1)}"></div><div class="field"><label>Total unpaid break (minutes)</label><input id="amcB" type="number" min="0" value="60"></div>
+    <div class="field"><label>Time in</label><input id="amcI" type="time"></div><div class="field"><label>Time out <span class="hint">(earlier than time in = the next morning)</span></label><input id="amcO" type="time"></div></div>
+    <div class="field"><label>What happened *</label><textarea id="amcR" rows="3"></textarea></div><div class="cf-acts"><button class="btn" onclick="closeModal()">Cancel</button><button class="btn primary" onclick="amSelfSave()">Send to the COO</button></div>`); }
+function amSelfSave(){ const c = {id:uid('AC'), person:PERSON, date:el('amcD').value, inT:el('amcI').value, outT:el('amcO').value, brk:+el('amcB').value||0, reason:el('amcR').value.trim(), by:PERSON, at:nowISO(), status:'Pending'};
+  if(!c.date || !c.inT) return toast('Enter the day and the time in'); if(c.reason.length < 5) return toast('Say what happened');
+  ATTCORR.push(c); notify([cooKey(), ...HR_KEYS()].filter(k=>k && k!==PERSON), 'approval', `🕘 <b>${esc(pname(PERSON))}</b> asked for an attendance correction (${esc(dLong(c.date))}) — ${esc(c.reason)}`, {view:'attmon'}); recordChange(); closeModal(); toast('Sent to the COO'); }
+/* navigation */
+(function(){ const main = document.querySelector('main.main, main') || document.querySelector('.content'); const foot = el('footNote');
+  if(!el('v-attmon')){ const d = document.createElement('div'); d.id = 'v-attmon'; d.className = 'view'; (foot ? foot.parentNode : main).insertBefore(d, foot||null); }
+  const at = id => NAV.findIndex(n=>n.id===id); if(at('attmon')<0) NAV.splice((at('attendance')>=0?at('attendance'):0)+1, 0, {id:'attmon', name:'Attendance Monitor (COO)', roles:ALLR, ico:I.clock}); })();
+{ const _n = navAllowed; navAllowed = function(n){ if(n && n.id==='attmon') return !['client','applicant'].includes(ROLE) && amCan(); return _n.apply(this, arguments); }; }
+{ const _fl = followLink; followLink = function(link){ if(link && link.view==='attmon'){ closeOverlays(); go('attmon'); return; } return _fl.apply(this, arguments); }; }
+{ const _ore = onRemoteEvent; onRemoteEvent = function(ev){ _ore.apply(this, arguments); if(CURRENT==='attmon' && ['attendance','attday','attcorr','attexc'].includes(ev?.coll)) scheduleRender(); }; }
+(function(){ if(document.getElementById('attflexCss')) return; const s = document.createElement('style'); s.id = 'attflexCss';
+  s.textContent = '.att-warn{margin-top:10px;padding:9px 12px;border-radius:10px;background:var(--warn-bg);color:var(--warn);font-size:12.5px}.att-saveline{margin-top:6px;min-height:14px}.att-saveline.ok{color:var(--ok)}.att-saveline.warn{color:var(--warn)}';
+  document.head.appendChild(s); })();
 
 /* <<< OCT24 MODULES <<< */
 </script>

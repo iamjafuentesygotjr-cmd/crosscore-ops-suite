@@ -20916,7 +20916,7 @@ async function cooPostFromModal(){ const ch = CHATS.find(c=>c.id===el('paPostC')
    The footer shows which build is running ("Build 2026-10-07 · 1"), and every open portal checks every few minutes
    (and whenever it comes back to the foreground) whether a newer build has been published. If so it shows
    "New version available — Update now" instead of quietly running old code. */
-const BUILD_ID = '2026-11-05 · 1';
+const BUILD_ID = '2026-11-05 · 2';
 function verStamp(){ const f = el('footNote'); if(f && !f.dataset.v){ f.dataset.v = 1; f.textContent = `Cross Core Ops Suite v8 · Build ${BUILD_ID}`; } }
 async function verCheck(){
   if(!/^https?:/.test(location.protocol)) return;
@@ -38175,11 +38175,34 @@ function cpxReplyNotify(postId, toKey, text){ const t = TASKS.find(x=>x.id===pos
   if([t.assignee, t.createdBy].includes(toKey)) return;
   notify([toKey], 'message', `↩ ${esc(first(PERSON))} replied to your feedback on <b>${esc(t.title)}</b>: “${esc(String(text||'').slice(0, 120))}”`, {view:'cphub', task:t.id}); }
 
+/* what the hub page may call in the portal (the client board hands it a smaller set — see t23) */
+function cpxBrandsFor(hid){ const {cid} = cphSplit(hid); return cphBrands(client(cid)).map(b=>({id:`${cid}~${b.id}`, name:b.name})); }
+function cpxSetBrand(id, hid){ const t = TASKS.find(x=>x.id===id); if(!t) return {ok:false, error:'That post was deleted.'};
+  if(!canEditContent(t)) return {ok:false, error:'You can only change posts for clients you work on.'};
+  const {cid, brand} = cphSplit(hid); if(cid!==t.client || !brand || !cphBrands(client(cid)).some(b=>b.id===brand)) return {ok:false, error:'Choose one of this client’s brands.'};
+  t.hubBrand = brand; t.updatedAt = nowISO(); t.updatedBy = PERSON;
+  t.history = [...(t.history||[]), {by:pname(PERSON), who:PERSON, act:`Brand set to ${cphBrandName(cid, brand)}`, note:'', when:dtstr(nowISO()), at:nowISO()}];
+  recordChange(); cphBump(10); return {ok:true}; }
+function cpxHubApi(){ return {isGeneral:cpxIsGeneral, isMC:hid=>/market\s*crest/i.test(client(cphSplit(hid).cid)?.name||''), canDelete:cpxCanDelete, me:cpxMe,
+  msgTargets:cpxMsgTargets, sendPostMsg:cpxSendPostMsg, openChat:cpxOpenChat, replyNotify:cpxReplyNotify, fileUrl:cpxFileUrl,
+  pickFiles:o=>pickFiles(o), storeFile:f=>storeFile(f), File:window.File, brands:cpxBrandsFor, setBrand:cpxSetBrand}; }
+/* the planning week travels with the post (the Monday of the week it belongs to) */
+const cpxWeekOf = v => { const s = String(v||'').slice(0, 10); if(!/^\d{4}-\d{2}-\d{2}$/.test(s)) return ''; const d = new Date(s+'T00:00:00'); if(isNaN(d)) return ''; d.setDate(d.getDate() - ((d.getDay()+6)%7)); return iso(d); };
+{ const _th = cphToHub; cphToHub = function(t){ const h = _th.apply(this, arguments); h.planWeek = cpxWeekOf(t.planWeek) || ''; return h; }; }
+{ const _cc = cphCreate; cphCreate = function(id, d){ const t = _cc.apply(this, arguments); if(t){ t.planWeek = cpxWeekOf(d?.planWeek) || cpxWeekOf(d?.date) || cpxWeekOf(cphDate(t)); } return t; }; }
+{ const _cu = cphUpdate; cphUpdate = function(id, patch){ const t0 = TASKS.find(x=>x.id===id); const was = t0 ? (cpxWeekOf(t0.planWeek) || cpxWeekOf(cphDate(t0))) : '';
+    const r = _cu.apply(this, arguments);
+    const t = TASKS.find(x=>x.id===id); const pw = cpxWeekOf(patch?.planWeek);
+    if(t && pw && pw!==cpxWeekOf(t.planWeek)){ t.planWeek = pw;
+      if(pw!==was) t.history = [...(t.history||[]), {by:pname(PERSON), who:PERSON, act:'Planning week changed in the Content Planning Hub', note:`${was ? fmtD(was) : '—'} → ${fmtD(pw)} (week of)`, when:dtstr(nowISO()), at:nowISO()}];
+      t.updatedAt = nowISO(); t.updatedBy = PERSON; }
+    return r; }; }
+
 /* the add-on that runs inside the hub page */
 function cpxHubExt(){
-  const P = window.parent; const X = {sel:new Set(), ctx:'', urls:{}, rte:{}};
+  const A = window.__CPX || {}; const has = k => typeof A[k] === 'function'; const X = {sel:new Set(), ctx:'', urls:{}, rte:{}};
   const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-  const isGen = id => { try{ return !!P.cpxIsGeneral(id); }catch(e){ return false; } };
+  const isGen = id => { try{ return !!(has('isGeneral') && A.isGeneral(id)); }catch(e){ return false; } };
 
   /* ---------- plan title: "Content Plan – November WE 2 (November 9–13)" ---------- */
   const weLabel = wk => { const fri = addDays(keyToDate(wk), 4); return { m:fri.getMonth(), y:fri.getFullYear(), n:Math.ceil(fri.getDate()/7) }; };
@@ -38194,7 +38217,42 @@ function cpxHubExt(){
     let end = addDaysKey(ws[ws.length-1], 4); if(inP.some(c=>c.date>end)) end = inP.reduce((m, c)=>c.date>m ? c.date : m, end);
     return {name:`Content Plan – ${name}`, range:fmtRange(first, end), first, last}; }
 
-  /* ---------- Home: fixed Monday → Sunday rows, plan title, no general-column add slots ---------- */
+  /* ---------- planning weeks: a post appears in its planning week; its posting date can move inside the week ---------- */
+  const TARGET = 2;                                            /* posts per brand per week — Tuesday and Thursday */
+  const weekOf = k => /^\d{4}-\d{2}-\d{2}/.test(String(k||'')) ? dateToKey(startOfWeek(String(k).slice(0, 10))) : '';
+  const pwOf = c => weekOf(c && c.planWeek) || weekOf(c && c.date);
+  const isMC = id => { try{ return !!(has('isMC') && A.isMC(id)); }catch(e){ return false; } };
+  const acctOf = id => String(id||'').split('~')[0];
+  const lanesNow = () => { const L = CLIENTS.filter(c=>!isGen(c.id)); return L.length ? L : CLIENTS.slice(); };
+  const laneFor = (c, L) => L.find(x=>x.id===c.client) || (isGen(c.client) ? (L.find(x=>acctOf(x.id)===acctOf(c.client)) || L[0]) : null);
+  const stdDays = wk => POSTING_DOWS.map(d=>addDaysKey(wk, d-1));
+  function weekRow(wk, L, today){
+    const posts = CONTENT.filter(c=>pwOf(c)===wk);
+    const pt = planTitle([wk]); const collapsed = state.collapsed.has(wk);
+    const revs = posts.filter(c=>c.status==='For Revision').length, notReady = posts.filter(c=>readinessIssues(c).length).length;
+    let planned = 0, need = 0;
+    const lanes = L.map(cl => {
+      const mine = posts.filter(c=>laneFor(c, L)===cl).sort((a,b)=>a.date.localeCompare(b.date) || STATUSES.indexOf(a.status)-STATUSES.indexOf(b.status));
+      const own = mine.filter(c=>c.client===cl.id); const n = own.length; planned += Math.min(n, TARGET); need += TARGET;
+      const used = new Set(own.map(c=>c.date)); const free = stdDays(wk).filter(d=>!used.has(d)); const slots = [];
+      for (let i=n; i<TARGET; i++){ const d = free.shift() || addDaysKey(wk, 2);
+        slots.push(`<button class="add-card cpx-slot" data-addpost="${cl.id}|${d}" title="Add a ${esc(cl.name)} post for ${esc(niceDate(d))}">+ Add post · ${esc(niceDate(d))}</button>`); }
+      return `<div class="cpx-lane"><div class="cpx-lane-h">${clientTag(cl)}<span class="cpx-tgt ${n>=TARGET?'ok':''}" title="${n} of the ${TARGET} weekly posts planned">${n>=TARGET?'✓ ':''}${n} of ${TARGET}</span></div>
+        <div class="client-col">${mine.map(postCard).join('')}${slots.join('')}</div></div>`;
+    }).join('');
+    const marks = [0,1,2,3,4,5,6].map(i=>addDaysKey(wk, i)).map(dk => { const b = holidayBadges(dk) + eventsOn(dk).map(e=>`<span class="holiday-badge ev-badge" style="color:${EVENT_TYPES[e.type].color};border-color:${EVENT_TYPES[e.type].color}" data-editevent="${esc(e.id)}" role="button" tabindex="0">${esc(e.title)}${e.client!=='all'?' · '+esc(clientById(e.client).short):''}</span>`).join('');
+      return b ? `<span class="cpx-mk"><span class="cpx-mk-d">${esc(niceDate(dk))}</span>${b}</span>` : ''; }).join('');
+    const now = today >= wk && today <= addDaysKey(wk, 6);
+    const html = `<section class="week-section cpx-week ${collapsed?'collapsed':''}" data-week="${wk}">
+      <button class="week-header" data-togglewk="${wk}" aria-expanded="${!collapsed}">
+        <span><span class="chevron">▾</span>&nbsp; ${esc(pt.name)} <span class="cpx-wk-r">(${esc(pt.range)})</span>${now?' <span class="cpx-now">This week</span>':''}</span>
+        <span class="wk-meta"><span class="cpx-tgt ${planned>=need?'ok':''}">${planned} of ${need} posts planned</span>${revs?`<span style="color:var(--st-revision);font-weight:700">${revs} for revision</span>`:''}${notReady?`<span>${notReady} missing items</span>`:''}</span>
+      </button>
+      <div class="week-body">${marks?`<div class="cpx-marks">${marks}</div>`:''}<div class="cpx-lanes" style="--cols:${L.length}">${lanes}</div></div></section>`;
+    return {html, planned, need};
+  }
+
+  /* ---------- Home: one row per planning week, plan title, two-post target ---------- */
   renderHome = function(){
     const numWeeks = state.homeViewMode === 'biweekly' ? 2 : 1;
     const weekStart = startOfWeek(state.homeAnchor);
@@ -38204,35 +38262,9 @@ function cpxHubExt(){
     const ws = []; for (let i=0;i<numWeeks;i++) ws.push(dateToKey(addDays(weekStart, i*7)));
     const plan = planTitle(ws);
     const ctx = 'home|'+startKey+'|'+numWeeks; if(X.ctx!==ctx){ X.ctx = ctx; X.sel.clear(); }
-    let open = 0;
-    const weekHtml = ws.map(wk => {
-      const wkEnd = addDaysKey(wk, 6);
-      const inWeek = CONTENT.filter(c => c.date >= wk && c.date <= wkEnd);
-      const revs = inWeek.filter(c=>c.status==='For Revision').length;
-      const notReady = inWeek.filter(c=>readinessIssues(c).length).length;
-      const collapsed = state.collapsed.has(wk);
-      const blocks = [0,1,2,3,4,5,6].map(i => {
-        const dk = addDaysKey(wk, i); const dow = keyToDate(dk).getDay(); const posting = POSTING_DOWS.includes(dow);
-        const dayPosts = inWeek.filter(c=>c.date===dk);
-        const cols = CLIENTS.map(cl => {
-          const posts = dayPosts.filter(c=>c.client===cl.id).sort((a,b)=>STATUSES.indexOf(a.status)-STATUSES.indexOf(b.status));
-          if (posts.length) return `<div class="client-col">${posts.map(postCard).join('')}</div>`;
-          if (isGen(cl.id)) return `<div class="client-col"><div class="cpx-gen" title="${esc(cl.name)}: items from the Content Board show here — add new posts under a brand">—</div></div>`;
-          if (posting) open++;
-          return `<div class="client-col"><button class="add-card ${posting?'':'cpx-mini'}" data-addpost="${cl.id}|${dk}" title="Add a ${esc(cl.name)} post for ${esc(niceDate(dk))}">${posting ? `+ Add ${esc(cl.short)} post` : '+'}</button></div>`;
-        }).join('');
-        return `<div class="date-block ${!posting && !dayPosts.length ? 'cpx-quiet' : ''} ${dow===0||dow===6 ? 'cpx-wkend' : ''}">
-          <div class="date-block-label">${esc(niceDate(dk))}${dk===today?'<span class="today-tag">Today</span>':''}${holidayBadges(dk)}${eventsOn(dk).map(e=>`<span class="holiday-badge ev-badge" style="color:${EVENT_TYPES[e.type].color};border-color:${EVENT_TYPES[e.type].color}" data-editevent="${esc(e.id)}" role="button" tabindex="0">${esc(e.title)}${e.client!=='all'?' · '+esc(clientById(e.client).short):''}</span>`).join('')}</div>
-          <div class="date-cols" style="--cols:${CLIENTS.length}">${cols}</div></div>`;
-      }).join('');
-      return `<section class="week-section ${collapsed?'collapsed':''}">
-        <button class="week-header" data-togglewk="${wk}" aria-expanded="${!collapsed}">
-          <span><span class="chevron">▾</span>&nbsp; Week of ${esc(niceDate(wk))}</span>
-          <span class="wk-meta"><span>${inWeek.length} post${inWeek.length===1?'':'s'}</span>${revs?`<span style="color:var(--st-revision);font-weight:700">${revs} for revision</span>`:''}${notReady?`<span>${notReady} missing items</span>`:''}</span>
-        </button>
-        <div class="week-body">${blocks}</div></section>`;
-    }).join('');
-    const inPeriod = CONTENT.filter(c=>c.date>=startKey && c.date<=endKey);
+    const L = lanesNow(); let planned = 0, need = 0;
+    const weekHtml = ws.map(wk => { const r = weekRow(wk, L, today); planned += r.planned; need += r.need; return r.html; }).join('');
+    const inPeriod = CONTENT.filter(c=>{ const w = pwOf(c); return w>=startKey && w<=endKey; });
     document.getElementById('main').innerHTML = `
       <div class="page-head">
         <div><h1>Home</h1><div class="page-sub">This week's posts for every client, side by side. Click a card for the full record; links open straight from the card.</div></div>
@@ -38254,10 +38286,10 @@ function cpxHubExt(){
       <div class="cpx-plan">
         <div class="cpx-plan-l"><h2 class="cpx-plan-t">${esc(plan.name)} <span class="cpx-plan-r">(${esc(plan.range)})</span></h2>
           <button class="cpx-calbtn" id="cpxCalBtn" type="button" title="Pick a date on the calendar" aria-label="Open the mini calendar">📅</button></div>
-        <div class="cpx-plan-m"><span><b>${inPeriod.length}</b> post${inPeriod.length===1?'':'s'}</span><span><b>${open}</b> open posting slot${open===1?'':'s'}</span>
+        <div class="cpx-plan-m"><span class="cpx-tgt ${planned>=need?'ok':''}"><b>${planned}</b> of <b>${need}</b> weekly posts planned</span><span><b>${inPeriod.length}</b> post${inPeriod.length===1?'':'s'} in total</span>
           ${inPeriod.length ? `<button class="btn ghost small" id="cpxSelAll" type="button">☑ Select all in this period</button>` : ''}</div>
       </div>
-      <div class="home-note">Every day of the week keeps its place; posting days (Tue & Thu) show full open slots. <a href="#" id="dlRange">Download this ${numWeeks===2?'range':'week'} (.xlsx)</a> · <a href="#" id="dlMonth">Download the full month</a></div>
+      <div class="home-note">One row per planning week · two posts per brand, normally Tuesday and Thursday. Changing a post's date inside the week keeps it in its row. <a href="#" id="dlRange">Download this ${numWeeks===2?'range':'week'} (.xlsx)</a> · <a href="#" id="dlMonth">Download the full month</a></div>
       ${weekHtml}`;
     const step = 7*numWeeks;
     document.getElementById('homePrev').onclick = () => { state.homeAnchor = addDaysKey(startKey, -step); render(); };
@@ -38321,7 +38353,7 @@ function cpxHubExt(){
       <div class="cpx-tb" role="toolbar" aria-label="Formatting">
         <button type="button" data-cmd="bold" title="Bold"><b>B</b></button><button type="button" data-cmd="italic" title="Italic"><i>I</i></button><button type="button" data-cmd="underline" title="Underline"><u>U</u></button>
         <span class="cpx-sep"></span><button type="button" data-cmd="insertUnorderedList" title="Bullet points">• List</button><button type="button" data-cmd="insertOrderedList" title="Numbered list">1. List</button>
-        <span class="cpx-sep"></span><button type="button" data-cmd="link" title="Insert a link">🔗 Link</button><button type="button" data-cmd="image" title="Attach images or screenshots (you can also paste a screenshot)">🖼 Image</button></div>
+        <span class="cpx-sep"></span><button type="button" data-cmd="link" title="Insert a link">🔗 Link</button>${has('pickFiles') ? '<button type="button" data-cmd="image" title="Attach images or screenshots (you can also paste a screenshot)">🖼 Image</button>' : ''}</div>
       <div class="cpx-lnk" hidden><input class="field-input" placeholder="Paste the link — https://…"><button type="button" class="btn small">Add link</button></div>
       <div class="cpx-ed" contenteditable="true" role="textbox" aria-multiline="true" data-ph="${esc(ph)}"></div>
       <div class="cpx-att"></div></div>`; }
@@ -38334,17 +38366,17 @@ function cpxHubExt(){
     box.querySelector('.cpx-att').innerHTML = st.imgs.map((f, i)=>`<span class="cpx-th"><img data-fref='${esc(JSON.stringify(f))}' alt="${esc(f.name)}"><button type="button" data-rmimg="${i}" title="Remove">✕</button></span>`).join('');
     hydrate(box); }
   async function rteAddFiles(key, files){ const st = rteState(key); for (const f of files){ if (f && /^image\//.test(f.type||'')) st.imgs.push(f); } rteThumbs(key); syncNote(key); }
-  async function uploadBlob(file){ try{ const buf = await file.arrayBuffer(); const pf = new P.File([buf], file.name || `screenshot-${Date.now()}.png`, {type:file.type||'image/png'}); return await P.storeFile(pf); }catch(e){ toast('That image couldn’t be attached.', 'error'); return null; } }
+  async function uploadBlob(file){ try{ const buf = await file.arrayBuffer(); const pf = new A.File([buf], file.name || `screenshot-${Date.now()}.png`, {type:file.type||'image/png'}); return await A.storeFile(pf); }catch(e){ toast('That image couldn’t be attached.', 'error'); return null; } }
   function hydrate(root){ (root||document).querySelectorAll('img[data-fref]:not([src])').forEach(img => { let f; try{ f = JSON.parse(img.dataset.fref); }catch(e){ return; }
       const k = f.path || f.data || f.url || f.name; if (X.urls[k]){ img.src = X.urls[k]; return; }
-      Promise.resolve(P.cpxFileUrl(f)).then(u => { X.urls[k] = u; img.src = u; }).catch(()=>{ img.alt = 'Image unavailable'; }); }); }
+      Promise.resolve(A.fileUrl(f)).then(u => { X.urls[k] = u; img.src = u; }).catch(()=>{ img.alt = 'Image unavailable'; }); }); }
   /* the plain text of the main feedback editor stays in the hub's own note box, so its buttons work unchanged */
   function syncNote(key){ if (key !== 'main') return; const n = document.getElementById('rfNote'); if (!n) return; const r = rteRead(key);
     n.value = r.text || (r.imgs.length ? `📷 ${r.imgs.length} screenshot${r.imgs.length>1?'s':''} attached` : ''); }
   document.addEventListener('mousedown', e => { if (e.target.closest('.cpx-tb button')) e.preventDefault(); }, true);
   document.addEventListener('click', async e => {
     const tbtn = e.target.closest('.cpx-tb button'); if (tbtn){ e.stopPropagation(); const box = tbtn.closest('[data-rte]'); const key = box.dataset.rte; const ed = box.querySelector('.cpx-ed'); const cmd = tbtn.dataset.cmd;
-      if (cmd === 'image'){ const f = await P.pickFiles({multiple:true, accept:'image/*'}); if (f && f.length) rteAddFiles(key, f); return; }
+      if (cmd === 'image'){ if (!has('pickFiles')) return; const f = await A.pickFiles({multiple:true, accept:'image/*'}); if (f && f.length) rteAddFiles(key, f); return; }
       if (cmd === 'link'){ const sel = getSelection(); X.range = sel.rangeCount && ed.contains(sel.anchorNode) ? sel.getRangeAt(0).cloneRange() : null; const row = box.querySelector('.cpx-lnk'); row.hidden = !row.hidden; if (!row.hidden) row.querySelector('input').focus(); return; }
       ed.focus(); try{ document.execCommand('styleWithCSS', false, false); }catch(x){} document.execCommand(cmd, false, null); syncNote(key); return; }
     const lb = e.target.closest('.cpx-lnk button'); if (lb){ e.stopPropagation(); const box = lb.closest('[data-rte]'); const inp = box.querySelector('.cpx-lnk input'); const u = safeHref(inp.value);
@@ -38363,13 +38395,13 @@ function cpxHubExt(){
   document.addEventListener('input', e => { const ed = e.target.closest?.('.cpx-ed'); if (ed) syncNote(ed.closest('[data-rte]').dataset.rte); }, true);
   document.addEventListener('paste', async e => { const ed = e.target.closest?.('.cpx-ed'); if (!ed) return; const key = ed.closest('[data-rte]').dataset.rte;
     const files = [...(e.clipboardData?.items||[])].filter(i=>i.kind==='file' && /^image\//.test(i.type)).map(i=>i.getAsFile()).filter(Boolean);
-    if (files.length){ e.preventDefault(); toast('Attaching the screenshot…'); const out = []; for (const f of files){ const r = await uploadBlob(f); if (r) out.push(r); } rteAddFiles(key, out); } }, true);
+    if (files.length && has('storeFile')){ e.preventDefault(); toast('Attaching the screenshot…'); const out = []; for (const f of files){ const r = await uploadBlob(f); if (r) out.push(r); } rteAddFiles(key, out); } }, true);
 
   /* the hub's feedback writes carry the formatted version and the images */
   { const _af = addFeedbackDoc; addFeedbackDoc = async function(data){
       const extra = {}; const box = document.querySelector('[data-rte="main"]');
       if (box && !data.parentId && modalContentId && data.contentId === modalContentId){ const r = rteRead('main'); if (r.html) extra.html = r.html; if (r.imgs.length) extra.images = r.imgs; }
-      const me = (()=>{ try{ return P.cpxMe(); }catch(e){ return {}; } })(); if (me.key) extra.authorKey = me.key;
+      const me = (()=>{ try{ return A.me(); }catch(e){ return {}; } })(); if (me.key) extra.authorKey = me.key;
       const ok = await _af.call(this, {...data, ...extra});
       if (ok && box && !data.parentId) rteClear('main');
       return ok; }; }
@@ -38379,10 +38411,10 @@ function cpxHubExt(){
       const item = findContent(contentId); if (!item) return r;
       bigCaption();
       const acts = document.querySelector('#recordModal .modal-actions'); const sp = acts?.querySelector('.spacer');
-      if (acts && !document.getElementById('cpxMsgBtn')) (sp || acts.lastChild).insertAdjacentHTML('beforebegin', `<button class="btn secondary" id="cpxMsgBtn" type="button" title="Send a private message with a link to this post">💬 Message about this post</button>`);
+      if (acts && has('msgTargets') && !document.getElementById('cpxMsgBtn')) (sp || acts.lastChild).insertAdjacentHTML('beforebegin', `<button class="btn secondary" id="cpxMsgBtn" type="button" title="Send a private message with a link to this post">💬 Message about this post</button>`);
       const mb = document.getElementById('cpxMsgBtn'); if (mb) mb.onclick = () => msgDialog(contentId);
       const note = document.getElementById('rfNote');
-      if (note && !document.querySelector('[data-rte="main"]')){ X.rte.main = {imgs:[]}; note.insertAdjacentHTML('beforebegin', rteHTML('main', 'What should change? Use the toolbar for bold, lists and links, or paste a screenshot.')); note.hidden = true; }
+      if (note && !document.querySelector('[data-rte="main"]')){ X.rte.main = {imgs:[]}; note.insertAdjacentHTML('beforebegin', rteHTML('main', has('pickFiles') ? 'What should change? Use the toolbar for bold, lists and links, or paste a screenshot.' : 'What should change? Use the toolbar for bold, lists and links.')); note.hidden = true; }
       const st = document.querySelector('#recordModal .section-title'); if (st && !st.dataset.cpx){ st.dataset.cpx = '1'; st.firstChild.textContent = 'Feedback & comments '; }
       if (focusFeedback) setTimeout(()=>document.querySelector('[data-rte="main"] .cpx-ed')?.focus(), 200);
       return r; }; }
@@ -38423,10 +38455,10 @@ function cpxHubExt(){
     if (e.target.closest('[data-cpxcancel]')){ e.stopPropagation(); X.replyOpen = null; renderThread(modalContentId); return; }
     const sb = e.target.closest('[data-cpxsend]'); if (sb){ e.stopPropagation(); const pid = sb.dataset.cpxsend; const parentF = FEEDBACK.find(x=>x.id===pid); const live = findContent(modalContentId);
       const r = rteRead('r:'+pid); if (!r.text && !r.imgs.length){ toast('Write the reply first.', 'error'); return; }
-      sb.disabled = true; const me = (()=>{ try{ return P.cpxMe(); }catch(x){ return {}; } })();
+      sb.disabled = true; const me = (()=>{ try{ return A.me(); }catch(x){ return {}; } })();
       const ok = await addFeedbackDoc({ contentId: modalContentId, client: live ? live.client : parentF?.client, author: me.first || AUTHORS[0], note: r.text || `📷 ${r.imgs.length} screenshot${r.imgs.length>1?'s':''}`, ...(r.html?{html:r.html}:{}), ...(r.imgs.length?{images:r.imgs}:{}), kind:'note', status:'Addressed', parentId: pid });
       if (!ok){ sb.disabled = false; return; }
-      try{ P.cpxReplyNotify(modalContentId, parentF?.authorKey, r.text); }catch(x){}
+      try{ if (has('replyNotify')) A.replyNotify(modalContentId, parentF?.authorKey, r.text); }catch(x){}
       if (live) logActivity(`replied to ${plain(parentF?.author||'a comment')} on ${postRef(live)}`);
       X.replyOpen = null; delete X.rte['r:'+pid]; toast('Reply added'); setTimeout(()=>renderThread(modalContentId), 60); return; }
   });
@@ -38434,7 +38466,7 @@ function cpxHubExt(){
   /* ---------- message about this post ---------- */
   function msgDialog(contentId){
     const item = findContent(contentId); if (!item) return;
-    let T = []; try{ T = P.cpxMsgTargets(contentId) || []; }catch(e){}
+    let T = []; try{ T = has('msgTargets') ? (A.msgTargets(contentId) || []) : []; }catch(e){}
     if (!T.length){ toast('There is no one else on this client to message yet.', 'error'); return; }
     const wrap = document.createElement('div'); wrap.className = 'dlg-backdrop';
     wrap.innerHTML = `<div class="dlg cpx-msgdlg" role="dialog" aria-modal="true" aria-labelledby="cpxMsgH">
@@ -38449,9 +38481,9 @@ function cpxHubExt(){
     document.addEventListener('keydown', onKey, true);
     wrap.addEventListener('click', e => { e.stopPropagation(); if (e.target === wrap){ done(); return; } const b = e.target.closest('[data-cpxmsg]'); if (!b) return;
       if (b.dataset.cpxmsg === 'cancel'){ done(); return; }
-      const res = P.cpxSendPostMsg(contentId, document.getElementById('cpxTo').value, document.getElementById('cpxMsgTx').value);
+      const res = A.sendPostMsg(contentId, document.getElementById('cpxTo').value, document.getElementById('cpxMsgTx').value);
       if (!res || !res.ok){ toast(res?.error || 'The message couldn’t be sent.', 'error'); return; }
-      done(); toastAct(`Message sent to ${res.name}`, 'Open the conversation', () => P.cpxOpenChat(res.chat)); });
+      done(); toastAct(`Message sent to ${res.name}`, 'Open the conversation', () => A.openChat(res.chat)); });
     setTimeout(()=>document.getElementById('cpxMsgTx')?.focus(), 30);
   }
   function toastAct(msg, label, fn){ toast(msg); const t = [...document.querySelectorAll('.toast')].pop(); if (!t) return; const b = document.createElement('button'); b.type = 'button'; b.className = 'cpx-toastbtn'; b.textContent = label; b.onclick = e => { e.stopPropagation(); fn(); }; t.appendChild(b); t.style.pointerEvents = 'auto'; }
@@ -38469,11 +38501,13 @@ function cpxHubExt(){
   /* ---------- bulk select & actions (Home period and Board tab) ---------- */
   function decorate(){
     const main = document.getElementById('main'); if (!main) return;
+    document.querySelectorAll('#legend [data-clientpop]').forEach(b=>{ if (isGen(b.dataset.clientpop)) b.remove(); });   /* no separate general-account chip */
     const bctx = state.tab === 'board' ? 'board' : null; if (bctx && X.ctx !== 'board'){ X.ctx = 'board'; X.sel.clear(); }
     if (state.tab !== 'home' && state.tab !== 'board'){ X.sel.clear(); X.ctx = state.tab; }
     main.querySelectorAll('.post-card[data-open], .b-card[data-open]').forEach(card => { const id = card.dataset.open; let ck = card.querySelector('.cpx-ck');
       if (!ck){ (card.querySelector('.pc-top, .bc-top') || card).insertAdjacentHTML('afterbegin', `<label class="cpx-ck" title="Select"><input type="checkbox" data-cpxsel="${esc(id)}" aria-label="Select ${esc(findContent(id)?.title||'post')}"></label>`); ck = card.querySelector('.cpx-ck'); }
-      const on = X.sel.has(id); ck.querySelector('input').checked = on; card.classList.toggle('cpx-on', on); });
+      const on = X.sel.has(id); ck.querySelector('input').checked = on; card.classList.toggle('cpx-on', on);
+      const it = findContent(id); if (it) card.classList.toggle('cpx-mc', isMC(it.client)); });
     if (state.tab === 'board'){ const ha = main.querySelector('.page-head .head-actions'); if (ha && !document.getElementById('cpxSelAllB')) ha.insertAdjacentHTML('afterbegin', `<button class="btn ghost small" id="cpxSelAllB" type="button">☑ Select all</button>`);
       const b = document.getElementById('cpxSelAllB'); if (b) b.onclick = e => { e.stopPropagation(); boardItems().forEach(c=>X.sel.add(c.id)); decorate(); }; }
     [...X.sel].forEach(id => { if (!findContent(id)) X.sel.delete(id); });
@@ -38489,10 +38523,10 @@ function cpxHubExt(){
   document.addEventListener('change', e => { const c = e.target.closest?.('[data-cpxsel]'); if (!c) return; c.checked ? X.sel.add(c.dataset.cpxsel) : X.sel.delete(c.dataset.cpxsel); decorate(); });
   document.addEventListener('click', async e => { const b = e.target.closest('[data-cpxb]'); if (!b) return; e.stopPropagation(); const act = b.dataset.cpxb;
     if (act === 'clear'){ X.sel.clear(); decorate(); return; }
-    if (act === 'all'){ (state.tab === 'board' ? boardItems() : (()=>{ const ws = dateToKey(startOfWeek(state.homeAnchor)); const we = addDaysKey(ws, (state.homeViewMode==='biweekly'?14:7)-1); return CONTENT.filter(c=>c.date>=ws && c.date<=we); })()).forEach(c=>X.sel.add(c.id)); decorate(); return; }
+    if (act === 'all'){ (state.tab === 'board' ? boardItems() : (()=>{ const ws = dateToKey(startOfWeek(state.homeAnchor)); const we = addDaysKey(ws, (state.homeViewMode==='biweekly'?14:7)-1); return CONTENT.filter(c=>{ const w = pwOf(c); return w>=ws && w<=we; }); })()).forEach(c=>X.sel.add(c.id)); decorate(); return; }
     const items = [...X.sel].map(findContent).filter(Boolean); if (!items.length) return;
     if (act === 'delete'){
-      let allowed = items; try{ allowed = items.filter(c=>P.cpxCanDelete(c.id)); }catch(x){}
+      let allowed = items; try{ if (has('canDelete')) allowed = items.filter(c=>A.canDelete(c.id)); }catch(x){}
       const skip = items.length - allowed.length;
       if (!allowed.length){ toast('You can’t delete these posts — only the client’s PM, a company head or the person who created a post can delete it.', 'error'); return; }
       if (!(await askDialog(`${allowed.length} post${allowed.length>1?'s':''} will be deleted, with their feedback. They are also removed from the Content Board. This can't be undone.${skip?` ${skip} selected post${skip>1?'s':''} you can't delete will be kept.`:''}`, { title:`Delete ${allowed.length} selected post${allowed.length>1?'s':''}?`, ok:`Delete ${allowed.length} post${allowed.length>1?'s':''}`, danger:true }))) return;
@@ -38503,9 +38537,9 @@ function cpxHubExt(){
       const res = await moveDialog(items.length); if (!res) return;
       const plan = items.map(c => { let nd = res.date;
         if (res.mode === 'week'){ const tw = startOfWeek(res.date); const off = (keyToDate(c.date).getDay() + 6) % 7; nd = dateToKey(addDays(tw, off)); }
-        return [c, nd]; }).filter(([c, nd])=>nd && nd!==c.date);
+        return [c, nd]; }).filter(([c, nd])=>nd && (nd!==c.date || weekOf(nd)!==pwOf(c)));
       if (!plan.length){ toast('The selected posts are already on those dates.'); return; }
-      let n = 0; for (const [c, nd] of plan){ if (await saveContent(c.id, { date: nd })) n++; }
+      let n = 0; for (const [c, nd] of plan){ if (await saveContent(c.id, { date: nd, planWeek: weekOf(nd) })) n++; }
       if (n){ logActivity(`moved ${n} post${n>1?'s':''} ${res.mode==='week' ? `to the week of ${plain(niceDate(dateToKey(startOfWeek(res.date))))}` : `to ${plain(niceDate(res.date))}`}`); state.homeAnchor = res.date; }
       toast(`${n} post${n===1?'':'s'} moved`); X.sel.clear(); render(); }
   });
@@ -38522,11 +38556,97 @@ function cpxHubExt(){
     wrap.addEventListener('click', e => { e.stopPropagation(); if (e.target === wrap) return done(null); const b = e.target.closest('[data-mv]'); if (!b) return;
       if (b.dataset.mv === 'cancel') return done(null); const d = document.getElementById('cpxMvDate').value; if (!d){ toast('Pick a date.', 'error'); return; }
       done({ mode: wrap.querySelector('input[name="cpxMv"]:checked').value, date: d }); }); }); }
+  /* ---------- the card: posting date, outside-the-week note, MarketCrest colour, brand picker ---------- */
+  { const _pc = postCard; postCard = function(c){ let h = _pc.apply(this, arguments);
+      const out = weekOf(c.date) !== pwOf(c);
+      const chip = `<div class="cpx-pdate ${out?'out':''}" title="${out ? 'The posting date is outside this planning week. To move the post, change its planning week.' : 'Posting date'}">📅 ${esc(niceDate(c.date))}${out ? ' · outside this week' : ''}</div>`;
+      const gen = isGen(c.client) ? `<div class="cpx-genbar">${has('setBrand') && has('brands') ? `<label>Choose a brand <select data-cpxbrand="${esc(c.id)}" aria-label="Choose a brand"><option value="">—</option>${(A.brands(c.client)||[]).map(b=>`<option value="${esc(b.id)}">${esc(b.name)}</option>`).join('')}</select></label>` : 'No brand yet'}</div>` : '';
+      h = h.replace('<div class="pc-title">', chip + gen + '<div class="pc-title">');
+      if (isMC(c.client)) h = h.replace('class="post-card"', 'class="post-card cpx-mc"');
+      return h; }; }
+  { const _bc = boardCard; boardCard = function(it){ const h = _bc.apply(this, arguments); return isMC(it.client) ? h.replace('class="b-card"', 'class="b-card cpx-mc"') : h; }; }
+  document.addEventListener('change', async e => { const s = e.target.closest?.('[data-cpxbrand]'); if (!s || !s.value) return; e.stopPropagation();
+    const r = await Promise.resolve(A.setBrand(s.dataset.cpxbrand, s.value)).catch(err => ({ok:false, error:err.message}));
+    if (r && r.ok === false){ toast(r.error || 'The brand couldn’t be changed.', 'error'); s.value = ''; return; }
+    const it = findContent(s.dataset.cpxbrand); if (it) logActivity(`set the brand of ${postRef(it)} to ${B(clientById(s.value).name)}`);
+    toast(`Moved to ${clientById(s.value).name}`); }, true);
+
+  /* ---------- planning week in the post window ---------- */
+  const ptLabel = wk => { const t = planTitle([wk]); return `${t.name} (${t.range})`; };
+  function pwField(item, isNew){
+    const fr = document.querySelector('#recordModal .field-row3'); if (!fr || document.getElementById('cpxPW')) return;
+    const wk = isNew ? weekOf(item.date) : pwOf(item);
+    fr.insertAdjacentHTML('afterend', `<div class="field-group cpx-pw"><label class="field-label" for="cpxPW">Planning week <span class="hint">where the post appears on Home</span></label>
+      <div class="cpx-pw-r"><input class="field-input" type="date" id="cpxPW" value="${esc(wk)}" aria-describedby="cpxPWt"><span class="cpx-pw-t" id="cpxPWt">${esc(ptLabel(wk))}</span></div>
+      <div class="cpx-pw-h">Moving the post date inside this week keeps the post in this row. Pick any day of another week to move it there.</div></div>`);
+    const pw = document.getElementById('cpxPW'), dt = document.getElementById('fDate'); let touched = false;
+    const show = () => { const w = weekOf(pw.value); document.getElementById('cpxPWt').textContent = w ? ptLabel(w) : 'Pick a day'; const d = dt?.value; const hint = document.querySelector('#recordModal .cpx-pw-h');
+      if (hint) hint.classList.toggle('warn', !!(d && w && weekOf(d) !== w)); if (hint && d && w && weekOf(d) !== w) hint.textContent = `The post date (${niceDate(d)}) is outside this planning week — the post stays in this week's row.`; };
+    pw.addEventListener('input', () => { touched = true; modalDirty = true; show(); }); pw.addEventListener('change', () => { touched = true; modalDirty = true; show(); });
+    dt?.addEventListener('change', () => { if (isNew && !touched){ pw.value = weekOf(dt.value); } show(); });
+    show();
+  }
+  { const _rp = readPostForm; readPostForm = function(){ const o = _rp.apply(this, arguments); const v = document.getElementById('cpxPW')?.value; const w = weekOf(v); if (w) o.planWeek = w; return o; }; }
+  { const _or2 = openRecordModal; openRecordModal = function(contentId){ const r = _or2.apply(this, arguments); const it = findContent(contentId); if (it) pwField(it, false); return r; }; }
+  { const _np2 = openNewPostModal; openNewPostModal = function(clientId, dateKey){ const r = _np2.apply(this, arguments); pwField({date: document.getElementById('fDate')?.value || dateKey || todayKey()}, true); return r; }; }
+
+  /* ---------- writes: keep the planning week when the date moves; remember what changed for the activity entry ---------- */
+  const FL = {title:'Title', caption:'Caption', topicCaption:'Text on the graphic', sourceLink:'Content link', outputLink:'Output link', photoLink:'Photo source', date:'Posting date', planWeek:'Planning week', status:'Status', type:'Content type', bucket:'Content bucket', platforms:'Social media'};
+  const short = v => { const s = String(v ?? ''); return s.length > 300 ? s.slice(0, 297) + '…' : s; };
+  const fmtV = (k, v) => k === 'status' ? statusLabel(v) : k === 'planWeek' ? (v ? ptLabel(v) : '') : k === 'date' ? (v ? niceDate(v) : '') : short(v);
+  const itemLabel = c => c ? `${c.title || '(untitled)'} · ${clientById(c.client).name}` : '';
+  const pend = (item, changes) => { X.pend = {at:Date.now(), item, changes:(changes||[]).slice(0, 12)}; };
+  { const _sc = saveContent; saveContent = async function(id, patch){ const it = findContent(id); patch = {...(patch||{})};
+      if (it && 'date' in patch && !('planWeek' in patch) && !it.planWeek) patch.planWeek = pwOf(it);      /* the post stays in its week */
+      if (patch.planWeek) patch.planWeek = weekOf(patch.planWeek) || patch.planWeek;
+      if (it){ const ch = Object.keys(FL).filter(k => k in patch && String(patch[k] ?? '') !== String((k==='planWeek' ? pwOf(it) : it[k]) ?? '')).map(k => ({f:FL[k], from:fmtV(k, k==='planWeek' ? pwOf(it) : it[k]), to:fmtV(k, patch[k])}));
+        pend(itemLabel({...it, ...patch, title: patch.title || it.title}), ch); }
+      return _sc.call(this, id, patch); }; }
+  { const _cc = createContent; createContent = async function(data){ data = {...(data||{})}; data.planWeek = weekOf(data.planWeek) || weekOf(data.date) || weekOf(todayKey());
+      pend(itemLabel(data), [{f:'Planning week', from:'', to:ptLabel(data.planWeek)}, ...(data.date ? [{f:'Posting date', from:'', to:niceDate(data.date)}] : [])]);
+      return _cc.call(this, data); }; }
+  { const _rc = removeContent; removeContent = async function(id){ const it = findContent(id); if (it) pend(itemLabel(it), []); return _rc.apply(this, arguments); }; }
+  { const _ab = addBacklogDoc; addBacklogDoc = async function(d){ pend(`${d.title || 'Idea'} · ${clientById(d.client).name}`, []); return _ab.apply(this, arguments); }; }
+  { const _rb = removeBacklogDoc; removeBacklogDoc = async function(id){ const b = BACKLOG.find(x=>x.id===id); if (b) pend(`${b.title || 'Idea'} · ${clientById(b.client).name}`, []); return _rb.apply(this, arguments); }; }
+  { const _se = saveEventDoc; saveEventDoc = async function(id, d){ const old = id ? EVENTS.find(e=>e.id===id) : null;
+      const ch = old ? [['title','Title'],['date','Date'],['endDate','End date'],['note','Note']].filter(([k])=>String(d[k]??'')!==String(old[k]??'')).map(([k, f])=>({f, from:short(old[k]), to:short(d[k])})) : [{f:'Date', from:'', to:d.date ? niceDate(d.date) : ''}];
+      pend(`${d.title || 'Event'} (calendar event)`, ch); return _se.apply(this, arguments); }; }
+  { const _re = removeEventDoc; removeEventDoc = async function(id){ const e = EVENTS.find(x=>x.id===id); if (e) pend(`${e.title || 'Event'} (calendar event)`, []); return _re.apply(this, arguments); }; }
+  { const _af2 = addFeedbackDoc; addFeedbackDoc = async function(data){ const it = data && data.contentId ? findContent(data.contentId) : null; const ok = await _af2.apply(this, arguments); if (ok) pend(itemLabel(it) || clientById(data.client).name, []); return ok; }; }
+
+  /* ---------- activity: who, what, which item, when, before → after; never pruned or edited from here ---------- */
+  logActivity = async function(text){
+    const entry = { at: nowIso(), text };
+    if (myId) entry.actorId = myId; else entry.actorLabel = LIVE ? 'Someone' : 'You';
+    const p = X.pend; if (p && Date.now() - p.at < 8000){ if (p.item) entry.item = p.item; if (p.changes && p.changes.length) entry.changes = p.changes; } X.pend = null;
+    if (LIVE){ try { await db.collection('activity').add(entry); } catch {} return; }      /* the server keeps the latest 200 */
+    ACTIVITY = [{ id:'a'+Date.now().toString(36), ...entry }, ...ACTIVITY].slice(0, 200); persistLocal(); scheduleRender();
+  };
+  renderActivity = function(){
+    const list = ACTIVITY.slice().sort((a,b)=>stampSortKey(b.at).localeCompare(stampSortKey(a.at))).slice(0, 200);
+    wantNames(list.filter(a=>a.actorId).map(a=>a.actorId));
+    document.getElementById('main').innerHTML = `
+      <div class="page-head"><div><h1>Activity</h1><div class="page-sub">Who changed what, and when — newest first. The latest 200 changes across the system are kept; activity can't be edited or deleted.</div></div></div>
+      <div class="${list.length?'list-card':''} cpx-act">${list.map(a => {
+        const who = a.actorId ? (a.actorId === myId ? 'You' : nameOf(a.actorId)) : (a.actorLabel || 'Someone');
+        const ch = Array.isArray(a.changes) ? a.changes.filter(x=>x && (x.from || x.to)) : [];
+        return `<div class="activity-item"><div class="activity-time" title="${esc(fmtStamp(a.at))}">${esc(relTime(a.at))}<small>${esc(fmtStamp(a.at))}</small></div>
+          <div><div><b>${esc(who)}</b> ${activityHtml(a.text != null ? a.text : String(a.html||'').replace(/<[^>]*>/g,''))}</div>
+          ${a.item ? `<div class="cpx-ai-item">Item: ${esc(a.item)}</div>` : ''}
+          ${ch.length ? `<div class="cpx-ai-ch">${ch.map(x=>`<div><span>${esc(x.f||'')}</span> ${x.from ? `<s>${esc(x.from)}</s> → ` : ''}<b>${esc(x.to || '—')}</b></div>`).join('')}</div>` : ''}</div></div>`;
+      }).join('') || '<div class="empty-note">No activity yet. Changes to posts, feedback, events and the backlog show up here.</div>'}</div>`;
+  };
+
+  /* ---------- saving errors say what happened (a refusal is not a connection problem) ---------- */
+  { const _de = dbErrorMessage; dbErrorMessage = function(e){ const code = e && e.code, m = e && e.message ? String(e.message) : '';
+      if (m && code !== 'unavailable' && !['invalid_argument','quota_exceeded','resource_exhausted','revoked'].includes(code) && !/failed to fetch|networkerror|load failed|network request failed/i.test(m)) return m;
+      return _de.apply(this, arguments); }; }
   if (state.ready) render();
 }
-{ const _d = cphDoc; cphDoc = function(theme){ const h = _d.apply(this, arguments);
-    const add = `<style>${CPX_HUB_CSS}</style><script>(${cpxHubExt.toString()})();</` + `script>`;
-    const i = h.lastIndexOf('</body>'); return i < 0 ? h + add : h.slice(0, i) + add + h.slice(i); }; }
+/* the add-on goes into a hub page, after the hub; `api` names the function in the portal that hands it its helpers */
+function cpxInject(h, api){ const add = `<style>${CPX_HUB_CSS}</style><script>window.__CPX = (function(){ try{ return ${api}; }catch(e){ return {}; } })();</` + `script><script>(${cpxHubExt.toString()})();</` + `script>`;
+  const i = h.lastIndexOf('</body>'); return i < 0 ? h + add : h.slice(0, i) + add + h.slice(i); }
+{ const _d = cphDoc; cphDoc = function(theme){ return cpxInject(_d.apply(this, arguments), 'parent.cpxHubApi()'); }; }
 const CPX_HUB_CSS = `
 .cpx-plan{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:4px 0 12px;padding:14px 18px;border:1px solid var(--line);border-radius:16px;background:var(--surface);box-shadow:var(--shadow)}
 .cpx-plan-l{display:flex;align-items:center;gap:10px;min-width:0;flex-wrap:wrap}.cpx-plan-t{margin:0;font-size:21px;font-weight:800;letter-spacing:-.01em}
@@ -38566,7 +38686,27 @@ const CPX_HUB_CSS = `
 .post-card.cpx-on,.b-card.cpx-on{outline:2px solid var(--mustard);outline-offset:1px}
 .cpx-bulk{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:60;display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:center;max-width:calc(100vw - 24px);padding:9px 12px;border-radius:14px;background:var(--surface);border:1px solid var(--line);box-shadow:0 14px 40px -12px rgba(30,20,10,.35);font-size:13px}
 .btn.danger{background:var(--danger,#C93B3B);border-color:var(--danger,#C93B3B);color:#fff}
-.cpx-opt{display:flex;gap:8px;align-items:flex-start;padding:8px 0;font-size:13px;cursor:pointer}.cpx-opt small{display:block;color:var(--ink-soft);font-size:11.5px;margin-top:2px}`;
+.cpx-opt{display:flex;gap:8px;align-items:flex-start;padding:8px 0;font-size:13px;cursor:pointer}.cpx-opt small{display:block;color:var(--ink-soft);font-size:11.5px;margin-top:2px}
+.cpx-week .week-body{padding:12px 14px 14px}.cpx-wk-r{font-weight:600;color:var(--ink-soft)}
+.cpx-now{display:inline-block;margin-left:6px;font-size:10.5px;font-weight:800;background:linear-gradient(180deg,#F7BC5A,var(--accent,#F2A93B));color:var(--accent-ink,#1A1206);border-radius:20px;padding:2px 9px;vertical-align:middle}
+.cpx-lanes{display:grid;grid-template-columns:repeat(var(--cols,4),minmax(0,1fr));gap:12px;align-items:start}
+.cpx-lane{display:flex;flex-direction:column;gap:8px;min-width:0}.cpx-lane-h{display:flex;align-items:center;justify-content:space-between;gap:6px;min-width:0}
+.cpx-lane-h .client-tag{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cpx-tgt{font-size:11.5px;font-weight:800;padding:2px 9px;border-radius:20px;background:#FCF0DA;color:#9A6206;white-space:nowrap;flex-shrink:0}.cpx-tgt.ok{background:#E4F5EB;color:#188A4E}
+.cpx-plan-m .cpx-tgt{font-size:12.5px;padding:4px 11px}.cpx-plan-m .cpx-tgt b{color:inherit;font-size:13.5px}
+.add-card.cpx-slot{min-height:54px;font-size:12px}
+.cpx-pdate{font-size:11.5px;font-weight:700;color:var(--ink-soft)}.cpx-pdate.out{color:#B45309}
+.cpx-genbar{font-size:11.5px;font-weight:700;color:#3D5A6E;background:rgba(255,255,255,.55);border:1px dashed #9DB4C4;border-radius:9px;padding:5px 8px}
+.cpx-genbar select{margin-left:4px;font-size:11.5px;padding:2px 6px;border-radius:7px;border:1px solid #9DB4C4;background:#fff}
+.post-card.cpx-mc,.b-card.cpx-mc{background:#E5EDF2!important;border-color:#C3D3DE!important;box-shadow:inset 3px 0 0 #7E9AAE}
+[data-theme="dark"] .post-card.cpx-mc,[data-theme="dark"] .b-card.cpx-mc{background:#26333C!important;border-color:#3A4C58!important}
+.cpx-marks{display:flex;flex-wrap:wrap;gap:6px 12px;margin:0 0 10px;font-size:12px}.cpx-mk{display:inline-flex;align-items:center;gap:6px}.cpx-mk-d{font-weight:700;color:var(--ink-soft)}
+.cpx-pw{margin-top:-2px}.cpx-pw-r{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.cpx-pw-r input{max-width:190px}.cpx-pw-t{font-weight:800;font-size:13px}
+.cpx-pw-h{font-size:11.5px;color:var(--ink-soft);margin-top:4px}.cpx-pw-h.warn{color:#B45309;font-weight:700}
+.cpx-act .activity-time{display:flex;flex-direction:column;gap:1px;min-width:118px}.cpx-act .activity-time small{font-size:10.5px;color:var(--ink-faint);font-weight:600}
+.cpx-ai-item{font-size:12px;color:var(--ink-soft);margin-top:2px}.cpx-ai-ch{margin-top:4px;font-size:12px;display:flex;flex-direction:column;gap:2px}
+.cpx-ai-ch span{font-weight:700;color:var(--ink-soft);margin-right:4px}.cpx-ai-ch s{color:var(--ink-faint)}
+@media (max-width:900px){.cpx-lanes{grid-template-columns:repeat(2,minmax(0,1fr))}}`;
 
 /* ===================== CONTENT BOARD ===================== */
 const CPXB = {sel:new Set(), on:false};
@@ -38713,6 +38853,163 @@ function prxDelete(){ const P0 = [...PRX.sel].map(id=>PROSPECTS.find(p=>p.id===i
 #v-prospects tr.prx-on td{background:rgba(242,169,59,.10)}
 .prx-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 14px 10px;padding:8px 12px;border-radius:12px;border:1px solid rgba(201,59,59,.35);background:var(--bad-bg);font-size:13px}
 .prx-bar[hidden]{display:none}.prx-bar .btn{padding:6px 11px;font-size:12.5px}`; document.head.appendChild(st); })();
+
+/* ===== t23_clientaccess.js — client access link, Full Board saving, activity history, planning weeks (Nov 5 2026 · 2) =====
+   Run with supabase/update-nov05-client-board.sql.
+   CLIENT ACCESS LINK
+   • Cause of "the client is asked to log in": when a new portal version is published, every open portal installs it by
+     reloading itself — and that reload dropped the private part of the client's link (#cb=…), so the client landed on the
+     staff sign-in page. The reload now keeps it. The link is also read more forgivingly (an encoded # or extra text added
+     by an email or chat app), it is remembered for reloads in the same tab, and a link that is cut short shows a clear
+     "this link is incomplete" page instead of the sign-in page.
+   • Cause of "Couldn't reach the server" on Save: the database refused every change from a client link (see the SQL file),
+     and the client portal reported ANY database refusal as a connection problem. Refusals now show their real reason;
+     only a real network failure says "check your connection". What the client typed stays in the window.
+   • The client's Full Board gets the same hub add-ons as the team (weekly rows, planning week, rich-text feedback, bulk
+     select) — without private messages or file uploads, which a link has no access to.
+   ACTIVITY HISTORY
+   • Content Board actions by PMs and VAs (status changes, edits, work type, planning week, bulk changes, deletes) are added
+     to the same Activity list as the hub and the client board, with the item and before → after values.
+   • The portal never deletes or edits activity entries; the database keeps the latest 200 across the system.
+   PLANNING WEEK on the Content Board item, and MarketCrest cards in dusty blue on the Content Board too. */
+
+/* ===================== client access link ===================== */
+/* replaces the early check in t5b (declared again so it is the one that runs before the normal sign-in) */
+function cbEarly(){
+  let raw = location.hash || ''; try{ raw = decodeURIComponent(raw); }catch(e){}
+  const pick = s => /(?:^|[#?&])cb=([A-Za-z0-9_-]{4,40})\.([A-Za-z0-9_-]{20,90})/.exec(s || '');
+  let m = pick(raw) || pick(location.search);
+  if(!m){ try{ const s = sessionStorage.getItem('cc-cb-link'); const nav = (performance.getEntriesByType && performance.getEntriesByType('navigation')[0]) || {};
+      if(s && (nav.type === 'reload' || /[?&]v=\d/.test(location.search))) m = /^()([A-Za-z0-9_-]{4,40})\.([A-Za-z0-9_-]{20,90})$/.exec(s)?.slice(1); }catch(e){} }
+  if(!m){ if(/(?:^|[#?&])cb=/.test(raw + location.search)){ setTimeout(()=>cbBadLink(), 0); return true; } return false; }
+  const [link, secret] = [m[1], m[2]];
+  try{ sessionStorage.setItem('cc-cb-link', `${link}.${secret}`); }catch(e){}
+  try{ if(location.hash !== `#cb=${link}.${secret}` || location.search) history.replaceState(null, '', location.pathname + `#cb=${link}.${secret}`); }catch(e){}
+  setTimeout(()=>cbBoot(link, secret), 0); return true;
+}
+function cbBadLink(){ document.body.classList.add('cb-mode'); document.title = 'Client Portal · Cross Core';
+  const app = document.createElement('div'); app.id = 'cbApp'; document.body.appendChild(app);
+  app.innerHTML = `<div class="cb-bad"><img src="${typeof LOGO_B64!=='undefined'?LOGO_B64:''}" alt="" style="height:54px;border-radius:10px"><h2>This link looks incomplete</h2><p>Please open the full link from your invitation email (copy the whole address, including everything after <b>#cb=</b>), or ask your Cross Core contact to send you a new link. No password or account is needed.</p></div>`; }
+/* a portal update keeps the client's link (and anything else after #) */
+verUpdate = async function(){ try{ await SYNC.flush?.(); }catch(e){} try{ const regs = await navigator.serviceWorker?.getRegistrations?.(); (regs||[]).forEach(r=>r.update?.()); }catch(e){}
+  try{ const ks = await caches?.keys?.(); await Promise.all((ks||[]).map(k=>caches.delete(k))); }catch(e){}
+  location.replace(location.pathname + '?v=' + Date.now() + (location.hash || '')); };
+/* …and never while someone is typing or has a post open inside the Content Planning Hub / client board */
+{ const _vs = verSafe; verSafe = function(){ if(!_vs.apply(this, arguments)) return false;
+    for(const f of document.querySelectorAll('iframe')){ try{ const d = f.contentDocument; if(!d) continue;
+      if(d.querySelector('#recordModal.open, .dlg-backdrop, .cpx-replybox')) return false;
+      const ae = d.activeElement; if(ae && (ae.isContentEditable || /^(TEXTAREA|INPUT)$/.test(ae.tagName)) && String(ae.value || ae.textContent || '').trim()) return false; }catch(e){} }
+    return true; }; }
+/* the client portal tells a refusal from a connection problem */
+const cbNetErr = 'We could not reach Cross Core. Please check your connection and try again.';
+function cbErrText(e){ const m = String(e?.message || '').replace(/^(error:\s*)/i, '').trim();
+  if(/permission denied|42501|row-level security/i.test(m + ' ' + (e?.code || ''))) return 'Your link doesn’t allow that change. Ask your Cross Core contact if you need it.';
+  if(/could not find the function|PGRST202/i.test(m + ' ' + (e?.code || ''))) return 'The client board needs a database update — please tell your Cross Core contact (code: board functions).';
+  return m ? `That change couldn’t be saved: ${m}` : 'That change couldn’t be saved. Please try again.'; }
+cbApi = async function(action, a={}){
+  if(!LIVE) return cbDemo(action, a);
+  try{ if(!CB.sb){ await loadScript('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js'); CB.sb = window.supabase.createClient(CC_CONFIG.SUPABASE_URL, CC_CONFIG.SUPABASE_ANON_KEY, {auth:{persistSession:false, autoRefreshToken:false}}); }
+    const r = action==='load' ? await CB.sb.rpc('cc_cb_load', {p_link:CB.link, p_secret:CB.secret})
+      : action==='note' ? await CB.sb.rpc('cc_cb_note', {p_link:CB.link, p_secret:CB.secret, p_kind:a.kind, p_ref:a.ref, p_text:a.text||'', p_name:a.name||''})
+      : action==='fload' ? await CB.sb.rpc('cc_cbf_load', {p_link:CB.link, p_secret:CB.secret})
+      : action==='fwrite' ? await CB.sb.rpc('cc_cbf_write', {p_link:CB.link, p_secret:CB.secret, p_op:a.op, p_col:a.col, p_id:String(a.id), p_data:a.data||{}, p_name:CB.name||''})
+      : await CB.sb.rpc('cc_cb_act', {p_link:CB.link, p_secret:CB.secret, p_task:a.task, p_action:a.action, p_text:a.text||'', p_name:a.name||''});
+    if(r.error){ const msg = String(r.error.message || ''); const net = !r.status || /failed to fetch|networkerror|load failed|network request failed|fetch failed/i.test(msg);
+      if(net) return {ok:false, error:cbNetErr, net:true};
+      console.warn('client portal: the server refused', action, r.error); return {ok:false, error:cbErrText(r.error), net:false}; }
+    return r.data;
+  }catch(e){ return {ok:false, error:cbNetErr, net:true}; }
+};
+
+/* ===================== the client's Full Board gets the hub add-ons ===================== */
+function cbfCpxApi(){ return {
+  isGeneral: hid => { const c = CBF.data?.client; return !!c && !String(hid||'').includes('~') && (c.brands||[]).length > 0; },
+  isMC: () => /market\s*crest/i.test(CBF.data?.client?.name || ''),
+  canDelete: id => { const p = (CBF.data?.posts||[]).find(x=>x.id===id); return !!p && p.byClient && p.boardStatus==='Draft'; },
+  me: () => { const m = cbfMe(); return {key:m.id || 'client', name:m.name || 'Client', first:String(m.name || 'Client').split(' ')[0]}; } }; }
+{ const _cd = cbfDoc; cbfDoc = function(){ return cpxInject(_cd.apply(this, arguments), 'parent.cbfCpxApi()'); }; }
+
+/* demo mode follows the same rules as the database */
+{ const _p = cbfDemoPost; cbfDemoPost = function(t, db){ const p = _p.apply(this, arguments); p.planWeek = cpxWeekOf(t?.planWeek) || ''; return p; }; }
+{ const _fd = cbfDemo; cbfDemo = async function(db, l, action, a){
+    if(action!=='fwrite' || l?.access!=='full' || (l.role||'approver')==='viewer') return _fd.apply(this, arguments);
+    const op = a?.op, col = a?.col, id = String(a?.id||''), d = a?.data || {}, me = 'client:'+l.id, perms = cbfPerms(l), at = nowISO(), who = l.name || 'Client';
+    const when = new Date().toLocaleString('en-US', {month:'short', day:'numeric', hour:'numeric', minute:'2-digit', timeZone:'Asia/Manila'});
+    if(col==='activity' && op!=='delete'){ const key = 'activity|'+id;
+      if(/^[A-Za-z0-9_|~.-]{1,80}$/.test(id) && !(db.hubdocs||{})[key]){ const cut = (s, n) => String(s ?? '').slice(0, n);
+        await DemoBackend.write([{collection:'hubdocs', id:key, data:{id:key, col:'activity', did:id, d:{at, text:cut(d.text, 400), actorLabel:`Client (${who})`, item:cut(d.item, 200),
+          changes:(Array.isArray(d.changes) ? d.changes : []).filter(x=>x && typeof x==='object').slice(0, 12).map(x=>({f:cut(x.f, 60), from:cut(x.from, 300), to:cut(x.to, 300)}))}, at, by:me, acct:l.client, accts:[l.client], deleted:false}}], []); }
+      return {ok:true}; }
+    if((col==='backlog' || col==='events') && op!=='add'){ const r = (db.hubdocs||{})[`${col}|${id}`];
+      if(r && r.by!==me && (col==='backlog' || (r.d?.client && r.d.client!=='all'))) r.by = me; }       /* Full Board: manage the board's ideas and its own events */
+    if(col!=='content') return _fd.apply(this, arguments);
+    const t = (db.tasks||{})[id]; const pw = cpxWeekOf(d.planWeek);
+    if(t && pw && pw!==cpxWeekOf(t.planWeek) && t.client===l.client){
+      const eff = cpxWeekOf(t.planWeek) || cpxWeekOf(cbfDemoPost(t, db).date);
+      if(pw!==eff && t.status==='Completed') return {ok:false, error:'This post is already scheduled or posted — ask your Cross Core team to move it to another week.'};
+      if(pw!==eff && !(perms.edit || perms.move)) return {ok:false, error:'Changing the planning week isn’t switched on for your access.'};
+      t.planWeek = pw;
+      if(pw!==eff) t.history = [...(t.history||[]), {by:`Client (${who})`, who:null, act:'Edited by the client in the Content Planning Board', note:`planning week ${eff} → ${pw}`, when, at, cv:true, client:true}];
+      await DemoBackend.write([{collection:'tasks', id, data:t}], []); }
+    const r = await _fd.apply(this, arguments);
+    if(r && r.ok && !t && ['set','add'].includes(op)){ const nt = DemoBackend.read()?.tasks?.[id];
+      if(nt){ nt.planWeek = pw || cpxWeekOf(d.date) || cpxWeekOf(manilaDate()); await DemoBackend.write([{collection:'tasks', id, data:nt}], []); if(r.post) r.post.planWeek = nt.planWeek; } }
+    return r; }; }
+
+/* ===================== activity history ===================== */
+const CPXA = {inHub:false, quiet:false};
+{ const _w = cphWrite; cphWrite = function(){ CPXA.inHub = true; try{ return _w.apply(this, arguments); } finally { CPXA.inHub = false; } }; }
+/* the portal never deletes activity entries (the database keeps the latest 200); in demo mode the browser keeps 200 */
+{ const _dd = cphDelDoc; cphDelDoc = function(col){ if(col==='activity') return; return _dd.apply(this, arguments); }; }
+{ const _sd = cphSetDoc; cphSetDoc = function(col){ const r = _sd.apply(this, arguments);
+    if(col==='activity' && BACKEND?.mode!=='live'){ const A = HUBDOCS.filter(x=>x.col==='activity').sort((a, b)=>String(b.d?.at||b.at||'').localeCompare(String(a.d?.at||a.at||'')));
+      if(A.length > 200){ const drop = new Set(A.slice(200).map(x=>x.id)); for(let i=HUBDOCS.length-1; i>=0; i--) if(drop.has(HUBDOCS[i].id)) HUBDOCS.splice(i, 1); } }
+    return r; }; }
+const cpxTitle = t => String(t?.title || '(untitled)').replace(/\[\[|\]\]/g, '');
+const cpxItemOf = t => `${cpxTitle(t)} · ${t.hubBrand ? cphBrandName(t.client, t.hubBrand) : cname(t.client)}`;
+const cpxV = v => { if(v==null || v==='') return ''; if(v instanceof Date || (typeof v==='string' && /^\d{4}-\d{2}-\d{2}T/.test(v))){ try{ return fmtD(cpxYmd(v)); }catch(e){} }
+  if(Array.isArray(v)) return v.length ? `${v.length} file${v.length>1?'s':''}` : 'none'; const s = String(v); return s.length > 300 ? s.slice(0, 297)+'…' : s; };
+function cpxAct(t, text, changes){ if(!t || CPXA.inHub || !PEOPLE[PERSON] || ROLE==='client') return;
+  if(!(cphPostLike(t) && cphEligible(client(t.client)))) return;
+  const id = uid('A'); const r = cphSetDoc('activity', id, {at:nowISO(), text, actorId:PERSON, item:cpxItemOf(t), changes:(changes||[]).slice(0, 12)});
+  if(r){ r.accts = [t.client]; r.acct = t.client; } }
+{ const _st = setTaskStatus; setTaskStatus = function(t, status, note){ const from = t?.status; const r = _st.apply(this, arguments);
+    if(t && from!==t.status && !CPXA.quiet) cpxAct(t, `moved [[${cpxTitle(t)}]] (${cname(t.client)}) from ${cpxStLabel(from)} to [[${cpxStLabel(t.status)}]] on the Content Board${note?` — “${String(note).slice(0, 120)}”`:''}`, [{f:'Status', from:cpxStLabel(from), to:cpxStLabel(t.status)}]);
+    return r; }; }
+{ const _cv = ceRecordVersion; ceRecordVersion = function(t, before, changed){ const r = _cv.apply(this, arguments);
+    try{ cpxAct(t, `edited [[${cpxTitle(t)}]] (${cname(t.client)}) on the Content Board`, (changed||[]).map(k=>({f:CE_LABEL[k]||k, from:cpxV(before?.[k]), to:cpxV(t[k])})).filter(x=>x.from!==x.to)); }catch(e){}
+    return r; }; }
+{ const _at = addTask; addTask = function(){ const n0 = TASKS.length; const r = _at.apply(this, arguments); if(TASKS.length > n0){ const t = TASKS[TASKS.length-1]; cpxAct(t, `created [[${cpxTitle(t)}]] (${cname(t.client)}) on the Content Board`, [{f:'Owner', from:'', to:pname(t.assignee)}]); } return r; }; }
+{ const _sw = cpxSetWork; cpxSetWork = function(id, w){ const t = TASKS.find(x=>x.id===id); const was = t ? cpxWork(t) : ''; CPXA.quiet = true; let r; try{ r = _sw.apply(this, arguments); } finally { CPXA.quiet = false; }
+    if(t && was!==cpxWork(t)) cpxAct(t, `changed the work type of [[${cpxTitle(t)}]] (${cname(t.client)})`, [{f:'Work type', from:was, to:cpxWork(t)}]); return r; }; }
+/* bulk changes: one entry per item, with what changed */
+const cpxSnap = t => ({Status:cpxStLabel(t.status), Owner:pname(t.assignee), 'Scheduled date':t.postDate ? fmtD(cpxYmd(t.postDate)) : '', 'Work type':cpxWork(t)});
+{ const _br = cpxbRun; cpxbRun = function(label, fn){ return _br.call(this, label, t => { const b = cpxSnap(t); CPXA.quiet = true; let ok; try{ ok = fn(t); } finally { CPXA.quiet = false; }
+      if(ok){ const a = cpxSnap(t); const ch = Object.keys(a).filter(k=>a[k]!==b[k]).map(k=>({f:k, from:b[k], to:a[k]})); cpxAct(t, `${label.split(' → ')[0].toLowerCase()} of [[${cpxTitle(t)}]] (${cname(t.client)}) changed — bulk change on the Content Board`, ch); }
+      return ok; }); }; }
+{ const _bd = cpxbDelete; cpxbDelete = function(){ const before = new Set(TASKS.map(t=>t.id)); const keep = cpxbItems().filter(cpxbCanDel).map(t=>({...t}));
+    const r = _bd.apply(this, arguments);
+    const ok = el('cfOk'); if(ok){ const go = ok.onclick; ok.onclick = function(){ const r2 = go?.apply(this, arguments); keep.filter(t=>!TASKS.some(x=>x.id===t.id) && before.has(t.id)).forEach(t=>cpxAct(t, `deleted [[${cpxTitle(t)}]] (${cname(t.client)}) — bulk delete on the Content Board`, [])); return r2; }; }
+    return r; }; }
+
+/* ===================== planning week on the Content Board item ===================== */
+function cpxSetPlanWeek(id, v){ const t = TASKS.find(x=>x.id===id); if(!t) return; if(!canEditContent(t)) return toast('You can only change items for clients you work on');
+  const pw = cpxWeekOf(v); if(!pw) return toast('Pick a day in the planning week');
+  const was = cpxWeekOf(t.planWeek) || cpxWeekOf(cphDate(t)); if(pw===cpxWeekOf(t.planWeek)) return;
+  t.planWeek = pw; t.updatedAt = nowISO(); t.updatedBy = PERSON;
+  t.history = [...(t.history||[]), {by:pname(PERSON), who:PERSON, act:'Planning week changed', note:`week of ${fmtD(was)} → week of ${fmtD(pw)}`, when:dtstr(nowISO()), at:nowISO()}];
+  cpxAct(t, `moved [[${cpxTitle(t)}]] (${cname(t.client)}) to another planning week`, [{f:'Planning week', from:`week of ${fmtD(was)}`, to:`week of ${fmtD(pw)}`}]);
+  recordChange(); RENDER[CURRENT]?.(); const s = el('tePlanWeek'); if(s) s.value = pw; toast(`Planning week: week of ${fmtD(pw)}`); }
+{ const _ot = openTask; openTask = function(id){ const r = _ot.apply(this, arguments); const t = TASKS.find(x=>x.id===id);
+    const pd = el('tePostDate')?.closest('.field');
+    if(t && pd && !el('tePlanWeek') && cphPostLike(t) && cphEligible(client(t.client))){ const wk = cpxWeekOf(t.planWeek) || cpxWeekOf(cphDate(t));
+      pd.insertAdjacentHTML('afterend', `<div class="field"><label>Planning week <span class="hint">where it appears in the Content Planning Hub (week of ${esc(fmtD(wk))})</span></label><input id="tePlanWeek" type="date" value="${esc(wk)}" ${canEditContent(t)?'':'disabled'} onchange="cpxSetPlanWeek('${t.id}', this.value)"></div>`); }
+    return r; }; }
+/* MarketCrest cards on the Content Board: dusty blue */
+{ const _kc = kcard; kcard = function(t){ const h = _kc.apply(this, arguments); return /market\s*crest/i.test(cname(t.client)) ? h.replace('class="kcard', 'class="kcard cpx-mc') : h; }; }
+(function(){ const st = document.createElement('style'); st.textContent = `
+.kcard.cpx-mc,[data-theme] .kcard.cpx-mc{background:#E5EDF2!important;border-color:#C3D3DE!important;box-shadow:inset 3px 0 0 #7E9AAE,var(--shadow)!important}
+[data-theme="dark"] .kcard.cpx-mc{background:#26333C!important;border-color:#3A4C58!important}`; document.head.appendChild(st); })();
 
 /* <<< OCT24 MODULES <<< */
 </script>

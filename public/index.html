@@ -20916,7 +20916,7 @@ async function cooPostFromModal(){ const ch = CHATS.find(c=>c.id===el('paPostC')
    The footer shows which build is running ("Build 2026-10-07 · 1"), and every open portal checks every few minutes
    (and whenever it comes back to the foreground) whether a newer build has been published. If so it shows
    "New version available — Update now" instead of quietly running old code. */
-const BUILD_ID = '2026-11-04 · 3';
+const BUILD_ID = '2026-11-05 · 1';
 function verStamp(){ const f = el('footNote'); if(f && !f.dataset.v){ f.dataset.v = 1; f.textContent = `Cross Core Ops Suite v8 · Build ${BUILD_ID}`; } }
 async function verCheck(){
   if(!/^https?:/.test(location.protocol)) return;
@@ -38093,6 +38093,626 @@ function atMigrate(){
   return ch; }
 { const _sp = setPerson; setPerson = function(){ const r = _sp.apply(this, arguments); setTimeout(()=>{ try{ atMigrate(); }catch(e){ console.warn('att migrate', e); } }, 15000); return r; }; }
 setInterval(()=>{ try{ atMigrate(); }catch(e){} }, 120000);
+
+/* ===== t22_contentplus.js — Content Planning Hub, Content Board and ICP List updates (Nov 5 2026) =====
+   CONTENT PLANNING HUB (the hub page gets a small add-on script — the hub itself, its data and the client portal's board
+   are unchanged):
+   1. MarketCrest: Content Board items that have no brand show in the "(general)" column only — the separate
+      "+ Add MarketCrest post" slots are gone, and new posts are added under a brand, so nothing is entered twice.
+   2. Plan title above the week view: "Content Plan – November WE 2 (November 9–13)". WE = the week's Friday counted in
+      its month; the date range is the real Monday–Friday of the period (Saturday / Sunday too when a post is on them).
+   3. Fixed layout: every week always shows Monday → Sunday in the same places; only the dates and posts change.
+      Empty slots stay visible (full "+ Add" slots on posting days, small ones on the other days).
+   4. A 📅 mini calendar beside the date range (the range label opens it too): pick a date to jump to its period;
+      today and the selected date are marked. ‹ › still step one period.
+   5. Feedback on a post: a rich-text editor (bold, italic, underline, bullets, numbering, links, images / screenshots —
+      paste or attach), replies under each comment, name and time on every entry, full history. The owner (VA) and
+      the post's creator are told as before; the person being replied to is told too.
+   6–7. "💬 Message about this post" (record window and ⋮ menu): a private message to the owner / PM / team with a
+      clickable card for the post. Opening the card opens that exact post in the hub and jumps to its planning period.
+   8. The FB/IG caption box is taller and grows with the text (everything else in the form is unchanged).
+   9. Bulk select in the hub (Home period and Board tab): tick posts or "Select all", then Move (one date, or another
+      week keeping each weekday) or Delete (with a confirmation).
+   CONTENT BOARD:
+   • Work type (Content Planning · Graphics · Reels/Video), separate from the status, shown on every card as
+     "Graphics · In Progress". Defaults from the item type until someone sets it.
+   • PMs / company heads can set the status directly (Draft · In Progress · For Revision · Approved) from the item, and
+     reopen approved work from the card (↺ Reopen → In Progress / For Revision). Direct changes skip the usual steps
+     (client approval, hand-off to the creative team for content-planning work) and are written in the history.
+   • Bulk actions: tick cards or Select all → change status, reassign the owner, change the scheduled date, change the
+     work type, or delete (confirmation first). Each item keeps the normal permissions; anything not allowed is skipped.
+   ICP & CREATOR LISTS: tick rows or Select all (also "all N matching") → Delete selected, with a confirmation. */
+
+/* ===================== shared helpers ===================== */
+const CPX_WT = ['Content Planning','Graphics','Reels/Video'];
+/* the work type someone set; otherwise from the item: posts planned in the Content Planning Hub start as Content Planning */
+const cpxWork = t => t?.workType && CPX_WT.includes(t.workType) ? t.workType : t?.hubPost ? 'Content Planning' : /video|reel/i.test(t?.type||'') ? 'Reels/Video' : /design/i.test(t?.type||'') ? 'Graphics' : 'Content Planning';
+const cpxWtCls = w => w==='Graphics' ? 'g' : w==='Reels/Video' ? 'v' : 'c';
+const cpxAuth = t => !!t && (canApproveTask(t) || isExec() || isFullAccess());
+const cpxStLabel = s => typeof ctStatusLabel==='function' ? ctStatusLabel(s) : s;
+const cpxYmd = d => { try{ return iso(new Date(d)); }catch(e){ return ''; } };
+
+/* ===================== CONTENT PLANNING HUB — the portal side ===================== */
+function cpxIsGeneral(hid){ const {cid, brand} = cphSplit(hid); return !brand && cphBrands(client(cid)).length>0; }
+/* the hub page can't see the portal's `let` variables — these small functions hand it what it needs */
+function cpxFileUrl(f){ return BACKEND.fileUrl(f); }
+function cpxCanDelete(id){ const t = TASKS.find(x=>x.id===id); return !!t && (canApproveTask(t) || t.createdBy===PERSON || isExec() || isFullAccess()); }
+function cpxMe(){ return {key:PERSON, name:pname(PERSON), first:first(PERSON)}; }
+/* who a message about a post can go to: the owner, the client's PMs, the team on the client, the person who created it */
+function cpxMsgTargets(id){ const t = TASKS.find(x=>x.id===id); if(!t) return [];
+  const c = client(t.client);
+  const ks = uniq([t.assignee, ...pmsOf(t.client), ...(c?.team||[]), t.createdBy]).filter(k=>k && k!==PERSON && PEOPLE[k] && PEOPLE[k].role!=='client' && !(typeof isAssistantKey==='function' && isAssistantKey(k)));
+  const role = k => k===t.assignee ? 'Owner' : pmsOf(t.client).includes(k) ? 'PM' : (c?.team||[]).includes(k) ? 'Team' : 'Created it';
+  const def = cpxAuth(t) ? (ks.includes(t.assignee) ? t.assignee : ks[0]) : (ks.find(k=>pmsOf(t.client).includes(k)) || ks[0]);
+  return ks.map(k=>({id:k, name:pname(k), role:role(k), def:k===def})); }
+function cpxPostRef(t){ const h = cphToHub(t); return {id:t.id, title:t.title||'(untitled)', client:cname(t.client), brand:t.hubBrand ? cphBrandName(t.client, t.hubBrand) : '', date:h.date}; }
+function cpxSendPostMsg(id, to, text){
+  const t = TASKS.find(x=>x.id===id); if(!t) return {ok:false, error:'That post was deleted.'};
+  if(!PEOPLE[to] || to===PERSON) return {ok:false, error:'Choose who to message.'};
+  const body = String(text||'').trim(); if(!body) return {ok:false, error:'Write the message first.'};
+  const cid = dmId(PERSON, to);
+  if(!CHATS.find(c=>c.id===cid)) CHATS.push({id:cid, kind:'dm', name:'', members:[PERSON, to].sort(), at:nowISO()});
+  const m = {id:uid('M'), chat:cid, by:PERSON, text:body.slice(0, 4000), at:nowISO(), files:[], post:cpxPostRef(t)};
+  MESSAGES.push(m); myPrefs().lastRead[cid] = m.at;
+  notify([to], 'message', `💬 <b>${esc(first(PERSON))}</b> about <b>${esc(t.title)}</b>: ${esc(body.slice(0, 90))}`, {view:'chat', arg:cid});
+  t.history = [...(t.history||[]), {by:pname(PERSON), who:PERSON, act:`Messaged ${pname(to)} about this post`, note:body.slice(0, 140), when:dtstr(nowISO()), at:nowISO()}];
+  recordChange(); buildNav?.();
+  return {ok:true, chat:cid, name:first(to)}; }
+function cpxOpenChat(cid){ CHAT_OPEN = cid; go('chat'); }
+/* the post card inside a message: opens that exact post in the hub, in its own planning period */
+function cpxOpenPost(id){ const t = TASKS.find(x=>x.id===id); if(!t) return toast('That post was deleted.');
+  try{ closeOverlays?.(); }catch(e){}
+  if(cphPostLike(t) && cphAccounts().some(a=>a.id===t.client)) return cphOpen(id);
+  if(canEditContent(t) || vis([t]).length) return openTask(id);
+  toast('You don’t have access to that client’s content.'); }
+function cpxPostCardHTML(p){ if(!p || !p.id) return '';
+  const t = TASKS.find(x=>x.id===p.id); const title = t?.title || p.title; const date = t ? cphToHub(t).date : p.date;
+  return `<div class="cpx-postref" role="button" tabindex="0" onclick="event.stopPropagation();cpxOpenPost('${esc(p.id)}')" onkeydown="if(event.key==='Enter'){event.stopPropagation();cpxOpenPost('${esc(p.id)}')}" title="Open this post in the Content Planning Hub"><span class="cpx-pr-ico">📌</span><span class="cpx-pr-b"><b>${esc(title)}</b><small>${esc([p.brand || p.client, date ? fmtD(date) : '', t ? '' : 'deleted'].filter(Boolean).join(' · '))}</small></span><span class="cpx-pr-go">${t ? 'Open post →' : ''}</span></div>`; }
+{ const _mt = msgText; msgText = function(m){ const h = _mt.apply(this, arguments); return m && m.post ? h + cpxPostCardHTML(m.post) : h; }; }
+{ const _mp = msgPreview; msgPreview = function(m){ const r = _mp.apply(this, arguments); return m && m.post && !r ? `📌 ${m.post.title}` : r; }; }
+/* replies: the person being answered is told too (the owner and creator already are) */
+function cpxReplyNotify(postId, toKey, text){ const t = TASKS.find(x=>x.id===postId); if(!t || !toKey || toKey===PERSON || !PEOPLE[toKey]) return;
+  if([t.assignee, t.createdBy].includes(toKey)) return;
+  notify([toKey], 'message', `↩ ${esc(first(PERSON))} replied to your feedback on <b>${esc(t.title)}</b>: “${esc(String(text||'').slice(0, 120))}”`, {view:'cphub', task:t.id}); }
+
+/* the add-on that runs inside the hub page */
+function cpxHubExt(){
+  const P = window.parent; const X = {sel:new Set(), ctx:'', urls:{}, rte:{}};
+  const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const isGen = id => { try{ return !!P.cpxIsGeneral(id); }catch(e){ return false; } };
+
+  /* ---------- plan title: "Content Plan – November WE 2 (November 9–13)" ---------- */
+  const weLabel = wk => { const fri = addDays(keyToDate(wk), 4); return { m:fri.getMonth(), y:fri.getFullYear(), n:Math.ceil(fri.getDate()/7) }; };
+  const fmtRange = (a, b) => { const A = keyToDate(a), Bd = keyToDate(b), cy = new Date().getFullYear();
+    const yA = A.getFullYear()!==cy || Bd.getFullYear()!==cy;
+    if(A.getMonth()===Bd.getMonth() && A.getFullYear()===Bd.getFullYear()) return `${MONTHS[A.getMonth()]} ${A.getDate()}–${Bd.getDate()}${yA?', '+A.getFullYear():''}`;
+    return `${MONTHS[A.getMonth()]} ${A.getDate()}${A.getFullYear()!==Bd.getFullYear()?', '+A.getFullYear():''} – ${MONTHS[Bd.getMonth()]} ${Bd.getDate()}${yA?', '+Bd.getFullYear():''}`; };
+  function planTitle(ws){ const a = weLabel(ws[0]), b = weLabel(ws[ws.length-1]);
+    const name = ws.length===1 || (a.m===b.m && a.y===b.y && a.n===b.n) ? `${MONTHS[a.m]} WE ${a.n}` : a.m===b.m && a.y===b.y ? `${MONTHS[a.m]} WE ${a.n}–${b.n}` : `${MONTHS[a.m]} WE ${a.n} – ${MONTHS[b.m]} WE ${b.n}`;
+    const first = ws[0], last = addDaysKey(ws[ws.length-1], 6);
+    const inP = CONTENT.filter(c=>c.date>=first && c.date<=last);
+    let end = addDaysKey(ws[ws.length-1], 4); if(inP.some(c=>c.date>end)) end = inP.reduce((m, c)=>c.date>m ? c.date : m, end);
+    return {name:`Content Plan – ${name}`, range:fmtRange(first, end), first, last}; }
+
+  /* ---------- Home: fixed Monday → Sunday rows, plan title, no general-column add slots ---------- */
+  renderHome = function(){
+    const numWeeks = state.homeViewMode === 'biweekly' ? 2 : 1;
+    const weekStart = startOfWeek(state.homeAnchor);
+    const startKey = dateToKey(weekStart), endKey = dateToKey(addDays(weekStart, numWeeks*7 - 1));
+    const today = todayKey();
+    const rangeLabel = `${shortDate(startKey)} – ${shortDate(endKey)}, ${keyToDate(endKey).getFullYear()}`;
+    const ws = []; for (let i=0;i<numWeeks;i++) ws.push(dateToKey(addDays(weekStart, i*7)));
+    const plan = planTitle(ws);
+    const ctx = 'home|'+startKey+'|'+numWeeks; if(X.ctx!==ctx){ X.ctx = ctx; X.sel.clear(); }
+    let open = 0;
+    const weekHtml = ws.map(wk => {
+      const wkEnd = addDaysKey(wk, 6);
+      const inWeek = CONTENT.filter(c => c.date >= wk && c.date <= wkEnd);
+      const revs = inWeek.filter(c=>c.status==='For Revision').length;
+      const notReady = inWeek.filter(c=>readinessIssues(c).length).length;
+      const collapsed = state.collapsed.has(wk);
+      const blocks = [0,1,2,3,4,5,6].map(i => {
+        const dk = addDaysKey(wk, i); const dow = keyToDate(dk).getDay(); const posting = POSTING_DOWS.includes(dow);
+        const dayPosts = inWeek.filter(c=>c.date===dk);
+        const cols = CLIENTS.map(cl => {
+          const posts = dayPosts.filter(c=>c.client===cl.id).sort((a,b)=>STATUSES.indexOf(a.status)-STATUSES.indexOf(b.status));
+          if (posts.length) return `<div class="client-col">${posts.map(postCard).join('')}</div>`;
+          if (isGen(cl.id)) return `<div class="client-col"><div class="cpx-gen" title="${esc(cl.name)}: items from the Content Board show here — add new posts under a brand">—</div></div>`;
+          if (posting) open++;
+          return `<div class="client-col"><button class="add-card ${posting?'':'cpx-mini'}" data-addpost="${cl.id}|${dk}" title="Add a ${esc(cl.name)} post for ${esc(niceDate(dk))}">${posting ? `+ Add ${esc(cl.short)} post` : '+'}</button></div>`;
+        }).join('');
+        return `<div class="date-block ${!posting && !dayPosts.length ? 'cpx-quiet' : ''} ${dow===0||dow===6 ? 'cpx-wkend' : ''}">
+          <div class="date-block-label">${esc(niceDate(dk))}${dk===today?'<span class="today-tag">Today</span>':''}${holidayBadges(dk)}${eventsOn(dk).map(e=>`<span class="holiday-badge ev-badge" style="color:${EVENT_TYPES[e.type].color};border-color:${EVENT_TYPES[e.type].color}" data-editevent="${esc(e.id)}" role="button" tabindex="0">${esc(e.title)}${e.client!=='all'?' · '+esc(clientById(e.client).short):''}</span>`).join('')}</div>
+          <div class="date-cols" style="--cols:${CLIENTS.length}">${cols}</div></div>`;
+      }).join('');
+      return `<section class="week-section ${collapsed?'collapsed':''}">
+        <button class="week-header" data-togglewk="${wk}" aria-expanded="${!collapsed}">
+          <span><span class="chevron">▾</span>&nbsp; Week of ${esc(niceDate(wk))}</span>
+          <span class="wk-meta"><span>${inWeek.length} post${inWeek.length===1?'':'s'}</span>${revs?`<span style="color:var(--st-revision);font-weight:700">${revs} for revision</span>`:''}${notReady?`<span>${notReady} missing items</span>`:''}</span>
+        </button>
+        <div class="week-body">${blocks}</div></section>`;
+    }).join('');
+    const inPeriod = CONTENT.filter(c=>c.date>=startKey && c.date<=endKey);
+    document.getElementById('main').innerHTML = `
+      <div class="page-head">
+        <div><h1>Home</h1><div class="page-sub">This week's posts for every client, side by side. Click a card for the full record; links open straight from the card.</div></div>
+        <div class="head-actions">
+          <div class="seg" role="group" aria-label="Range">
+            <button class="${state.homeViewMode==='week'?'active':''}" data-homemode="week">Week</button>
+            <button class="${state.homeViewMode==='biweekly'?'active':''}" data-homemode="biweekly">2 weeks</button>
+          </div>
+          <div class="nav-arrows">
+            <button class="arrow" id="homePrev" aria-label="Previous period" title="Previous period">‹</button>
+            <button class="range-label" id="rangeLabelBtn" title="Pick a date">${esc(rangeLabel)}</button>
+            <button class="arrow" id="homeNext" aria-label="Next period" title="Next period">›</button>
+          </div>
+          ${startKey > today || endKey < today ? `<button class="btn ghost small" id="homeToday">This week</button>` : ''}
+          <button class="btn mustard small" data-addpost="|${today >= startKey && today <= endKey ? nextPostingDay(today) : addDaysKey(startKey,1)}">+ New post</button>
+        </div>
+      </div>
+      ${comingUpHtml()}
+      <div class="cpx-plan">
+        <div class="cpx-plan-l"><h2 class="cpx-plan-t">${esc(plan.name)} <span class="cpx-plan-r">(${esc(plan.range)})</span></h2>
+          <button class="cpx-calbtn" id="cpxCalBtn" type="button" title="Pick a date on the calendar" aria-label="Open the mini calendar">📅</button></div>
+        <div class="cpx-plan-m"><span><b>${inPeriod.length}</b> post${inPeriod.length===1?'':'s'}</span><span><b>${open}</b> open posting slot${open===1?'':'s'}</span>
+          ${inPeriod.length ? `<button class="btn ghost small" id="cpxSelAll" type="button">☑ Select all in this period</button>` : ''}</div>
+      </div>
+      <div class="home-note">Every day of the week keeps its place; posting days (Tue & Thu) show full open slots. <a href="#" id="dlRange">Download this ${numWeeks===2?'range':'week'} (.xlsx)</a> · <a href="#" id="dlMonth">Download the full month</a></div>
+      ${weekHtml}`;
+    const step = 7*numWeeks;
+    document.getElementById('homePrev').onclick = () => { state.homeAnchor = addDaysKey(startKey, -step); render(); };
+    document.getElementById('homeNext').onclick = () => { state.homeAnchor = addDaysKey(startKey, step); render(); };
+    const tb = document.getElementById('homeToday'); if (tb) tb.onclick = () => { state.homeAnchor = todayKey(); render(); };
+    document.getElementById('rangeLabelBtn').onclick = (e) => { e.stopPropagation(); miniCal(e.currentTarget.getBoundingClientRect()); };
+    document.getElementById('cpxCalBtn').onclick = (e) => { e.stopPropagation(); miniCal(e.currentTarget.getBoundingClientRect()); };
+    const sa = document.getElementById('cpxSelAll'); if (sa) sa.onclick = (e) => { e.stopPropagation(); inPeriod.forEach(c=>X.sel.add(c.id)); decorate(); };
+    document.getElementById('dlRange').onclick = (e) => { e.preventDefault(); exportRange(startKey, endKey, `${shortDate(startKey)} – ${shortDate(endKey)}`); };
+    document.getElementById('dlMonth').onclick = (e) => { e.preventDefault(); const d = keyToDate(startKey); exportMonth(d.getFullYear(), d.getMonth()); };
+  };
+  openJumpToDate = function(rect){ miniCal(rect); };
+
+  /* ---------- mini calendar ---------- */
+  function miniCal(rect, ym){
+    closePopovers();
+    const anchor = state.homeAnchor || todayKey(); const base = ym || {y:keyToDate(anchor).getFullYear(), m:keyToDate(anchor).getMonth()};
+    const numWeeks = state.homeViewMode === 'biweekly' ? 2 : 1; const ps = dateToKey(startOfWeek(anchor)), pe = addDaysKey(ps, numWeeks*7-1);
+    const firstDow = (new Date(base.y, base.m, 1).getDay() + 6) % 7, dim = new Date(base.y, base.m+1, 0).getDate(), today = todayKey();
+    let cells = ''; for (let i=0;i<firstDow;i++) cells += '<span></span>';
+    for (let d=1; d<=dim; d++){ const k = fmtKey(base.y, base.m, d); const n = CONTENT.filter(c=>c.date===k).length;
+      cells += `<button type="button" class="cpx-mc-d ${k===anchor?'sel':''} ${k===today?'today':''} ${k>=ps&&k<=pe?'inp':''}" data-cpxd="${k}" title="${esc(longDate(k))}${n?` · ${n} post${n>1?'s':''}`:''}">${d}${n?'<i></i>':''}</button>`; }
+    const pop = document.createElement('div'); pop.className = 'qmenu cpx-mc'; pop.id = 'activePop';
+    pop.innerHTML = `<div class="cpx-mc-h"><button type="button" data-cpxm="-1" aria-label="Previous month">‹</button><b>${MONTHS[base.m]} ${base.y}</b><button type="button" data-cpxm="1" aria-label="Next month">›</button></div>
+      <div class="cpx-mc-g">${['M','T','W','T','F','S','S'].map(x=>`<span class="cpx-mc-w">${x}</span>`).join('')}${cells}</div>
+      <div class="cpx-mc-f"><button type="button" data-cpxd="${today}">Today</button><span>Pick a date to open its ${numWeeks===2?'2-week':'weekly'} plan</span></div>`;
+    document.body.appendChild(pop);
+    const ph = pop.offsetHeight || 300; const below = rect.bottom + 6 + ph <= window.innerHeight - 8;
+    pop.style.left = Math.max(8, Math.min(rect.left, window.innerWidth-262)) + 'px'; pop.style.top = Math.max(8, below ? rect.bottom + 6 : rect.top - ph - 6) + 'px';
+    pop.addEventListener('click', e => { e.stopPropagation();
+      const mv = e.target.closest('[data-cpxm]'); if (mv){ const d = new Date(base.y, base.m + (+mv.dataset.cpxm), 1); miniCal(rect, {y:d.getFullYear(), m:d.getMonth()}); return; }
+      const dd = e.target.closest('[data-cpxd]'); if (dd){ state.homeAnchor = dd.dataset.cpxd; if (state.tab!=='home') state.tab = 'home'; closePopovers(); render(); } });
+    setTimeout(()=>pop.querySelector('.sel, .today, .cpx-mc-d')?.focus(), 20);
+  }
+
+  /* ---------- new posts go under a brand, not the general column ---------- */
+  { const _np = openNewPostModal; openNewPostModal = function(clientId, dateKey){ const r = _np.apply(this, arguments);
+      const s = document.getElementById('fClient'); if (s){ const keep = [...s.options].filter(o=>!isGen(o.value)); if (keep.length && keep.length < s.options.length){
+        const cur = s.value; [...s.options].forEach(o=>{ if (isGen(o.value)) o.remove(); }); if (isGen(cur) || !s.value){ s.value = keep[0].value; s.dispatchEvent(new Event('change')); } } }
+      bigCaption(); return r; }; }
+
+  /* ---------- bigger caption box ---------- */
+  function bigCaption(){ const c = document.getElementById('fCaption'); if (!c || c.dataset.cpx) return; c.dataset.cpx = '1'; c.classList.add('cpx-cap');
+    const fit = () => { c.style.height = 'auto'; c.style.height = Math.min(Math.max(c.scrollHeight + 4, 230), Math.round(window.innerHeight*0.6)) + 'px'; };
+    c.addEventListener('input', fit); setTimeout(fit, 0); }
+
+  /* ---------- rich text (feedback) ---------- */
+  const safeHref = u => { u = String(u||'').trim(); if (!u) return ''; if (/^(https?:|mailto:)/i.test(u)) return u; if (/^[\w.-]+\.[a-z]{2,}([/?#].*)?$/i.test(u)) return 'https://' + u; return ''; };
+  const KEEP = {B:'b', STRONG:'b', I:'i', EM:'i', U:'u', UL:'ul', OL:'ol', LI:'li', A:'a', BR:'br', P:'p', DIV:'div'};
+  function clean(html){ const t = document.createElement('template'); t.innerHTML = String(html||'');
+    const walk = n => { [...n.childNodes].forEach(c => { if (c.nodeType === 3) return; if (c.nodeType !== 1 || /^(SCRIPT|STYLE|IFRAME|OBJECT|EMBED|TEMPLATE|svg|math)$/i.test(c.tagName)){ c.remove(); return; }
+      walk(c); const tag = KEEP[c.tagName];
+      if (!tag){ c.replaceWith(...c.childNodes); return; }
+      const e = document.createElement(tag);
+      if (tag === 'a'){ const u = safeHref(c.getAttribute('href')); if (!u){ c.replaceWith(...c.childNodes); return; } e.setAttribute('href', u); e.setAttribute('target', '_blank'); e.setAttribute('rel', 'noopener noreferrer'); }
+      e.append(...c.childNodes); c.replaceWith(e); }); };
+    walk(t.content); const d = document.createElement('div'); d.append(t.content); return d.innerHTML.replace(/(<br>\s*)+$/,'').trim(); }
+  const plainOf = html => { const d = document.createElement('div'); d.innerHTML = String(html||'').replace(/<li[^>]*>/gi, '\n• ').replace(/<(p|div|ul|ol)[^>]*>/gi, '\n').replace(/<\/(p|div|li|ul|ol)>/gi, '\n').replace(/<br\s*\/?>/gi, '\n'); return d.textContent.replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim(); };
+  function rteHTML(key, ph){
+    return `<div class="cpx-rte" data-rte="${key}">
+      <div class="cpx-tb" role="toolbar" aria-label="Formatting">
+        <button type="button" data-cmd="bold" title="Bold"><b>B</b></button><button type="button" data-cmd="italic" title="Italic"><i>I</i></button><button type="button" data-cmd="underline" title="Underline"><u>U</u></button>
+        <span class="cpx-sep"></span><button type="button" data-cmd="insertUnorderedList" title="Bullet points">• List</button><button type="button" data-cmd="insertOrderedList" title="Numbered list">1. List</button>
+        <span class="cpx-sep"></span><button type="button" data-cmd="link" title="Insert a link">🔗 Link</button><button type="button" data-cmd="image" title="Attach images or screenshots (you can also paste a screenshot)">🖼 Image</button></div>
+      <div class="cpx-lnk" hidden><input class="field-input" placeholder="Paste the link — https://…"><button type="button" class="btn small">Add link</button></div>
+      <div class="cpx-ed" contenteditable="true" role="textbox" aria-multiline="true" data-ph="${esc(ph)}"></div>
+      <div class="cpx-att"></div></div>`; }
+  function rteState(key){ return X.rte[key] || (X.rte[key] = {imgs:[]}); }
+  function rteRead(key){ const box = document.querySelector(`[data-rte="${key}"]`); const st = rteState(key);
+    const html = box ? clean(box.querySelector('.cpx-ed').innerHTML) : ''; const text = plainOf(html);
+    return {html: text ? html : '', text, imgs:st.imgs.slice()}; }
+  function rteClear(key){ const box = document.querySelector(`[data-rte="${key}"]`); if (box){ box.querySelector('.cpx-ed').innerHTML = ''; box.querySelector('.cpx-att').innerHTML = ''; } X.rte[key] = {imgs:[]}; }
+  function rteThumbs(key){ const box = document.querySelector(`[data-rte="${key}"]`); if (!box) return; const st = rteState(key);
+    box.querySelector('.cpx-att').innerHTML = st.imgs.map((f, i)=>`<span class="cpx-th"><img data-fref='${esc(JSON.stringify(f))}' alt="${esc(f.name)}"><button type="button" data-rmimg="${i}" title="Remove">✕</button></span>`).join('');
+    hydrate(box); }
+  async function rteAddFiles(key, files){ const st = rteState(key); for (const f of files){ if (f && /^image\//.test(f.type||'')) st.imgs.push(f); } rteThumbs(key); syncNote(key); }
+  async function uploadBlob(file){ try{ const buf = await file.arrayBuffer(); const pf = new P.File([buf], file.name || `screenshot-${Date.now()}.png`, {type:file.type||'image/png'}); return await P.storeFile(pf); }catch(e){ toast('That image couldn’t be attached.', 'error'); return null; } }
+  function hydrate(root){ (root||document).querySelectorAll('img[data-fref]:not([src])').forEach(img => { let f; try{ f = JSON.parse(img.dataset.fref); }catch(e){ return; }
+      const k = f.path || f.data || f.url || f.name; if (X.urls[k]){ img.src = X.urls[k]; return; }
+      Promise.resolve(P.cpxFileUrl(f)).then(u => { X.urls[k] = u; img.src = u; }).catch(()=>{ img.alt = 'Image unavailable'; }); }); }
+  /* the plain text of the main feedback editor stays in the hub's own note box, so its buttons work unchanged */
+  function syncNote(key){ if (key !== 'main') return; const n = document.getElementById('rfNote'); if (!n) return; const r = rteRead(key);
+    n.value = r.text || (r.imgs.length ? `📷 ${r.imgs.length} screenshot${r.imgs.length>1?'s':''} attached` : ''); }
+  document.addEventListener('mousedown', e => { if (e.target.closest('.cpx-tb button')) e.preventDefault(); }, true);
+  document.addEventListener('click', async e => {
+    const tbtn = e.target.closest('.cpx-tb button'); if (tbtn){ e.stopPropagation(); const box = tbtn.closest('[data-rte]'); const key = box.dataset.rte; const ed = box.querySelector('.cpx-ed'); const cmd = tbtn.dataset.cmd;
+      if (cmd === 'image'){ const f = await P.pickFiles({multiple:true, accept:'image/*'}); if (f && f.length) rteAddFiles(key, f); return; }
+      if (cmd === 'link'){ const sel = getSelection(); X.range = sel.rangeCount && ed.contains(sel.anchorNode) ? sel.getRangeAt(0).cloneRange() : null; const row = box.querySelector('.cpx-lnk'); row.hidden = !row.hidden; if (!row.hidden) row.querySelector('input').focus(); return; }
+      ed.focus(); try{ document.execCommand('styleWithCSS', false, false); }catch(x){} document.execCommand(cmd, false, null); syncNote(key); return; }
+    const lb = e.target.closest('.cpx-lnk button'); if (lb){ e.stopPropagation(); const box = lb.closest('[data-rte]'); const inp = box.querySelector('.cpx-lnk input'); const u = safeHref(inp.value);
+      if (!u){ toast('Paste a full link (https://…).', 'error'); return; }
+      const ed = box.querySelector('.cpx-ed'); ed.focus(); const sel = getSelection();
+      if (X.range){ sel.removeAllRanges(); sel.addRange(X.range); }
+      if (sel.rangeCount && !sel.isCollapsed && ed.contains(sel.anchorNode)) document.execCommand('createLink', false, u);
+      else { const a = document.createElement('a'); a.href = u; a.textContent = inp.value.trim(); a.target = '_blank'; a.rel = 'noopener noreferrer';
+        if (sel.rangeCount && ed.contains(sel.anchorNode)){ const r = sel.getRangeAt(0); r.insertNode(a); r.setStartAfter(a); r.collapse(true); sel.removeAllRanges(); sel.addRange(r); } else ed.append(a, ' '); }
+      inp.value = ''; box.querySelector('.cpx-lnk').hidden = true; X.range = null; syncNote(box.dataset.rte); return; }
+    const rm = e.target.closest('[data-rmimg]'); if (rm){ e.stopPropagation(); const key = rm.closest('[data-rte]').dataset.rte; rteState(key).imgs.splice(+rm.dataset.rmimg, 1); rteThumbs(key); syncNote(key); return; }
+    const im = e.target.closest('.cpx-imgs img, .cpx-th img'); if (im && im.src){ e.stopPropagation(); window.open(im.src, '_blank', 'noopener'); return; }
+  }, true);
+  document.addEventListener('keydown', e => { const lk = e.target.closest?.('.cpx-lnk input'); if (lk && e.key === 'Enter'){ e.preventDefault(); lk.parentElement.querySelector('button').click(); }
+    if (e.target.closest?.('.cpx-ed') && (e.metaKey || e.ctrlKey) && /^[biu]$/i.test(e.key)){ e.preventDefault(); document.execCommand({b:'bold', i:'italic', u:'underline'}[e.key.toLowerCase()]); } }, true);
+  document.addEventListener('input', e => { const ed = e.target.closest?.('.cpx-ed'); if (ed) syncNote(ed.closest('[data-rte]').dataset.rte); }, true);
+  document.addEventListener('paste', async e => { const ed = e.target.closest?.('.cpx-ed'); if (!ed) return; const key = ed.closest('[data-rte]').dataset.rte;
+    const files = [...(e.clipboardData?.items||[])].filter(i=>i.kind==='file' && /^image\//.test(i.type)).map(i=>i.getAsFile()).filter(Boolean);
+    if (files.length){ e.preventDefault(); toast('Attaching the screenshot…'); const out = []; for (const f of files){ const r = await uploadBlob(f); if (r) out.push(r); } rteAddFiles(key, out); } }, true);
+
+  /* the hub's feedback writes carry the formatted version and the images */
+  { const _af = addFeedbackDoc; addFeedbackDoc = async function(data){
+      const extra = {}; const box = document.querySelector('[data-rte="main"]');
+      if (box && !data.parentId && modalContentId && data.contentId === modalContentId){ const r = rteRead('main'); if (r.html) extra.html = r.html; if (r.imgs.length) extra.images = r.imgs; }
+      const me = (()=>{ try{ return P.cpxMe(); }catch(e){ return {}; } })(); if (me.key) extra.authorKey = me.key;
+      const ok = await _af.call(this, {...data, ...extra});
+      if (ok && box && !data.parentId) rteClear('main');
+      return ok; }; }
+
+  /* ---------- the record window: editor, replies, message button, caption box ---------- */
+  { const _or = openRecordModal; openRecordModal = function(contentId, focusFeedback){ const r = _or.apply(this, arguments);
+      const item = findContent(contentId); if (!item) return r;
+      bigCaption();
+      const acts = document.querySelector('#recordModal .modal-actions'); const sp = acts?.querySelector('.spacer');
+      if (acts && !document.getElementById('cpxMsgBtn')) (sp || acts.lastChild).insertAdjacentHTML('beforebegin', `<button class="btn secondary" id="cpxMsgBtn" type="button" title="Send a private message with a link to this post">💬 Message about this post</button>`);
+      const mb = document.getElementById('cpxMsgBtn'); if (mb) mb.onclick = () => msgDialog(contentId);
+      const note = document.getElementById('rfNote');
+      if (note && !document.querySelector('[data-rte="main"]')){ X.rte.main = {imgs:[]}; note.insertAdjacentHTML('beforebegin', rteHTML('main', 'What should change? Use the toolbar for bold, lists and links, or paste a screenshot.')); note.hidden = true; }
+      const st = document.querySelector('#recordModal .section-title'); if (st && !st.dataset.cpx){ st.dataset.cpx = '1'; st.firstChild.textContent = 'Feedback & comments '; }
+      if (focusFeedback) setTimeout(()=>document.querySelector('[data-rte="main"] .cpx-ed')?.focus(), 200);
+      return r; }; }
+  feedbackItemHtml = function(f, showRef){
+    const c = clientById(f.client); const post = f.contentId ? findContent(f.contentId) : null; const reply = !!f.parentId;
+    const kindLabel = reply ? 'Reply' : ({ changes:'Changes requested', approval:'Approval', note:'Note' }[f.kind] || 'Note');
+    const body = f.html ? `<div class="log-note cpx-rich">${clean(f.html)}</div>` : `<div class="log-note">${esc(f.note)}</div>`;
+    const imgs = (f.images||[]).length ? `<div class="cpx-imgs">${f.images.map(x=>`<img data-fref='${esc(JSON.stringify(x))}' alt="${esc(x.name||'Image')}" title="Open the full image">`).join('')}</div>` : '';
+    const parentF = reply ? FEEDBACK.find(x=>x.id===f.parentId) : null;
+    return `<div class="log-item ${reply?'cpx-reply':''}" data-fid="${esc(f.id)}">
+      <div class="log-avatar">${esc(initials(f.author))}</div>
+      <div class="log-body">
+        <div class="log-head"><span class="log-author">${esc(f.author)}</span><span class="kind-tag ${esc(reply?'note':f.kind)}">${kindLabel}</span>${showRef ? clientChip(c) : ''}<span class="log-time">${esc(fmtStamp(f.createdAt || f.date))}</span></div>
+        ${reply && showRef && parentF ? `<div class="cpx-reto">↳ to ${esc(parentF.author)}: “${esc(String(parentF.note||'').slice(0, 80))}”</div>` : ''}
+        ${body}${imgs}
+        ${showRef ? (post ? `<div class="log-ref">On <button data-open="${esc(post.id)}">${esc(post.title)}</button> · ${esc(niceDate(post.date))} · ${esc(statusLabel(post.status))}</div>` : (f.contentId ? '<div class="log-ref">The post was removed.</div>' : '<div class="log-ref">General note for this client</div>')) : ''}
+        ${!showRef && !reply ? `<div class="cpx-fbacts"><button type="button" class="cpx-replybtn" data-cpxreply="${esc(f.id)}">↩ Reply</button></div>` : ''}
+      </div>
+      ${f.kind === 'approval' || reply ? '' : `<button class="fb-toggle ${f.status==='Addressed'?'addressed':'pending'}" data-fbtoggle="${esc(f.id)}" title="${f.status==='Addressed'?'Mark as still pending':'Mark as addressed'}">${f.status==='Addressed'?'✓ Addressed':'Pending'}</button>`}
+    </div>`; };
+  renderThread = function(contentId){
+    const el = document.getElementById('threadList'); if (!el || modalContentId !== contentId) return;
+    const open = X.replyOpen; const draft = open ? rteRead('r:'+open) : null; const draftEl = open ? document.querySelector(`[data-rte="r:${open}"] .cpx-ed`) : null; const draftHTML = draftEl ? draftEl.innerHTML : '';
+    const thread = feedbackFor(contentId); const ids = new Set(thread.map(f=>f.id));
+    const tops = thread.filter(f=>!f.parentId || !ids.has(f.parentId));
+    const pend = tops.filter(f=>f.status!=='Addressed' && f.kind!=='approval').length;
+    const pill = document.getElementById('fbCountPill'); if (pill) pill.textContent = tops.length ? `${pend} pending of ${tops.length}${thread.length>tops.length?` · ${thread.length-tops.length} repl${thread.length-tops.length===1?'y':'ies'}`:''}` : 'none yet';
+    el.innerHTML = tops.length ? tops.map(f => { const reps = thread.filter(x=>x.parentId===f.id);
+      return `<div class="cpx-thread">${feedbackItemHtml(f)}${reps.length?`<div class="cpx-reps">${reps.map(x=>feedbackItemHtml(x)).join('')}</div>`:''}
+        ${open===f.id ? `<div class="cpx-replybox">${rteHTML('r:'+f.id, 'Write a reply…')}<div class="fb-actions"><button type="button" class="btn mustard small" data-cpxsend="${esc(f.id)}">Send reply</button><button type="button" class="btn secondary small" data-cpxcancel="1">Cancel</button></div></div>` : ''}</div>`; }).join('')
+      : '<div class="empty-note">No feedback yet on this post.</div>';
+    if (open && draftHTML){ const ed = document.querySelector(`[data-rte="r:${open}"] .cpx-ed`); if (ed) ed.innerHTML = draftHTML; if (draft?.imgs?.length) rteThumbs('r:'+open); }
+    hydrate(el);
+  };
+  { const _rf = renderFeedback; renderFeedback = function(){ const r = _rf.apply(this, arguments); hydrate(document.getElementById('main')); return r; }; }
+  document.addEventListener('click', async e => {
+    const rb = e.target.closest('[data-cpxreply]'); if (rb){ e.stopPropagation(); X.replyOpen = rb.dataset.cpxreply; X.rte['r:'+X.replyOpen] = {imgs:[]}; renderThread(modalContentId); setTimeout(()=>document.querySelector(`[data-rte="r:${X.replyOpen}"] .cpx-ed`)?.focus(), 30); return; }
+    if (e.target.closest('[data-cpxcancel]')){ e.stopPropagation(); X.replyOpen = null; renderThread(modalContentId); return; }
+    const sb = e.target.closest('[data-cpxsend]'); if (sb){ e.stopPropagation(); const pid = sb.dataset.cpxsend; const parentF = FEEDBACK.find(x=>x.id===pid); const live = findContent(modalContentId);
+      const r = rteRead('r:'+pid); if (!r.text && !r.imgs.length){ toast('Write the reply first.', 'error'); return; }
+      sb.disabled = true; const me = (()=>{ try{ return P.cpxMe(); }catch(x){ return {}; } })();
+      const ok = await addFeedbackDoc({ contentId: modalContentId, client: live ? live.client : parentF?.client, author: me.first || AUTHORS[0], note: r.text || `📷 ${r.imgs.length} screenshot${r.imgs.length>1?'s':''}`, ...(r.html?{html:r.html}:{}), ...(r.imgs.length?{images:r.imgs}:{}), kind:'note', status:'Addressed', parentId: pid });
+      if (!ok){ sb.disabled = false; return; }
+      try{ P.cpxReplyNotify(modalContentId, parentF?.authorKey, r.text); }catch(x){}
+      if (live) logActivity(`replied to ${plain(parentF?.author||'a comment')} on ${postRef(live)}`);
+      X.replyOpen = null; delete X.rte['r:'+pid]; toast('Reply added'); setTimeout(()=>renderThread(modalContentId), 60); return; }
+  });
+
+  /* ---------- message about this post ---------- */
+  function msgDialog(contentId){
+    const item = findContent(contentId); if (!item) return;
+    let T = []; try{ T = P.cpxMsgTargets(contentId) || []; }catch(e){}
+    if (!T.length){ toast('There is no one else on this client to message yet.', 'error'); return; }
+    const wrap = document.createElement('div'); wrap.className = 'dlg-backdrop';
+    wrap.innerHTML = `<div class="dlg cpx-msgdlg" role="dialog" aria-modal="true" aria-labelledby="cpxMsgH">
+      <h4 id="cpxMsgH">Message about this post</h4>
+      <div class="cpx-msgpost">📌 <b>${esc(item.title)}</b> · ${esc(clientById(item.client).name)} · ${esc(niceDate(item.date))}<div class="hint">A link to this post is attached — it opens the post straight in the Content Planning Hub.</div></div>
+      <label class="field-label" for="cpxTo">To</label><select class="field-select" id="cpxTo">${T.map(t=>`<option value="${esc(t.id)}" ${t.def?'selected':''}>${esc(t.name)} — ${esc(t.role)}</option>`).join('')}</select>
+      <label class="field-label" for="cpxMsgTx" style="margin-top:10px">Message</label><textarea class="field-textarea" id="cpxMsgTx" placeholder="Question, instruction, revision request or update…" style="min-height:110px"></textarea>
+      <div class="modal-actions" style="margin-top:14px"><button class="btn mustard" data-cpxmsg="send">Send message</button><button class="btn secondary" data-cpxmsg="cancel">Cancel</button></div></div>`;
+    document.body.appendChild(wrap);
+    const done = () => { wrap.remove(); document.removeEventListener('keydown', onKey, true); };
+    const onKey = e => { if (e.key === 'Escape'){ e.stopPropagation(); e.preventDefault(); done(); } };
+    document.addEventListener('keydown', onKey, true);
+    wrap.addEventListener('click', e => { e.stopPropagation(); if (e.target === wrap){ done(); return; } const b = e.target.closest('[data-cpxmsg]'); if (!b) return;
+      if (b.dataset.cpxmsg === 'cancel'){ done(); return; }
+      const res = P.cpxSendPostMsg(contentId, document.getElementById('cpxTo').value, document.getElementById('cpxMsgTx').value);
+      if (!res || !res.ok){ toast(res?.error || 'The message couldn’t be sent.', 'error'); return; }
+      done(); toastAct(`Message sent to ${res.name}`, 'Open the conversation', () => P.cpxOpenChat(res.chat)); });
+    setTimeout(()=>document.getElementById('cpxMsgTx')?.focus(), 30);
+  }
+  function toastAct(msg, label, fn){ toast(msg); const t = [...document.querySelectorAll('.toast')].pop(); if (!t) return; const b = document.createElement('button'); b.type = 'button'; b.className = 'cpx-toastbtn'; b.textContent = label; b.onclick = e => { e.stopPropagation(); fn(); }; t.appendChild(b); t.style.pointerEvents = 'auto'; }
+  { const _qm = openQuickMenu; openQuickMenu = function(contentId, pos){ const r = _qm.apply(this, arguments); const m = document.getElementById('activePop'); const fb = m?.querySelector('[data-q="feedback"]');
+      if (fb && !m.querySelector('[data-q="cpxmsg"]')){ fb.insertAdjacentHTML('afterend', '<button data-q="cpxmsg">💬 Message about this post</button>'); m.querySelector('[data-q="cpxmsg"]').onclick = () => { closePopovers(); msgDialog(contentId); }; }
+      return r; }; }
+
+  /* ---------- a link from a message: open the exact post, in its planning period ---------- */
+  const openPost = (id, n=0) => { const it = findContent(id);
+    if (!it){ if (n < 12) return setTimeout(()=>openPost(id, n+1), 250); return openRecordModal(id); }
+    if (state.tab === 'home' || state.tab === 'calendar'){ state.homeAnchor = it.date; const d = keyToDate(it.date); state.calYear = d.getFullYear(); state.calMonth = d.getMonth(); render(); }
+    openRecordModal(id); };
+  window.__hub.open = id => openPost(id);
+
+  /* ---------- bulk select & actions (Home period and Board tab) ---------- */
+  function decorate(){
+    const main = document.getElementById('main'); if (!main) return;
+    const bctx = state.tab === 'board' ? 'board' : null; if (bctx && X.ctx !== 'board'){ X.ctx = 'board'; X.sel.clear(); }
+    if (state.tab !== 'home' && state.tab !== 'board'){ X.sel.clear(); X.ctx = state.tab; }
+    main.querySelectorAll('.post-card[data-open], .b-card[data-open]').forEach(card => { const id = card.dataset.open; let ck = card.querySelector('.cpx-ck');
+      if (!ck){ (card.querySelector('.pc-top, .bc-top') || card).insertAdjacentHTML('afterbegin', `<label class="cpx-ck" title="Select"><input type="checkbox" data-cpxsel="${esc(id)}" aria-label="Select ${esc(findContent(id)?.title||'post')}"></label>`); ck = card.querySelector('.cpx-ck'); }
+      const on = X.sel.has(id); ck.querySelector('input').checked = on; card.classList.toggle('cpx-on', on); });
+    if (state.tab === 'board'){ const ha = main.querySelector('.page-head .head-actions'); if (ha && !document.getElementById('cpxSelAllB')) ha.insertAdjacentHTML('afterbegin', `<button class="btn ghost small" id="cpxSelAllB" type="button">☑ Select all</button>`);
+      const b = document.getElementById('cpxSelAllB'); if (b) b.onclick = e => { e.stopPropagation(); boardItems().forEach(c=>X.sel.add(c.id)); decorate(); }; }
+    [...X.sel].forEach(id => { if (!findContent(id)) X.sel.delete(id); });
+    let bar = document.getElementById('cpxBulk');
+    if (!X.sel.size){ bar?.remove(); return; }
+    if (!bar){ bar = document.createElement('div'); bar.id = 'cpxBulk'; bar.className = 'cpx-bulk'; document.body.appendChild(bar); }
+    const scope = state.tab === 'home' ? 'this period' : 'the board';
+    bar.innerHTML = `<b>${X.sel.size} selected</b><button type="button" class="btn ghost small" data-cpxb="all">Select all in ${scope}</button><span class="cpx-sep"></span>
+      <button type="button" class="btn secondary small" data-cpxb="move">📅 Move…</button><button type="button" class="btn danger small" data-cpxb="delete">🗑 Delete…</button><button type="button" class="btn ghost small" data-cpxb="clear">Clear</button>`;
+  }
+  { const _r = render; render = function(){ const r = _r.apply(this, arguments); try{ decorate(); }catch(e){ console.warn('hub bulk', e); } return r; }; }
+  document.addEventListener('click', e => { if (e.target.closest('.cpx-ck')) e.stopPropagation(); }, true);
+  document.addEventListener('change', e => { const c = e.target.closest?.('[data-cpxsel]'); if (!c) return; c.checked ? X.sel.add(c.dataset.cpxsel) : X.sel.delete(c.dataset.cpxsel); decorate(); });
+  document.addEventListener('click', async e => { const b = e.target.closest('[data-cpxb]'); if (!b) return; e.stopPropagation(); const act = b.dataset.cpxb;
+    if (act === 'clear'){ X.sel.clear(); decorate(); return; }
+    if (act === 'all'){ (state.tab === 'board' ? boardItems() : (()=>{ const ws = dateToKey(startOfWeek(state.homeAnchor)); const we = addDaysKey(ws, (state.homeViewMode==='biweekly'?14:7)-1); return CONTENT.filter(c=>c.date>=ws && c.date<=we); })()).forEach(c=>X.sel.add(c.id)); decorate(); return; }
+    const items = [...X.sel].map(findContent).filter(Boolean); if (!items.length) return;
+    if (act === 'delete'){
+      let allowed = items; try{ allowed = items.filter(c=>P.cpxCanDelete(c.id)); }catch(x){}
+      const skip = items.length - allowed.length;
+      if (!allowed.length){ toast('You can’t delete these posts — only the client’s PM, a company head or the person who created a post can delete it.', 'error'); return; }
+      if (!(await askDialog(`${allowed.length} post${allowed.length>1?'s':''} will be deleted, with their feedback. They are also removed from the Content Board. This can't be undone.${skip?` ${skip} selected post${skip>1?'s':''} you can't delete will be kept.`:''}`, { title:`Delete ${allowed.length} selected post${allowed.length>1?'s':''}?`, ok:`Delete ${allowed.length} post${allowed.length>1?'s':''}`, danger:true }))) return;
+      let n = 0; for (const c of allowed){ if (await removeContent(c.id)){ n++; X.sel.delete(c.id); } }
+      if (n) logActivity(`deleted ${n} post${n>1?'s':''} at once (${allowed.slice(0,3).map(c=>plain(c.title)).join(', ')}${n>3?'…':''})`);
+      toast(`${n} post${n===1?'':'s'} deleted${skip?` · ${skip} kept (no permission)`:''}`); decorate(); return; }
+    if (act === 'move'){
+      const res = await moveDialog(items.length); if (!res) return;
+      const plan = items.map(c => { let nd = res.date;
+        if (res.mode === 'week'){ const tw = startOfWeek(res.date); const off = (keyToDate(c.date).getDay() + 6) % 7; nd = dateToKey(addDays(tw, off)); }
+        return [c, nd]; }).filter(([c, nd])=>nd && nd!==c.date);
+      if (!plan.length){ toast('The selected posts are already on those dates.'); return; }
+      let n = 0; for (const [c, nd] of plan){ if (await saveContent(c.id, { date: nd })) n++; }
+      if (n){ logActivity(`moved ${n} post${n>1?'s':''} ${res.mode==='week' ? `to the week of ${plain(niceDate(dateToKey(startOfWeek(res.date))))}` : `to ${plain(niceDate(res.date))}`}`); state.homeAnchor = res.date; }
+      toast(`${n} post${n===1?'':'s'} moved`); X.sel.clear(); render(); }
+  });
+  function moveDialog(n){ return new Promise(resolve => {
+    const wrap = document.createElement('div'); wrap.className = 'dlg-backdrop';
+    const ws = dateToKey(addDays(startOfWeek(state.homeAnchor), state.homeViewMode==='biweekly' ? 14 : 7));
+    wrap.innerHTML = `<div class="dlg" role="dialog" aria-modal="true"><h4>Move ${n} post${n>1?'s':''}</h4>
+      <label class="cpx-opt"><input type="radio" name="cpxMv" value="week" checked> <span><b>To another week or planning period</b><small>Each post keeps its weekday (a Tuesday post stays on Tuesday). Pick any date in the target week.</small></span></label>
+      <label class="cpx-opt"><input type="radio" name="cpxMv" value="date"> <span><b>All to one date</b><small>Every selected post moves to the date below.</small></span></label>
+      <input type="date" class="field-input" id="cpxMvDate" value="${ws}" style="margin-top:8px">
+      <div class="modal-actions" style="margin-top:14px"><button class="btn mustard" data-mv="ok">Move posts</button><button class="btn secondary" data-mv="cancel">Cancel</button></div></div>`;
+    document.body.appendChild(wrap);
+    const done = v => { wrap.remove(); resolve(v); };
+    wrap.addEventListener('click', e => { e.stopPropagation(); if (e.target === wrap) return done(null); const b = e.target.closest('[data-mv]'); if (!b) return;
+      if (b.dataset.mv === 'cancel') return done(null); const d = document.getElementById('cpxMvDate').value; if (!d){ toast('Pick a date.', 'error'); return; }
+      done({ mode: wrap.querySelector('input[name="cpxMv"]:checked').value, date: d }); }); }); }
+  if (state.ready) render();
+}
+{ const _d = cphDoc; cphDoc = function(theme){ const h = _d.apply(this, arguments);
+    const add = `<style>${CPX_HUB_CSS}</style><script>(${cpxHubExt.toString()})();</` + `script>`;
+    const i = h.lastIndexOf('</body>'); return i < 0 ? h + add : h.slice(0, i) + add + h.slice(i); }; }
+const CPX_HUB_CSS = `
+.cpx-plan{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:4px 0 12px;padding:14px 18px;border:1px solid var(--line);border-radius:16px;background:var(--surface);box-shadow:var(--shadow)}
+.cpx-plan-l{display:flex;align-items:center;gap:10px;min-width:0;flex-wrap:wrap}.cpx-plan-t{margin:0;font-size:21px;font-weight:800;letter-spacing:-.01em}
+.cpx-plan-r{font-weight:700;color:var(--ink-soft)}.cpx-calbtn{border:1px solid var(--line);background:var(--surface-2);border-radius:10px;width:36px;height:34px;font-size:16px;line-height:1;cursor:pointer}
+.cpx-calbtn:hover{border-color:var(--accent-2,var(--mustard))}.cpx-plan-m{display:flex;align-items:center;gap:14px;font-size:12.5px;color:var(--ink-soft);flex-wrap:wrap}.cpx-plan-m b{color:var(--ink);font-size:14px}
+.date-block.cpx-quiet{margin-bottom:12px}.date-block.cpx-quiet .date-block-label{color:var(--ink-soft);font-weight:700;margin-bottom:6px}
+.add-card.cpx-mini{min-height:34px;padding:6px;font-size:14px;opacity:.65}.add-card.cpx-mini:hover{opacity:1}
+.cpx-gen{min-height:34px;display:flex;align-items:center;justify-content:center;color:var(--ink-faint);border:1px dashed var(--line-soft);border-radius:14px;font-size:12px}
+.cpx-mc{width:254px;padding:10px}.cpx-mc-h{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}.cpx-mc-h b{font-size:13px}
+.cpx-mc-h button{border:1px solid var(--line);background:var(--surface);border-radius:8px;width:28px;height:26px;cursor:pointer}
+.cpx-mc-g{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}.cpx-mc-w{font-size:10.5px;font-weight:700;color:var(--ink-faint);text-align:center;padding:2px 0}
+.cpx-mc-d{position:relative;border:1px solid transparent;background:none;border-radius:8px;height:30px;font-size:12.5px;font-weight:600;cursor:pointer;color:var(--ink)}
+.cpx-mc-d:hover{background:var(--line-soft)}.cpx-mc-d.inp{background:var(--accent-soft)}.cpx-mc-d.today{border-color:var(--mustard)}
+.cpx-mc-d.sel{background:var(--mustard);color:#1A1206}.cpx-mc-d i{position:absolute;left:50%;bottom:3px;width:4px;height:4px;margin-left:-2px;border-radius:50%;background:var(--ink-soft)}
+.cpx-mc-f{display:flex;align-items:center;gap:8px;margin-top:8px;font-size:11px;color:var(--ink-soft)}.cpx-mc-f button{border:1px solid var(--line);background:var(--surface-2);border-radius:8px;padding:4px 9px;font-weight:700;cursor:pointer;font-size:11.5px}
+.field-textarea.cpx-cap{min-height:230px!important;resize:vertical;line-height:1.5}
+.cpx-rte{border:1px solid var(--line);border-radius:12px;background:var(--surface);overflow:hidden}
+.cpx-tb{display:flex;align-items:center;gap:2px;flex-wrap:wrap;padding:5px 6px;border-bottom:1px solid var(--line-soft);background:var(--surface-2)}
+.cpx-tb button{border:1px solid transparent;background:none;border-radius:7px;padding:4px 8px;font-size:12px;font-weight:600;cursor:pointer;color:var(--ink)}.cpx-tb button:hover{background:var(--surface);border-color:var(--line)}
+.cpx-sep{width:1px;height:18px;background:var(--line);margin:0 4px;display:inline-block}
+.cpx-lnk{display:flex;gap:6px;padding:6px;border-bottom:1px solid var(--line-soft)}.cpx-lnk[hidden]{display:none}.cpx-lnk input{flex:1}
+.cpx-ed{min-height:88px;max-height:300px;overflow:auto;padding:10px 12px;font-size:13px;line-height:1.5;outline:none}
+.cpx-ed:empty:before{content:attr(data-ph);color:var(--ink-faint)}.cpx-ed a,.cpx-rich a{color:#2563C9;text-decoration:underline}
+.cpx-ed ul,.cpx-ed ol,.cpx-rich ul,.cpx-rich ol{padding-left:20px;margin:4px 0}.cpx-rich p,.cpx-rich div{margin:0}
+.cpx-att{display:flex;gap:6px;flex-wrap:wrap;padding:0 8px}.cpx-att:not(:empty){padding:8px}
+.cpx-th{position:relative}.cpx-th img{width:64px;height:64px;object-fit:cover;border-radius:8px;border:1px solid var(--line);display:block;cursor:zoom-in}
+.cpx-th button{position:absolute;top:-6px;right:-6px;width:20px;height:20px;border-radius:50%;border:1px solid var(--line);background:var(--surface);font-size:10px;cursor:pointer}
+.cpx-imgs{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}.cpx-imgs img{max-width:150px;max-height:110px;border-radius:8px;border:1px solid var(--line);cursor:zoom-in;object-fit:cover}
+.cpx-thread{margin-bottom:4px}.cpx-reps{margin-left:34px;border-left:2px solid var(--line-soft);padding-left:10px}
+.log-item.cpx-reply .log-avatar{width:26px;height:26px;font-size:10px}.cpx-reto{font-size:11.5px;color:var(--ink-soft);margin:2px 0}
+.cpx-fbacts{margin-top:4px}.cpx-replybtn{border:none;background:none;color:var(--ink-soft);font-size:12px;font-weight:700;cursor:pointer;padding:2px 0}.cpx-replybtn:hover{color:var(--ink);text-decoration:underline}
+.cpx-replybox{margin:6px 0 10px 34px}.cpx-replybox .fb-actions{margin-top:6px}
+.cpx-msgdlg{max-width:520px;width:calc(100vw - 40px)}.cpx-msgpost{font-size:13px;background:var(--surface-2);border:1px solid var(--line-soft);border-radius:10px;padding:9px 11px;margin:8px 0 12px}
+.cpx-msgpost .hint{font-size:11.5px;color:var(--ink-soft);margin-top:3px}.cpx-msgdlg .field-label{display:block;margin-bottom:4px}.cpx-msgdlg .field-select,.cpx-msgdlg .field-textarea{width:100%}
+.cpx-toastbtn{margin-left:10px;border:1px solid currentColor;background:none;color:inherit;border-radius:8px;padding:3px 8px;font-weight:700;cursor:pointer;font-size:12px}
+.cpx-ck{display:inline-flex;align-items:center;margin-right:2px;cursor:pointer}.pc-top .client-tag,.bc-top .client-tag{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex-shrink:1}.cpx-ck{flex-shrink:0}.cpx-ck input{width:15px;height:15px;accent-color:var(--mustard);cursor:pointer;margin:0}
+.post-card.cpx-on,.b-card.cpx-on{outline:2px solid var(--mustard);outline-offset:1px}
+.cpx-bulk{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:60;display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:center;max-width:calc(100vw - 24px);padding:9px 12px;border-radius:14px;background:var(--surface);border:1px solid var(--line);box-shadow:0 14px 40px -12px rgba(30,20,10,.35);font-size:13px}
+.btn.danger{background:var(--danger,#C93B3B);border-color:var(--danger,#C93B3B);color:#fff}
+.cpx-opt{display:flex;gap:8px;align-items:flex-start;padding:8px 0;font-size:13px;cursor:pointer}.cpx-opt small{display:block;color:var(--ink-soft);font-size:11.5px;margin-top:2px}`;
+
+/* ===================== CONTENT BOARD ===================== */
+const CPXB = {sel:new Set(), on:false};
+function cpxSetStatus(t, to, note, how){ if(!t || !cpxAuth(t)) return false;
+  const from = t.status; if(from===to && !note) return false;
+  const done = ['Approved','Completed', typeof PCA!=='undefined' ? PCA : '-'];
+  const reopen = done.includes(from) && !done.includes(to);
+  const mk = typeof mkIsMk==='function' && mkIsMk(t); const planning = cpxWork(t)==='Content Planning';
+  const prevMK = typeof MK_MOVING!=='undefined' ? MK_MOVING : false;
+  if(mk && planning) MK_MOVING = true;   /* content-planning work doesn't need the hand-off to the creative team */
+  try{ setTaskStatus(t, to, note || (reopen ? `Reopened by ${first(PERSON)}` : `${how||'Set directly'} by ${first(PERSON)} (from ${cpxStLabel(from)})`)); }
+  finally { if(mk && planning) MK_MOVING = prevMK; }
+  if(mk && planning){ const s = {'Draft':'plan','In Progress':'direction','For Approval':'review','Revisions Needed':'direction','Approved':'final','Completed':'published'}[to]; if(s) t.mstage = s; }
+  if(typeof CPH_FROM_BOARD!=='undefined' && to in CPH_FROM_BOARD) t.hubStatus = CPH_FROM_BOARD[to];
+  t.updatedBy = PERSON; return true; }
+/* the four direct statuses PMs asked for, plus the existing ones in the list */
+const CPX_DIRECT = [['Draft','Draft'],['In Progress','In Progress'],['Revisions Needed','For Revision'],['Approved','Approved']];
+function cpxDirect(id, to){ const t = TASKS.find(x=>x.id===id); if(!t) return; if(!cpxAuth(t)) return toast('Only the client’s PM or a company head can set the status directly');
+  if(el('teTitle') && !el('teTitle').disabled && el('modalBody')?.contains(el('teTitle'))) saveTaskEdits(id, true);
+  const note = (el('cpxDirNote')?.value||'').trim();
+  if(!cpxSetStatus(t, to, note)) return toast(`Already ${cpxStLabel(to)}`);
+  recordChange(); RENDER[CURRENT]?.(); buildNav(); if(el('teTitle')) openTask(id); toast(`${t.title} → ${cpxStLabel(to)}`); }
+function cpxReopenModal(id){ const t = TASKS.find(x=>x.id===id); if(!t || !cpxAuth(t)) return;
+  openModal('Reopen approved content', `<p style="font-size:13px;margin-bottom:10px"><b>${esc(t.title)}</b> · ${esc(cname(t.client))} · now <b>${esc(cpxStLabel(t.status))}</b></p>
+    <div class="field"><label>What needs to change? (optional — saved in the history and sent to ${esc(first(t.assignee))})</label><textarea id="cpxReNote" rows="3"></textarea></div>
+    <div class="cf-acts"><button class="btn" onclick="closeModal()">Cancel</button><button class="btn" onclick="cpxReopen('${id}','In Progress')">↺ Back to In Progress</button><button class="btn primary" onclick="cpxReopen('${id}','Revisions Needed')">↺ Back for revision</button></div>`); }
+function cpxReopen(id, to){ const t = TASKS.find(x=>x.id===id); if(!t) return; const note = (el('cpxReNote')?.value||'').trim();
+  cpxSetStatus(t, to, note ? `Reopened by ${first(PERSON)}: ${note}` : `Reopened by ${first(PERSON)}`); recordChange(); closeModal(); RENDER[CURRENT]?.(); buildNav(); toast(`Reopened — ${t.title} is ${cpxStLabel(to)}`); }
+function cpxSetWork(id, w){ const t = TASKS.find(x=>x.id===id); if(!t || !CPX_WT.includes(w)) return; if(!canEditContent(t)) return toast('You can only change items for clients you work on');
+  const was = cpxWork(t); if(was===w && t.workType===w) return; t.workType = w; t.updatedAt = nowISO(); t.updatedBy = PERSON;
+  t.history = [...(t.history||[]), {by:pname(PERSON), who:PERSON, act:`Work type: ${was} → ${w}`, note:'', when:dtstr(nowISO()), at:nowISO()}];
+  recordChange(); RENDER[CURRENT]?.(); toast(`Work type: ${w}`); }
+/* the card: selection box, "Work type · status", and ↺ Reopen for approved work */
+{ const _kc = kcard; kcard = function(t){ let h = _kc.apply(this, arguments); if(!CPXB.on) return h;
+    const i = h.indexOf('>'); if(i<0) return h;
+    const on = CPXB.sel.has(t.id);
+    h = h.slice(0, i).replace('class="kcard', `data-tid="${esc(t.id)}" class="kcard${on?' cpx-on':''}`) + '>' + `<label class="cpx-kck" onclick="event.stopPropagation()" title="Select"><input type="checkbox" ${on?'checked':''} onchange="cpxbToggle('${t.id}', this.checked)" aria-label="Select ${esc(t.title)}"></label>` + h.slice(i+1);
+    const w = cpxWork(t); const chip = `<div class="cpx-wt wt-${cpxWtCls(w)}" title="Work type · status">${esc(w)} · ${esc(cpxStLabel(t.status))}</div>`;
+    const b = h.indexOf('</b>'); if(b>=0) h = h.slice(0, b+4) + chip + h.slice(b+4);
+    if(cpxAuth(t) && ['Approved','Completed', typeof PCA!=='undefined'?PCA:'-'].includes(t.status)){ const j = h.lastIndexOf('</div>'); h = h.slice(0, j) + `<button class="btn cpx-reopen" onclick="event.stopPropagation();cpxReopenModal('${t.id}')" title="Reopen for more changes">↺ Reopen</button>` + h.slice(j); }
+    return h; }; }
+function cpxbToggle(id, on){ on ? CPXB.sel.add(id) : CPXB.sel.delete(id); document.querySelector(`.kcard[data-tid="${CSS.escape(id)}"]`)?.classList.toggle('cpx-on', on); cpxbBar(); }
+function cpxbAll(on){ boardTasks().forEach(t=>on ? CPXB.sel.add(t.id) : CPXB.sel.delete(t.id)); RENDER.tasks(); }
+function cpxbItems(){ const V = new Set(boardTasks().map(t=>t.id)); [...CPXB.sel].forEach(id=>{ if(!V.has(id)) CPXB.sel.delete(id); }); return [...CPXB.sel].map(id=>TASKS.find(t=>t.id===id)).filter(Boolean); }
+function cpxbOwners(items){ const C = uniq(items.map(t=>t.client)); return uniq(C.flatMap(c=>assigneeOptions(c))).filter(k=>PEOPLE[k]).sort((a,b)=>pname(a).localeCompare(pname(b))); }
+function cpxbBarHTML(){ const T = boardTasks(); const items = cpxbItems(); const n = items.length; const all = T.length && T.every(t=>CPXB.sel.has(t.id));
+  return `<label class="cpx-ball"><input type="checkbox" ${all?'checked':''} onchange="cpxbAll(this.checked)"> Select all${T.length?` (${T.length})`:''}</label>
+    ${n ? `<b class="cpx-bn">${n} selected</b>
+      <select onchange="if(this.value)cpxbStatus(this.value);this.value=''" title="Change status"><option value="">Status…</option>${STATUSES.map(s=>`<option value="${esc(s)}">${esc(cpxStLabel(s))}</option>`).join('')}</select>
+      <select onchange="if(this.value)cpxbOwner(this.value);this.value=''" title="Reassign owner"><option value="">Owner…</option>${cpxbOwners(items).map(k=>`<option value="${k}">${esc(pname(k))}</option>`).join('')}</select>
+      <span class="cpx-bdate"><input type="date" id="cpxbDate" title="Scheduled post date"><button class="btn" onclick="cpxbDate()">Set date</button></span>
+      <select onchange="if(this.value)cpxbWork(this.value);this.value=''" title="Work type / stage"><option value="">Work type…</option>${CPX_WT.map(w=>`<option>${w}</option>`).join('')}</select>
+      <button class="btn danger" onclick="cpxbDelete()">🗑 Delete</button><button class="btn ghost" onclick="CPXB.sel.clear();RENDER.tasks()">Clear</button>` : `<span class="hint">Tick cards to change several at once.</span>`}`; }
+function cpxbBar(){ const b = el('cpxbBar'); if(b) b.innerHTML = cpxbBarHTML(); }
+{ const _rt = RENDER.tasks; RENDER.tasks = function(){ CPXB.on = true; let r; try{ r = _rt.apply(this, arguments); } finally { CPXB.on = false; }
+    const v = el('v-tasks'); const k = v?.querySelector('.kanban');
+    if(k && !el('cpxbBar')) k.insertAdjacentHTML('beforebegin', `<div class="cpx-bbar" id="cpxbBar"></div>`);
+    cpxbBar(); return r; }; }
+/* apply to the selection: each item keeps its own permissions; what isn't allowed is skipped and counted */
+function cpxbRun(label, fn){ const items = cpxbItems(); let ok = 0, skip = 0;
+  items.forEach(t=>{ try{ fn(t) ? ok++ : skip++; }catch(e){ skip++; console.warn('bulk', e); } });
+  if(ok){ recordChange(); audit(`${label} — ${ok} content item${ok>1?'s':''} (bulk)`); }
+  RENDER.tasks(); buildNav(); toast(`${label}: ${ok} item${ok===1?'':'s'}${skip?` · ${skip} skipped (no permission or already set)`:''}`); }
+function cpxbStatus(to){ const items = cpxbItems(); if(!items.length) return;
+  openModal(`Change ${items.length} item${items.length>1?'s':''} to ${cpxStLabel(to)}`, `<p style="font-size:13px;margin-bottom:10px">PMs and company heads move items straight to <b>${esc(cpxStLabel(to))}</b>. Others follow the normal steps — items they can’t move are skipped.</p>
+    <div class="field"><label>Note (optional — saved in each item’s history)</label><textarea id="cpxbNote" rows="2"></textarea></div>
+    <div class="cf-acts"><button class="btn" onclick="closeModal()">Cancel</button><button class="btn primary" onclick="cpxbStatusGo('${esc(to)}')">Change ${items.length} item${items.length>1?'s':''}</button></div>`); }
+function cpxbStatusGo(to){ const note = (el('cpxbNote')?.value||'').trim(); closeModal();
+  cpxbRun(`Status → ${cpxStLabel(to)}`, t=>{ if(t.status===to) return false; if(cpxAuth(t)) return cpxSetStatus(t, to, note, 'Bulk change');
+    if(typeof cbAllowed==='function' && cbAllowed(t, to) && !['Approved','Revisions Needed', typeof PCA!=='undefined'?PCA:'-'].includes(to)){ setTaskStatus(t, to, note); return true; } return false; }); }
+function cpxbOwner(k){ cpxbRun(`Owner → ${first(k)}`, t=>{ if(!canEditContent(t) || t.assignee===k || !assigneeOptions(t.client).includes(k)) return false;
+  t.assignee = k; t.updatedAt = nowISO(); t.updatedBy = PERSON; (t.history = t.history||[]).push({by:pname(PERSON), who:PERSON, act:'Reassigned to '+pname(k), note:'Bulk change', when:dtstr(nowISO()), at:nowISO()});
+  if(k!==PERSON) notify(k, 'assignment', `${esc(first(PERSON))} assigned you <b>${esc(t.title)}</b> · ${esc(cname(t.client))}`, {view:'tasks', task:t.id}); return true; }); }
+function cpxbDate(){ const d = el('cpxbDate')?.value; if(!d) return toast('Pick the scheduled post date first');
+  cpxbRun(`Scheduled date → ${fmtD(d)}`, t=>{ if(!canEditContent(t)) return false; const old = t.postDate ? cpxYmd(t.postDate) : ''; if(old===d) return false;
+    t.postDate = new Date(d+'T00:00:00'); if(t.hubPost || !t.due || (old && cpxYmd(t.due)===old)) t.due = new Date(d+'T00:00:00'); t.updatedAt = nowISO(); t.updatedBy = PERSON;
+    (t.history = t.history||[]).push({by:pname(PERSON), who:PERSON, act:`Scheduled date ${old?fmtD(old):'—'} → ${fmtD(d)}`, note:'Bulk change', when:dtstr(nowISO()), at:nowISO()}); return true; }); }
+function cpxbWork(w){ cpxbRun(`Work type → ${w}`, t=>{ if(!canEditContent(t) || cpxWork(t)===w && t.workType===w) return false; const was = cpxWork(t); t.workType = w; t.updatedAt = nowISO(); t.updatedBy = PERSON;
+  (t.history = t.history||[]).push({by:pname(PERSON), who:PERSON, act:`Work type: ${was} → ${w}`, note:'Bulk change', when:dtstr(nowISO()), at:nowISO()}); return true; }); }
+const cpxbCanDel = t => canApproveTask(t) || t.createdBy===PERSON || isExec() || isFullAccess();
+function cpxbDelete(){ const items = cpxbItems(); const can = items.filter(cpxbCanDel); const skip = items.length - can.length;
+  if(!can.length) return toast('Only the client’s PM, a company head or the person who created an item can delete it');
+  confirmModal(`Delete ${can.length} content item${can.length>1?'s':''}?`, `<p>${can.slice(0, 6).map(t=>`<b>${esc(t.title)}</b> · ${esc(cname(t.client))}`).join('<br>')}${can.length>6?`<br>…and ${can.length-6} more`:''}</p>
+    <p style="margin-top:8px">They are removed from the Content Board and the Content Planning Hub, with their hub feedback. This can’t be undone.${skip?` <b>${skip}</b> selected item${skip>1?'s':''} you can’t delete will be kept.`:''}</p>`, `Delete ${can.length} item${can.length>1?'s':''}`, ()=>{
+    const ids = new Set(can.map(t=>t.id));
+    for(let i=TASKS.length-1; i>=0; i--) if(ids.has(TASKS[i].id)) TASKS.splice(i, 1);
+    if(typeof HUBDOCS!=='undefined') for(let i=HUBDOCS.length-1; i>=0; i--) if(HUBDOCS[i].col==='feedback' && ids.has(HUBDOCS[i].d?.contentId)) HUBDOCS.splice(i, 1);
+    ids.forEach(id=>CPXB.sel.delete(id)); audit(`Deleted ${ids.size} content item${ids.size>1?'s':''} from the Content Board (bulk)`); recordChange(); closeModal(); RENDER.tasks(); buildNav();
+    toast(`${ids.size} item${ids.size>1?'s':''} deleted${skip?` · ${skip} kept (no permission)`:''}`); }); }
+/* the item window: Work type, and "Set status directly" for PMs / company heads */
+{ const _ot = openTask; openTask = function(id){ const r = _ot.apply(this, arguments); const t = TASKS.find(x=>x.id===id); const b = el('modalBody'); if(!t || !b) return r;
+    const ty = el('teType')?.closest('.field');
+    if(ty && !el('teWork')) ty.insertAdjacentHTML('afterend', `<div class="field"><label>Work type <span class="hint">separate from the status</span></label><select id="teWork" ${canEditContent(t)?'':'disabled'} onchange="cpxSetWork('${id}', this.value)">${CPX_WT.map(w=>`<option ${w===cpxWork(t)?'selected':''}>${w}</option>`).join('')}</select></div>`);
+    if(cpxAuth(t) && !el('cpxDir')){ const at = b.querySelector('.split > div > div') || b.querySelector('.split > div');
+      at?.insertAdjacentHTML('afterend', `<div class="cpx-dir" id="cpxDir"><span><b>⚡ Set status directly</b> <span class="hint">skips the usual steps (client approval, creative hand-off) — saved in the history</span></span>
+        <div class="cpx-dir-r"><input id="cpxDirNote" placeholder="Note (optional)">${CPX_DIRECT.map(([s, l])=>`<button class="btn ${s===t.status?'on':''}" ${s===t.status?'disabled':''} onclick="cpxDirect('${id}','${s}')">${l}</button>`).join('')}</div></div>`); }
+    return r; }; }
+
+/* ===================== ICP & CREATOR LISTS — bulk delete ===================== */
+const PRX = {sel:new Set(), key:''};
+function prxIds(){ return prFiltered(PR.client).map(p=>p.id); }
+function prxSync(){ const k = PR.client+'|'+PR.list; if(PRX.key!==k){ PRX.key = k; PRX.sel.clear(); }
+  const have = new Set(prOf(PR.client, PR.list).map(p=>p.id)); [...PRX.sel].forEach(id=>{ if(!have.has(id)) PRX.sel.delete(id); }); }
+function prxBar(){ const b = el('prxBar'); if(!b) return; const n = PRX.sel.size; const match = prxIds(); const allOn = match.length && match.every(id=>PRX.sel.has(id));
+  b.hidden = !n; b.innerHTML = n ? `<b>${n} selected</b>${!allOn && match.length>n ? `<button class="btn ghost" onclick="prxSelect(true)">Select all ${match.length} matching</button>` : ''}
+    <button class="btn danger" onclick="prxDelete()">🗑 Delete selected</button><button class="btn ghost" onclick="PRX.sel.clear();RENDER.prospects()">Clear</button>` : '';
+  const h = el('prxAll'); if(h){ const shown = [...document.querySelectorAll('#v-prospects .prx-ck')].map(x=>x.dataset.id); h.checked = shown.length>0 && shown.every(id=>PRX.sel.has(id)); h.indeterminate = !h.checked && shown.some(id=>PRX.sel.has(id)); } }
+function prxToggle(id, on){ on ? PRX.sel.add(id) : PRX.sel.delete(id); document.querySelector(`#v-prospects tr[data-prid="${CSS.escape(id)}"]`)?.classList.toggle('prx-on', on); prxBar(); }
+function prxSelect(all){ const ids = all ? prxIds() : [...document.querySelectorAll('#v-prospects .prx-ck')].map(x=>x.dataset.id); ids.forEach(id=>PRX.sel.add(id)); RENDER.prospects(); }
+function prxHead(on){ const ids = [...document.querySelectorAll('#v-prospects .prx-ck')].map(x=>x.dataset.id); ids.forEach(id=>on ? PRX.sel.add(id) : PRX.sel.delete(id)); RENDER.prospects(); }
+{ const _rp = RENDER.prospects; RENDER.prospects = function(){ const r = _rp.apply(this, arguments); try{ prxSync();
+    const tbl = document.querySelector('#v-prospects .pr-tbl'); if(!tbl) return r;
+    const hr = tbl.querySelector('thead tr'); if(hr && !hr.querySelector('.prx-th')) hr.insertAdjacentHTML('afterbegin', `<th class="prx-th"><input type="checkbox" id="prxAll" title="Select all shown" aria-label="Select all shown" onchange="prxHead(this.checked)"></th>`);
+    tbl.querySelectorAll('tbody tr').forEach(tr=>{ const m = tr.querySelector('[onclick^="prEdit(\'"]')?.getAttribute('onclick')?.match(/prEdit\('([^']+)'\)/);
+      if(!m){ const td = tr.querySelector('td[colspan]'); if(td) td.colSpan = (+td.colSpan||1) + 1; return; }
+      const id = m[1]; tr.dataset.prid = id; const on = PRX.sel.has(id); tr.classList.toggle('prx-on', on);
+      if(!tr.querySelector('.prx-ck')) tr.insertAdjacentHTML('afterbegin', `<td class="prx-td"><input type="checkbox" class="prx-ck" data-id="${esc(id)}" ${on?'checked':''} onclick="event.stopPropagation()" onchange="prxToggle('${esc(id)}', this.checked)" aria-label="Select"></td>`); });
+    const card = tbl.closest('.card'); if(card && !el('prxBar')) card.querySelector('.card-h')?.insertAdjacentHTML('afterend', `<div class="prx-bar" id="prxBar" hidden></div>`);
+    prxBar(); }catch(e){ console.warn('ICP bulk select', e); } return r; }; }
+function prxDelete(){ const P0 = [...PRX.sel].map(id=>PROSPECTS.find(p=>p.id===id)).filter(Boolean); const can = P0.filter(prCanDelete); const skip = P0.length - can.length;
+  if(!can.length) return toast('You can delete only the profiles assigned to you');
+  const L = PR_LISTS[PR.list]?.name || 'list';
+  confirmModal(`Delete ${can.length} profile${can.length>1?'s':''}?`, `<p><b>${can.length}</b> selected profile${can.length>1?'s':''} will be removed from ${esc(cname(PR.client))}’s ${esc(L)}. Only the selected rows are deleted. This can’t be undone.</p>
+    ${can.length<=8 ? `<p style="margin-top:8px" class="hint">${can.map(p=>esc(p.name || p.linkedin || 'Profile')).join(' · ')}</p>` : ''}${skip?`<p style="margin-top:8px"><b>${skip}</b> selected profile${skip>1?'s':''} you can’t delete will be kept.</p>`:''}`,
+    `Delete ${can.length} profile${can.length>1?'s':''}`, ()=>{ const ids = new Set(can.map(p=>p.id)); PROSPECTS = PROSPECTS.filter(p=>!ids.has(p.id)); ids.forEach(id=>PRX.sel.delete(id));
+      audit(`Deleted ${ids.size} profile${ids.size>1?'s':''} from ${cname(PR.client)}’s ${L} (bulk)`); recordChange(); closeModal(); RENDER.prospects();
+      toast(`${ids.size} profile${ids.size>1?'s':''} deleted${skip?` · ${skip} kept (no permission)`:''}`); }); }
+
+(function(){ const st = document.createElement('style'); st.textContent = `
+.cpx-postref{display:flex;align-items:center;gap:10px;margin-top:8px;padding:9px 11px;border-radius:12px;border:1px solid rgba(242,169,59,.55);background:rgba(242,169,59,.12);cursor:pointer;color:var(--ink);text-align:left;max-width:360px}
+.cpx-postref:hover{background:rgba(242,169,59,.2)}.cpx-pr-ico{font-size:16px}.cpx-pr-b{display:flex;flex-direction:column;min-width:0;flex:1}.cpx-pr-b b{font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cpx-pr-b small{font-size:11.5px;color:var(--ink-2)}.cpx-pr-go{font-size:12px;font-weight:700;white-space:nowrap;color:var(--warn,#B97509)}
+.cpx-kck{float:right;margin:-2px -2px 0 6px;cursor:pointer}.cpx-kck input{width:16px;height:16px;accent-color:var(--brand-2);cursor:pointer;margin:0}
+.kcard.cpx-on{outline:2px solid var(--brand-2);outline-offset:1px}
+.cpx-wt{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:99px;margin:0 0 6px;background:var(--info-bg);color:var(--info)}
+.cpx-wt.wt-g{background:var(--violet-bg);color:var(--violet)}.cpx-wt.wt-v{background:var(--bad-bg);color:var(--bad)}.cpx-wt.wt-c{background:var(--ok-bg);color:var(--ok)}
+.cpx-reopen{margin-top:8px;width:100%;font-size:12px;padding:5px 8px}
+.cpx-bbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 12px;padding:8px 12px;border:1px solid var(--line);border-radius:12px;background:var(--panel);font-size:13px;position:sticky;top:0;z-index:5}
+.cpx-bbar select,.cpx-bbar input[type=date]{padding:6px 9px;font-size:12.5px}.cpx-bbar .btn{padding:6px 11px;font-size:12.5px}.cpx-ball{display:flex;align-items:center;gap:6px;font-weight:600;cursor:pointer}
+.cpx-ball input{width:16px;height:16px;accent-color:var(--brand-2)}.cpx-bn{background:var(--brand-2);color:#1A1206;padding:3px 10px;border-radius:99px;font-size:12.5px}.cpx-bdate{display:inline-flex;gap:4px}
+.cpx-dir{display:flex;flex-direction:column;gap:6px;margin:0 0 12px;padding:9px 11px;border:1px dashed var(--line);border-radius:12px;background:var(--panel-2);font-size:12.5px}
+.cpx-dir-r{display:flex;gap:6px;flex-wrap:wrap;align-items:center}.cpx-dir-r input{flex:1 1 160px;padding:6px 9px;font-size:12.5px}.cpx-dir-r .btn{padding:5px 10px;font-size:12px}.cpx-dir-r .btn.on{opacity:.55}
+.prx-th,.prx-td{width:34px;text-align:center}.prx-th input,.prx-td input{width:16px;height:16px;accent-color:var(--brand-2);cursor:pointer}
+#v-prospects tr.prx-on td{background:rgba(242,169,59,.10)}
+.prx-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 14px 10px;padding:8px 12px;border-radius:12px;border:1px solid rgba(201,59,59,.35);background:var(--bad-bg);font-size:13px}
+.prx-bar[hidden]{display:none}.prx-bar .btn{padding:6px 11px;font-size:12.5px}`; document.head.appendChild(st); })();
 
 /* <<< OCT24 MODULES <<< */
 </script>

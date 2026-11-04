@@ -37496,6 +37496,7 @@ function aiWFDeep(v){ if(typeof v==='string') return aiWF(v); if(Array.isArray(v
    Documents are ordinary HR documents (HRDOCS) with a `rec` tag, so they share the e-signature, PDF and 201-file features. */
 const RD_TYPES = {
   contract:{kind:'Employment contract', label:'Employment contract', sign:true},
+  service:{kind:'Service contract agreement', label:'Service Contract Agreement', sign:true},
   offer:{kind:'Job offer', label:'Job offer (JO)', sign:true},
   order:{kind:'Job Order', label:'Job Order', sign:true},
   letter:{kind:'Employment letter', label:'Employment letter', sign:false},
@@ -37503,6 +37504,7 @@ const RD_TYPES = {
 const RD_EMPTYPES = ['Probationary','Project-based','Regular','Part-time','Independent contractor'];
 const RD_TPL = {
   contract:`EMPLOYMENT CONTRACT\n\nThis Employment Contract is made on {date} between Cross Core OPC ("the Company") and {name} ("the Employee").\n\n1. POSITION. The Employee is engaged as {position} ({emptype}) and reports to {supervisor}.\n\n2. START DATE AND PROBATION. Employment starts on {start}. The first {probation} are a probationary period, during which performance is reviewed against the standards explained at orientation.\n\n3. COMPENSATION. {pay}, paid on the Company's payroll schedule, less deductions required by law.\n\n4. DUTIES AND WORK HOURS. The Employee performs the duties of the position and of any client Job Order issued by the Company, during the schedule agreed with the Company.\n\n5. CONFIDENTIALITY. The Employee keeps all Company and client information confidential during and after employment and uses it only for assigned work.\n\n6. COMPANY POLICIES. The Employee follows the Company's policies and code of conduct as updated from time to time.\n\nEmployee initials: [initials]\n\n[page break]\n\n7. TERMINATION. Either party may end this contract by written notice, in line with applicable law and Company policy.\n\n8. ENTIRE AGREEMENT. This contract, with any Job Order issued under it, is the complete agreement between the parties. Changes must be in writing and issued by HR as a new version.\n\nFor the Company: Cross Core OPC, Human Resources\n\nEmployee signature: [signature]\nName: {name}\nDate: {date}`,
+  service:`SERVICE CONTRACT AGREEMENT\n\nThis Service Contract Agreement is made on {date} between Cross Core OPC ("the Company") and {name} ("the Service Provider").\n\n1. SERVICES. The Service Provider will perform services as {position} for the Company and its clients, as described in this agreement and any Job Order issued under it, and reports to {supervisor}.\n\n2. TERM. This agreement starts on {start} and continues until ended by either party under section 7.\n\n3. FEES. {pay}, paid on the Company's payment schedule against the services delivered.\n\n4. INDEPENDENT CONTRACTOR. The Service Provider is an independent contractor, not an employee, and is responsible for their own taxes, government contributions, equipment and internet connection, unless agreed otherwise in writing.\n\n5. CONFIDENTIALITY. The Service Provider keeps all Company and client information confidential during and after this agreement and uses it only to perform the services.\n\nService Provider initials: [initials]\n\n[page break]\n\n6. OWNERSHIP OF WORK. Work produced for the Company or its clients under this agreement belongs to the Company or the client, as applicable.\n\n7. TERMINATION. Either party may end this agreement by written notice. Fees for services already delivered remain payable.\n\n8. ENTIRE AGREEMENT. This agreement, with any Job Order issued under it, is the complete agreement between the parties. Changes must be in writing and issued by HR as a new version.\n\nFor the Company: Cross Core OPC, Human Resources\n\nService Provider signature: [signature]\nName: {name}\nDate: {date}`,
   offer:`JOB OFFER\n\n{date}\n\nDear {name},\n\nWe are pleased to offer you the position of {position} at Cross Core OPC.\n\nPosition: {position}\nEmployment type: {emptype}\nStart date: {start}\nCompensation: {pay}\nReports to: {supervisor}\n\nThis offer is subject to the Company's policies and the employment contract that HR will issue. It is valid until {validuntil}.\n\nTo accept, please review and sign below.\n\nWarm regards,\nCross Core OPC, Human Resources\n\nAccepted by: [signature]\nName: {name}`,
   order:`JOB ORDER\n\nEmployee: {name}\nRole: {position}\nReports to: {supervisor}\nStart date: {start}\n\nResponsibilities:\n- (list the main responsibilities)\n\nAgreed compensation: {pay}\n\nThis Job Order forms part of the Employee's agreement with Cross Core OPC.\n\nEmployee: [signature]`,
   letter:`{date}\n\nDear {name},\n\nThis letter confirms your employment with Cross Core OPC as {position} ({emptype}), starting {start}, reporting to {supervisor}.\n\nWelcome to the team. Please keep this letter for your records.\n\nSincerely,\nCross Core OPC, Human Resources`,
@@ -37556,8 +37558,9 @@ function rdEdit(id, app, type){
   if(!d && !rdEligible(a)) return toast('Documents can be prepared after the applicant completes orientation');
   type = d?.rec.type || type || 'offer'; const o = typeof recOb==='function' ? recOb(app) : null;
   const f = d?.rec.fields || {position:o?.role||a.position||'', start:o?.start||shiftDate(manilaDate(), 7), pay:o?.payout?.amount?joPay(o.payout):'', emptype:'Probationary', supervisor:o?.pm?pname(o.pm):'', validuntil:shiftDate(manilaDate(), 7), probation:'six (6) months'};
+  if(!d && type==='service') f.emptype = 'Independent contractor';
   const body = d ? d.body : rdFill(type, f); const sign = d ? !!d.sign?.required : RD_TYPES[type].sign;
-  RD.edit = {id:d?.id||null, app, touched:!!d};
+  RD.edit = {id:d?.id||null, app, touched:!!d, files:[...(d?.files||[])]};
   openModal(d ? `Edit ${d.kind.toLowerCase()} · ${a.name}` : `Prepare a document · ${a.name}`, `<div id="rdEditor">
     <div class="grid cols-2"><div class="field"><label>Document type</label><select id="rdType" onchange="rdTypeChange()">${Object.entries(RD_TYPES).map(([k,t])=>`<option value="${k}" ${k===type?'selected':''}>${t.label}</option>`).join('')}</select></div>
       <div class="field"><label>Title</label><input id="rdTitle" value="${esc(d?.title || `${RD_TYPES[type].kind} · ${a.name}`)}"></div></div>
@@ -37570,14 +37573,17 @@ function rdEdit(id, app, type){
     <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap"><label style="font-weight:600;font-size:12.5px">Document text</label><button class="btn ghost" style="padding:4px 10px;font-size:12px" onclick="rdRefill()">↻ Fill the template with these details</button></div>
     <textarea id="rdBody" rows="16" style="width:100%;font-family:inherit;line-height:1.5" oninput="RD.edit.touched=true">${esc(body)}</textarea>
     <div class="hint" style="margin:6px 0 10px">Type <b>[signature]</b> or <b>[initials]</b> where the applicant signs, and <b>[page break]</b> on its own line to start a new page. {name} and {date} fill in automatically when it is sent.</div>
+    <div class="field"><label>Attachments <span class="hint">(optional · e.g. the signed-ready PDF, a schedule of fees or annexes)</span></label><button class="btn" style="padding:5px 10px;font-size:12px" onclick="rdAttach()">📎 Upload files</button><div id="rdFiles" style="margin-top:6px">${fileChips(RD.edit.files,'rdRmFile')}</div></div>
     <label style="display:flex;gap:8px;align-items:center;margin-bottom:12px"><input type="checkbox" id="rdSign" style="width:auto" ${sign?'checked':''}> Needs the applicant's e-signature (otherwise they acknowledge receipt)</label>
     <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" onclick="rdSave(false)">Save draft</button><button class="btn" onclick="rdPreview()">Preview</button><button class="btn primary" style="flex:1" onclick="rdSave(true)">Send to ${esc(first(app)||a.name)} for ${sign?'e-signature':'acknowledgment'}</button></div></div>`, true);
   MODAL_CTX = null;
 }
-function rdTypeChange(){ const t = el('rdType').value; const a = recApp(RD.edit.app);
+function rdTypeChange(){ const t = el('rdType').value; const a = recApp(RD.edit.app); if(t==='service') el('rdEmp').value = 'Independent contractor';
   el('rdSign').checked = RD_TYPES[t].sign; const ti = el('rdTitle'); if(Object.values(RD_TYPES).some(x=>ti.value===`${x.kind} · ${a.name}`)) ti.value = `${RD_TYPES[t].kind} · ${a.name}`;
   if(!RD.edit.touched || confirm('Replace the document text with the template for this type?')){ el('rdBody').value = rdFill(t, rdFields()); RD.edit.touched = false; } }
 function rdRefill(){ if(RD.edit.touched && !confirm('Replace the current text with the template filled with these details?')) return; el('rdBody').value = rdFill(el('rdType').value, rdFields()); RD.edit.touched = false; }
+function rdAttach(){ pickFiles({multiple:true}).then(f=>{ if(!f.length) return; RD.edit.files.push(...f); el('rdFiles').innerHTML = fileChips(RD.edit.files,'rdRmFile'); }); }
+function rdRmFile(i){ RD.edit.files.splice(i,1); el('rdFiles').innerHTML = fileChips(RD.edit.files,'rdRmFile'); }
 const rdFields = () => ({position:el('rdPos').value.trim(), emptype:el('rdEmp').value, start:el('rdStart').value, pay:el('rdPay').value.trim(), supervisor:el('rdSup').value.trim(), validuntil:el('rdValid').value, probation:'six (6) months'});
 function rdPreview(){
   const body = el('rdBody').value; const tmp = {title:el('rdTitle').value, sign:el('rdSign').checked?{required:true, mode:'auto'}:null};
@@ -37594,9 +37600,9 @@ async function rdSave(send){
   let d = E.id ? HRDOCS.find(x=>x.id===E.id) : null;
   if(d && (d.status!=='Draft' || !rdCanManage(d))) return toast('This document can no longer be edited');
   const t = nowISO();
-  if(!d){ d = {id:uid('HD'), kind:RD_TYPES[type].kind, title, body, files:[], needsCoo:false, sign:sign?{required:true, mode:'auto'}:null, version:1, by:PERSON, at:t, updatedAt:t, status:'Draft', sentTo:[],
+  if(!d){ d = {id:uid('HD'), kind:RD_TYPES[type].kind, title, body, files:[...E.files], needsCoo:false, sign:sign?{required:true, mode:'auto'}:null, version:1, by:PERSON, at:t, updatedAt:t, status:'Draft', sentTo:[],
       rec:{app:a.id, type, fields}, history:[{at:t, by:PERSON, act:`Prepared for ${a.name}`, note:''}]}; HRDOCS.unshift(d); E.id = d.id; }
-  else { Object.assign(d, {kind:RD_TYPES[type].kind, title, body, sign:sign?{required:true, mode:'auto'}:null, updatedAt:t}); d.rec = {...d.rec, type, fields}; d.history.push({at:t, by:PERSON, act:'Edited', note:''}); }
+  else { Object.assign(d, {kind:RD_TYPES[type].kind, title, body, files:[...E.files], sign:sign?{required:true, mode:'auto'}:null, updatedAt:t}); d.rec = {...d.rec, type, fields}; d.history.push({at:t, by:PERSON, act:'Edited', note:''}); }
   recordChange();
   if(!send){ toast('Draft saved'); return rdBack(a.id); }
   return rdSend(d.id);
@@ -37659,6 +37665,7 @@ function rdView(id){
     <div class="hint" style="margin-bottom:10px">Prepared by ${esc(pname(d.by))} · ${esc(dtstr(d.at))}${d.sentAt?` · sent ${esc(dtstr(d.sentAt))}${d.sentBy&&d.sentBy!==d.by?' by '+esc(pname(d.sentBy)):''}`:''}${s?` · signed ${esc(dtstr(s.signedAt))}`:''}${ack?.ackAt?` · acknowledged ${esc(dtstr(ack.ackAt))}`:''}${(d.reminders||[]).length?` · ${d.reminders.length} reminder${d.reminders.length>1?'s':''}`:''}</div>
     ${s||ack?.ackAt ? `<div class="hint" style="margin-bottom:10px">${f201?'✓ Saved to the 201 file (Contracts & Renewals / Memos)':'Saving to the 201 file…'}${a && a.stage!=='employee' && !EMPLOYEES.some(e=>e.id===k)?' · it appears in the 201 file once they are registered as a new employee':''}</div>`:''}
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">${rdActions(d, true)}</div>
+    ${(d.files||[]).length?`<div style="margin-bottom:10px"><b style="font-size:12.5px">Attachments</b> ${fileChips(d.files)}</div>`:''}
     <div class="doc-paper" style="white-space:pre-wrap;max-height:50vh;overflow:auto">${esc(text).replace(/\[(signature|initials)\]/gi, (_, x)=>`<span class="badge ${s?'b-approved':'b-pending'}">${s?'✓ ':'✍️ '}${x.toLowerCase()==='signature'?'Signature':'Initials'}</span>`).replace(/\[page break\]/gi,'<hr>')}</div>
     <div class="rec-sec"><h4>History</h4>${(d.history||[]).slice().reverse().map(h=>`<div class="hint">${esc(dtstr(h.at))} · ${esc(PEOPLE[h.by]?pname(h.by):'System')} · ${esc(h.act)}</div>`).join('')}${s?`<div class="hint">${esc(dtstr(s.signedAt))} · ${esc(s.personName)} · Signed electronically</div>`:''}</div>
     ${a?`<button class="btn ghost" style="margin-top:10px" onclick="RD.from=null;recView('${a.id}')">← ${esc(a.name)}’s profile</button>`:''}</div>`, true);
@@ -37670,7 +37677,7 @@ function rdProfileHTML(a){
   const D = rdDocs(a.id).sort((x,y)=>(y.updatedAt||y.at||'').localeCompare(x.updatedAt||x.at||''));
   const ok = rdEligible(a);
   return `<div class="rec-sec" id="rdSec"><h4>Contracts, job offers & letters <span class="hint">· prepare, send and track e-signatures</span></h4>
-    ${ok ? `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">${['offer','contract','order','letter'].map(t=>`<button class="btn ${t==='offer'?'primary':''}" style="padding:5px 11px;font-size:12px" onclick="RD.from='profile';rdEdit(null,'${a.id}','${t}')">+ ${RD_TYPES[t].label}</button>`).join('')}<button class="btn ghost" style="padding:5px 11px;font-size:12px" onclick="RD.from='profile';rdEdit(null,'${a.id}','other')">+ Other letter</button></div>`
+    ${ok ? `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">${['offer','contract','service','order','letter'].map(t=>`<button class="btn ${t==='offer'?'primary':''}" style="padding:5px 11px;font-size:12px" onclick="RD.from='profile';rdEdit(null,'${a.id}','${t}')">+ ${RD_TYPES[t].label}</button>`).join('')}<button class="btn ghost" style="padding:5px 11px;font-size:12px" onclick="RD.from='profile';rdEdit(null,'${a.id}','other')">+ Other letter</button></div>`
       : '<div class="hint" style="margin-bottom:8px">Available after the applicant completes orientation.</div>'}
     ${D.map(d=>`<div class="list-row" style="flex-wrap:wrap"><div style="flex:1;min-width:200px"><b style="font-size:12.5px;cursor:pointer" onclick="rdView('${d.id}')">${esc(d.title)}</b> ${rdBadge(d)}<div class="hint">${esc(d.kind)} · v${d.version||1} · ${esc(pname(d.by))} · ${esc(dtstr(d.sentAt||d.at))}</div></div><div style="display:flex;gap:6px;flex-wrap:wrap">${rdActions(d, false)}</div></div>`).join('') || (ok?'<div class="hint">Nothing prepared yet.</div>':'')}</div>`;
 }
@@ -37716,7 +37723,7 @@ function rdTabHTML(){
 
 /* ---------- after signing: job offers go to Contracts & Renewals; HR always hears about it ---------- */
 { const _s = h201SaveSigned; h201SaveSigned = function(r){ const ok = _s.apply(this, arguments);
-    try{ const f = HRFILES.find(x=>x.id===`HF-ES-${r.id}`); if(f && /job offer|employment contract/i.test(r.docKind||'') && f.folder!=='contracts') f.folder = 'contracts'; }catch(e){}
+    try{ const f = HRFILES.find(x=>x.id===`HF-ES-${r.id}`); if(f && /job offer|contract/i.test(r.docKind||'') && f.folder!=='contracts') f.folder = 'contracts'; }catch(e){}
     return ok; }; }
 /* a signed or acknowledged recruitment document always reaches HR and the person who prepared it — even if the applicant's own
    notification did not go through. Each staff device checks for its own person only, once per document. */
@@ -37736,6 +37743,19 @@ function rdNotifySweep(){
 setInterval(rdNotifySweep, 60e3);
 /* a cancelled document can't be opened for signing (e.g. a stale screen in the applicant portal) */
 { const _st = esStart; esStart = function(docId){ const d = HRDOCS.find(x=>x.id===docId); if(d?.status==='Cancelled') return toast('HR withdrew this document. It no longer needs your signature.'); return _st.apply(this, arguments); }; }
+
+/* live: a Service Contract Agreement (or any recruitment document) created, uploaded or updated anywhere shows up at once in the
+   Recruitment tracker, the applicant profile, the Details window, the applicant / employee portal and the 201 file. The
+   document is one shared record (HR documents), so every portal reads the same copy; this keeps open screens current too. */
+{ const _ore2 = onRemoteEvent; onRemoteEvent = function(ev){ _ore2.apply(this, arguments);
+    if(ev?.coll!=='hrdocs' && ev?.coll!=='esign' && ev?.coll!=='hrfiles') return;
+    try{ if(isApplicant() && CURRENT==='appletters') RENDER.appletters();
+      if(CURRENT==='mydocs' && RENDER.mydocs) RENDER.mydocs(); }catch(e){} }; }
+/* the applicant sees the attachments that came with their documents */
+{ const _al = RENDER.appletters; RENDER.appletters = function(){ const r = _al.apply(this, arguments);
+    try{ const v = el('v-appletters'); const D = HRDOCS.filter(d=>(d.sentTo||[]).includes(PERSON) && d.status==='Sent' && !d.supersededBy && (d.files||[]).length);
+      if(v && D.length) v.querySelector('.page-head')?.insertAdjacentHTML('afterend', `<div class="card" style="margin-bottom:16px"><div class="card-h"><h3>Attachments from HR</h3></div><div class="card-b">${D.map(d=>`<div class="list-row" style="align-items:flex-start"><div style="flex:1"><b>${esc(d.title)}</b><div style="margin-top:4px">${fileChips(d.files)}</div></div></div>`).join('')}</div></div>`); }catch(e){}
+    return r; }; }
 
 /* <<< OCT24 MODULES <<< */
 </script>

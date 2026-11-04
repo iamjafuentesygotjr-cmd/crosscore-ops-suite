@@ -20916,7 +20916,7 @@ async function cooPostFromModal(){ const ch = CHATS.find(c=>c.id===el('paPostC')
    The footer shows which build is running ("Build 2026-10-07 · 1"), and every open portal checks every few minutes
    (and whenever it comes back to the foreground) whether a newer build has been published. If so it shows
    "New version available — Update now" instead of quietly running old code. */
-const BUILD_ID = '2026-11-04 · 2';
+const BUILD_ID = '2026-11-04 · 3';
 function verStamp(){ const f = el('footNote'); if(f && !f.dataset.v){ f.dataset.v = 1; f.textContent = `Cross Core Ops Suite v8 · Build ${BUILD_ID}`; } }
 async function verCheck(){
   if(!/^https?:/.test(location.protocol)) return;
@@ -38051,6 +38051,48 @@ function amSelfSave(){ const c = {id:uid('AC'), person:PERSON, date:el('amcD').v
 (function(){ if(document.getElementById('attflexCss')) return; const s = document.createElement('style'); s.id = 'attflexCss';
   s.textContent = '.att-warn{margin-top:10px;padding:9px 12px;border-radius:10px;background:var(--warn-bg);color:var(--warn);font-size:12.5px}.att-saveline{margin-top:6px;min-height:14px}.att-saveline.ok{color:var(--ok)}.att-saveline.warn{color:var(--warn)}';
   document.head.appendChild(s); })();
+
+/* ===== t21 — attendance & classification updates requested by the COO (Nov 4 2026) =====
+   • Declared employees (anyone with a compensation record in Finance → Compensation) are classified as employees everywhere
+     classification is used — payroll (payslip, not a contractor / VA payment statement), company ID, leave — even if an older
+     pay profile said "contractor". Older pay profiles are corrected once, with history.
+   • Cha (Finance): no work schedule and no 8-hour requirement — her time logs are kept, nothing is tagged or deducted. She
+     stays a declared employee. Her Monday Nov 2 and Tuesday Nov 3 are marked Complete (no time-in record), with history.
+   • Tricia: Monday Nov 2 is Complete; Tuesday Nov 3 stays as recorded (Incomplete Hours, missing time-out).
+   One-time changes run once on an HR / company-head device and are recorded in the attendance-rules history. */
+const AT_NOSCHED_DEFAULT = ['charisse'];
+const atNoSched = () => uniq([...(ATTPOL.find(x=>x.id==='global')?.noSchedule || []), ...AT_NOSCHED_DEFAULT]);
+{ const _s = apSched; apSched = k => atNoSched().includes(k) ? null : _s(k); }
+{ const _c = apCovered; apCovered = () => _c().filter(k=>!atNoSched().includes(k)); }
+/* declared employee = compensation record on file → always an employee */
+const atDeclared = k => !!(typeof compOf==='function' && compOf(k));
+{ const _pc = payClass; payClass = function(k){ if(atDeclared(k)) return 'employee'; return _pc.apply(this, arguments); }; }
+{ const _ic = idmClsSuggest; idmClsSuggest = function(k){ return atDeclared(k) ? IDM_EMP : _ic.apply(this, arguments); }; }
+{ const _st = amSchedTxt; amSchedTxt = function(k){ return !apSched(k) && atDeclared(k) ? 'Declared employee · no hour requirement' : !apSched(k) ? 'Time logs only' : _st.apply(this, arguments); }; }
+{ const _ph = attProgressHTML; attProgressHTML = function(k=PERSON){ const h = _ph.apply(this, arguments); return !apSched(k) && atDeclared(k) ? h.replace('No fixed schedule — time logs only', 'Declared employee · no hour requirement — your time logs are kept, nothing is deducted') : h; }; }
+const AT_MIG = 'nov04-cha-tricia-declared';
+function atMigrate(){
+  if(!SYNC?.ready || !PEOPLE[PERSON] || (typeof LIVE_BG!=='undefined' && LIVE_BG.on) || !(apIsHr() || isHead(PERSON))) return false;
+  let pol = ATTPOL.find(x=>x.id==='global'); if(pol && (pol.done||[]).includes(AT_MIG)) return false;
+  const t = nowISO(), c = apCfg(); let ch = false;
+  if(!pol){ pol = {id:'global', since:AP_SINCE, schedules:{...c.schedules}, lateAfter:c.lateAfter, absentAfter:c.absentAfter, mode:c.mode, holidays:c.holidays, requiredMins:c.requiredMins, history:[]}; ATTPOL.push(pol); }
+  const prev = JSON.stringify(pol.schedules||{}); pol.schedules = {...(pol.schedules || c.schedules)}; delete pol.schedules.charisse;
+  pol.noSchedule = uniq([...(pol.noSchedule||[]), 'charisse']); pol.done = uniq([...(pol.done||[]), AT_MIG]);
+  (pol.history = pol.history||[]).push({at:t, by:PERSON, act:'Cha: no work schedule or 8-hour requirement (declared employee, time logs only)', note:'Requested by the COO, Nov 4 2026', prev}); ch = true;
+  const mark = (k, d, why) => { let x = ATTDAY.find(y=>y.id===`AD|${k}|${d}`); const before = x ? x.status + (x.proposed?` · ₱${x.proposed.amount}`:'') : 'not finalized';
+    if(x && /^Complete/.test(x.status||'') && !x.proposed) return;
+    if(!x){ x = {id:`AD|${k}|${d}`, person:k, date:d, sched:apSched(k)?.type||'none', firstIn:null, prodMins:0, req:+c.requiredMins||480, lateMins:0, tags:[], flags:[], finalized:true, finalizedAt:t, by:PERSON, history:[]}; ATTDAY.push(x); }
+    Object.assign(x, {status:'Complete', proposed:null, preview:null, flags:[], tags:[...(x.tags||[]).filter(s=>!/Late|Tardy/.test(s)), 'Marked complete by the COO']});
+    x.history = [...(x.history||[]), {at:t, by:PERSON, act:'Marked complete (COO instruction)', note:`${before} → Complete · no deduction — ${why}`}];
+    notify([k], 'attpay', `✅ ${dLong(d)} is marked <b>Complete</b> (${esc(why)}).`, {view:'attendance'}); };
+  mark('charisse', '2026-11-02', 'no time-in record; no hour requirement for Cha'); mark('charisse', '2026-11-03', 'no time-in record; no hour requirement for Cha');
+  mark('tricia', '2026-11-02', 'hours completed (flexible PM workday)');
+  /* older pay profiles that still say "contractor" for a declared employee */
+  if(typeof PAYPROFILES!=='undefined') PAYPROFILES.filter(p=>p.cls==='contractor' && atDeclared(p.id)).forEach(p=>{ finHist(p, 'Classification changed', 'contractor → employee (declared employee: compensation record on file)'); p.cls = 'employee'; });
+  if(ch){ recordChange(); notify(uniq([...HR_KEYS(), ...financeKeys(), cooKey()]).filter(k=>k && k!==PERSON), 'attpay', '🗂 Attendance updated: Cha has no hour requirement (time logs only); Cha’s Nov 2–3 and Tricia’s Nov 2 are Complete; declared employees are classified as employees.', {view:'attmon'}); }
+  return ch; }
+{ const _sp = setPerson; setPerson = function(){ const r = _sp.apply(this, arguments); setTimeout(()=>{ try{ atMigrate(); }catch(e){ console.warn('att migrate', e); } }, 15000); return r; }; }
+setInterval(()=>{ try{ atMigrate(); }catch(e){} }, 120000);
 
 /* <<< OCT24 MODULES <<< */
 </script>

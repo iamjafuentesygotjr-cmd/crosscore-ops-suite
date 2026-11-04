@@ -20916,7 +20916,7 @@ async function cooPostFromModal(){ const ch = CHATS.find(c=>c.id===el('paPostC')
    The footer shows which build is running ("Build 2026-10-07 · 1"), and every open portal checks every few minutes
    (and whenever it comes back to the foreground) whether a newer build has been published. If so it shows
    "New version available — Update now" instead of quietly running old code. */
-const BUILD_ID = '2026-11-05 · 2';
+const BUILD_ID = '2026-11-05 · 3';
 function verStamp(){ const f = el('footNote'); if(f && !f.dataset.v){ f.dataset.v = 1; f.textContent = `Cross Core Ops Suite v8 · Build ${BUILD_ID}`; } }
 async function verCheck(){
   if(!/^https?:/.test(location.protocol)) return;
@@ -38231,24 +38231,25 @@ function cpxHubExt(){
     const pt = planTitle([wk]); const collapsed = state.collapsed.has(wk);
     const revs = posts.filter(c=>c.status==='For Revision').length, notReady = posts.filter(c=>readinessIssues(c).length).length;
     let planned = 0, need = 0;
-    const lanes = L.map(cl => {
+    const cols = L.map(cl => {
       const mine = posts.filter(c=>laneFor(c, L)===cl).sort((a,b)=>a.date.localeCompare(b.date) || STATUSES.indexOf(a.status)-STATUSES.indexOf(b.status));
-      const own = mine.filter(c=>c.client===cl.id); const n = own.length; planned += Math.min(n, TARGET); need += TARGET;
-      const used = new Set(own.map(c=>c.date)); const free = stdDays(wk).filter(d=>!used.has(d)); const slots = [];
+      const n = mine.length; planned += Math.min(n, TARGET); need += TARGET;
+      const used = new Set(mine.map(c=>c.date)); const free = stdDays(wk).filter(d=>!used.has(d)); const cells = mine.map(postCard);
       for (let i=n; i<TARGET; i++){ const d = free.shift() || addDaysKey(wk, 2);
-        slots.push(`<button class="add-card cpx-slot" data-addpost="${cl.id}|${d}" title="Add a ${esc(cl.name)} post for ${esc(niceDate(d))}">+ Add post · ${esc(niceDate(d))}</button>`); }
-      return `<div class="cpx-lane"><div class="cpx-lane-h">${clientTag(cl)}<span class="cpx-tgt ${n>=TARGET?'ok':''}" title="${n} of the ${TARGET} weekly posts planned">${n>=TARGET?'✓ ':''}${n} of ${TARGET}</span></div>
-        <div class="client-col">${mine.map(postCard).join('')}${slots.join('')}</div></div>`;
-    }).join('');
+        cells.push(`<button class="add-card cpx-slot" data-addpost="${cl.id}|${d}" title="Add a ${esc(cl.name)} post for ${esc(niceDate(d))}">+ Add post · ${esc(niceDate(d))}</button>`); }
+      return {cl, cells}; });
+    const rows = Math.max(TARGET, ...cols.map(c=>c.cells.length));
+    const grid = cols.map((c, ci) => `<div class="cpx-cell cpx-head" style="grid-column:${ci+1};grid-row:1">${clientTag(c.cl)}</div>`).join('')
+      + cols.map((c, ci) => Array.from({length:rows}, (_, r) => `<div class="cpx-cell" style="grid-column:${ci+1};grid-row:${r+2}">${c.cells[r] || ''}</div>`).join('')).join('');
     const marks = [0,1,2,3,4,5,6].map(i=>addDaysKey(wk, i)).map(dk => { const b = holidayBadges(dk) + eventsOn(dk).map(e=>`<span class="holiday-badge ev-badge" style="color:${EVENT_TYPES[e.type].color};border-color:${EVENT_TYPES[e.type].color}" data-editevent="${esc(e.id)}" role="button" tabindex="0">${esc(e.title)}${e.client!=='all'?' · '+esc(clientById(e.client).short):''}</span>`).join('');
       return b ? `<span class="cpx-mk"><span class="cpx-mk-d">${esc(niceDate(dk))}</span>${b}</span>` : ''; }).join('');
     const now = today >= wk && today <= addDaysKey(wk, 6);
     const html = `<section class="week-section cpx-week ${collapsed?'collapsed':''}" data-week="${wk}">
       <button class="week-header" data-togglewk="${wk}" aria-expanded="${!collapsed}">
         <span><span class="chevron">▾</span>&nbsp; ${esc(pt.name)} <span class="cpx-wk-r">(${esc(pt.range)})</span>${now?' <span class="cpx-now">This week</span>':''}</span>
-        <span class="wk-meta"><span class="cpx-tgt ${planned>=need?'ok':''}">${planned} of ${need} posts planned</span>${revs?`<span style="color:var(--st-revision);font-weight:700">${revs} for revision</span>`:''}${notReady?`<span>${notReady} missing items</span>`:''}</span>
+        <span class="wk-meta"><span class="cpx-wk-n">${planned} of ${need} posts planned</span>${revs?`<span style="color:var(--st-revision);font-weight:700">${revs} for revision</span>`:''}${notReady?`<span>${notReady} missing items</span>`:''}</span>
       </button>
-      <div class="week-body">${marks?`<div class="cpx-marks">${marks}</div>`:''}<div class="cpx-lanes" style="--cols:${L.length}">${lanes}</div></div></section>`;
+      <div class="week-body">${marks?`<div class="cpx-marks">${marks}</div>`:''}<div class="cpx-grid" style="--cols:${L.length}">${grid}</div></div></section>`;
     return {html, planned, need};
   }
 
@@ -38286,7 +38287,7 @@ function cpxHubExt(){
       <div class="cpx-plan">
         <div class="cpx-plan-l"><h2 class="cpx-plan-t">${esc(plan.name)} <span class="cpx-plan-r">(${esc(plan.range)})</span></h2>
           <button class="cpx-calbtn" id="cpxCalBtn" type="button" title="Pick a date on the calendar" aria-label="Open the mini calendar">📅</button></div>
-        <div class="cpx-plan-m"><span class="cpx-tgt ${planned>=need?'ok':''}"><b>${planned}</b> of <b>${need}</b> weekly posts planned</span><span><b>${inPeriod.length}</b> post${inPeriod.length===1?'':'s'} in total</span>
+        <div class="cpx-plan-m"><span><b>${planned}</b> of <b>${need}</b> weekly posts planned</span><span><b>${inPeriod.length}</b> post${inPeriod.length===1?'':'s'} in total</span>
           ${inPeriod.length ? `<button class="btn ghost small" id="cpxSelAll" type="button">☑ Select all in this period</button>` : ''}</div>
       </div>
       <div class="home-note">One row per planning week · two posts per brand, normally Tuesday and Thursday. Changing a post's date inside the week keeps it in its row. <a href="#" id="dlRange">Download this ${numWeeks===2?'range':'week'} (.xlsx)</a> · <a href="#" id="dlMonth">Download the full month</a></div>
@@ -38506,8 +38507,7 @@ function cpxHubExt(){
     if (state.tab !== 'home' && state.tab !== 'board'){ X.sel.clear(); X.ctx = state.tab; }
     main.querySelectorAll('.post-card[data-open], .b-card[data-open]').forEach(card => { const id = card.dataset.open; let ck = card.querySelector('.cpx-ck');
       if (!ck){ (card.querySelector('.pc-top, .bc-top') || card).insertAdjacentHTML('afterbegin', `<label class="cpx-ck" title="Select"><input type="checkbox" data-cpxsel="${esc(id)}" aria-label="Select ${esc(findContent(id)?.title||'post')}"></label>`); ck = card.querySelector('.cpx-ck'); }
-      const on = X.sel.has(id); ck.querySelector('input').checked = on; card.classList.toggle('cpx-on', on);
-      const it = findContent(id); if (it) card.classList.toggle('cpx-mc', isMC(it.client)); });
+      const on = X.sel.has(id); ck.querySelector('input').checked = on; card.classList.toggle('cpx-on', on); });
     if (state.tab === 'board'){ const ha = main.querySelector('.page-head .head-actions'); if (ha && !document.getElementById('cpxSelAllB')) ha.insertAdjacentHTML('afterbegin', `<button class="btn ghost small" id="cpxSelAllB" type="button">☑ Select all</button>`);
       const b = document.getElementById('cpxSelAllB'); if (b) b.onclick = e => { e.stopPropagation(); boardItems().forEach(c=>X.sel.add(c.id)); decorate(); }; }
     [...X.sel].forEach(id => { if (!findContent(id)) X.sel.delete(id); });
@@ -38562,9 +38562,8 @@ function cpxHubExt(){
       const chip = `<div class="cpx-pdate ${out?'out':''}" title="${out ? 'The posting date is outside this planning week. To move the post, change its planning week.' : 'Posting date'}">📅 ${esc(niceDate(c.date))}${out ? ' · outside this week' : ''}</div>`;
       const gen = isGen(c.client) ? `<div class="cpx-genbar">${has('setBrand') && has('brands') ? `<label>Choose a brand <select data-cpxbrand="${esc(c.id)}" aria-label="Choose a brand"><option value="">—</option>${(A.brands(c.client)||[]).map(b=>`<option value="${esc(b.id)}">${esc(b.name)}</option>`).join('')}</select></label>` : 'No brand yet'}</div>` : '';
       h = h.replace('<div class="pc-title">', chip + gen + '<div class="pc-title">');
-      if (isMC(c.client)) h = h.replace('class="post-card"', 'class="post-card cpx-mc"');
+      if (c.status) h = h.replace('class="post-card"', `class="post-card cpx-st" style="--st:${STATUS_COLOR[c.status] || 'transparent'}"`);
       return h; }; }
-  { const _bc = boardCard; boardCard = function(it){ const h = _bc.apply(this, arguments); return isMC(it.client) ? h.replace('class="b-card"', 'class="b-card cpx-mc"') : h; }; }
   document.addEventListener('change', async e => { const s = e.target.closest?.('[data-cpxbrand]'); if (!s || !s.value) return; e.stopPropagation();
     const r = await Promise.resolve(A.setBrand(s.dataset.cpxbrand, s.value)).catch(err => ({ok:false, error:err.message}));
     if (r && r.ok === false){ toast(r.error || 'The brand couldn’t be changed.', 'error'); s.value = ''; return; }
@@ -38641,6 +38640,30 @@ function cpxHubExt(){
   { const _de = dbErrorMessage; dbErrorMessage = function(e){ const code = e && e.code, m = e && e.message ? String(e.message) : '';
       if (m && code !== 'unavailable' && !['invalid_argument','quota_exceeded','resource_exhausted','revoked'].includes(code) && !/failed to fetch|networkerror|load failed|network request failed/i.test(m)) return m;
       return _de.apply(this, arguments); }; }
+  /* ---------- switch weeks from anywhere: side arrows, swipe (touch / trackpad), ← → keys ---------- */
+  function stepWeek(dir){ if (state.tab !== 'home' || document.getElementById('recordModal')?.classList.contains('open') || document.querySelector('.dlg-backdrop')) return;
+    const n = state.homeViewMode === 'biweekly' ? 2 : 1; const startKey = dateToKey(startOfWeek(state.homeAnchor));
+    const plan = document.querySelector('.cpx-plan'); const top = plan ? plan.getBoundingClientRect().top + window.scrollY - 8 : 0; const down = window.scrollY > top;
+    state.homeAnchor = addDaysKey(startKey, dir * 7 * n); X.slide = dir; render();
+    if (down) window.scrollTo({top: (document.querySelector('.cpx-plan')?.getBoundingClientRect().top || 0) + window.scrollY - 8}); }
+  function navFabs(){ let w = document.getElementById('cpxNav');
+    document.body.classList.toggle('cpx-home', state.tab === 'home');
+    if (state.tab !== 'home'){ w?.remove(); return; }
+    if (!w){ w = document.createElement('div'); w.id = 'cpxNav'; w.innerHTML = '<button type="button" class="cpx-fab prev" data-cpxstep="-1" aria-label="Previous week" title="Previous week (← key or swipe right)">‹</button><button type="button" class="cpx-fab next" data-cpxstep="1" aria-label="Next week" title="Next week (→ key or swipe left)">›</button>'; document.body.appendChild(w); }
+    if (X.slide){ document.querySelectorAll('.cpx-week').forEach(s=>s.classList.add(X.slide > 0 ? 'cpx-in-r' : 'cpx-in-l')); X.slide = 0; } }
+  { const _r2 = render; render = function(){ const r = _r2.apply(this, arguments); try{ navFabs(); }catch(e){} return r; }; }
+  document.addEventListener('click', e => { const b = e.target.closest('[data-cpxstep]'); if (!b) return; e.stopPropagation(); stepWeek(+b.dataset.cpxstep); }, true);
+  document.addEventListener('keydown', e => { if (!/^Arrow(Left|Right)$/.test(e.key) || e.metaKey || e.ctrlKey || e.altKey) return;
+    const t = e.target; if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return; if (document.getElementById('activePop')) return;
+    if (state.tab === 'home'){ e.preventDefault(); stepWeek(e.key === 'ArrowLeft' ? -1 : 1); } });
+  let tx = null, ty = 0;
+  document.addEventListener('touchstart', e => { if (state.tab !== 'home' || e.touches.length !== 1 || e.target.closest('input,textarea,select,.qmenu,#recordModal,.dlg')) { tx = null; return; } tx = e.touches[0].clientX; ty = e.touches[0].clientY; }, {passive:true});
+  document.addEventListener('touchend', e => { if (tx == null) return; const t = e.changedTouches[0]; const dx = t.clientX - tx, dy = t.clientY - ty; tx = null;
+    if (Math.abs(dx) > 70 && Math.abs(dx) > 2 * Math.abs(dy)) stepWeek(dx < 0 ? 1 : -1); }, {passive:true});
+  let wx = 0, wt = 0, wlock = 0;
+  document.addEventListener('wheel', e => { if (state.tab !== 'home' || Math.abs(e.deltaX) <= Math.abs(e.deltaY) * 1.5 || e.target.closest('#recordModal,.qmenu,.dlg')) return;
+    const now = Date.now(); if (now < wlock) return; if (now - wt > 350) wx = 0; wt = now; wx += e.deltaX;
+    if (Math.abs(wx) > 140){ stepWeek(wx > 0 ? 1 : -1); wx = 0; wlock = now + 900; } }, {passive:true});
   if (state.ready) render();
 }
 /* the add-on goes into a hub page, after the hub; `api` names the function in the portal that hands it its helpers */
@@ -38698,15 +38721,25 @@ const CPX_HUB_CSS = `
 .cpx-pdate{font-size:11.5px;font-weight:700;color:var(--ink-soft)}.cpx-pdate.out{color:#B45309}
 .cpx-genbar{font-size:11.5px;font-weight:700;color:#3D5A6E;background:rgba(255,255,255,.55);border:1px dashed #9DB4C4;border-radius:9px;padding:5px 8px}
 .cpx-genbar select{margin-left:4px;font-size:11.5px;padding:2px 6px;border-radius:7px;border:1px solid #9DB4C4;background:#fff}
-.post-card.cpx-mc,.b-card.cpx-mc{background:#E5EDF2!important;border-color:#C3D3DE!important;box-shadow:inset 3px 0 0 #7E9AAE}
-[data-theme="dark"] .post-card.cpx-mc,[data-theme="dark"] .b-card.cpx-mc{background:#26333C!important;border-color:#3A4C58!important}
 .cpx-marks{display:flex;flex-wrap:wrap;gap:6px 12px;margin:0 0 10px;font-size:12px}.cpx-mk{display:inline-flex;align-items:center;gap:6px}.cpx-mk-d{font-weight:700;color:var(--ink-soft)}
 .cpx-pw{margin-top:-2px}.cpx-pw-r{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.cpx-pw-r input{max-width:190px}.cpx-pw-t{font-weight:800;font-size:13px}
 .cpx-pw-h{font-size:11.5px;color:var(--ink-soft);margin-top:4px}.cpx-pw-h.warn{color:#B45309;font-weight:700}
 .cpx-act .activity-time{display:flex;flex-direction:column;gap:1px;min-width:118px}.cpx-act .activity-time small{font-size:10.5px;color:var(--ink-faint);font-weight:600}
 .cpx-ai-item{font-size:12px;color:var(--ink-soft);margin-top:2px}.cpx-ai-ch{margin-top:4px;font-size:12px;display:flex;flex-direction:column;gap:2px}
 .cpx-ai-ch span{font-weight:700;color:var(--ink-soft);margin-right:4px}.cpx-ai-ch s{color:var(--ink-faint)}
-@media (max-width:900px){.cpx-lanes{grid-template-columns:repeat(2,minmax(0,1fr))}}`;
+.cpx-grid{display:grid;grid-template-columns:repeat(var(--cols,4),minmax(0,1fr));grid-auto-rows:auto;gap:12px;align-items:stretch}
+.cpx-cell{display:flex;flex-direction:column;min-width:0}.cpx-cell.cpx-head{flex-direction:row;align-items:center;min-height:24px}
+.cpx-cell.cpx-head .client-tag{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cpx-cell > .post-card,.cpx-cell > .add-card{flex:1 1 auto;width:100%;margin:0}.cpx-cell > .add-card{min-height:72px}
+.cpx-cell > .post-card .pc-foot{margin-top:auto}
+.post-card.cpx-st{background:color-mix(in srgb, var(--st) 8%, var(--surface))!important;border-color:color-mix(in srgb, var(--st) 22%, var(--line))!important}
+.cpx-wk-n{font-weight:700;color:var(--ink-soft)}
+.cpx-fab{position:fixed;top:50%;transform:translateY(-50%);z-index:55;width:30px;height:56px;border-radius:14px;border:1px solid var(--line);background:color-mix(in srgb, var(--surface) 88%, transparent);color:var(--ink);font-size:24px;line-height:1;cursor:pointer;box-shadow:0 8px 24px -10px rgba(30,20,10,.35);opacity:.75;transition:opacity .15s,transform .15s}
+body.cpx-home .shell{padding-left:40px;padding-right:40px}.cpx-fab:hover{opacity:1}.cpx-fab:active{transform:translateY(-50%) scale(.95)}.cpx-fab.prev{left:2px}.cpx-fab.next{right:2px}
+@keyframes cpxInR{from{opacity:.3;transform:translateX(24px)}to{opacity:1;transform:none}}@keyframes cpxInL{from{opacity:.3;transform:translateX(-24px)}to{opacity:1;transform:none}}
+.cpx-week.cpx-in-r{animation:cpxInR .22s ease-out}.cpx-week.cpx-in-l{animation:cpxInL .22s ease-out}
+@media (max-width:900px){.cpx-grid{grid-template-columns:repeat(var(--cols,4),minmax(230px,1fr));overflow-x:auto;padding-bottom:4px}}
+html,body{overscroll-behavior-x:none}`;
 
 /* ===================== CONTENT BOARD ===================== */
 const CPXB = {sel:new Set(), on:false};
@@ -38871,7 +38904,8 @@ function prxDelete(){ const P0 = [...PRX.sel].map(id=>PROSPECTS.find(p=>p.id===i
    • Content Board actions by PMs and VAs (status changes, edits, work type, planning week, bulk changes, deletes) are added
      to the same Activity list as the hub and the client board, with the item and before → after values.
    • The portal never deletes or edits activity entries; the database keeps the latest 200 across the system.
-   PLANNING WEEK on the Content Board item, and MarketCrest cards in dusty blue on the Content Board too. */
+   PLANNING WEEK on the Content Board item.
+   Nov 5 · 3: MarketCrest items without a brand stay on the Content Board only (not in the hub or the client's board). */
 
 /* ===================== client access link ===================== */
 /* replaces the early check in t5b (declared again so it is the one that runs before the normal sign-in) */
@@ -39005,11 +39039,14 @@ function cpxSetPlanWeek(id, v){ const t = TASKS.find(x=>x.id===id); if(!t) retur
     if(t && pd && !el('tePlanWeek') && cphPostLike(t) && cphEligible(client(t.client))){ const wk = cpxWeekOf(t.planWeek) || cpxWeekOf(cphDate(t));
       pd.insertAdjacentHTML('afterend', `<div class="field"><label>Planning week <span class="hint">where it appears in the Content Planning Hub (week of ${esc(fmtD(wk))})</span></label><input id="tePlanWeek" type="date" value="${esc(wk)}" ${canEditContent(t)?'':'disabled'} onchange="cpxSetPlanWeek('${t.id}', this.value)"></div>`); }
     return r; }; }
-/* MarketCrest cards on the Content Board: dusty blue */
-{ const _kc = kcard; kcard = function(t){ const h = _kc.apply(this, arguments); return /market\s*crest/i.test(cname(t.client)) ? h.replace('class="kcard', 'class="kcard cpx-mc') : h; }; }
-(function(){ const st = document.createElement('style'); st.textContent = `
-.kcard.cpx-mc,[data-theme] .kcard.cpx-mc{background:#E5EDF2!important;border-color:#C3D3DE!important;box-shadow:inset 3px 0 0 #7E9AAE,var(--shadow)!important}
-[data-theme="dark"] .kcard.cpx-mc{background:#26333C!important;border-color:#3A4C58!important}`; document.head.appendChild(st); })();
+/* MarketCrest items without a brand live on the Content Board only — the hub and the client's board show brand posts */
+{ const _cf = cphClientsFor; cphClientsFor = function(accts){ return _cf.apply(this, arguments).filter(x=>!(String(x.id).indexOf('~')<0 && cphBrands(client(x.acct||x.id)).length)); }; }
+{ const _bc = cbfBuildClients; cbfBuildClients = function(){ const r = _bc.apply(this, arguments); const c = CBF.data?.client; if(c && (c.brands||[]).length) CBF.clients = CBF.clients.filter(x=>String(x.id).includes('~')); return r; }; }
+{ const _co = cbfColl; cbfColl = function(col){ const L = _co.apply(this, arguments); const c = CBF.data?.client;
+    return col==='content' && c && (c.brands||[]).length ? L.filter(([, d])=>String(d?.client||'').includes('~')) : L; }; }
+/* swiping between weeks in the hub never triggers the browser's back / forward gesture */
+{ const _g = go; go = function(id){ const r = _g.apply(this, arguments); document.documentElement.classList.toggle('cpx-nox', CURRENT==='cphub'); return r; }; }
+(function(){ const st = document.createElement('style'); st.textContent = `html.cpx-nox,html.cpx-nox body{overscroll-behavior-x:none}`; document.head.appendChild(st); })();
 
 /* <<< OCT24 MODULES <<< */
 </script>

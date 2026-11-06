@@ -20916,7 +20916,7 @@ async function cooPostFromModal(){ const ch = CHATS.find(c=>c.id===el('paPostC')
    The footer shows which build is running ("Build 2026-10-07 · 1"), and every open portal checks every few minutes
    (and whenever it comes back to the foreground) whether a newer build has been published. If so it shows
    "New version available — Update now" instead of quietly running old code. */
-const BUILD_ID = '2026-11-06 · 2';
+const BUILD_ID = '2026-11-06 · 3';
 function verStamp(){ const f = el('footNote'); if(f && !f.dataset.v){ f.dataset.v = 1; f.textContent = `Cross Core Ops Suite v8 · Build ${BUILD_ID}`; } }
 async function verCheck(){
   if(!/^https?:/.test(location.protocol)) return;
@@ -38415,6 +38415,18 @@ function cpxHubExt(){
       if (ok && box && !data.parentId) rteClear('main');
       return ok; }; }
 
+  /* ---------- the client's post window: two compact columns (the post on the left, feedback on the right) ---------- */
+  if (A.client){ document.documentElement.classList.add('cpx-client');
+    const _orc = openRecordModal; openRecordModal = function(){ const r = _orc.apply(this, arguments); const m = document.getElementById('recordModal'); const div = m?.querySelector('.record-divider');
+      if (m && div && !m.querySelector('.cpx-colL')){ const L = document.createElement('div'), R = document.createElement('div'); L.className = 'cpx-colL'; R.className = 'cpx-colR';
+        const kids = [...m.children].filter(n => !n.classList.contains('icon-close')); let right = false;
+        for (const n of kids){ if (n === div){ right = true; n.remove(); continue; } (right ? R : L).appendChild(n); }
+        m.append(L, R); m.classList.add('cpx-2col');
+        /* the post's facts and links on the left; the words (graphic text, caption) above the feedback on the right */
+        const g = id => m.querySelector('#'+id)?.closest('.field-group'); const out = m.querySelector('#fOutput')?.closest('.field-row2'), src = g('fSource'), acts = L.querySelector('.modal-actions');
+        if (out && src) src.after(out); const tp = g('fTopic'), cp = g('fCaption'); if (cp) R.prepend(cp); if (tp) R.prepend(tp); if (acts) L.appendChild(acts); }
+      return r; }; }
+
   /* ---------- the client's board: "Marj (Client)" or someone else on the client's side ---------- */
   if (has('setName')) document.addEventListener('change', e => { const s = e.target.closest?.('#rfAuthor, #fbAuthor'); if (!s) return;
     let n = s.parentElement.querySelector('.cpx-who'); if (s.value === 'Someone else…'){ if (!n){ s.insertAdjacentHTML('afterend', '<input class="field-input cpx-who" placeholder="Their name" maxlength="60" aria-label="Their name" style="flex:0 0 170px">'); n = s.parentElement.querySelector('.cpx-who'); n.addEventListener('input', ()=>A.setName(n.value)); } n.hidden = false; n.focus(); A.setName(n.value); }
@@ -38632,10 +38644,11 @@ function cpxHubExt(){
     const fr = document.querySelector('#recordModal .field-row3'); if (!fr || document.getElementById('cpxWk')) return;
     const ph = isNew ? 'caption' : (item.phase || 'both');
     fr.insertAdjacentHTML('afterend', `<div class="cpx-wkph"><div class="field-group"><span class="field-label">Week <span class="hint">set by the post date</span></span><div class="cpx-wk" id="cpxWk" aria-live="polite"></div></div>
-      <div class="field-group"><label class="field-label" for="cpxPhase">Phase</label><div class="cpx-phsel"><select class="field-select" id="cpxPhase">${Object.entries(PHASES).map(([k, l])=>`<option value="${k}" ${k===ph?'selected':''}>${esc(l)}</option>`).join('')}</select>
+      <div class="field-group"><span class="field-label" id="cpxPhaseL">Phase</span><div class="cpx-phsel"><input type="hidden" id="cpxPhase" value="${esc(ph)}"><div class="cpx-seg" role="radiogroup" aria-labelledby="cpxPhaseL">${Object.entries(PHASES).map(([k, l])=>`<button type="button" role="radio" aria-checked="${k===ph}" class="${k===ph?'on':''} cpx-seg-${k}" data-cpxph="${k}">${esc(k==='both'?'Both':l)}</button>`).join('')}</div>
       ${!isNew && ph==='caption' && item.status==='Approved' && !A.client ? `<button type="button" class="btn secondary small" data-cpxmtg="${esc(item.id)}">Move to Graphics ▸</button>` : ''}</div></div></div>`);
     const dt = document.getElementById('fDate'); const show = () => { const w = weekOf(dt?.value); document.getElementById('cpxWk').textContent = w ? ptLabel(w) : 'Pick a post date'; };
-    dt?.addEventListener('change', show); dt?.addEventListener('input', show); document.getElementById('cpxPhase').addEventListener('change', () => { modalDirty = true; });
+    dt?.addEventListener('change', show); dt?.addEventListener('input', show); document.querySelectorAll('#recordModal [data-cpxph]').forEach(b => b.addEventListener('click', () => { document.getElementById('cpxPhase').value = b.dataset.cpxph; modalDirty = true;
+      document.querySelectorAll('#recordModal [data-cpxph]').forEach(x => { const on = x === b; x.classList.toggle('on', on); x.setAttribute('aria-checked', on); }); }));
     show();
   }
   { const _rp = readPostForm; readPostForm = function(){ const o = _rp.apply(this, arguments); const ph = document.getElementById('cpxPhase')?.value; if (ph) o.phase = ph; return o; }; }
@@ -38799,6 +38812,25 @@ const CPX_HUB_CSS = `
 .cpx-ph-caption{background:#EEF2FF;color:#3730A3;border-color:#C7D2FE}.cpx-ph-graphics{background:#FCE7F3;color:#9D174D;border-color:#FBCFE8}
 .cpx-ret{font-size:10.5px;font-weight:800;color:#B91C1C}.cpx-mtg{margin-left:auto;border:1px solid #C7D2FE;background:#EEF2FF;color:#3730A3;border-radius:8px;font:800 11px inherit;padding:2px 8px;cursor:pointer}
 .cpx-wkph{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:14px;margin:4px 0 2px}.cpx-wk{font-weight:800;padding:10px 0 4px}.cpx-phsel{display:flex;gap:8px;align-items:center}
+.cpx-seg{display:inline-flex;border:1px solid var(--line);border-radius:11px;padding:3px;background:var(--surface-2);gap:2px;flex-wrap:wrap}
+.cpx-seg button{border:0;background:none;border-radius:8px;padding:7px 12px;font:700 13px inherit;color:var(--ink-soft);cursor:pointer}.cpx-seg button:hover{background:var(--surface)}
+.cpx-seg button.on{background:var(--surface);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.12)}.cpx-seg .cpx-seg-caption.on{color:#3730A3}.cpx-seg .cpx-seg-graphics.on{color:#9D174D}
+.cpx-seg button:focus-visible{outline:2px solid var(--mustard,#E39312);outline-offset:1px}
+.record-modal.cpx-2col{width:min(1240px,97vw);max-height:94vh;display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:0 26px;padding:20px 24px 18px;overflow:hidden}
+.record-modal.cpx-2col .cpx-colL,.record-modal.cpx-2col .cpx-colR{overflow-y:auto;max-height:calc(94vh - 40px);padding-right:6px}
+.record-modal.cpx-2col .cpx-colR{border-left:1px solid var(--line);padding-left:22px;padding-top:30px}
+.record-modal.cpx-2col .record-title{font-size:21px;margin:6px 0 2px}.record-modal.cpx-2col .record-meta{margin-bottom:8px}
+.record-modal.cpx-2col .field-group{margin-bottom:9px}.record-modal.cpx-2col .field-label{font-size:12px;margin-bottom:4px}
+.record-modal.cpx-2col .field-input,.record-modal.cpx-2col .field-select{padding-top:8px;padding-bottom:8px}
+.record-modal.cpx-2col #fTopic{min-height:54px!important}.record-modal.cpx-2col #fCaption{min-height:150px!important}
+.record-modal.cpx-2col .cpx-wkph{grid-template-columns:minmax(0,1fr) auto}.record-modal.cpx-2col .cpx-wk{font-size:13.5px}.record-modal.cpx-2col .cpx-seg button{padding:6px 10px;font-size:12.5px}
+.record-modal.cpx-2col .cpx-colR .field-group:first-child{margin-top:4px}
+html.cbx-peek .record-modal.cpx-2col{top:calc(50% + 24px);max-height:calc(100vh - 64px)}html.cbx-peek .record-modal.cpx-2col .cpx-colL,html.cbx-peek .record-modal.cpx-2col .cpx-colR{max-height:calc(100vh - 104px)}
+.record-modal.cpx-2col .cpx-wk{padding:6px 0 0}.record-modal.cpx-2col .modal-actions{margin-top:8px}
+@media(max-width:900px){.record-modal.cpx-2col{display:block;overflow-y:auto}.record-modal.cpx-2col .cpx-colL,.record-modal.cpx-2col .cpx-colR{max-height:none;overflow:visible;border:0;padding:0}}
+html.cbx-peek,html.cbx-peek body{background:transparent!important;overflow:hidden}html.cbx-peek body *{visibility:hidden}
+html.cbx-peek #recordModal,html.cbx-peek #recordModal *,html.cbx-peek .dlg-backdrop,html.cbx-peek .dlg-backdrop *,html.cbx-peek .toast-wrap,html.cbx-peek .toast-wrap *{visibility:visible}
+html.cbx-peek #modalBackdrop{display:none}html.cbx-peek .cpx-fab,html.cbx-peek #cpxBulk{display:none}
 .cpx-cap p{margin:6px 0 12px;line-height:1.5}.cpx-capb{display:flex;flex-wrap:wrap;gap:8px}
 @media(max-width:640px){.cpx-wkph{grid-template-columns:1fr}}
 .cpx-genbar{font-size:11.5px;font-weight:700;color:#3D5A6E;background:rgba(255,255,255,.55);border:1px dashed #9DB4C4;border-radius:9px;padding:5px 8px}
@@ -39500,6 +39532,65 @@ CBF_RULES.splice(0, CBF_RULES.length, 'The client (reviewer or approver) can mov
   'A post sits in the week of its post date (Monday–Sunday); a third post for a brand in one week asks first.',
   'The client can’t reassign posts or delete anything except drafts they added.',
   'Every client change is saved in the post’s history and the activity log, and the post owner and PM are notified.');
+
+/* ===================== Nov 6 · 3 — compact client portal ===================== */
+/* 1. "N waiting for your approval" lives in the header as a small dropdown (no strip above the board) */
+cbfStripHTML = function(){ return ''; };
+function cbxNeedList(){ return cbPosts().filter(p=>p.stage==='review').sort((a, b)=>String(a.date).localeCompare(String(b.date))); }
+function cbxNeedMenu(btn){ document.getElementById('cbxNeed')?.remove(); const L = cbxNeedList(); if(!L.length) return;
+  const r = btn.getBoundingClientRect(); const m = document.createElement('div'); m.id = 'cbxNeed'; m.setAttribute('role', 'menu'); m.setAttribute('aria-label', 'Waiting for your review');
+  m.style.top = Math.round(r.bottom + 6) + 'px'; m.style.right = Math.max(12, Math.round(innerWidth - r.right)) + 'px';
+  m.innerHTML = `<div class="cbx-nh">${L.length} waiting for your review</div>` + L.map(p=>`<button type="button" role="menuitem" data-cbxneed="${esc(p.id)}"><b>${esc(p.title)}</b><small>${esc(cbFmt(p.date))}${p.brand?' · '+esc(p.brand):''}${p.phase?' · '+esc(CPX_PHASES[p.phase]||''):''}</small></button>`).join('');
+  document.body.appendChild(m); m.querySelector('button')?.focus(); }
+document.addEventListener('click', e => {
+  const pill = e.target.closest?.('#cbApp .cb-top button.cb-pill'); if(pill){ e.preventDefault(); e.stopImmediatePropagation(); if(document.getElementById('cbxNeed')) document.getElementById('cbxNeed').remove(); else cbxNeedMenu(pill); return; }
+  const it = e.target.closest?.('#cbxNeed [data-cbxneed]'); if(it){ const id = it.dataset.cbxneed; document.getElementById('cbxNeed')?.remove();
+    if(CB.view==='content' && CBF.frame && document.body.contains(CBF.frame) && !CBX.peek) cbfOpen(id); else cbOpenPost(id); return; }
+  if(!e.target.closest?.('#cbxNeed')) document.getElementById('cbxNeed')?.remove(); }, true);
+document.addEventListener('keydown', e => { if(e.key==='Escape') document.getElementById('cbxNeed')?.remove(); });
+{ const _r = cbRender; cbRender = function(){ const r = _r.apply(this, arguments); const pill = document.querySelector('#cbApp .cb-top button.cb-pill'); if(pill && !/▾/.test(pill.textContent)){ pill.textContent += ' ▾'; pill.setAttribute('aria-haspopup', 'menu'); }
+    if(cbRole()!=='viewer') document.querySelector('#cbApp .cb-note')?.remove(); return r; }; }
+{ const _c = cbfChrome; cbfChrome = function(){ const r = _c.apply(this, arguments); const pill = document.querySelector('#cbApp .cb-top button.cb-pill'); if(pill && !/▾/.test(pill.textContent)){ pill.textContent += ' ▾'; pill.setAttribute('aria-haspopup', 'menu'); } return r; }; }
+
+/* 2. Overview → the post opens over the Overview in the board's own window (same fields and rights), compact */
+CBX.peek = null;
+function cbxPeekEl(){ let o = document.getElementById('cbxPeek'); if(o) return o;
+  o = document.createElement('div'); o.id = 'cbxPeek'; o.hidden = true;
+  o.innerHTML = `<button type="button" class="cbx-pback" data-cbxpback>← Back to Overview</button><div class="cbx-pwrap"></div>`; document.body.appendChild(o); return o; }
+function cbxPeekMount(){ if(!CBF.on || CB.view!=='overview') return; const o = cbxPeekEl(); if(CBX.peek && document.body.contains(CBX.peek)) return;
+  const f = document.createElement('iframe'); f.className = 'cbx-pframe'; f.title = 'Post'; CBF.listeners.clear(); CBF.ready = false;
+  f.addEventListener('load', ()=>{ CBF.ready = true; try{ f.contentDocument.documentElement.classList.add('cbx-peek'); }catch(e){} });
+  f.srcdoc = cbfDoc(); o.querySelector('.cbx-pwrap').appendChild(f); CBF.frame = f; CBX.peek = f; }
+function cbxPeekDrop(){ if(CBX.peek){ CBX.peek.remove(); if(CBF.frame===CBX.peek){ CBF.frame = null; CBF.listeners.clear(); } CBX.peek = null; } const o = document.getElementById('cbxPeek'); if(o) o.hidden = true; document.documentElement.classList.remove('cbx-noscroll'); }
+async function cbxPeekOpen(id){ cbxPeekMount(); const o = cbxPeekEl(), f = CBX.peek; if(!f) return false;
+  o.hidden = false; document.documentElement.classList.add('cbx-noscroll'); o.classList.add('loading');
+  for(let i=0; i<60; i++){ let ok = false; try{ ok = CBF.ready && !!f.contentWindow?.__hub && f.contentWindow.eval('typeof state!=="undefined" && !!state.ready'); }catch(x){} if(ok) break; await new Promise(r=>setTimeout(r, 150)); }
+  try{ await cbfLoad(true); f.contentWindow.__hub.open(id); }catch(e){} o.classList.remove('loading');
+  const w = f.contentWindow; const m = w?.document.getElementById('recordModal');
+  if(m && !m._cbxObs){ m._cbxObs = new MutationObserver(()=>{ if(!m.classList.contains('open') && !o.hidden) setTimeout(()=>{ if(!m.classList.contains('open')) cbxPeekClose(); }, 60); }); m._cbxObs.observe(m, {attributes:true, attributeFilter:['class']}); }
+  return true; }
+function cbxPeekClose(){ const o = document.getElementById('cbxPeek'); if(!o || o.hidden) return; o.hidden = true; document.documentElement.classList.remove('cbx-noscroll');
+  const id = CBX.peekId; CBX.peekId = null; cbRefresh(true).then(()=>{ const card = id && document.querySelector(`#cbApp [data-cbxcard="${CSS.escape(id)}"]`); if(card){ card.classList.add('cbx-flash'); setTimeout(()=>card.classList.remove('cbx-flash'), 1400); card.focus({preventScroll:false}); } }); }
+document.addEventListener('click', async e => { if(!e.target.closest?.('[data-cbxpback]')) return; const w = CBX.peek?.contentWindow;
+  try{ if(w && w.document.getElementById('recordModal')?.classList.contains('open')){ const ok = await w.closeRecordModal(); if(!ok) return; } }catch(x){} cbxPeekClose(); });
+document.addEventListener('keydown', e => { if(e.key==='Escape' && !document.getElementById('cbxPeek')?.hidden && !CBX.peek?.contentWindow?.document.querySelector('.dlg-backdrop')) document.querySelector('[data-cbxpback]')?.click(); });
+/* the Overview card opens the peek instead of switching to the board */
+{ const _op = cbOpenPost; cbOpenPost = function(id, keep){ const p = cbPosts().find(x=>x.id===id);
+    if(p && CBF.on && p.module==='content' && !keep && CB.view!=='content'){ CBX.peekId = id; cbxPeekOpen(id); return; }
+    return _op.apply(this, arguments); }; }
+{ const _r = cbRender; cbRender = function(){ if(CB.view!=='overview') cbxPeekDrop(); const r = _r.apply(this, arguments); if(CB.view==='overview' && CBF.on) setTimeout(cbxPeekMount, 300); return r; }; }
+{ const _rf = cbRefresh; cbRefresh = async function(){ const r = await _rf.apply(this, arguments); if(CB.view==='overview' && CBF.on) cbxPeekMount(); return r; }; }
+
+(function(){ const st = document.createElement('style'); st.textContent = `
+html body.cb-mode>#cbxPeek#cbxPeek#cbxPeek:not([hidden]),html body.cb-mode>#cbxNeed#cbxNeed#cbxNeed{display:block!important}html.cbx-noscroll,html.cbx-noscroll body{overflow:hidden}
+#cbxPeek{position:fixed;inset:0;z-index:40;background:rgba(20,16,8,.45);backdrop-filter:blur(3px)}#cbxPeek[hidden]{display:none!important}
+#cbxPeek .cbx-pwrap{position:absolute;inset:0}#cbxPeek .cbx-pframe{width:100%;height:100%!important;border:0;background:transparent}#cbxPeek.loading .cbx-pframe{opacity:0}
+#cbxPeek .cbx-pback{position:absolute;top:12px;left:16px;z-index:2;border:0;background:#fff;border-radius:99px;padding:9px 15px;font:700 13.5px Inter,sans-serif;cursor:pointer;box-shadow:0 6px 18px -8px rgba(0,0,0,.5)}
+#cbxPeek.loading::after{content:'Opening the post…';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:#fff;font:600 14px Inter,sans-serif}
+#cbxNeed{position:fixed;z-index:45;width:min(360px,92vw);max-height:60vh;overflow:auto;background:#fff;border:1px solid #e8e1d2;border-radius:14px;box-shadow:0 24px 50px -18px rgba(0,0,0,.45);padding:6px;font-family:Inter,sans-serif}
+#cbxNeed .cbx-nh{font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#7b7468;padding:8px 10px 6px}
+#cbxNeed button{display:block;width:100%;text-align:left;border:0;background:none;border-radius:9px;padding:8px 10px;cursor:pointer}#cbxNeed button:hover,#cbxNeed button:focus-visible{background:#fbf4e4;outline:none}
+#cbxNeed b{display:block;font-size:13.5px;color:#17140e}#cbxNeed small{font-size:12px;color:#7b7468}`; document.head.appendChild(st); })();
 
 /* <<< OCT24 MODULES <<< */
 </script>

@@ -20916,7 +20916,7 @@ async function cooPostFromModal(){ const ch = CHATS.find(c=>c.id===el('paPostC')
    The footer shows which build is running ("Build 2026-10-07 · 1"), and every open portal checks every few minutes
    (and whenever it comes back to the foreground) whether a newer build has been published. If so it shows
    "New version available — Update now" instead of quietly running old code. */
-const BUILD_ID = '2026-11-05 · 3';
+const BUILD_ID = '2026-11-06 · 1';
 function verStamp(){ const f = el('footNote'); if(f && !f.dataset.v){ f.dataset.v = 1; f.textContent = `Cross Core Ops Suite v8 · Build ${BUILD_ID}`; } }
 async function verCheck(){
   if(!/^https?:/.test(location.protocol)) return;
@@ -38190,9 +38190,12 @@ function cpxHubApi(){ return {isGeneral:cpxIsGeneral, isMC:hid=>/market\s*crest/
 const cpxWeekOf = v => { const s = String(v||'').slice(0, 10); if(!/^\d{4}-\d{2}-\d{2}$/.test(s)) return ''; const d = new Date(s+'T00:00:00'); if(isNaN(d)) return ''; d.setDate(d.getDate() - ((d.getDay()+6)%7)); return iso(d); };
 { const _th = cphToHub; cphToHub = function(t){ const h = _th.apply(this, arguments); h.planWeek = cpxWeekOf(t.planWeek) || ''; return h; }; }
 { const _cc = cphCreate; cphCreate = function(id, d){ const t = _cc.apply(this, arguments); if(t){ t.planWeek = cpxWeekOf(d?.planWeek) || cpxWeekOf(d?.date) || cpxWeekOf(cphDate(t)); } return t; }; }
-{ const _cu = cphUpdate; cphUpdate = function(id, patch){ const t0 = TASKS.find(x=>x.id===id); const was = t0 ? (cpxWeekOf(t0.planWeek) || cpxWeekOf(cphDate(t0))) : '';
+function cpxNextWeek(cur, oldDate, newDate, given){ given = cpxWeekOf(given); const nd = String(newDate||'').slice(0, 10);
+  if(nd && nd!==String(oldDate||'').slice(0, 10) && (!given || given===cur)){ const nw = cpxWeekOf(nd); if(nw && nw!==cur) return nw; return cur; }   /* the date moved: another week moves the post, the same week keeps it */
+  return given || ''; }
+{ const _cu = cphUpdate; cphUpdate = function(id, patch){ const t0 = TASKS.find(x=>x.id===id); const was = t0 ? (cpxWeekOf(t0.planWeek) || cpxWeekOf(cphDate(t0))) : ''; const d0 = t0 ? cphDate(t0) : '';
     const r = _cu.apply(this, arguments);
-    const t = TASKS.find(x=>x.id===id); const pw = cpxWeekOf(patch?.planWeek);
+    const t = TASKS.find(x=>x.id===id); const pw = cpxNextWeek(was, d0, patch && 'date' in patch ? patch.date : '', patch?.planWeek);
     if(t && pw && pw!==cpxWeekOf(t.planWeek)){ t.planWeek = pw;
       if(pw!==was) t.history = [...(t.history||[]), {by:pname(PERSON), who:PERSON, act:'Planning week changed in the Content Planning Hub', note:`${was ? fmtD(was) : '—'} → ${fmtD(pw)} (week of)`, when:dtstr(nowISO()), at:nowISO()}];
       t.updatedAt = nowISO(); t.updatedBy = PERSON; }
@@ -38358,6 +38361,9 @@ function cpxHubExt(){
       <div class="cpx-lnk" hidden><input class="field-input" placeholder="Paste the link — https://…"><button type="button" class="btn small">Add link</button></div>
       <div class="cpx-ed" contenteditable="true" role="textbox" aria-multiline="true" data-ph="${esc(ph)}"></div>
       <div class="cpx-att"></div></div>`; }
+  function openImg(src){ if (!/^data:/.test(src)) return window.open(src, '_blank', 'noopener');
+    try{ const [h, b] = src.split(','); const bin = atob(b); const u8 = new Uint8Array(bin.length); for (let i=0;i<bin.length;i++) u8[i] = bin.charCodeAt(i);
+      window.open(URL.createObjectURL(new Blob([u8], {type:(h.match(/data:([^;]+)/)||[])[1]||'image/png'})), '_blank', 'noopener'); }catch(e){} }
   function rteState(key){ return X.rte[key] || (X.rte[key] = {imgs:[]}); }
   function rteRead(key){ const box = document.querySelector(`[data-rte="${key}"]`); const st = rteState(key);
     const html = box ? clean(box.querySelector('.cpx-ed').innerHTML) : ''; const text = plainOf(html);
@@ -38389,7 +38395,7 @@ function cpxHubExt(){
         if (sel.rangeCount && ed.contains(sel.anchorNode)){ const r = sel.getRangeAt(0); r.insertNode(a); r.setStartAfter(a); r.collapse(true); sel.removeAllRanges(); sel.addRange(r); } else ed.append(a, ' '); }
       inp.value = ''; box.querySelector('.cpx-lnk').hidden = true; X.range = null; syncNote(box.dataset.rte); return; }
     const rm = e.target.closest('[data-rmimg]'); if (rm){ e.stopPropagation(); const key = rm.closest('[data-rte]').dataset.rte; rteState(key).imgs.splice(+rm.dataset.rmimg, 1); rteThumbs(key); syncNote(key); return; }
-    const im = e.target.closest('.cpx-imgs img, .cpx-th img'); if (im && im.src){ e.stopPropagation(); window.open(im.src, '_blank', 'noopener'); return; }
+    const im = e.target.closest('.cpx-imgs img, .cpx-th img'); if (im && im.src){ e.stopPropagation(); openImg(im.src); return; }
   }, true);
   document.addEventListener('keydown', e => { const lk = e.target.closest?.('.cpx-lnk input'); if (lk && e.key === 'Enter'){ e.preventDefault(); lk.parentElement.querySelector('button').click(); }
     if (e.target.closest?.('.cpx-ed') && (e.metaKey || e.ctrlKey) && /^[biu]$/i.test(e.key)){ e.preventDefault(); document.execCommand({b:'bold', i:'italic', u:'underline'}[e.key.toLowerCase()]); } }, true);
@@ -38505,6 +38511,7 @@ function cpxHubExt(){
     document.querySelectorAll('#legend [data-clientpop]').forEach(b=>{ if (isGen(b.dataset.clientpop)) b.remove(); });   /* no separate general-account chip */
     const bctx = state.tab === 'board' ? 'board' : null; if (bctx && X.ctx !== 'board'){ X.ctx = 'board'; X.sel.clear(); }
     if (state.tab !== 'home' && state.tab !== 'board'){ X.sel.clear(); X.ctx = state.tab; }
+    if (A.client){ X.sel.clear(); main.querySelectorAll('.cpx-ck').forEach(x=>x.remove()); document.getElementById('cpxSelAllB')?.remove(); document.getElementById('cpxBulk')?.remove(); return; }   /* bulk tools are for the Cross Core team only */
     main.querySelectorAll('.post-card[data-open], .b-card[data-open]').forEach(card => { const id = card.dataset.open; let ck = card.querySelector('.cpx-ck');
       if (!ck){ (card.querySelector('.pc-top, .bc-top') || card).insertAdjacentHTML('afterbegin', `<label class="cpx-ck" title="Select"><input type="checkbox" data-cpxsel="${esc(id)}" aria-label="Select ${esc(findContent(id)?.title||'post')}"></label>`); ck = card.querySelector('.cpx-ck'); }
       const on = X.sel.has(id); ck.querySelector('input').checked = on; card.classList.toggle('cpx-on', on); });
@@ -38516,7 +38523,7 @@ function cpxHubExt(){
     if (!bar){ bar = document.createElement('div'); bar.id = 'cpxBulk'; bar.className = 'cpx-bulk'; document.body.appendChild(bar); }
     const scope = state.tab === 'home' ? 'this period' : 'the board';
     bar.innerHTML = `<b>${X.sel.size} selected</b><button type="button" class="btn ghost small" data-cpxb="all">Select all in ${scope}</button><span class="cpx-sep"></span>
-      <button type="button" class="btn secondary small" data-cpxb="move">📅 Move…</button><button type="button" class="btn danger small" data-cpxb="delete">🗑 Delete…</button><button type="button" class="btn ghost small" data-cpxb="clear">Clear</button>`;
+      <button type="button" class="btn secondary small" data-cpxb="move">📅 Move…</button><button type="button" class="btn secondary small" data-cpxb="status">● Change status…</button><button type="button" class="btn danger small" data-cpxb="delete">🗑 Delete…</button><button type="button" class="btn ghost small" data-cpxb="clear">Clear</button>`;
   }
   { const _r = render; render = function(){ const r = _r.apply(this, arguments); try{ decorate(); }catch(e){ console.warn('hub bulk', e); } return r; }; }
   document.addEventListener('click', e => { if (e.target.closest('.cpx-ck')) e.stopPropagation(); }, true);
@@ -38533,6 +38540,13 @@ function cpxHubExt(){
       let n = 0; for (const c of allowed){ if (await removeContent(c.id)){ n++; X.sel.delete(c.id); } }
       if (n) logActivity(`deleted ${n} post${n>1?'s':''} at once (${allowed.slice(0,3).map(c=>plain(c.title)).join(', ')}${n>3?'…':''})`);
       toast(`${n} post${n===1?'':'s'} deleted${skip?` · ${skip} kept (no permission)`:''}`); decorate(); return; }
+    if (act === 'status'){
+      const to = await statusDialog(items.length); if (to == null) return;
+      const todo = items.filter(c=>c.status !== to); if (!todo.length){ toast(`The selected posts are already ${to || 'Draft'}.`); return; }
+      let n = 0; const failed = [];      for (const c of todo){ let ok = false; try{ ok = await saveContent(c.id, { status: to }); }catch(err){ ok = false; } if (ok) n++; else failed.push(c); }
+      if (n) logActivity(`changed the status of ${n} post${n>1?'s':''} to ${B(to || 'Draft')} at once (${todo.filter(c=>!failed.includes(c)).slice(0,3).map(c=>plain(c.title)).join(', ')}${n>3?'…':''})`);
+      toast(`${n} post${n===1?'':'s'} set to ${to || 'Draft'}${failed.length?` · ${failed.length} not changed (no permission for that status)`:''}`, failed.length && !n ? 'error' : undefined);
+      X.sel.clear(); render(); return; }
     if (act === 'move'){
       const res = await moveDialog(items.length); if (!res) return;
       const plan = items.map(c => { let nd = res.date;
@@ -38543,6 +38557,17 @@ function cpxHubExt(){
       if (n){ logActivity(`moved ${n} post${n>1?'s':''} ${res.mode==='week' ? `to the week of ${plain(niceDate(dateToKey(startOfWeek(res.date))))}` : `to ${plain(niceDate(res.date))}`}`); state.homeAnchor = res.date; }
       toast(`${n} post${n===1?'':'s'} moved`); X.sel.clear(); render(); }
   });
+  function statusDialog(n){ return new Promise(resolve => {
+    const OPTS = [['', 'Draft'], ['In Progress', 'In Progress'], ['For Revision', 'For Revision'], ['Approved', 'Approved']].filter(([v])=>STATUSES.includes(v));
+    const wrap = document.createElement('div'); wrap.className = 'dlg-backdrop';
+    wrap.innerHTML = `<div class="dlg" role="dialog" aria-modal="true" aria-label="Change status"><h4>Change the status of ${n} post${n>1?'s':''}</h4>
+      ${OPTS.map(([v, l], i)=>`<label class="cpx-opt"><input type="radio" name="cpxSt" value="${esc(v)}" ${i?'':'checked'}> <span><b>${esc(v ? statusLabel(v) : l)}</b></span></label>`).join('')}
+      <div class="cpx-pw-h" style="margin-top:8px">Only the status changes — titles, captions, links, dates and feedback stay as they are. The client’s board shows the new status right away.</div>
+      <div class="modal-actions" style="margin-top:14px"><button class="btn mustard" data-st="ok">Change status</button><button class="btn secondary" data-st="cancel">Cancel</button></div></div>`;
+    document.body.appendChild(wrap);
+    const done = v => { wrap.remove(); resolve(v); };
+    wrap.addEventListener('click', e => { e.stopPropagation(); if (e.target === wrap) return done(null); const b = e.target.closest('[data-st]'); if (!b) return;
+      if (b.dataset.st === 'cancel') return done(null); done(wrap.querySelector('input[name="cpxSt"]:checked').value); }); }); }
   function moveDialog(n){ return new Promise(resolve => {
     const wrap = document.createElement('div'); wrap.className = 'dlg-backdrop';
     const ws = dateToKey(addDays(startOfWeek(state.homeAnchor), state.homeViewMode==='biweekly' ? 14 : 7));
@@ -38577,12 +38602,15 @@ function cpxHubExt(){
     const wk = isNew ? weekOf(item.date) : pwOf(item);
     fr.insertAdjacentHTML('afterend', `<div class="field-group cpx-pw"><label class="field-label" for="cpxPW">Planning week <span class="hint">where the post appears on Home</span></label>
       <div class="cpx-pw-r"><input class="field-input" type="date" id="cpxPW" value="${esc(wk)}" aria-describedby="cpxPWt"><span class="cpx-pw-t" id="cpxPWt">${esc(ptLabel(wk))}</span></div>
-      <div class="cpx-pw-h">Moving the post date inside this week keeps the post in this row. Pick any day of another week to move it there.</div></div>`);
+      <div class="cpx-pw-h"></div></div>`);
     const pw = document.getElementById('cpxPW'), dt = document.getElementById('fDate'); let touched = false;
-    const show = () => { const w = weekOf(pw.value); document.getElementById('cpxPWt').textContent = w ? ptLabel(w) : 'Pick a day'; const d = dt?.value; const hint = document.querySelector('#recordModal .cpx-pw-h');
-      if (hint) hint.classList.toggle('warn', !!(d && w && weekOf(d) !== w)); if (hint && d && w && weekOf(d) !== w) hint.textContent = `The post date (${niceDate(d)}) is outside this planning week — the post stays in this week's row.`; };
+    const HINT = 'A new date in the same week keeps the post in this row; a date in another week moves the post to that week.';
+    const show = () => { const w = weekOf(pw.value); document.getElementById('cpxPWt').textContent = w ? ptLabel(w) : 'Pick a day'; const d = dt?.value; const hint = document.querySelector('#recordModal .cpx-pw-h'); if (!hint) return;
+      const out = !!(d && w && weekOf(d) !== w); hint.classList.toggle('warn', out);
+      hint.textContent = out ? `The post date (${niceDate(d)}) is outside this planning week — the post stays in this week's row.` : HINT; };
     pw.addEventListener('input', () => { touched = true; modalDirty = true; show(); }); pw.addEventListener('change', () => { touched = true; modalDirty = true; show(); });
-    dt?.addEventListener('change', () => { if (isNew && !touched){ pw.value = weekOf(dt.value); } show(); });
+    const follow = () => { const w = weekOf(dt.value); if (!touched && w) pw.value = w; show(); };      /* the post moves with its date unless the planning week was picked by hand */
+    dt?.addEventListener('change', follow); dt?.addEventListener('input', follow);
     show();
   }
   { const _rp = readPostForm; readPostForm = function(){ const o = _rp.apply(this, arguments); const v = document.getElementById('cpxPW')?.value; const w = weekOf(v); if (w) o.planWeek = w; return o; }; }
@@ -38596,7 +38624,9 @@ function cpxHubExt(){
   const itemLabel = c => c ? `${c.title || '(untitled)'} · ${clientById(c.client).name}` : '';
   const pend = (item, changes) => { X.pend = {at:Date.now(), item, changes:(changes||[]).slice(0, 12)}; };
   { const _sc = saveContent; saveContent = async function(id, patch){ const it = findContent(id); patch = {...(patch||{})};
-      if (it && 'date' in patch && !('planWeek' in patch) && !it.planWeek) patch.planWeek = pwOf(it);      /* the post stays in its week */
+      if (it && 'date' in patch && patch.date && patch.date !== it.date){ const cur = pwOf(it), nw = weekOf(patch.date), given = weekOf(patch.planWeek);
+        if (!given || given === cur){ if (nw && nw !== cur) patch.planWeek = nw;          /* moved to another week: the card moves with it */
+          else patch.planWeek = cur; } }                                                 /* same week: it stays in its row */
       if (patch.planWeek) patch.planWeek = weekOf(patch.planWeek) || patch.planWeek;
       if (it){ const ch = Object.keys(FL).filter(k => k in patch && String(patch[k] ?? '') !== String((k==='planWeek' ? pwOf(it) : it[k]) ?? '')).map(k => ({f:FL[k], from:fmtV(k, k==='planWeek' ? pwOf(it) : it[k]), to:fmtV(k, patch[k])}));
         pend(itemLabel({...it, ...patch, title: patch.title || it.title}), ch); }
@@ -38977,7 +39007,8 @@ function cbfCpxApi(){ return {
     if((col==='backlog' || col==='events') && op!=='add'){ const r = (db.hubdocs||{})[`${col}|${id}`];
       if(r && r.by!==me && (col==='backlog' || (r.d?.client && r.d.client!=='all'))) r.by = me; }       /* Full Board: manage the board's ideas and its own events */
     if(col!=='content') return _fd.apply(this, arguments);
-    const t = (db.tasks||{})[id]; const pw = cpxWeekOf(d.planWeek);
+    const t = (db.tasks||{})[id]; let pw = cpxWeekOf(d.planWeek);
+    if(t && op==='update' && d.date && t.client===l.client && t.status!=='Completed' && (perms.edit || perms.move)) pw = cpxNextWeek(cpxWeekOf(t.planWeek) || cpxWeekOf(cbfDemoPost(t, db).date), cbfDemoPost(t, db).date, d.date, pw);   /* a date in another week moves the post */
     if(t && pw && pw!==cpxWeekOf(t.planWeek) && t.client===l.client){
       const eff = cpxWeekOf(t.planWeek) || cpxWeekOf(cbfDemoPost(t, db).date);
       if(pw!==eff && t.status==='Completed') return {ok:false, error:'This post is already scheduled or posted — ask your Cross Core team to move it to another week.'};
@@ -39027,6 +39058,14 @@ const cpxSnap = t => ({Status:cpxStLabel(t.status), Owner:pname(t.assignee), 'Sc
     return r; }; }
 
 /* ===================== planning week on the Content Board item ===================== */
+/* moving the date on the Content Board: another week moves the post there; the same week keeps it in its row */
+{ const _st = saveTaskEdits; saveTaskEdits = function(id){ const t = TASKS.find(x=>x.id===id); const d0 = t ? cphDate(t) : '', w0 = t ? (cpxWeekOf(t.planWeek) || cpxWeekOf(d0)) : '';
+    const r = _st.apply(this, arguments);
+    const t1 = TASKS.find(x=>x.id===id); if(t1 && t1.planWeek && cphPostLike(t1)){ const nw = cpxNextWeek(w0, d0, cphDate(t1), '');
+      if(nw && nw!==cpxWeekOf(t1.planWeek)){ t1.planWeek = nw; t1.history = [...(t1.history||[]), {by:pname(PERSON), who:PERSON, act:'Planning week changed', note:`week of ${fmtD(w0)} → week of ${fmtD(nw)} (the post date moved)`, when:dtstr(nowISO()), at:nowISO()}];
+        cpxAct(t1, `moved [[${cpxTitle(t1)}]] (${cname(t1.client)}) to another planning week`, [{f:'Planning week', from:`week of ${fmtD(w0)}`, to:`week of ${fmtD(nw)}`}]); recordChange(); RENDER[CURRENT]?.();
+        const s = el('tePlanWeek'); if(s) s.value = nw; } }
+    return r; }; }
 function cpxSetPlanWeek(id, v){ const t = TASKS.find(x=>x.id===id); if(!t) return; if(!canEditContent(t)) return toast('You can only change items for clients you work on');
   const pw = cpxWeekOf(v); if(!pw) return toast('Pick a day in the planning week');
   const was = cpxWeekOf(t.planWeek) || cpxWeekOf(cphDate(t)); if(pw===cpxWeekOf(t.planWeek)) return;
@@ -39047,6 +39086,208 @@ function cpxSetPlanWeek(id, v){ const t = TASKS.find(x=>x.id===id); if(!t) retur
 /* swiping between weeks in the hub never triggers the browser's back / forward gesture */
 { const _g = go; go = function(id){ const r = _g.apply(this, arguments); document.documentElement.classList.toggle('cpx-nox', CURRENT==='cphub'); return r; }; }
 (function(){ const st = document.createElement('style'); st.textContent = `html.cpx-nox,html.cpx-nox body{overscroll-behavior-x:none}`; document.head.appendChild(st); })();
+
+/* ===== t24_reviewer.js — the client / guest reviewer portal (Nov 6 2026) =====
+   1. Menu: Overview and Content Planning Board first; every other service under a collapsible "Other Services"
+      (built from the services on the client's link — nothing is hard-coded to one client; works on phones).
+   2. Overview = the review dashboard: waiting for review · updated and ready again · changes requested ·
+      recently approved / scheduled / published. Same records as the board — internal planning containers
+      (e.g. "Content Planning November WE 2 …") are never shown (the database filters them too).
+   3. Cards: title, client / brand, date, platform, type and the real saved status; a real image preview when the
+      post has an image, a Canva preview inside the post when the design is shared for viewing, otherwise a clean
+      brand tile (never a broken image).
+   4. Images in feedback: a reviewer can attach or paste up to 4 screenshots on a comment (approval portal) or on a
+      note / reply (Content Planning Board). They are saved with the comment and the team sees them in the hub.
+   5. The Content Planning Board for clients never shows the team's bulk tools. */
+const CBX = {att:[], other:null, send:null, warn:''};
+const CBX_PLAN_RE = /(\bWE ?\d{1,2}\b|\b(content|post) plan(ning)?\b|\(week ?\d{1,2}\))/i;
+const cbxPlanning = t => !!t && !t.hubPost && !t.clientFacing && CBX_PLAN_RE.test(String(t.title||''));
+const cbxHidden = (t, c) => !!t && !t.clientFacing && (cbxPlanning(t) || (!t.hubBrand && (c?.hubBrands||[]).length > 0 && cbTaskModule(t)==='content'));
+const cbxImgs = L => (Array.isArray(L) ? L : []).filter(x=>x && typeof x==='object' && /^data:image\/(png|jpeg|webp|gif);base64,[A-Za-z0-9+/=]+$/.test(String(x.data||'')) && String(x.data).length<=700000).slice(0, 4)
+  .map(x=>({name:String(x.name||'image').slice(0, 120), type:(String(x.data).match(/^data:(image\/[a-z]+);/)||[])[1], size:String(x.data).length, data:x.data}));
+
+/* ---------- images: shrink a picture or screenshot so it travels with the comment ---------- */
+async function cbxImgRef(file){ if(!file || !/^image\//.test(file.type||'')) return null;
+  const url = URL.createObjectURL(file);
+  try{ const img = await new Promise((res, rej)=>{ const i = new Image(); i.onload = ()=>res(i); i.onerror = rej; i.src = url; });
+    const w = img.naturalWidth || 1, h = img.naturalHeight || 1; let data = '';
+    for(const [m, q] of [[1400, .82], [1200, .72], [1000, .65], [800, .6]]){ const s = Math.min(1, m/Math.max(w, h)); const cv = document.createElement('canvas');
+      cv.width = Math.max(1, Math.round(w*s)); cv.height = Math.max(1, Math.round(h*s)); const g = cv.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, cv.width, cv.height); g.drawImage(img, 0, 0, cv.width, cv.height);
+      data = cv.toDataURL('image/jpeg', q); if(data.length <= 450000) break; }
+    if(!data || data.length > 650000) return null;
+    return {name:String(file.name||'screenshot').replace(/\.[a-z0-9]+$/i, '').slice(0, 100) + '.jpg', type:'image/jpeg', size:data.length, data};
+  }catch(e){ return null; } finally { URL.revokeObjectURL(url); } }
+function cbxPick(o={}){ return new Promise(resolve=>{ const inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'image/*'; inp.multiple = o.multiple!==false;
+  inp.onchange = async ()=>{ const out = []; for(const f of [...inp.files].slice(0, 4)){ const r = await cbxImgRef(f); if(r) out.push(r); else cbToast(`${f.name} couldn’t be attached — try a smaller image.`); } resolve(out); };
+  inp.click(); }); }
+
+/* ---------- demo mode follows the same rules as the database ---------- */
+{ const _po = cbPostOut; cbPostOut = function(t, c, thread){ const p = _po.apply(this, arguments);
+    if(p.stage==='planned') p.work = ({'In Progress':'In progress', 'For Approval':'Team review', 'Revisions Needed':'Being revised'})[t.status] || 'Planned';
+    const by = Object.fromEntries((thread||[]).map(m=>[m.id, m])); p.thread = (p.thread||[]).map(m=>({...m, images:by[m.id]?.images || []})); return p; }; }
+{ const _d = cbDemo; cbDemo = async function(action, a){
+    const r = await _d.apply(this, arguments);
+    if(action==='load' && r && r.ok){ const db = DemoBackend.read(); const l = (db.cblinks||{})[CB.link]; const c = (db.clients||{})[l?.client]; r.posts = (r.posts||[]).filter(p=>!cbxHidden((db.tasks||{})[p.id], c)); }
+    if(action==='act' && r && r.ok){ const imgs = cbxImgs(a?.images); if(imgs.length){ const db = DemoBackend.read();
+      const m = Object.values(db.cbmsg||{}).filter(x=>x.link===CB.link && x.task===a.task).sort((x,y)=>String(y.at).localeCompare(String(x.at)))[0];
+      if(m){ const ups = [{collection:'cbmsg', id:m.id, data:{...m, images:imgs}}]; const h = (db.hubdocs||{})['feedback|CB-'+m.id]; if(h) ups.push({collection:'hubdocs', id:h.id, data:{...h, d:{...h.d, images:imgs}}});
+        await DemoBackend.write(ups, []); const db2 = DemoBackend.read(); const t = db2.tasks[a.task]; const l = db2.cblinks[CB.link]; r.post = cbPostOut(t, db2.clients[l.client], Object.values(db2.cbmsg||{})); } } }
+    return r; }; }
+{ const _f = cbfDemo; cbfDemo = async function(db, l, action, a){
+    if(action==='fwrite' && a?.col==='feedback' && a.data && 'images' in a.data) a = {...a, data:{...a.data, images:cbxImgs(a.data.images)}};
+    const r = await _f.call(this, db, l, action, a);
+    if(action==='fload' && r && r.ok && Array.isArray(r.posts)) r.posts = r.posts.filter(p=>!cbxPlanning((db.tasks||{})[p.id]));
+    return r; }; }
+{ const _co = cbfColl; cbfColl = function(col){ const L = _co.apply(this, arguments); if(col!=='content' || LIVE) return L;
+    const db = DemoBackend.read(); return L.filter(([id])=>!cbxPlanning((db?.tasks||{})[id])); }; }
+
+/* ---------- the server: a comment with images ---------- */
+{ const _api = cbApi; cbApi = async function(action, a={}){
+    if(action==='act' && CBX.send && CBX.send.task===a.task) a = {...a, images:CBX.send.images};
+    if(action==='act' && LIVE && (a.images||[]).length){
+      try{ if(!CB.sb){ await loadScript('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js'); CB.sb = window.supabase.createClient(CC_CONFIG.SUPABASE_URL, CC_CONFIG.SUPABASE_ANON_KEY, {auth:{persistSession:false, autoRefreshToken:false}}); }
+        const r = await CB.sb.rpc('cc_cb_act_img', {p_link:CB.link, p_secret:CB.secret, p_task:a.task, p_action:a.action, p_text:a.text||'', p_name:a.name||'', p_images:a.images});
+        if(r.error){ const msg = String(r.error.message||''); if(!r.status || /failed to fetch|networkerror|load failed|network request failed|fetch failed/i.test(msg)) return {ok:false, error:cbNetErr, net:true};
+          if(/could not find the function|PGRST202/i.test(msg + ' ' + (r.error.code||''))){ const r2 = await _api.call(this, action, {...a, images:undefined});      /* the database update isn't in yet: send the words */
+            if(r2 && r2.ok) CBX.warn = 'Your comment was sent, but the images need a database update — please tell your Cross Core contact.'; return r2; }
+          return {ok:false, error:cbErrText(r.error), net:false}; }
+        return r.data; }catch(e){ return {ok:false, error:cbNetErr, net:true}; } }
+    return _api.call(this, action, a); }; }
+
+/* ---------- 1. the menu ---------- */
+function cbxNav(){ const nav = document.querySelector('#cbApp .cb-nav'); if(!nav || !CB.data) return;
+  const mods = cbMods(), P = cbPosts(), cnt = id => (id==='leadgen'||id==='social') ? 0 : P.filter(p=>p.module===id && p.stage==='review').length;
+  const content = mods.find(m=>m.id==='content'), seen = new Set(['overview']);
+  const prim = [['overview', 'Overview', '🏠', P.filter(p=>p.stage==='review').length]]; if(content){ prim.push(['content', 'Content Planning Board', '🗓', cnt('content')]); seen.add('content'); }
+  const other = [];
+  for(const m of mods){ if(seen.has(m.id)) continue; seen.add(m.id); other.push([m.id, m.name, cbModIco(m.id), cnt(m.id)]); }
+  if(CB.data.reports && mods.some(m=>m.id==='leadgen'||m.id==='social') && !seen.has('reports')) other.push(['reports', 'Reports', '📊', 0]);
+  let open = CBX.other; if(open==null){ try{ open = localStorage.getItem('cc-cb-other')==='1'; }catch(e){ open = false; } }
+  if(other.some(o=>o[0]===CB.view) || !content) open = true;
+  const btn = ([id, l, ic, n]) => `<button type="button" data-nav="${esc(id)}" class="${CB.view===id?'on':''}"${CB.view===id?' aria-current="page"':''}><span aria-hidden="true">${ic}</span>${esc(l)}${n?`<i>${n}</i>`:''}</button>`;
+  const on = other.reduce((s, o)=>s + (o[3]||0), 0);
+  nav.setAttribute('aria-label', 'Portal menu');
+  nav.innerHTML = prim.map(btn).join('') + (other.length ? `<div class="cbx-grp${open?' open':''}"><button type="button" class="cbx-gh" data-cbxother aria-expanded="${open}" aria-controls="cbxOther"><span aria-hidden="true">🧩</span>Other Services${!open && on ? `<i>${on}</i>` : ''}<b class="cbx-chev" aria-hidden="true">▾</b></button>
+    <div class="cbx-gl" id="cbxOther" role="group" aria-label="Other Services"${open?'':' hidden'}>${other.map(btn).join('')}</div></div>` : '');
+  const h1 = document.querySelector('#cbApp .cb-top h1'); if(h1 && CB.view==='content') h1.textContent = 'Content Planning Board';
+  const ci = document.querySelector('#cbApp .cb-cli i'); if(ci) ci.style.background = cbxColor(CB.data.client?.color); }
+document.addEventListener('click', e => {
+  const b = e.target.closest?.('#cbApp .cb-nav [data-nav]'); if(b){ CB.view = b.dataset.nav; CB.q = ''; CB.st = 'all'; cbClose(); cbRender(); scrollTo(0, 0); return; }
+  const g = e.target.closest?.('#cbApp [data-cbxother]'); if(g){ const grp = g.closest('.cbx-grp'); CBX.other = !grp.classList.contains('open'); try{ localStorage.setItem('cc-cb-other', CBX.other ? '1' : '0'); }catch(x){} cbxNav(); document.querySelector('#cbApp [data-cbxother]')?.focus(); } });
+{ const _r = cbRender; cbRender = function(){ const r = _r.apply(this, arguments); try{ cbxNav(); }catch(e){ console.warn('portal menu', e); } return r; }; }
+cbfChrome = function(){ try{ const need = cbPosts().filter(p=>p.stage==='review').length;
+  const top = document.querySelector('#cbApp .cb-top > div'); if(top) top.innerHTML = need ? `<button class="cb-pill" onclick="CB.view='overview';cbRender()">${need} awaiting your review</button>` : '<span class="cb-pill ok">All caught up</span>';
+  cbxNav(); }catch(e){} };
+
+/* ---------- 3. cards, status and previews ---------- */
+function cbxStatus(p){ if(p.stage==='review' && p.rounds) return {t:'Updated · ready for re-review', c:'b-pending'};
+  if(p.stage==='planned') return {t:p.work || 'Planned', c:'b-draft'}; const [t, c] = CB_STAGE[p.stage] || CB_STAGE.planned; return {t, c}; }
+/* a client colour that can carry white text (a white or very light brand colour falls back to the Cross Core amber-brown) */
+function cbxColor(h){ h = String(h||''); if(!/^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(h)) return '#B7791F'; if(h.length===4) h = '#'+[...h.slice(1)].map(x=>x+x).join('');
+  const [r, g, b] = [1, 3, 5].map(i=>parseInt(h.slice(i, i+2), 16)/255); return (0.2126*r + 0.7152*g + 0.0722*b) > 0.72 ? '#B7791F' : h; }
+function cbxTile(p){ const c = CB.data?.client || {}; const name = p.brand || c.name || ''; const col = cbxColor(c.color);
+  const ini = String(name).split(/\s+/).filter(Boolean).slice(0, 2).map(w=>w[0]).join('').toUpperCase() || '•';
+  const vid = p.module==='video' || /reel|video/i.test(p.type||''), des = p.module==='design' || /design|still|image|carousel|graphic/i.test(p.type||'');
+  const canva = /canva\.(com|link)/i.test(String(p.outputLink||''));
+  return `<div class="cbx-tile" style="--c:${col}"><span class="cbx-ini" aria-hidden="true">${esc(ini)}</span><b>${esc(name)}</b><small>${vid?'🎬':des?'🖼':'✍️'} ${esc(p.type || (vid?'Video':des?'Graphic':'Post'))}${p.platforms?' · '+esc(p.platforms):''}</small>${canva?'<em>Canva design — open to preview</em>':''}</div>`; }
+function cbThumb(p){ const f = (p.files||[]).find(x=>/^image\//.test(x.type||'') && (x.data||x.url)); const u = cbSafe(p.photoLink) || cbSafe(p.outputLink);
+  const src = f ? (f.data||f.url) : (/\.(png|jpe?g|gif|webp|avif)(\?|$)/i.test(u) ? u : '');
+  return src ? `<img src="${esc(src)}" alt="" loading="lazy" referrerpolicy="no-referrer" data-cbxtile="${esc(p.id)}">` : cbxTile(p); }
+document.addEventListener('error', e => { const i = e.target; if(i && i.tagName==='IMG' && i.dataset?.cbxtile){ const p = cbPosts().find(x=>x.id===i.dataset.cbxtile); if(p) i.outerHTML = cbxTile(p); } }, true);
+function cbCard(p, showMod){ const s = cbxStatus(p), cl = p.brand || CB.data?.client?.name || '';
+  return `<article class="cb-card cbx-card" tabindex="0" role="button" aria-label="${esc(p.title)} — ${esc(s.t)}" onclick="cbOpenPost('${esc(p.id)}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();cbOpenPost('${esc(p.id)}')}">
+    <div class="cb-thumb">${cbThumb(p)}</div><div class="cb-cbody"><div class="cb-top2"><span class="badge ${s.c}">${esc(s.t)}</span>${p.rounds?`<span class="cb-round">Round ${p.rounds+1}</span>`:''}${showMod?`<span class="cb-mod">${cbModIco(p.module)} ${esc(p.module==='content'?'Content Planning Board':cbModLabel(p.module))}</span>`:''}</div>
+    <h3>${esc(p.title)}</h3>
+    <dl class="cbx-facts"><div><dt>Client</dt><dd>${esc(cl)}</dd></div><div><dt>Date</dt><dd>${esc(cbFmt(p.date))}</dd></div><div><dt>Platform</dt><dd>${esc(p.platforms||'—')}</dd></div><div><dt>Type</dt><dd>${esc(p.type||'—')}</dd></div></dl>
+    ${p.caption?`<p class="cbx-cap">${esc(p.caption.slice(0, 140))}${p.caption.length>140?'…':''}</p>`:''}</div></article>`; }
+/* a Canva design shared for viewing shows inside the post; anything else opens in a new tab */
+{ const _e = cbEmbed; cbEmbed = function(u){ const s = cbSafe(u); const m = s.match(/^https:\/\/(?:www\.)?canva\.com\/design\/([A-Za-z0-9_-]{6,})\/([A-Za-z0-9_-]{6,})\/(?:view|watch)\b/);
+    if(m) return `<div class="cbx-canva"><iframe class="cb-frame" loading="lazy" src="https://www.canva.com/design/${m[1]}/${m[2]}/view?embed" allowfullscreen title="Canva preview" referrerpolicy="no-referrer"></iframe>
+      <a class="cb-open" href="${esc(s)}" target="_blank" rel="noopener noreferrer">↗ Open in Canva <span>if the preview stays blank, the design isn’t shared for viewing yet</span></a></div>`;
+    return _e.apply(this, arguments); }; }
+
+/* ---------- 2. the Overview: what needs the reviewer, what changed, what's done ---------- */
+function cbOverview(){
+  const d = CB.data, P = cbPosts(), nm = d.me.name ? d.me.name.split(' ')[0] : '', role = cbRole();
+  const last = p => [...(p.history||[]).map(h=>h.at), ...(p.thread||[]).map(m=>m.at)].filter(Boolean).sort().pop() || p.date || '';
+  const byDate = (a, b) => String(a.date).localeCompare(String(b.date)) || String(a.title).localeCompare(String(b.title));
+  const review = P.filter(p=>p.stage==='review' && !p.rounds).sort(byDate), again = P.filter(p=>p.stage==='review' && p.rounds).sort(byDate);
+  const changes = P.filter(p=>p.stage==='revision').sort(byDate);
+  const done = P.filter(p=>['approved', 'scheduled', 'published'].includes(p.stage)).sort((a, b)=>String(last(b)).localeCompare(String(last(a))) || String(b.date).localeCompare(String(a.date))).slice(0, 8);
+  const sec = (id, h, sub, L, more) => L.length ? `<section class="cb-sec2 cbx-sec" id="cbx-${id}"><div class="cbx-sh"><h3>${h} <i>${L.length}</i></h3>${sub?`<p>${sub}</p>`:''}</div><div class="cb-grid">${L.slice(0, more||8).map(p=>cbCard(p, cbMods().length>1)).join('')}</div>${L.length>(more||8)?`<div class="cb-dim" style="margin-top:8px">+ ${L.length-(more||8)} more — open the service in the menu to see all.</div>`:''}</section>` : '';
+  const act = P.flatMap(p=>(p.history||[]).filter(h=>h.you).map(h=>({at:h.at, t:`You ${String(h.act||'').replace(/^Client /, '').toLowerCase()} “${p.title}”`})).concat((p.thread||[]).filter(m=>!m.you).map(m=>({at:m.at, t:`Cross Core replied on “${p.title}”: ${m.text}`})))).sort((a, b)=>String(b.at).localeCompare(String(a.at))).slice(0, 6);
+  const lg = d.leadgen, rep = (d.reports||[])[0];
+  const decide = role==='approver' ? 'Approve, request changes or leave a comment.' : role==='reviewer' ? 'Leave a comment or request changes — an approver on your team approves.' : 'You can view these items.';
+  return `<div class="cb-hello"><h2>Hello${nm?', '+esc(nm):''} 👋</h2><p>Here’s what needs your attention across ${cbMods().map(m=>esc(m.id==='content'?'the Content Planning Board':m.name)).join(', ')||'your services'}.</p></div>${P.length?cbKpis(P):''}
+    ${review.length || again.length ? '' : `<div class="cb-empty">🎉 Nothing is waiting for your review right now.</div>`}
+    ${sec('review', 'Waiting for your review', decide, review)}
+    ${sec('again', 'Updated — ready for another look', 'The team made the changes you asked for. Please review them again.', again)}
+    ${sec('changes', 'Changes requested', 'Our team is working on your feedback. These come back here when they’re ready.', changes)}
+    ${sec('done', 'Recently approved, scheduled & published', '', done, 8)}
+    <div class="cb-two">${lg?`<div class="cb-panel"><h3>Lead generation snapshot</h3><div class="cb-snap"><div><b>${lg.prospects.length}</b><small>prospects</small></div><div><b>${(lg.funnel[0]||{}).n||0}</b><small>${esc((lg.funnel[0]||{}).stage||'top stage')}</small></div><div><b>${lg.activities.reduce((s, a)=>s+a.n, 0)}</b><small>activities</small></div></div><button class="cb-link" onclick="CB.view='leadgen';cbRender()">Open Lead Generation →</button></div>`:''}
+      ${rep?`<div class="cb-panel"><h3>Latest report</h3><div class="cb-rowl"><b>${esc(rep.label)}</b><small>${esc(rep.kind||'')} · shared ${esc(cbFmtL(rep.sharedAt||rep.to))}</small></div><button class="cb-link" onclick="CB.view='reports';CB.rep='${esc(rep.id)}';cbRender()">Open report →</button></div>`:''}
+      ${act.length?`<div class="cb-panel"><h3>Recent activity</h3>${act.map(a=>`<div class="cb-act2"><span>${esc(a.t)}</span><small>${esc(cbAgo(a.at))}</small></div>`).join('')}</div>`:''}</div>`; }
+
+/* ---------- the post window: real status, images in the conversation, attach images ---------- */
+function cbxAttHTML(id){ const L = CBX.att.filter(x=>x.post===id);
+  return `<div class="cbx-att"><button type="button" class="cbx-add" data-cbxadd="${esc(id)}" ${L.length>=4?'disabled':''}>🖼 Add image</button><span class="cbx-hint">or paste a screenshot · up to 4</span>
+    <div class="cbx-ths">${L.map((x, i)=>`<span class="cbx-th"><img src="${esc(x.ref.data)}" alt="${esc(x.ref.name)}"><button type="button" data-cbxrm="${i}" aria-label="Remove ${esc(x.ref.name)}">✕</button></span>`).join('')}</div></div>`; }
+function cbxAttRedraw(id){ const a = document.querySelector('#cbModal .cbx-att'); if(a) a.outerHTML = cbxAttHTML(id); }
+async function cbxAdd(id, files){ const room = 4 - CBX.att.filter(x=>x.post===id).length; if(room<=0) return cbToast('Up to 4 images per comment.');
+  for(const f of files.slice(0, room)){ const r = f && f.data ? f : await cbxImgRef(f); if(r) CBX.att.push({post:id, ref:r}); else cbToast('That image couldn’t be attached — try a smaller one.'); }
+  cbxAttRedraw(id); }
+{ const _op = cbOpenPost; cbOpenPost = function(id, keep){ if(CBX.att.length && CBX.att[0].post!==id) CBX.att = [];
+    const r = _op.apply(this, arguments); const p = cbPosts().find(x=>x.id===id); const dlg = document.querySelector('#cbModal .cb-dlg'); if(!p || !dlg) return r;
+    const s = cbxStatus(p); const tag = dlg.querySelector('.cb-top2 .badge'); if(tag){ tag.className = 'badge ' + s.c; tag.textContent = s.t; }
+    const meta = dlg.querySelector('.cb-meta'); if(meta && !dlg.querySelector('.cbx-facts')) meta.outerHTML = `<dl class="cbx-facts cbx-facts-w"><div><dt>Client</dt><dd>${esc(p.brand || CB.data.client.name)}</dd></div><div><dt>Date</dt><dd>${esc(cbFmt(p.date))}</dd></div><div><dt>Platform</dt><dd>${esc(p.platforms||'—')}</dd></div><div><dt>Type</dt><dd>${esc(p.type||'—')}</dd></div></dl>`;
+    if(p.stage==='review' && p.rounds) dlg.querySelector('h2')?.insertAdjacentHTML('afterend', `<div class="cbx-again">↻ Updated after your feedback — please take another look (round ${p.rounds+1}).</div>`);
+    const msgs = [...dlg.querySelectorAll('.cb-sec .cb-thread .cb-msg')]; (p.thread||[]).forEach((m, i)=>{ const ims = (m.images||[]).filter(x=>x && (x.data||x.url)); if(ims.length && msgs[i]) msgs[i].insertAdjacentHTML('beforeend', `<div class="cbx-imgs">${ims.map(x=>`<img src="${esc(x.data||x.url)}" alt="${esc(x.name||'Image')}" data-cbxbig>`).join('')}</div>`); });
+    const ta = dlg.querySelector('#cbText'); if(ta && cbRole()!=='viewer') ta.insertAdjacentHTML('afterend', cbxAttHTML(id));
+    if(CBF.on && p.module==='content' && !dlg.querySelector('.cbx-onboard')) dlg.querySelector('.cb-top2')?.insertAdjacentHTML('beforeend', `<button type="button" class="cbx-onboard" data-cbxboard="${esc(id)}">Open on the Content Planning Board →</button>`);
+    return r; }; }
+{ const _do = cbDo; cbDo = async function(id, action){ const L = CBX.att.filter(x=>x.post===id).map(x=>x.ref); const ta = el('cbText');
+    if(L.length && ta && !ta.value.trim() && action==='comment') ta.value = `📷 ${L.length} image${L.length>1?'s':''} attached`;
+    CBX.send = L.length ? {task:id, images:L} : null; CBX.warn = '';
+    const before = (cbPosts().find(x=>x.id===id)?.thread||[]).length;
+    try{ await _do.apply(this, arguments); } finally { CBX.send = null; }
+    const now = (cbPosts().find(x=>x.id===id)?.thread||[]).length; if(now > before){ CBX.att = CBX.att.filter(x=>x.post!==id); if(CB.open===id) cbxAttRedraw(id); }
+    if(CBX.warn){ cbToast(CBX.warn); CBX.warn = ''; } }; }
+document.addEventListener('click', async e => {
+  const a = e.target.closest?.('#cbModal [data-cbxadd]'); if(a){ const files = await cbxPick({multiple:true}); if(files.length) cbxAdd(a.dataset.cbxadd, files); return; }
+  const rm = e.target.closest?.('#cbModal [data-cbxrm]'); if(rm){ const id = CB.open; const mine = CBX.att.filter(x=>x.post===id); const x = mine[+rm.dataset.cbxrm]; CBX.att = CBX.att.filter(y=>y!==x); cbxAttRedraw(id); return; }
+  const big = e.target.closest?.('#cbModal [data-cbxbig], #cbModal .cbx-th img'); if(big){ try{ const [h, b] = big.src.split(','); const bin = atob(b); const u8 = new Uint8Array(bin.length); for(let i=0;i<bin.length;i++) u8[i] = bin.charCodeAt(i); window.open(URL.createObjectURL(new Blob([u8], {type:(h.match(/data:([^;]+)/)||[])[1]||'image/jpeg'})), '_blank', 'noopener'); }catch(x){ window.open(big.src, '_blank', 'noopener'); } return; }
+  const ob = e.target.closest?.('#cbModal [data-cbxboard]'); if(ob){ const id = ob.dataset.cbxboard; cbClose(); CB.view = 'content'; cbRender(); scrollTo(0, 0);
+    for(let i=0; i<40; i++){ if(CBF.ready && CBF.frame?.contentWindow?.__hub){ cbfOpen(id); break; } await new Promise(r=>setTimeout(r, 250)); } } });
+document.addEventListener('paste', e => { const ta = e.target.closest?.('#cbModal #cbText'); if(!ta || !CB.open || cbRole()==='viewer') return;
+  const files = [...(e.clipboardData?.items||[])].filter(i=>i.kind==='file' && /^image\//.test(i.type)).map(i=>i.getAsFile()).filter(Boolean);
+  if(files.length){ e.preventDefault(); cbxAdd(CB.open, files); } });
+
+/* ---------- 4–5. the client's Content Planning Board: images in notes and replies, no bulk tools ---------- */
+{ const _ca = cbfCpxApi; cbfCpxApi = function(){ const A = _ca.apply(this, arguments); const can = () => cbfMe().role!=='viewer';
+    return {...A, client:true, pickFiles: async o => can() ? cbxPick(o) : [], storeFile: async f => can() ? cbxImgRef(f) : null,
+      fileUrl: f => f?.data || (f?.path ? cbFileSrc(f) : (f?.url || '')), File: window.File}; }; }
+
+(function(){ const st = document.createElement('style'); st.textContent = `
+#cbApp .cbx-grp{display:flex;flex-direction:column;gap:3px;margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,.08)}
+#cbApp .cb-nav .cbx-gh{color:#b8ae98;font-size:12.5px;letter-spacing:.02em}#cbApp .cbx-chev{margin-left:auto;font-size:11px;transition:transform .15s}#cbApp .cbx-gh i+.cbx-chev{margin-left:6px}
+#cbApp .cbx-grp.open .cbx-chev{transform:rotate(180deg)}#cbApp .cbx-gl{display:flex;flex-direction:column;gap:3px;padding-left:6px}#cbApp .cbx-gl[hidden]{display:none}
+#cbApp .cb-nav button:focus-visible{outline:2px solid var(--amb2);outline-offset:1px}
+#cbApp .cbx-tile{width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:12px;text-align:center;background:linear-gradient(135deg,color-mix(in srgb,var(--c) 16%,#fff),color-mix(in srgb,var(--c) 6%,#fff))}
+#cbApp .cbx-ini{width:46px;height:46px;border-radius:13px;display:grid;place-items:center;background:var(--c);color:#fff;font:700 17px Sora,sans-serif;box-shadow:0 6px 14px -8px var(--c)}
+#cbApp .cbx-tile b{font:700 13px Inter,sans-serif;color:#2b261c}#cbApp .cbx-tile small{font-size:11.5px;color:#6b6558}#cbApp .cbx-tile em{font-style:normal;font-size:10.5px;font-weight:700;color:#5b4fc4;background:#efecff;border-radius:99px;padding:2px 8px}
+#cbApp .cbx-card .cb-thumb{aspect-ratio:16/9}#cbApp .cbx-card h3{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+#cbApp .cbx-facts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px 10px;margin:8px 0 0;font-size:12px}#cbApp .cbx-facts div{min-width:0}#cbApp .cbx-facts dt{color:var(--dim);font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;font-weight:700}
+#cbApp .cbx-facts dd{margin:0;color:#2b261c;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}#cbApp .cbx-facts-w{grid-template-columns:repeat(4,minmax(0,1fr));margin:6px 0 4px}
+#cbApp .cbx-cap{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+#cbApp .cbx-sec{margin-top:22px}#cbApp .cbx-sh{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:10px}#cbApp .cbx-sh h3{margin:0;font:700 16px Sora,sans-serif}#cbApp .cbx-sh h3 i{font-style:normal;font-size:12px;background:#efe8d8;border-radius:99px;padding:1px 8px;margin-left:4px;vertical-align:2px}#cbApp .cbx-sh p{margin:0;color:var(--dim);font-size:13px}
+#cbApp .cbx-again{background:#fff6e0;border:1px solid #f0d9a6;color:#7a4f06;border-radius:10px;padding:7px 11px;font-size:12.5px;font-weight:600;margin:8px 0 2px}
+#cbApp .cbx-att{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:6px 0 2px}#cbApp .cbx-add{border:1px dashed #d9cfb8;background:#fffdf7;border-radius:9px;padding:6px 10px;font:600 12.5px Inter,sans-serif;cursor:pointer}#cbApp .cbx-add:disabled{opacity:.5;cursor:default}
+#cbApp .cbx-hint{font-size:11.5px;color:var(--dim)}#cbApp .cbx-ths{display:flex;gap:6px;flex-wrap:wrap;width:100%}#cbApp .cbx-th{position:relative}#cbApp .cbx-th img{width:64px;height:64px;object-fit:cover;border-radius:8px;border:1px solid var(--line);display:block;cursor:zoom-in}
+#cbApp .cbx-th button{position:absolute;top:-6px;right:-6px;width:20px;height:20px;border-radius:50%;border:0;background:#17140e;color:#fff;font-size:10px;cursor:pointer}
+#cbApp .cbx-imgs{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}#cbApp .cbx-imgs img{max-width:150px;max-height:110px;border-radius:8px;border:1px solid var(--line);object-fit:cover;cursor:zoom-in}
+#cbApp .cbx-canva{display:flex;flex-direction:column;gap:6px}#cbApp .cbx-onboard{margin-left:auto;border:0;background:none;color:#8a5a06;font:700 12px Inter,sans-serif;cursor:pointer;padding:2px 0}
+@media(max-width:860px){#cbApp .cb-nav{flex-wrap:wrap;overflow:visible}#cbApp .cbx-grp{display:contents}#cbApp .cbx-gl{display:contents}#cbApp .cbx-gl[hidden]{display:none}#cbApp .cb-nav .cbx-gh{border:1px solid rgba(255,255,255,.14)}#cbApp .cbx-chev{transform:rotate(-90deg)}#cbApp .cbx-grp.open .cbx-chev{transform:rotate(90deg)}}
+@media(max-width:640px){#cbApp .cbx-facts-w{grid-template-columns:repeat(2,minmax(0,1fr))}}`; document.head.appendChild(st); })();
 
 /* <<< OCT24 MODULES <<< */
 </script>

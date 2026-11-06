@@ -20916,7 +20916,7 @@ async function cooPostFromModal(){ const ch = CHATS.find(c=>c.id===el('paPostC')
    The footer shows which build is running ("Build 2026-10-07 · 1"), and every open portal checks every few minutes
    (and whenever it comes back to the foreground) whether a newer build has been published. If so it shows
    "New version available — Update now" instead of quietly running old code. */
-const BUILD_ID = '2026-11-06 · 1';
+const BUILD_ID = '2026-11-06 · 2';
 function verStamp(){ const f = el('footNote'); if(f && !f.dataset.v){ f.dataset.v = 1; f.textContent = `Cross Core Ops Suite v8 · Build ${BUILD_ID}`; } }
 async function verCheck(){
   if(!/^https?:/.test(location.protocol)) return;
@@ -38221,9 +38221,10 @@ function cpxHubExt(){
     return {name:`Content Plan – ${name}`, range:fmtRange(first, end), first, last}; }
 
   /* ---------- planning weeks: a post appears in its planning week; its posting date can move inside the week ---------- */
+  const PHASES = {caption:'Caption & topic', graphics:'Graphics', both:'Caption + graphics'};
   const TARGET = 2;                                            /* posts per brand per week — Tuesday and Thursday */
   const weekOf = k => /^\d{4}-\d{2}-\d{2}/.test(String(k||'')) ? dateToKey(startOfWeek(String(k).slice(0, 10))) : '';
-  const pwOf = c => weekOf(c && c.planWeek) || weekOf(c && c.date);
+  const pwOf = c => weekOf(c && c.date);                       /* the post date decides the week (Mon–Sun) */
   const isMC = id => { try{ return !!(has('isMC') && A.isMC(id)); }catch(e){ return false; } };
   const acctOf = id => String(id||'').split('~')[0];
   const lanesNow = () => { const L = CLIENTS.filter(c=>!isGen(c.id)); return L.length ? L : CLIENTS.slice(); };
@@ -38242,7 +38243,8 @@ function cpxHubExt(){
         cells.push(`<button class="add-card cpx-slot" data-addpost="${cl.id}|${d}" title="Add a ${esc(cl.name)} post for ${esc(niceDate(d))}">+ Add post · ${esc(niceDate(d))}</button>`); }
       return {cl, cells}; });
     const rows = Math.max(TARGET, ...cols.map(c=>c.cells.length));
-    const grid = cols.map((c, ci) => `<div class="cpx-cell cpx-head" style="grid-column:${ci+1};grid-row:1">${clientTag(c.cl)}</div>`).join('')
+    const over = cl => posts.filter(c=>laneFor(c, L)===cl).length;
+    const grid = cols.map((c, ci) => `<div class="cpx-cell cpx-head" style="grid-column:${ci+1};grid-row:1">${clientTag(c.cl)}${over(c.cl)>TARGET?`<span class="cpx-over" title="More than ${TARGET} posts planned for ${esc(c.cl.name)} this week">${over(c.cl)} posts · over the ${TARGET}/week plan</span>`:''}</div>`).join('')
       + cols.map((c, ci) => Array.from({length:rows}, (_, r) => `<div class="cpx-cell" style="grid-column:${ci+1};grid-row:${r+2}">${c.cells[r] || ''}</div>`).join('')).join('');
     const marks = [0,1,2,3,4,5,6].map(i=>addDaysKey(wk, i)).map(dk => { const b = holidayBadges(dk) + eventsOn(dk).map(e=>`<span class="holiday-badge ev-badge" style="color:${EVENT_TYPES[e.type].color};border-color:${EVENT_TYPES[e.type].color}" data-editevent="${esc(e.id)}" role="button" tabindex="0">${esc(e.title)}${e.client!=='all'?' · '+esc(clientById(e.client).short):''}</span>`).join('');
       return b ? `<span class="cpx-mk"><span class="cpx-mk-d">${esc(niceDate(dk))}</span>${b}</span>` : ''; }).join('');
@@ -38293,7 +38295,7 @@ function cpxHubExt(){
         <div class="cpx-plan-m"><span><b>${planned}</b> of <b>${need}</b> weekly posts planned</span><span><b>${inPeriod.length}</b> post${inPeriod.length===1?'':'s'} in total</span>
           ${inPeriod.length ? `<button class="btn ghost small" id="cpxSelAll" type="button">☑ Select all in this period</button>` : ''}</div>
       </div>
-      <div class="home-note">One row per planning week · two posts per brand, normally Tuesday and Thursday. Changing a post's date inside the week keeps it in its row. <a href="#" id="dlRange">Download this ${numWeeks===2?'range':'week'} (.xlsx)</a> · <a href="#" id="dlMonth">Download the full month</a></div>
+      <div class="home-note">One row per week (Monday–Sunday) · a post sits in the week of its post date · two posts per brand, normally Tuesday and Thursday. <a href="#" id="dlRange">Download this ${numWeeks===2?'range':'week'} (.xlsx)</a> · <a href="#" id="dlMonth">Download the full month</a></div>
       ${weekHtml}`;
     const step = 7*numWeeks;
     document.getElementById('homePrev').onclick = () => { state.homeAnchor = addDaysKey(startKey, -step); render(); };
@@ -38412,6 +38414,11 @@ function cpxHubExt(){
       const ok = await _af.call(this, {...data, ...extra});
       if (ok && box && !data.parentId) rteClear('main');
       return ok; }; }
+
+  /* ---------- the client's board: "Marj (Client)" or someone else on the client's side ---------- */
+  if (has('setName')) document.addEventListener('change', e => { const s = e.target.closest?.('#rfAuthor, #fbAuthor'); if (!s) return;
+    let n = s.parentElement.querySelector('.cpx-who'); if (s.value === 'Someone else…'){ if (!n){ s.insertAdjacentHTML('afterend', '<input class="field-input cpx-who" placeholder="Their name" maxlength="60" aria-label="Their name" style="flex:0 0 170px">'); n = s.parentElement.querySelector('.cpx-who'); n.addEventListener('input', ()=>A.setName(n.value)); } n.hidden = false; n.focus(); A.setName(n.value); }
+    else { if (n){ n.hidden = true; n.value = ''; } A.setName(''); } }, true);
 
   /* ---------- the record window: editor, replies, message button, caption box ---------- */
   { const _or = openRecordModal; openRecordModal = function(contentId, focusFeedback){ const r = _or.apply(this, arguments);
@@ -38553,12 +38560,17 @@ function cpxHubExt(){
         if (res.mode === 'week'){ const tw = startOfWeek(res.date); const off = (keyToDate(c.date).getDay() + 6) % 7; nd = dateToKey(addDays(tw, off)); }
         return [c, nd]; }).filter(([c, nd])=>nd && (nd!==c.date || weekOf(nd)!==pwOf(c)));
       if (!plan.length){ toast('The selected posts are already on those dates.'); return; }
-      let n = 0; for (const [c, nd] of plan){ if (await saveContent(c.id, { date: nd, planWeek: weekOf(nd) })) n++; }
+      const moving = new Set(plan.map(([c])=>c.id)); const cnt = {};
+      CONTENT.filter(c=>!moving.has(c.id)).forEach(c=>{ const k = c.client+'|'+weekOf(c.date); cnt[k] = (cnt[k]||0) + 1; });
+      plan.forEach(([c, nd])=>{ const k = c.client+'|'+weekOf(nd); cnt[k] = (cnt[k]||0) + 1; });
+      const over = Object.entries(cnt).filter(([k, n])=>n > TARGET && plan.some(([c, nd])=>c.client+'|'+weekOf(nd)===k)).map(([k, n])=>{ const [cl, w] = k.split('|'); const t = planTitle([w]); return `${clientById(cl).name} — ${t.name}: ${n} posts`; });
+      if (over.length && !(await askDialog(`This makes more than ${TARGET} posts in a week for: ${over.join('; ')}.`, { title:'More than 2 posts in a week', ok:'Move anyway' }))) return;
+      let n = 0; X.noCap = true; try{ for (const [c, nd] of plan){ if (await saveContent(c.id, { date: nd })) n++; } } finally { X.noCap = false; }
       if (n){ logActivity(`moved ${n} post${n>1?'s':''} ${res.mode==='week' ? `to the week of ${plain(niceDate(dateToKey(startOfWeek(res.date))))}` : `to ${plain(niceDate(res.date))}`}`); state.homeAnchor = res.date; }
       toast(`${n} post${n===1?'':'s'} moved`); X.sel.clear(); render(); }
   });
   function statusDialog(n){ return new Promise(resolve => {
-    const OPTS = [['', 'Draft'], ['In Progress', 'In Progress'], ['For Revision', 'For Revision'], ['Approved', 'Approved']].filter(([v])=>STATUSES.includes(v));
+    const OPTS = STATUSES.map(v=>[v, statusLabel(v)]);
     const wrap = document.createElement('div'); wrap.className = 'dlg-backdrop';
     wrap.innerHTML = `<div class="dlg" role="dialog" aria-modal="true" aria-label="Change status"><h4>Change the status of ${n} post${n>1?'s':''}</h4>
       ${OPTS.map(([v, l], i)=>`<label class="cpx-opt"><input type="radio" name="cpxSt" value="${esc(v)}" ${i?'':'checked'}> <span><b>${esc(v ? statusLabel(v) : l)}</b></span></label>`).join('')}
@@ -38583,10 +38595,12 @@ function cpxHubExt(){
       done({ mode: wrap.querySelector('input[name="cpxMv"]:checked').value, date: d }); }); }); }
   /* ---------- the card: posting date, outside-the-week note, MarketCrest colour, brand picker ---------- */
   { const _pc = postCard; postCard = function(c){ let h = _pc.apply(this, arguments);
-      const out = weekOf(c.date) !== pwOf(c);
+      const out = false; const ph = PHASES[c.phase || 'both'] || PHASES.both;
+      const ret = c.status === 'For Revision' && c.ret ? `<span class="cpx-ret" title="Sent back to the VA">↩ Returned by ${esc(c.ret)}${c.round>1?` · round ${c.round}`:''}</span>` : '';
+      const mtg = c.phase === 'caption' && c.status === 'Approved' && !A.client ? `<button type="button" class="cpx-mtg" data-cpxmtg="${esc(c.id)}" title="Caption & topic approved — start the graphics">Move to Graphics ▸</button>` : '';
       const chip = `<div class="cpx-pdate ${out?'out':''}" title="${out ? 'The posting date is outside this planning week. To move the post, change its planning week.' : 'Posting date'}">📅 ${esc(niceDate(c.date))}${out ? ' · outside this week' : ''}</div>`;
       const gen = isGen(c.client) ? `<div class="cpx-genbar">${has('setBrand') && has('brands') ? `<label>Choose a brand <select data-cpxbrand="${esc(c.id)}" aria-label="Choose a brand"><option value="">—</option>${(A.brands(c.client)||[]).map(b=>`<option value="${esc(b.id)}">${esc(b.name)}</option>`).join('')}</select></label>` : 'No brand yet'}</div>` : '';
-      h = h.replace('<div class="pc-title">', chip + gen + '<div class="pc-title">');
+      h = h.replace('<div class="pc-title">', `<div class="cpx-phrow"><span class="cpx-ph cpx-ph-${esc(c.phase||'both')}">${esc(ph)}</span>${ret}${mtg}</div>` + chip + gen + '<div class="pc-title">');
       if (c.status) h = h.replace('class="post-card"', `class="post-card cpx-st" style="--st:${STATUS_COLOR[c.status] || 'transparent'}"`);
       return h; }; }
   document.addEventListener('change', async e => { const s = e.target.closest?.('[data-cpxbrand]'); if (!s || !s.value) return; e.stopPropagation();
@@ -38595,43 +38609,67 @@ function cpxHubExt(){
     const it = findContent(s.dataset.cpxbrand); if (it) logActivity(`set the brand of ${postRef(it)} to ${B(clientById(s.value).name)}`);
     toast(`Moved to ${clientById(s.value).name}`); }, true);
 
+  /* ---------- two posts a week per brand: a third one asks first ---------- */
+  function capCheck(item, selfId){ const wk = weekOf(item.date); if (!wk) return Promise.resolve('ok');
+    const others = CONTENT.filter(c => c.id !== selfId && c.client === item.client && weekOf(c.date) === wk);
+    if (others.length < TARGET) return Promise.resolve('ok');
+    const nextOpen = () => { for (let i=1; i<=26; i++){ const w = addDaysKey(wk, 7*i); if (CONTENT.filter(c => c.id !== selfId && c.client === item.client && weekOf(c.date) === w).length < TARGET) return addDaysKey(w, (keyToDate(item.date).getDay()+6)%7); } return null; };
+    const nd = nextOpen(), cl = clientById(item.client), pt = planTitle([wk]);
+    return new Promise(resolve => { const wrap = document.createElement('div'); wrap.className = 'dlg-backdrop';
+      wrap.innerHTML = `<div class="dlg cpx-cap" role="alertdialog" aria-modal="true" aria-labelledby="cpxCapT"><h4 id="cpxCapT">⚠ More than ${TARGET} posts this week</h4>
+        <p><b>${esc(cl.name)}</b> already has ${others.length} post${others.length>1?'s':''} in <b>${esc(pt.name)} (${esc(pt.range)})</b>: ${others.slice(0, 4).map(c=>`${esc(niceDate(c.date))} — ${esc(c.title)}`).join('; ')}. This would make ${others.length+1}.</p>
+        <div class="cpx-capb">${nd ? `<button class="btn mustard" data-cap="next">Move to the next open week · ${esc(niceDate(nd))}</button>` : ''}<button class="btn secondary" data-cap="backlog">Send to Backlog</button>
+        <button class="btn secondary" data-cap="keep">Keep ${others.length+1} this week</button><button class="btn ghost" data-cap="cancel">Cancel</button></div></div>`;
+      document.body.appendChild(wrap); wrap.querySelector('[data-cap]')?.focus();
+      const done = v => { wrap.remove(); resolve(v); };
+      wrap.addEventListener('click', e => { e.stopPropagation(); if (e.target === wrap) return done('cancel'); const b = e.target.closest('[data-cap]'); if (!b) return;
+        const v = b.dataset.cap; done(v === 'next' ? {date:nd} : v); });
+      wrap.addEventListener('keydown', e => { if (e.key === 'Escape') done('cancel'); }); }); }
+
   /* ---------- planning week in the post window ---------- */
   const ptLabel = wk => { const t = planTitle([wk]); return `${t.name} (${t.range})`; };
   function pwField(item, isNew){
-    const fr = document.querySelector('#recordModal .field-row3'); if (!fr || document.getElementById('cpxPW')) return;
-    const wk = isNew ? weekOf(item.date) : pwOf(item);
-    fr.insertAdjacentHTML('afterend', `<div class="field-group cpx-pw"><label class="field-label" for="cpxPW">Planning week <span class="hint">where the post appears on Home</span></label>
-      <div class="cpx-pw-r"><input class="field-input" type="date" id="cpxPW" value="${esc(wk)}" aria-describedby="cpxPWt"><span class="cpx-pw-t" id="cpxPWt">${esc(ptLabel(wk))}</span></div>
-      <div class="cpx-pw-h"></div></div>`);
-    const pw = document.getElementById('cpxPW'), dt = document.getElementById('fDate'); let touched = false;
-    const HINT = 'A new date in the same week keeps the post in this row; a date in another week moves the post to that week.';
-    const show = () => { const w = weekOf(pw.value); document.getElementById('cpxPWt').textContent = w ? ptLabel(w) : 'Pick a day'; const d = dt?.value; const hint = document.querySelector('#recordModal .cpx-pw-h'); if (!hint) return;
-      const out = !!(d && w && weekOf(d) !== w); hint.classList.toggle('warn', out);
-      hint.textContent = out ? `The post date (${niceDate(d)}) is outside this planning week — the post stays in this week's row.` : HINT; };
-    pw.addEventListener('input', () => { touched = true; modalDirty = true; show(); }); pw.addEventListener('change', () => { touched = true; modalDirty = true; show(); });
-    const follow = () => { const w = weekOf(dt.value); if (!touched && w) pw.value = w; show(); };      /* the post moves with its date unless the planning week was picked by hand */
-    dt?.addEventListener('change', follow); dt?.addEventListener('input', follow);
+    const fr = document.querySelector('#recordModal .field-row3'); if (!fr || document.getElementById('cpxWk')) return;
+    const ph = isNew ? 'caption' : (item.phase || 'both');
+    fr.insertAdjacentHTML('afterend', `<div class="cpx-wkph"><div class="field-group"><span class="field-label">Week <span class="hint">set by the post date</span></span><div class="cpx-wk" id="cpxWk" aria-live="polite"></div></div>
+      <div class="field-group"><label class="field-label" for="cpxPhase">Phase</label><div class="cpx-phsel"><select class="field-select" id="cpxPhase">${Object.entries(PHASES).map(([k, l])=>`<option value="${k}" ${k===ph?'selected':''}>${esc(l)}</option>`).join('')}</select>
+      ${!isNew && ph==='caption' && item.status==='Approved' && !A.client ? `<button type="button" class="btn secondary small" data-cpxmtg="${esc(item.id)}">Move to Graphics ▸</button>` : ''}</div></div></div>`);
+    const dt = document.getElementById('fDate'); const show = () => { const w = weekOf(dt?.value); document.getElementById('cpxWk').textContent = w ? ptLabel(w) : 'Pick a post date'; };
+    dt?.addEventListener('change', show); dt?.addEventListener('input', show); document.getElementById('cpxPhase').addEventListener('change', () => { modalDirty = true; });
     show();
   }
-  { const _rp = readPostForm; readPostForm = function(){ const o = _rp.apply(this, arguments); const v = document.getElementById('cpxPW')?.value; const w = weekOf(v); if (w) o.planWeek = w; return o; }; }
+  { const _rp = readPostForm; readPostForm = function(){ const o = _rp.apply(this, arguments); const ph = document.getElementById('cpxPhase')?.value; if (ph) o.phase = ph; return o; }; }
+  /* "Move to Graphics": the caption & topic are approved, the graphics phase starts */
+  document.addEventListener('click', async e => { const b = e.target.closest?.('[data-cpxmtg]'); if (!b) return; e.stopPropagation(); e.preventDefault();
+    const it = findContent(b.dataset.cpxmtg); if (!it) return;
+    if (document.getElementById('recordModal')?.classList.contains('open')) await closeRecordModal(true);
+    if (await saveContent(it.id, { phase:'graphics', status:'In Progress' })){ logActivity(`moved ${postRef(it)} to the ${B('Graphics')} phase`); toast('Graphics phase started — status In Progress'); } }, true);
   { const _or2 = openRecordModal; openRecordModal = function(contentId){ const r = _or2.apply(this, arguments); const it = findContent(contentId); if (it) pwField(it, false); return r; }; }
   { const _np2 = openNewPostModal; openNewPostModal = function(clientId, dateKey){ const r = _np2.apply(this, arguments); pwField({date: document.getElementById('fDate')?.value || dateKey || todayKey()}, true); return r; }; }
 
   /* ---------- writes: keep the planning week when the date moves; remember what changed for the activity entry ---------- */
-  const FL = {title:'Title', caption:'Caption', topicCaption:'Text on the graphic', sourceLink:'Content link', outputLink:'Output link', photoLink:'Photo source', date:'Posting date', planWeek:'Planning week', status:'Status', type:'Content type', bucket:'Content bucket', platforms:'Social media'};
+  const FL = {title:'Title', caption:'Caption', topicCaption:'Text on the graphic', sourceLink:'Content link', outputLink:'Output link', photoLink:'Photo source', date:'Posting date', planWeek:'Week', phase:'Phase', status:'Status', type:'Content type', bucket:'Content bucket', platforms:'Social media'};
   const short = v => { const s = String(v ?? ''); return s.length > 300 ? s.slice(0, 297) + '…' : s; };
-  const fmtV = (k, v) => k === 'status' ? statusLabel(v) : k === 'planWeek' ? (v ? ptLabel(v) : '') : k === 'date' ? (v ? niceDate(v) : '') : short(v);
+  const fmtV = (k, v) => k === 'phase' ? (PHASES[v] || v || '') : k === 'status' ? statusLabel(v) : k === 'planWeek' ? (v ? ptLabel(v) : '') : k === 'date' ? (v ? niceDate(v) : '') : short(v);
   const itemLabel = c => c ? `${c.title || '(untitled)'} · ${clientById(c.client).name}` : '';
   const pend = (item, changes) => { X.pend = {at:Date.now(), item, changes:(changes||[]).slice(0, 12)}; };
   { const _sc = saveContent; saveContent = async function(id, patch){ const it = findContent(id); patch = {...(patch||{})};
-      if (it && 'date' in patch && patch.date && patch.date !== it.date){ const cur = pwOf(it), nw = weekOf(patch.date), given = weekOf(patch.planWeek);
-        if (!given || given === cur){ if (nw && nw !== cur) patch.planWeek = nw;          /* moved to another week: the card moves with it */
-          else patch.planWeek = cur; } }                                                 /* same week: it stays in its row */
-      if (patch.planWeek) patch.planWeek = weekOf(patch.planWeek) || patch.planWeek;
+      delete patch.planWeek;
+      if (it && 'date' in patch && patch.date && weekOf(patch.date) !== weekOf(it.date) && !X.noCap){ const r = await capCheck({...it, ...patch}, it.id);
+        if (r === 'cancel') return false;
+        if (r === 'backlog'){ if (document.getElementById('recordModal')?.classList.contains('open')) await closeRecordModal(true); await sendToBacklog({...it, ...patch}); return false; }
+        if (r && r.date) patch.date = r.date; }
+      if (patch.date) patch.planWeek = weekOf(patch.date);
       if (it){ const ch = Object.keys(FL).filter(k => k in patch && String(patch[k] ?? '') !== String((k==='planWeek' ? pwOf(it) : it[k]) ?? '')).map(k => ({f:FL[k], from:fmtV(k, k==='planWeek' ? pwOf(it) : it[k]), to:fmtV(k, patch[k])}));
         pend(itemLabel({...it, ...patch, title: patch.title || it.title}), ch); }
       return _sc.call(this, id, patch); }; }
-  { const _cc = createContent; createContent = async function(data){ data = {...(data||{})}; data.planWeek = weekOf(data.planWeek) || weekOf(data.date) || weekOf(todayKey());
+  { const _cc = createContent; createContent = async function(data){ data = {...(data||{})}; if (!data.phase) data.phase = 'caption';
+      if (data.date && data.client && !X.noCap){ const r = await capCheck(data, null);
+        if (r === 'cancel') return null;
+        if (r === 'backlog'){ const ok = await addBacklogDoc({ client:data.client, title:data.title, bucket:data.bucket, type:data.type, note:[data.topicCaption, `Was planned for ${niceDate(data.date)}.`].filter(Boolean).join('\n'), caption:data.caption, sourceLink:data.sourceLink, photoLink:data.photoLink });
+          if (ok){ toast('Sent to Backlog'); if (document.getElementById('recordModal')?.classList.contains('open')) closeRecordModal(true); } return null; }
+        if (r && r.date) data.date = r.date; }
+      data.planWeek = weekOf(data.date) || weekOf(todayKey());
       pend(itemLabel(data), [{f:'Planning week', from:'', to:ptLabel(data.planWeek)}, ...(data.date ? [{f:'Posting date', from:'', to:niceDate(data.date)}] : [])]);
       return _cc.call(this, data); }; }
   { const _rc = removeContent; removeContent = async function(id){ const it = findContent(id); if (it) pend(itemLabel(it), []); return _rc.apply(this, arguments); }; }
@@ -38697,7 +38735,14 @@ function cpxHubExt(){
   if (state.ready) render();
 }
 /* the add-on goes into a hub page, after the hub; `api` names the function in the portal that hands it its helpers */
-function cpxInject(h, api){ const add = `<style>${CPX_HUB_CSS}</style><script>window.__CPX = (function(){ try{ return ${api}; }catch(e){ return {}; } })();</` + `script><script>(${cpxHubExt.toString()})();</` + `script>`;
+function cpxStatusPatch(h){ const R = [
+    ["const STATUSES = ['','In Progress','For Review','For Revision','Approved','Scheduled','Queued','Posted'];", "const STATUSES = ['','In Progress','For Review','For Client Approval','For Revision','Approved','Scheduled','Queued','Posted'];"],
+    ["const statusLabel = s => s || 'No status';", "const statusLabel = s => ({'':'Draft','For Review':'For PM Review'})[s||''] || s;"],
+    ["'For Review':'var(--st-review)', ", "'For Review':'var(--st-review)', 'For Client Approval':'#D9480F', "],
+    ["'For Review':'Ready for Yam or Marj to check',", "'For Review':'Ready for the PM to check', 'For Client Approval':'Sent to the client for approval',"]];
+  for(const [a, b] of R){ if(h.includes(a)) h = h.replace(a, b); else console.warn('hub status patch not applied:', a.slice(0, 40)); }
+  return h; }
+function cpxInject(h, api){ h = cpxStatusPatch(h); const add = `<style>${CPX_HUB_CSS}</style><script>window.__CPX = (function(){ try{ return ${api}; }catch(e){ return {}; } })();</` + `script><script>(${cpxHubExt.toString()})();</` + `script>`;
   const i = h.lastIndexOf('</body>'); return i < 0 ? h + add : h.slice(0, i) + add + h.slice(i); }
 { const _d = cphDoc; cphDoc = function(theme){ return cpxInject(_d.apply(this, arguments), 'parent.cpxHubApi()'); }; }
 const CPX_HUB_CSS = `
@@ -38749,6 +38794,13 @@ const CPX_HUB_CSS = `
 .cpx-plan-m .cpx-tgt{font-size:12.5px;padding:4px 11px}.cpx-plan-m .cpx-tgt b{color:inherit;font-size:13.5px}
 .add-card.cpx-slot{min-height:54px;font-size:12px}
 .cpx-pdate{font-size:11.5px;font-weight:700;color:var(--ink-soft)}.cpx-pdate.out{color:#B45309}
+.cpx-over{margin-left:8px;font-size:11px;font-weight:800;color:#92400E;background:#FEF3C7;border:1px solid #FCD34D;border-radius:99px;padding:1px 8px;white-space:nowrap}
+.cpx-phrow{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:-2px 0 4px}.cpx-ph{font-size:10.5px;font-weight:800;letter-spacing:.02em;border-radius:6px;padding:1px 7px;background:var(--surface-2);color:var(--ink-soft);border:1px solid var(--line)}
+.cpx-ph-caption{background:#EEF2FF;color:#3730A3;border-color:#C7D2FE}.cpx-ph-graphics{background:#FCE7F3;color:#9D174D;border-color:#FBCFE8}
+.cpx-ret{font-size:10.5px;font-weight:800;color:#B91C1C}.cpx-mtg{margin-left:auto;border:1px solid #C7D2FE;background:#EEF2FF;color:#3730A3;border-radius:8px;font:800 11px inherit;padding:2px 8px;cursor:pointer}
+.cpx-wkph{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:14px;margin:4px 0 2px}.cpx-wk{font-weight:800;padding:10px 0 4px}.cpx-phsel{display:flex;gap:8px;align-items:center}
+.cpx-cap p{margin:6px 0 12px;line-height:1.5}.cpx-capb{display:flex;flex-wrap:wrap;gap:8px}
+@media(max-width:640px){.cpx-wkph{grid-template-columns:1fr}}
 .cpx-genbar{font-size:11.5px;font-weight:700;color:#3D5A6E;background:rgba(255,255,255,.55);border:1px dashed #9DB4C4;border-radius:9px;padding:5px 8px}
 .cpx-genbar select{margin-left:4px;font-size:11.5px;padding:2px 6px;border-radius:7px;border:1px solid #9DB4C4;background:#fff}
 .cpx-marks{display:flex;flex-wrap:wrap;gap:6px 12px;margin:0 0 10px;font-size:12px}.cpx-mk{display:inline-flex;align-items:center;gap:6px}.cpx-mk-d{font-weight:700;color:var(--ink-soft)}
@@ -39195,9 +39247,10 @@ function cbThumb(p){ const f = (p.files||[]).find(x=>/^image\//.test(x.type||'')
   return src ? `<img src="${esc(src)}" alt="" loading="lazy" referrerpolicy="no-referrer" data-cbxtile="${esc(p.id)}">` : cbxTile(p); }
 document.addEventListener('error', e => { const i = e.target; if(i && i.tagName==='IMG' && i.dataset?.cbxtile){ const p = cbPosts().find(x=>x.id===i.dataset.cbxtile); if(p) i.outerHTML = cbxTile(p); } }, true);
 function cbCard(p, showMod){ const s = cbxStatus(p), cl = p.brand || CB.data?.client?.name || '';
-  return `<article class="cb-card cbx-card" tabindex="0" role="button" aria-label="${esc(p.title)} — ${esc(s.t)}" onclick="cbOpenPost('${esc(p.id)}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();cbOpenPost('${esc(p.id)}')}">
+  const ph = {caption:['Caption & topic',''], graphics:['Graphics','g'], both:['Caption + graphics','b']}[p.phase||'both'] || ['', 'b'];
+  return `<article class="cb-card cbx-card" data-cbxcard="${esc(p.id)}" tabindex="0" role="button" aria-label="${esc(p.title)} — ${esc(s.t)}" onclick="cbOpenPost('${esc(p.id)}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();cbOpenPost('${esc(p.id)}')}">
     <div class="cb-thumb">${cbThumb(p)}</div><div class="cb-cbody"><div class="cb-top2"><span class="badge ${s.c}">${esc(s.t)}</span>${p.rounds?`<span class="cb-round">Round ${p.rounds+1}</span>`:''}${showMod?`<span class="cb-mod">${cbModIco(p.module)} ${esc(p.module==='content'?'Content Planning Board':cbModLabel(p.module))}</span>`:''}</div>
-    <h3>${esc(p.title)}</h3>
+    <h3>${esc(p.title)}</h3>${p.status!=null?`<div class="cbx-st">● ${esc(p.status)}<i class="${ph[1]}">${esc(ph[0])}</i></div>`:''}
     <dl class="cbx-facts"><div><dt>Client</dt><dd>${esc(cl)}</dd></div><div><dt>Date</dt><dd>${esc(cbFmt(p.date))}</dd></div><div><dt>Platform</dt><dd>${esc(p.platforms||'—')}</dd></div><div><dt>Type</dt><dd>${esc(p.type||'—')}</dd></div></dl>
     ${p.caption?`<p class="cbx-cap">${esc(p.caption.slice(0, 140))}${p.caption.length>140?'…':''}</p>`:''}</div></article>`; }
 /* a Canva design shared for viewing shows inside the post; anything else opens in a new tab */
@@ -39217,12 +39270,12 @@ function cbOverview(){
   const sec = (id, h, sub, L, more) => L.length ? `<section class="cb-sec2 cbx-sec" id="cbx-${id}"><div class="cbx-sh"><h3>${h} <i>${L.length}</i></h3>${sub?`<p>${sub}</p>`:''}</div><div class="cb-grid">${L.slice(0, more||8).map(p=>cbCard(p, cbMods().length>1)).join('')}</div>${L.length>(more||8)?`<div class="cb-dim" style="margin-top:8px">+ ${L.length-(more||8)} more — open the service in the menu to see all.</div>`:''}</section>` : '';
   const act = P.flatMap(p=>(p.history||[]).filter(h=>h.you).map(h=>({at:h.at, t:`You ${String(h.act||'').replace(/^Client /, '').toLowerCase()} “${p.title}”`})).concat((p.thread||[]).filter(m=>!m.you).map(m=>({at:m.at, t:`Cross Core replied on “${p.title}”: ${m.text}`})))).sort((a, b)=>String(b.at).localeCompare(String(a.at))).slice(0, 6);
   const lg = d.leadgen, rep = (d.reports||[])[0];
-  const decide = role==='approver' ? 'Approve, request changes or leave a comment.' : role==='reviewer' ? 'Leave a comment or request changes — an approver on your team approves.' : 'You can view these items.';
+  const decide = role!=='viewer' ? 'Approve, request changes or leave a comment.' : 'You can view these items.';
   return `<div class="cb-hello"><h2>Hello${nm?', '+esc(nm):''} 👋</h2><p>Here’s what needs your attention across ${cbMods().map(m=>esc(m.id==='content'?'the Content Planning Board':m.name)).join(', ')||'your services'}.</p></div>${P.length?cbKpis(P):''}
     ${review.length || again.length ? '' : `<div class="cb-empty">🎉 Nothing is waiting for your review right now.</div>`}
-    ${sec('review', 'Waiting for your review', decide, review)}
-    ${sec('again', 'Updated — ready for another look', 'The team made the changes you asked for. Please review them again.', again)}
-    ${sec('changes', 'Changes requested', 'Our team is working on your feedback. These come back here when they’re ready.', changes)}
+    ${sec('review', 'Waiting for your review', decide, review, 999)}
+    ${sec('again', 'Updated — ready for another look', 'The team made the changes you asked for. Please review them again.', again, 999)}
+    ${sec('changes', 'Changes requested', 'Our team is working on your feedback. These come back here when they’re ready.', changes, 999)}
     ${sec('done', 'Recently approved, scheduled & published', '', done, 8)}
     <div class="cb-two">${lg?`<div class="cb-panel"><h3>Lead generation snapshot</h3><div class="cb-snap"><div><b>${lg.prospects.length}</b><small>prospects</small></div><div><b>${(lg.funnel[0]||{}).n||0}</b><small>${esc((lg.funnel[0]||{}).stage||'top stage')}</small></div><div><b>${lg.activities.reduce((s, a)=>s+a.n, 0)}</b><small>activities</small></div></div><button class="cb-link" onclick="CB.view='leadgen';cbRender()">Open Lead Generation →</button></div>`:''}
       ${rep?`<div class="cb-panel"><h3>Latest report</h3><div class="cb-rowl"><b>${esc(rep.label)}</b><small>${esc(rep.kind||'')} · shared ${esc(cbFmtL(rep.sharedAt||rep.to))}</small></div><button class="cb-link" onclick="CB.view='reports';CB.rep='${esc(rep.id)}';cbRender()">Open report →</button></div>`:''}
@@ -39288,6 +39341,165 @@ document.addEventListener('paste', e => { const ta = e.target.closest?.('#cbModa
 #cbApp .cbx-canva{display:flex;flex-direction:column;gap:6px}#cbApp .cbx-onboard{margin-left:auto;border:0;background:none;color:#8a5a06;font:700 12px Inter,sans-serif;cursor:pointer;padding:2px 0}
 @media(max-width:860px){#cbApp .cb-nav{flex-wrap:wrap;overflow:visible}#cbApp .cbx-grp{display:contents}#cbApp .cbx-gl{display:contents}#cbApp .cbx-gl[hidden]{display:none}#cbApp .cb-nav .cbx-gh{border:1px solid rgba(255,255,255,.14)}#cbApp .cbx-chev{transform:rotate(-90deg)}#cbApp .cbx-grp.open .cbx-chev{transform:rotate(90deg)}}
 @media(max-width:640px){#cbApp .cbx-facts-w{grid-template-columns:repeat(2,minmax(0,1fr))}}`; document.head.appendChild(st); })();
+
+/* ===== t25_workflow.js — weeks, the two-phase status flow, and the reviewer's Overview (Nov 6 2026 · 2) =====
+   1. The post date decides the week a post sits in (Monday–Sunday): "November WE 3" covers Nov 16–22. There is no
+      separate planning-week field any more; the week is shown next to the post date. A third post for a brand in one
+      week asks first (move to the next open week · send to Backlog · keep 3 · cancel) — see the hub add-on.
+   2. Status flow, the same for the team and the client:
+        Draft → In Progress → For PM Review → For Client Approval → Approved → Scheduled / Queued / Posted
+        For Revision whenever the PM or the client sends it back (the card says who, and the round).
+      Each post has a phase: Caption & topic → Graphics ("Move to Graphics ▸" once the caption is approved), or
+      Caption + graphics together. Everyone who works on the client — the PM, the VA and the client's reviewer /
+      approver — can move a post to any status.
+   3. Overview: Full Board links open the post in the Content Planning Board (the same window and rights) with
+      "← Back to Overview"; approval links show every field of the post with separate Content / Output / Photo
+      buttons. Comments carry "Marj (Client)" or the name of someone else on the client's side. */
+const CPX_PHASES = {caption:'Caption & topic', graphics:'Graphics', both:'Caption + graphics'};
+const cpxHubLabel = s => ({'':'Draft', 'For Review':'For PM Review'})[s||''] ?? s;
+
+/* ---------- 2. the internal store: For Client Approval, open moves, phases ---------- */
+CPH_TO_BOARD['For Client Approval'] = PCA; CPH_FROM_BOARD[PCA] = 'For Client Approval'; CPH_FIELDS.phase = 'phase';
+if(typeof CBF_TO_BOARD!=='undefined') CBF_TO_BOARD['For Client Approval'] = PCA;
+{ const _so = cphStatusOf; cphStatusOf = function(t){ return t && t.status===PCA ? 'For Client Approval' : _so.apply(this, arguments); }; }
+cphCheckStatus = function(t, s){ if(!canEditContent(t)) throw cphDeny('You can only change posts for clients you work on.'); if(!(s in CPH_TO_BOARD)) throw cphDeny('That status isn’t available.'); };
+cphApplyStatus = function(t, s, note){ const b = CPH_TO_BOARD[s] ?? 'Draft'; t.hubStatus = s;
+  if(b!==t.status){ if(b==='Revisions Needed' && !note){ const f = HUBDOCS.filter(d=>d.col==='feedback' && d.d?.contentId===t.id && d.d?.kind==='changes').sort((x,y)=>String(y.d.createdAt).localeCompare(String(x.d.createdAt)))[0]; note = f ? `${f.d.author}: ${f.d.note}` : 'Sent back for revision in the Content Planning Hub'; }
+    if(b===PCA && !note) note = 'Sent to the client for approval';
+    if(t.status===PCA && b==='Approved' && !note) note = 'Client approved';
+    setTaskStatus(t, b, note); }
+  else t.updatedAt = nowISO(); };
+cbAllowed = function(t, to){ return !t || to===t.status || canEditContent(t); };
+/* who returned a post, and how many times */
+function cpxReturns(hist){ const R = (hist||[]).filter(h=>/^(Requested revisions|Revisions Needed|Client requested changes|Client rejected)$/.test(h.act||''));
+  const last = R[R.length-1]; return {round:R.length, ret:last ? ((last.client || /^Client/.test(last.act||'') || /^Client \(/.test(last.by||'')) ? 'client' : 'PM') : ''}; }
+{ const _th = cphToHub; cphToHub = function(t){ const h = _th.apply(this, arguments); h.planWeek = cpxWeekOf(cphDate(t)); h.phase = t.phase || 'both'; Object.assign(h, cpxReturns(t.history)); return h; }; }
+{ const _cc = cphCreate; cphCreate = function(id, d){ const t = _cc.apply(this, arguments); if(t){ t.phase = ['caption','graphics','both'].includes(d?.phase) ? d.phase : 'caption'; t.planWeek = cpxWeekOf(cphDate(t)); } return t; }; }
+{ const _cu = cphUpdate; cphUpdate = function(id, patch){ const t0 = TASKS.find(x=>x.id===id); const w0 = t0 ? cpxWeekOf(cphDate(t0)) : '';
+    if(patch && 'phase' in patch && !['caption','graphics','both'].includes(patch.phase)) patch = {...patch, phase:'both'};
+    if(patch) { patch = {...patch}; delete patch.planWeek; }
+    const r = _cu.call(this, id, patch); const t = TASKS.find(x=>x.id===id);
+    if(t){ const w = cpxWeekOf(cphDate(t)); if(w && t.planWeek!==w){ t.planWeek = w; if(w0 && w0!==w) t.history = [...(t.history||[]), {by:pname(PERSON), who:PERSON, act:'Moved to another week', note:`week of ${fmtD(w0)} → week of ${fmtD(w)} (the post date moved)`, when:dtstr(nowISO()), at:nowISO()}]; } }
+    return r; }; }
+
+/* ---------- 1. the Content Board item: the week is shown, set by the post date ---------- */
+{ const _st = saveTaskEdits; saveTaskEdits = function(id){ const r = _st.apply(this, arguments); const t = TASKS.find(x=>x.id===id);
+    if(t && cphPostLike(t)){ const w = cpxWeekOf(cphDate(t)); if(w && t.planWeek!==w){ t.planWeek = w; recordChange(); } }
+    const lab = el('cpxWkLbl'); if(lab && t) lab.textContent = cpxWeekName(cpxWeekOf(cphDate(t)));
+    return r; }; }
+function cpxWeekName(wk){ if(!wk) return '—'; const mon = new Date(wk+'T00:00:00'), fri = new Date(mon); fri.setDate(mon.getDate()+4);
+  const M = d => d.toLocaleDateString('en-US', {month:'long'}); const n = Math.ceil(fri.getDate()/7);
+  return `${M(fri)} WE ${n} (${M(mon)} ${mon.getDate()}–${M(fri)===M(mon)?'':M(fri)+' '}${fri.getDate()})`; }
+{ const _ot = openTask; openTask = function(id){ const r = _ot.apply(this, arguments); const t = TASKS.find(x=>x.id===id); const pw = el('tePlanWeek');
+    if(pw && t){ const f = pw.closest('.field'); f.innerHTML = `<label>Week <span class="hint">set by the post date — Monday to Sunday</span></label><div id="cpxWkLbl" style="font-weight:700;padding:6px 0">${esc(cpxWeekName(cpxWeekOf(cphDate(t))))}</div>`; }
+    return r; }; }
+
+/* ---------- demo mode: the same rules as the database ---------- */
+cbfDemoHubStatus = function(t){ if(t.status===PCA) return 'For Client Approval';
+  if(t.hubStatus!=null && CBF_TO_BOARD[t.hubStatus]===t.status) return t.hubStatus;
+  return ({'Draft':'', 'In Progress':'In Progress', 'For Approval':'For Review', 'Revisions Needed':'For Revision', 'Approved':'Approved', 'Completed':'Posted'})[t.status] ?? ''; };
+{ const _p = cbfDemoPost; cbfDemoPost = function(t, db){ const p = _p.apply(this, arguments); p.status = cbfDemoHubStatus(t); p.planWeek = cpxWeekOf(p.date); p.phase = t.phase || 'both'; return p; }; }
+{ const _f = cbfDemo; cbfDemo = async function(db, l, action, a){
+    if(action!=='fwrite' || a?.col!=='content' || l?.access!=='full' || (l.role||'approver')==='viewer') return _f.apply(this, arguments);
+    const id = String(a.id||''), d = {...(a.data||{})}, perms = cbfPerms(l), who = l.name || 'Client', at = nowISO();
+    const when = new Date().toLocaleString('en-US', {month:'short', day:'numeric', hour:'numeric', minute:'2-digit', timeZone:'Asia/Manila'});
+    const hist = (act, note, extra) => ({by:`Client (${who})`, who:null, act, note, when, at, cv:true, client:true, ...(extra||{})});
+    const fail = error => ({ok:false, error});
+    delete d.planWeek;
+    if(a.op==='add' || a.op==='set'){ if(!(db.tasks||{})[id]){ const ns = d.status || ''; delete d.status;
+        if(!(ns in CBF_TO_BOARD)) return fail('That status isn’t available.');
+        const r = await _f.call(this, db, l, action, {...a, data:d}); if(!r || !r.ok) return r;
+        const t = DemoBackend.read().tasks[id]; if(!t) return r;
+        t.phase = ['caption','graphics','both'].includes(d.phase) ? d.phase : 'caption'; t.planWeek = cpxWeekOf(cbfDemoPost(t, db).date);
+        if(ns){ t.hubStatus = ns; t.status = CBF_TO_BOARD[ns]; t.history = [...(t.history||[]), hist(CBF_TO_BOARD[ns], 'Moved by the client to ' + cpxHubLabel(ns))]; }
+        await DemoBackend.write([{collection:'tasks', id, data:t}], []); return {...r, post:cbfDemoPost(t, DemoBackend.read())}; }
+      if(a.op==='set') a = {...a, op:'update'}; }
+    if(a.op!=='update') return _f.call(this, db, l, action, {...a, data:d});
+    const t = (db.tasks||{})[id]; if(!t || t.client!==l.client || t.archived) return fail('That post is not on your board.');
+    const changed = [], H = []; const FLD = {title:'title', bucket:'bucket', platforms:'platforms', sourceLink:'content link', topicCaption:'text on the graphic', caption:'caption', outputLink:'output link', photoLink:'photo source', type:'content type', phase:'phase'};
+    for(const [k, label] of Object.entries(FLD)){ if(!(k in d)) continue; let v = String(d[k]??'').slice(0, k==='caption'?6000:3000); if(k==='phase' && !['caption','graphics','both'].includes(v)) v = 'both';
+      const key = k==='type' ? 'hubType' : k; const now = k==='type' ? (t.hubType ?? (t.type==='Video / reel'?'Reel':t.type==='Design'?'Still Image':'')) : k==='phase' ? (t.phase||'both') : (t[key]??'');
+      if(v===String(now)) continue; t[key] = v; changed.push(label); if(k==='bucket' && !t.theme) t.theme = v; }
+    if(changed.length && !perms.edit) return fail('Editing posts isn’t switched on for your access — leave feedback instead.');
+    const curDate = cbfDemoPost(t, db).date, nd = String(d.date||'').slice(0, 10);
+    if(/^\d{4}-\d{2}-\d{2}$/.test(nd) && nd!==curDate){ if(!(perms.edit||perms.move)) return fail('Rescheduling isn’t switched on for your access.');
+      const w0 = cpxWeekOf(curDate), w1 = cpxWeekOf(nd); changed.push(`post date ${curDate} → ${nd}`); if(w0!==w1) changed.push(`week ${w0} → ${w1}`);
+      t.postDate = nd; t.due = new Date(nd+'T00:00:00+08:00').toISOString(); }
+    t.planWeek = cpxWeekOf(cbfDemoPost(t, db).date);
+    if(d.owner && d.owner!==(t.assignee||'')) return fail('Your Cross Core team assigns who works on each post.');
+    if('status' in d && (d.status||'')!==cbfDemoHubStatus(t)){ const ns = d.status||'';
+      if(!perms.move) return fail('Moving cards isn’t switched on for your access — leave feedback instead.');
+      if(!(ns in CBF_TO_BOARD)) return fail('That status isn’t available.');
+      if(ns==='Approved'){ t.clientDecision = {kind:'approval', at, name:who, note:'', role:l.role}; H.push(hist('Client approved', 'Approved on the Content Planning Board', {from:t.status})); }
+      else if(ns==='For Revision'){ t.clientDecision = {kind:'revision', at, name:who, note:'', role:l.role}; H.push(hist('Client requested changes', 'Returned to For Revision by the client', {from:t.status})); }
+      else H.push(hist(CBF_TO_BOARD[ns], 'Moved by the client to ' + cpxHubLabel(ns), {from:t.status}));
+      t.hubStatus = ns; t.status = CBF_TO_BOARD[ns]; }
+    if(changed.length) H.unshift(hist('Edited by the client in the Content Planning Board', changed.join(', ')));
+    t.updatedAt = at; t.updatedBy = 'client'; t.history = [...(t.history||[]), ...H];
+    await DemoBackend.write([{collection:'tasks', id, data:t}], []); return {ok:true, post:cbfDemoPost(t, DemoBackend.read())}; }; }
+/* the approval portal (demo): every role but viewer decides; the chosen name is used */
+{ const _dl = cbDemoLink; cbDemoLink = async function(db){ const l = await _dl.apply(this, arguments); if(!l) return l; const o = {...l}; if(CBX.who) o.name = CBX.who; if(CBX.decide && o.role==='reviewer') o.role = 'approver'; return o; }; }
+{ const _po = cbPostOut; cbPostOut = function(t, c, thread){ const p = _po.apply(this, arguments); p.status = cpxHubLabel(cbfDemoHubStatus(t)); p.phase = t.phase || 'both'; if(p.stage!=='planned') p.sourceLink = t.sourceLink || ''; return p; }; }
+
+/* ---------- the client's board: phase, who returned it ---------- */
+{ const _co = cbfColl; cbfColl = function(col){ const L = _co.apply(this, arguments); if(col!=='content') return L;
+    const P = Object.fromEntries((CBF.data?.posts||[]).map(p=>[p.id, p]));
+    return L.map(([id, d])=>{ const p = P[id]; if(!p || !d) return [id, d]; return [id, {...d, phase:p.phase||'both', planWeek:cpxWeekOf(p.date), ...cpxReturns((p.history||[]).map(h=>({...h, client:/^Client \(/.test(h.by||'')})))}]; }); }; }
+
+/* ---------- names: "Marj (Client)" or someone else on the client's side ---------- */
+CBX.who = '';
+{ const _api = cbApi; cbApi = async function(action, a={}){ CB.name = CBX.who;
+    if(action==='act' || action==='note') a = {...a, name:CBX.who};
+    CBX.decide = action==='act' && ['approve','reject'].includes(a.action);
+    try{ return await _api.call(this, action, a); } finally { CBX.decide = false; } }; }
+const cbxDefaultName = () => `${CB.data?.me?.name || CB.data?.client?.account || CB.data?.client?.name || 'Client'} (Client)`;
+function cbxWhoHTML(){ return `<div class="cbx-who"><label>Replying as <select id="cbxWho" aria-label="Replying as"><option value="">${esc(cbxDefaultName())}</option><option value="__o" ${CBX.who?'selected':''}>Someone else…</option></select></label>
+  <input id="cbxWhoName" placeholder="Their name" maxlength="60" value="${esc(CBX.who)}" ${CBX.who?'':'hidden'} aria-label="Their name"></div>`; }
+document.addEventListener('change', e => { if(e.target.id==='cbxWho'){ const n = document.getElementById('cbxWhoName'); if(e.target.value==='__o'){ n.hidden = false; n.focus(); } else { n.hidden = true; n.value = ''; CBX.who = ''; } } });
+document.addEventListener('input', e => { if(e.target.id==='cbxWhoName') CBX.who = e.target.value.replace(/[<>]/g, '').trim().slice(0, 60); });
+{ const _ca = cbfCpxApi; cbfCpxApi = function(){ const A = _ca.apply(this, arguments); return {...A, setName:n => { CBX.who = String(n||'').replace(/[<>]/g, '').trim().slice(0, 60); }, defaultName:cbxDefaultName}; }; }
+{ const _h = cbfHost; cbfHost = function(){ const H = _h.apply(this, arguments); return {...H, authors:()=>[cbxDefaultName(), 'Someone else…']}; }; }
+
+/* ---------- 3. Overview ---------- */
+CBX.back = null;
+{ const _op = cbOpenPost; cbOpenPost = function(id, keep){ const p = cbPosts().find(x=>x.id===id);
+    if(p && CBF.on && p.module==='content' && !keep){ CBX.back = {id}; cbClose(); CB.view = 'content'; cbRender(); scrollTo(0, 0);       /* the same post window and rights as the board */
+      (async()=>{ for(let i=0; i<40; i++){ if(CBF.ready && CBF.frame?.contentWindow?.__hub){ cbfOpen(id); break; } await new Promise(r=>setTimeout(r, 250)); } })(); return; }
+    const r = _op.apply(this, arguments); const dlg = document.querySelector('#cbModal .cb-dlg'); if(!p || !dlg) return r;
+    const fact = (l, v) => `<div><dt>${l}</dt><dd>${esc(v||'—')}</dd></div>`;
+    const facts = dlg.querySelector('.cbx-facts-w'); if(facts) facts.outerHTML = `<dl class="cbx-facts cbx-facts-w cbx-facts-x">${fact('Post date', cbFmt(p.date))}${fact('Week', cpxWeekName(cpxWeekOf(p.date)))}${fact('Status', p.status)}${fact('Phase', CPX_PHASES[p.phase||'both'])}${fact('Social media', p.platforms)}${fact('Content type', p.type)}${fact('Bucket', p.bucket)}${fact('Client', p.brand || CB.data.client.name)}</dl>`;
+    const btn = (l, u) => cbSafe(u) ? `<a class="cbx-lnk" href="${esc(cbSafe(u))}" target="_blank" rel="noopener noreferrer">${l} ↗</a>` : `<span class="cbx-lnk off">No ${l.toLowerCase()}</span>`;
+    if(p.stage!=='planned'){ dlg.querySelector('.cbx-facts-x')?.insertAdjacentHTML('afterend', `<div class="cbx-lnks">${btn('Content link', p.sourceLink)}${btn('Output link', p.outputLink)}${btn('Photo source', p.photoLink)}</div>`);
+      dlg.querySelectorAll('.cb-prev > a.cb-open, .cbx-canva > a.cb-open').forEach(a=>a.remove()); }
+    const tl = dlg.querySelector('.cb-tl'); if(tl && (p.history||[]).length > 1){ const sec = tl.closest('.cb-sec'); const last = p.history[p.history.length-1];
+      sec.outerHTML = `<details class="cb-sec cbx-prog"><summary><b>Progress</b> · ${esc(last.act||'')} <span class="cb-dim">${esc(cbAgo(last.at))}</span> <span class="cb-dim">(${p.history.length} steps — show all)</span></summary>${tl.outerHTML}</details>`; }
+    const nm = dlg.querySelector('.cb-act .cb-nm, .cb-act > .cb-dim:first-child'); if(nm) nm.outerHTML = cbxWhoHTML();
+    if(cbRole()==='reviewer' && p.stage==='review'){ const bs = dlg.querySelector('.cb-btns'); if(bs && !bs.querySelector('.cb-b.ok')){ bs.insertAdjacentHTML('afterbegin', `<button class="cb-b ok" onclick="cbDo('${esc(p.id)}','approve')">✓ Approve</button>`); bs.querySelector('.cb-b.chg')?.insertAdjacentHTML('afterend', `<button class="cb-b no" onclick="cbDo('${esc(p.id)}','reject')">✕ Reject</button>`); }
+      dlg.querySelectorAll('.cb-act > .cb-dim').forEach(x=>{ if(/Only an approver/.test(x.textContent)) x.remove(); }); }
+    return r; }; }
+function cbxRoleNote(){ const n = document.querySelector('#cbApp .cb-note'); if(n && cbRole()==='reviewer') n.textContent = '💬 You can comment, request changes, approve or reject.'; }
+function cbxBackBtn(){ const top = document.querySelector('#cbApp .cb-top > div'); if(!top || CB.view!=='content' || !CBX.back || top.querySelector('.cbx-back')) return;
+  top.insertAdjacentHTML('afterbegin', `<button type="button" class="cbx-back" data-cbxback>← Back to Overview</button>`); }
+{ const _r = cbRender; cbRender = function(){ if(CB.view!=='content') CBX.back = null; const r = _r.apply(this, arguments); cbxBackBtn(); cbxRoleNote(); return r; }; }
+{ const _c = cbfChrome; cbfChrome = function(){ const r = _c.apply(this, arguments); cbxBackBtn(); return r; }; }
+document.addEventListener('click', e => { const b = e.target.closest?.('[data-cbxback]'); if(!b) return; const id = CBX.back?.id; CBX.back = null; CB.view = 'overview'; cbRender();
+  const card = id && document.querySelector(`#cbApp [data-cbxcard="${CSS.escape(id)}"]`); if(card){ card.scrollIntoView({block:'center'}); card.classList.add('cbx-flash'); setTimeout(()=>card.classList.remove('cbx-flash'), 1600); card.focus({preventScroll:true}); } else scrollTo(0, 0); });
+
+(function(){ const st = document.createElement('style'); st.textContent = `
+#cbApp .cbx-who{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px;font-size:13px;color:var(--dim)}#cbApp .cbx-who select,#cbApp .cbx-who input{border:1px solid var(--line);border-radius:9px;padding:6px 8px;font:600 13px Inter,sans-serif;background:#fff;color:var(--ink)}
+#cbApp .cbx-facts-x{grid-template-columns:repeat(4,minmax(0,1fr));gap:8px 14px}#cbApp .cbx-facts-x dd{white-space:normal}#cbApp .cbx-lnks{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 2px}
+#cbApp .cbx-lnk{border:1px solid #c9d7f0;background:#eef4ff;color:#245aa8;border-radius:9px;padding:6px 11px;font:700 12.5px Inter,sans-serif;text-decoration:none}#cbApp .cbx-lnk.off{border-style:dashed;border-color:var(--line);background:none;color:var(--dim);font-weight:600}
+#cbApp .cbx-prog summary{cursor:pointer;font-size:12.5px;list-style:none}#cbApp .cbx-prog summary::-webkit-details-marker{display:none}#cbApp .cbx-prog .cb-tl{margin-top:8px}
+#cbApp .cbx-back{border:1px solid var(--line);background:#fff;border-radius:99px;padding:7px 13px;font:700 13px Inter,sans-serif;cursor:pointer;margin-right:8px}
+#cbApp .cbx-st{font-size:11.5px;font-weight:700;color:#4b463c;margin-top:4px}#cbApp .cbx-st i{font-style:normal;font-weight:800;border-radius:6px;padding:1px 6px;margin-left:4px;background:#EEF2FF;color:#3730A3}#cbApp .cbx-st i.g{background:#FCE7F3;color:#9D174D}#cbApp .cbx-st i.b{background:#efeae0;color:#6b6558}
+#cbApp .cb-card.cbx-flash{box-shadow:0 0 0 3px var(--amb2),0 16px 32px -16px rgba(40,26,6,.45)}
+@media(max-width:640px){#cbApp .cbx-facts-x{grid-template-columns:repeat(2,minmax(0,1fr))}}`; document.head.appendChild(st); })();
+/* the client's board: every status is open to the client (no "team only" lock); the rules shown in Client access say so */
+{ const _cd = cbfDoc; cbfDoc = function(){ return String(_cd.apply(this, arguments)).replace("const team = ['Scheduled','Queued','Posted'];", 'const team = [];'); }; }
+CBF_RULES.splice(0, CBF_RULES.length, 'The client (reviewer or approver) can move a post to any status, like the team: Draft → In Progress → For PM Review → For Client Approval → Approved → Scheduled / Queued / Posted, or back to For Revision.',
+  'A post sits in the week of its post date (Monday–Sunday); a third post for a brand in one week asks first.',
+  'The client can’t reassign posts or delete anything except drafts they added.',
+  'Every client change is saved in the post’s history and the activity log, and the post owner and PM are notified.');
 
 /* <<< OCT24 MODULES <<< */
 </script>

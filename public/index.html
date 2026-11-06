@@ -20916,7 +20916,7 @@ async function cooPostFromModal(){ const ch = CHATS.find(c=>c.id===el('paPostC')
    The footer shows which build is running ("Build 2026-10-07 · 1"), and every open portal checks every few minutes
    (and whenever it comes back to the foreground) whether a newer build has been published. If so it shows
    "New version available — Update now" instead of quietly running old code. */
-const BUILD_ID = '2026-11-06 · 3';
+const BUILD_ID = '2026-11-06 · 4';
 function verStamp(){ const f = el('footNote'); if(f && !f.dataset.v){ f.dataset.v = 1; f.textContent = `Cross Core Ops Suite v8 · Build ${BUILD_ID}`; } }
 async function verCheck(){
   if(!/^https?:/.test(location.protocol)) return;
@@ -38272,30 +38272,26 @@ function cpxHubExt(){
     const weekHtml = ws.map(wk => { const r = weekRow(wk, L, today); planned += r.planned; need += r.need; return r.html; }).join('');
     const inPeriod = CONTENT.filter(c=>{ const w = pwOf(c); return w>=startKey && w<=endKey; });
     document.getElementById('main').innerHTML = `
-      <div class="page-head">
-        <div><h1>Home</h1><div class="page-sub">This week's posts for every client, side by side. Click a card for the full record; links open straight from the card.</div></div>
-        <div class="head-actions">
-          <div class="seg" role="group" aria-label="Range">
-            <button class="${state.homeViewMode==='week'?'active':''}" data-homemode="week">Week</button>
-            <button class="${state.homeViewMode==='biweekly'?'active':''}" data-homemode="biweekly">2 weeks</button>
-          </div>
-          <div class="nav-arrows">
-            <button class="arrow" id="homePrev" aria-label="Previous period" title="Previous period">‹</button>
-            <button class="range-label" id="rangeLabelBtn" title="Pick a date">${esc(rangeLabel)}</button>
-            <button class="arrow" id="homeNext" aria-label="Next period" title="Next period">›</button>
-          </div>
-          ${startKey > today || endKey < today ? `<button class="btn ghost small" id="homeToday">This week</button>` : ''}
-          <button class="btn mustard small" data-addpost="|${today >= startKey && today <= endKey ? nextPostingDay(today) : addDaysKey(startKey,1)}">+ New post</button>
+      <div class="cpx-tool" role="toolbar" aria-label="Home">
+        <div class="seg" role="group" aria-label="Range">
+          <button class="${state.homeViewMode==='week'?'active':''}" data-homemode="week">Week</button>
+          <button class="${state.homeViewMode==='biweekly'?'active':''}" data-homemode="biweekly">2 weeks</button>
         </div>
+        <div class="nav-arrows">
+          <button class="arrow" id="homePrev" aria-label="Previous period" title="Previous period">‹</button>
+          <button class="range-label" id="rangeLabelBtn" title="Pick a date">${esc(rangeLabel)}</button>
+          <button class="arrow" id="homeNext" aria-label="Next period" title="Next period">›</button>
+        </div>
+        ${startKey > today || endKey < today ? `<button class="btn ghost small" id="homeToday">This week</button>` : ''}
+        <button class="cpx-calbtn" id="cpxCalBtn" type="button" title="Pick a date on the calendar" aria-label="Open the mini calendar">📅</button>
+        <span class="cpx-info" tabindex="0" title="One row per week (Monday–Sunday). A post sits in the week of its post date. Two posts per brand, normally Tuesday and Thursday." aria-label="How weeks work">ⓘ</span>
+        <span class="cpx-sp"></span>
+        <button class="btn ghost small" id="cpxClientsBtn" type="button" aria-expanded="false">Clients ▾</button>
+        ${A.client ? '' : `<button class="btn ghost small cpx-selbtn ${X.selMode?'on':''}" id="cpxSelBtn" type="button" aria-pressed="${!!X.selMode}">${X.selMode?'✓ Done':'☑ Select'}</button>${X.selMode && inPeriod.length ? `<button class="btn ghost small" id="cpxSelAll" type="button">Select all (${inPeriod.length})</button>` : ''}`}
+        <button class="btn ghost small" id="cpxDlBtn" type="button" title="Download (.xlsx)" aria-label="Download" aria-haspopup="menu">⬇</button>
+        <button class="btn mustard small" data-addpost="|${today >= startKey && today <= endKey ? nextPostingDay(today) : addDaysKey(startKey,1)}">+ New post</button>
       </div>
-      ${comingUpHtml()}
-      <div class="cpx-plan">
-        <div class="cpx-plan-l"><h2 class="cpx-plan-t">${esc(plan.name)} <span class="cpx-plan-r">(${esc(plan.range)})</span></h2>
-          <button class="cpx-calbtn" id="cpxCalBtn" type="button" title="Pick a date on the calendar" aria-label="Open the mini calendar">📅</button></div>
-        <div class="cpx-plan-m"><span><b>${planned}</b> of <b>${need}</b> weekly posts planned</span><span><b>${inPeriod.length}</b> post${inPeriod.length===1?'':'s'} in total</span>
-          ${inPeriod.length ? `<button class="btn ghost small" id="cpxSelAll" type="button">☑ Select all in this period</button>` : ''}</div>
-      </div>
-      <div class="home-note">One row per week (Monday–Sunday) · a post sits in the week of its post date · two posts per brand, normally Tuesday and Thursday. <a href="#" id="dlRange">Download this ${numWeeks===2?'range':'week'} (.xlsx)</a> · <a href="#" id="dlMonth">Download the full month</a></div>
+      ${cpxComing()}
       ${weekHtml}`;
     const step = 7*numWeeks;
     document.getElementById('homePrev').onclick = () => { state.homeAnchor = addDaysKey(startKey, -step); render(); };
@@ -38304,10 +38300,29 @@ function cpxHubExt(){
     document.getElementById('rangeLabelBtn').onclick = (e) => { e.stopPropagation(); miniCal(e.currentTarget.getBoundingClientRect()); };
     document.getElementById('cpxCalBtn').onclick = (e) => { e.stopPropagation(); miniCal(e.currentTarget.getBoundingClientRect()); };
     const sa = document.getElementById('cpxSelAll'); if (sa) sa.onclick = (e) => { e.stopPropagation(); inPeriod.forEach(c=>X.sel.add(c.id)); decorate(); };
-    document.getElementById('dlRange').onclick = (e) => { e.preventDefault(); exportRange(startKey, endKey, `${shortDate(startKey)} – ${shortDate(endKey)}`); };
-    document.getElementById('dlMonth').onclick = (e) => { e.preventDefault(); const d = keyToDate(startKey); exportMonth(d.getFullYear(), d.getMonth()); };
+    const sb = document.getElementById('cpxSelBtn'); if (sb) sb.onclick = (e) => { e.stopPropagation(); X.selMode = !X.selMode; if (!X.selMode) X.sel.clear(); render(); };
+    document.getElementById('cpxDlBtn').onclick = (e) => { e.stopPropagation(); cpxMenu(e.currentTarget, [[`This ${numWeeks===2?'range':'week'} (.xlsx)`, ()=>exportRange(startKey, endKey, `${shortDate(startKey)} – ${shortDate(endKey)}`)], ['The full month (.xlsx)', ()=>{ const d = keyToDate(startKey); exportMonth(d.getFullYear(), d.getMonth()); }]]); };
+    document.getElementById('cpxClientsBtn').onclick = (e) => { e.stopPropagation(); cpxClients(e.currentTarget); };
+    const cu = document.getElementById('cpxCuBtn'); if (cu) cu.onclick = (e) => { e.stopPropagation(); X.cuOpen = true; try{ localStorage.setItem('cpx-cu', '1'); }catch(x){} render(); };
+    const ch = document.getElementById('cpxCuHide'); if (ch) ch.onclick = (e) => { e.stopPropagation(); X.cuOpen = false; try{ localStorage.setItem('cpx-cu', '0'); }catch(x){} render(); };
   };
   openJumpToDate = function(rect){ miniCal(rect); };
+  /* Coming up: a one-line glimpse (the next item and how many more) that opens to the full list */
+  try{ X.cuOpen = localStorage.getItem('cpx-cu') === '1'; }catch(e){ X.cuOpen = false; }
+  function cpxComing(){ const items = comingUp(); if (!items.length) return '';
+    if (X.cuOpen) return comingUpHtml().replace('<span>Coming up</span>', '<span>Coming up <button class="btn ghost small cpx-cuhide" id="cpxCuHide" type="button">Hide ▴</button></span>');
+    const it = items[0], d = daysBetween(todayKey(), it.date); const when = d <= 0 ? 'today' : d === 1 ? 'tomorrow' : `in ${d} days`;
+    return `<button class="cpx-cu" id="cpxCuBtn" type="button" aria-expanded="false"><b>Coming up</b><span class="cpx-cu-t">${esc(it.title)} · ${esc(when)}${items.length>1?` · +${items.length-1} more`:''}</span><span class="cpx-cu-s">Show ▾</span></button>`; }
+  /* small pop-up menus (download) and the clients list */
+  function cpxMenu(btn, items){ document.getElementById('cpxMenu')?.remove(); const r = btn.getBoundingClientRect(); const m = document.createElement('div'); m.id = 'cpxMenu'; m.className = 'cpx-menu'; m.setAttribute('role', 'menu');
+    m.style.top = Math.round(r.bottom + 6) + 'px'; m.style.right = Math.max(8, Math.round(innerWidth - r.right)) + 'px';
+    items.forEach(([l, fn]) => { const b = document.createElement('button'); b.type = 'button'; b.setAttribute('role', 'menuitem'); b.textContent = l; b.onclick = e => { e.stopPropagation(); m.remove(); fn(); }; m.appendChild(b); });
+    document.body.appendChild(m); m.querySelector('button')?.focus(); }
+  function cpxClients(btn){ const s = document.querySelector('.client-strip'); if (!s) return; const open = !s.classList.contains('cpx-open'); s.classList.toggle('cpx-open', open); btn.setAttribute('aria-expanded', open);
+    if (open){ const r = btn.getBoundingClientRect(); s.style.top = Math.round(r.bottom + 6) + 'px'; s.style.right = Math.max(8, Math.round(innerWidth - r.right)) + 'px'; } }
+  document.addEventListener('click', e => { if (!e.target.closest?.('#cpxMenu')) document.getElementById('cpxMenu')?.remove();
+    if (!e.target.closest?.('.client-strip, #cpxClientsBtn')){ document.querySelector('.client-strip.cpx-open')?.classList.remove('cpx-open'); document.getElementById('cpxClientsBtn')?.setAttribute('aria-expanded', 'false'); } });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape'){ document.getElementById('cpxMenu')?.remove(); document.querySelector('.client-strip.cpx-open')?.classList.remove('cpx-open'); } });
 
   /* ---------- mini calendar ---------- */
   function miniCal(rect, ym){
@@ -38415,8 +38430,14 @@ function cpxHubExt(){
       if (ok && box && !data.parentId) rteClear('main');
       return ok; }; }
 
+  /* ---------- Resources: brands and client access (the client's PM and company heads only) ---------- */
+  if (has('manage')){ const _rr = renderResources; renderResources = function(){ const r = _rr.apply(this, arguments); let M = []; try{ M = A.manage() || []; }catch(e){}
+      const main = document.getElementById('main'); if (main && M.length && !main.querySelector('.cpx-mgmt')){ (main.querySelector('.page-head') || main.firstElementChild)?.insertAdjacentHTML('afterend', `<section class="cpx-mgmt" aria-label="Management"><b>Management</b>${M.map(m=>`<span class="cpx-mg">${M.length>1?`<i>${esc(m.name)}</i>`:''}${m.brands?`<button class="btn small" type="button" data-cpxbrands="${esc(m.id)}">🏷 Brands</button>`:''}${m.access?`<button class="btn small" type="button" data-cpxaccess="${esc(m.id)}">🔗 Client access${m.pending?` <span class="cpx-badge">${m.pending}</span>`:''}</button>`:''}</span>`).join('')}<span class="cpx-mgh">Only the client’s PM and company heads see this.</span></section>`); }
+      return r; };
+    document.addEventListener('click', e => { const b = e.target.closest?.('[data-cpxbrands]'); if (b){ e.stopPropagation(); A.openBrands(b.dataset.cpxbrands); return; } const a = e.target.closest?.('[data-cpxaccess]'); if (a){ e.stopPropagation(); A.openAccess(a.dataset.cpxaccess); } }); }
+
   /* ---------- the client's post window: two compact columns (the post on the left, feedback on the right) ---------- */
-  if (A.client){ document.documentElement.classList.add('cpx-client');
+  { if (A.client) document.documentElement.classList.add('cpx-client');
     const _orc = openRecordModal; openRecordModal = function(){ const r = _orc.apply(this, arguments); const m = document.getElementById('recordModal'); const div = m?.querySelector('.record-divider');
       if (m && div && !m.querySelector('.cpx-colL')){ const L = document.createElement('div'), R = document.createElement('div'); L.className = 'cpx-colL'; R.className = 'cpx-colR';
         const kids = [...m.children].filter(n => !n.classList.contains('icon-close')); let right = false;
@@ -38424,7 +38445,11 @@ function cpxHubExt(){
         m.append(L, R); m.classList.add('cpx-2col');
         /* the post's facts and links on the left; the words (graphic text, caption) above the feedback on the right */
         const g = id => m.querySelector('#'+id)?.closest('.field-group'); const out = m.querySelector('#fOutput')?.closest('.field-row2'), src = g('fSource'), acts = L.querySelector('.modal-actions');
-        if (out && src) src.after(out); const tp = g('fTopic'), cp = g('fCaption'); if (cp) R.prepend(cp); if (tp) R.prepend(tp); if (acts) L.appendChild(acts); }
+        if (out && src) src.after(out); const tp = g('fTopic'), cp = g('fCaption'); if (cp) R.prepend(cp); if (tp) R.prepend(tp); if (acts) L.appendChild(acts);
+        const ow = g('fOwner'), tr = m.querySelector('#fType')?.closest('.field-row2'); if (ow && tr){ tr.appendChild(ow); tr.classList.replace('field-row2', 'field-row3'); }
+        m.querySelectorAll('.field-label .hint:not(#capMeta), .field-label .hint').forEach(h => { if (h.id === 'capMeta' || h.classList.contains('cpx-tip')) return; const lab = h.closest('.field-label'); lab.title = h.textContent.trim(); h.textContent = 'ⓘ'; h.classList.add('cpx-tip'); });
+        const mb = m.querySelector('#cpxMsgBtn'); if (mb){ mb.textContent = '💬 Message'; mb.title = 'Send a private message with a link to this post'; }
+        const rd = m.querySelector('.readiness'); if (rd){ rd.title = rd.textContent.trim(); m.querySelector('.record-head')?.appendChild(rd); } }
       return r; }; }
 
   /* ---------- the client's board: "Marj (Client)" or someone else on the client's side ---------- */
@@ -38437,7 +38462,7 @@ function cpxHubExt(){
       const item = findContent(contentId); if (!item) return r;
       bigCaption();
       const acts = document.querySelector('#recordModal .modal-actions'); const sp = acts?.querySelector('.spacer');
-      if (acts && has('msgTargets') && !document.getElementById('cpxMsgBtn')) (sp || acts.lastChild).insertAdjacentHTML('beforebegin', `<button class="btn secondary" id="cpxMsgBtn" type="button" title="Send a private message with a link to this post">💬 Message about this post</button>`);
+      if (acts && has('msgTargets') && !document.getElementById('cpxMsgBtn')) (sp || acts.lastChild).insertAdjacentHTML('beforebegin', `<button class="btn secondary" id="cpxMsgBtn" type="button" title="Send a private message with a link to this post">💬 Message</button>`);
       const mb = document.getElementById('cpxMsgBtn'); if (mb) mb.onclick = () => msgDialog(contentId);
       const note = document.getElementById('rfNote');
       if (note && !document.querySelector('[data-rte="main"]')){ X.rte.main = {imgs:[]}; note.insertAdjacentHTML('beforebegin', rteHTML('main', has('pickFiles') ? 'What should change? Use the toolbar for bold, lists and links, or paste a screenshot.' : 'What should change? Use the toolbar for bold, lists and links.')); note.hidden = true; }
@@ -38531,10 +38556,15 @@ function cpxHubExt(){
     const bctx = state.tab === 'board' ? 'board' : null; if (bctx && X.ctx !== 'board'){ X.ctx = 'board'; X.sel.clear(); }
     if (state.tab !== 'home' && state.tab !== 'board'){ X.sel.clear(); X.ctx = state.tab; }
     if (A.client){ X.sel.clear(); main.querySelectorAll('.cpx-ck').forEach(x=>x.remove()); document.getElementById('cpxSelAllB')?.remove(); document.getElementById('cpxBulk')?.remove(); return; }   /* bulk tools are for the Cross Core team only */
+    if (state.tab === 'board'){ const ha = main.querySelector('.page-head .head-actions');
+      if (ha && !document.getElementById('cpxSelB')) ha.insertAdjacentHTML('afterbegin', `${has('openClassic') ? '<button class="btn ghost small" id="cpxClassic" type="button" title="The classic Content Board — the same posts">Classic Content Board →</button>' : ''}<button class="btn ghost small cpx-selbtn" id="cpxSelB" type="button"></button>`);
+      const sb = document.getElementById('cpxSelB'); if (sb){ sb.textContent = X.selMode ? '✓ Done' : '☑ Select'; sb.classList.toggle('on', !!X.selMode); sb.setAttribute('aria-pressed', !!X.selMode); sb.onclick = e => { e.stopPropagation(); X.selMode = !X.selMode; if (!X.selMode) X.sel.clear(); decorate(); }; }
+      const cl = document.getElementById('cpxClassic'); if (cl) cl.onclick = e => { e.stopPropagation(); A.openClassic(); }; }
+    if (!X.selMode){ X.sel.clear(); main.querySelectorAll('.cpx-ck').forEach(x=>x.remove()); main.querySelectorAll('.cpx-on').forEach(x=>x.classList.remove('cpx-on')); document.getElementById('cpxSelAllB')?.remove(); document.getElementById('cpxBulk')?.remove(); return; }
     main.querySelectorAll('.post-card[data-open], .b-card[data-open]').forEach(card => { const id = card.dataset.open; let ck = card.querySelector('.cpx-ck');
       if (!ck){ (card.querySelector('.pc-top, .bc-top') || card).insertAdjacentHTML('afterbegin', `<label class="cpx-ck" title="Select"><input type="checkbox" data-cpxsel="${esc(id)}" aria-label="Select ${esc(findContent(id)?.title||'post')}"></label>`); ck = card.querySelector('.cpx-ck'); }
       const on = X.sel.has(id); ck.querySelector('input').checked = on; card.classList.toggle('cpx-on', on); });
-    if (state.tab === 'board'){ const ha = main.querySelector('.page-head .head-actions'); if (ha && !document.getElementById('cpxSelAllB')) ha.insertAdjacentHTML('afterbegin', `<button class="btn ghost small" id="cpxSelAllB" type="button">☑ Select all</button>`);
+    if (state.tab === 'board'){ const ha = main.querySelector('.page-head .head-actions'); if (ha && !document.getElementById('cpxSelAllB')) document.getElementById('cpxSelB')?.insertAdjacentHTML('afterend', `<button class="btn ghost small" id="cpxSelAllB" type="button">Select all</button>`);
       const b = document.getElementById('cpxSelAllB'); if (b) b.onclick = e => { e.stopPropagation(); boardItems().forEach(c=>X.sel.add(c.id)); decorate(); }; }
     [...X.sel].forEach(id => { if (!findContent(id)) X.sel.delete(id); });
     let bar = document.getElementById('cpxBulk');
@@ -38548,7 +38578,7 @@ function cpxHubExt(){
   document.addEventListener('click', e => { if (e.target.closest('.cpx-ck')) e.stopPropagation(); }, true);
   document.addEventListener('change', e => { const c = e.target.closest?.('[data-cpxsel]'); if (!c) return; c.checked ? X.sel.add(c.dataset.cpxsel) : X.sel.delete(c.dataset.cpxsel); decorate(); });
   document.addEventListener('click', async e => { const b = e.target.closest('[data-cpxb]'); if (!b) return; e.stopPropagation(); const act = b.dataset.cpxb;
-    if (act === 'clear'){ X.sel.clear(); decorate(); return; }
+    if (act === 'clear'){ X.sel.clear(); X.selMode = false; render(); return; }
     if (act === 'all'){ (state.tab === 'board' ? boardItems() : (()=>{ const ws = dateToKey(startOfWeek(state.homeAnchor)); const we = addDaysKey(ws, (state.homeViewMode==='biweekly'?14:7)-1); return CONTENT.filter(c=>{ const w = pwOf(c); return w>=ws && w<=we; }); })()).forEach(c=>X.sel.add(c.id)); decorate(); return; }
     const items = [...X.sel].map(findContent).filter(Boolean); if (!items.length) return;
     if (act === 'delete'){
@@ -38640,13 +38670,15 @@ function cpxHubExt(){
 
   /* ---------- planning week in the post window ---------- */
   const ptLabel = wk => { const t = planTitle([wk]); return `${t.name} (${t.range})`; };
+  const shortWk = wk => { const a = weLabel(wk), sun = addDaysKey(wk, 6), M3 = i => MONTHS[i].slice(0, 3), A0 = keyToDate(wk), S0 = keyToDate(sun);
+    return `${M3(a.m)} WE ${a.n} · ${M3(A0.getMonth())} ${A0.getDate()}–${A0.getMonth()!==S0.getMonth() ? M3(S0.getMonth())+' ' : ''}${S0.getDate()}`; };
   function pwField(item, isNew){
     const fr = document.querySelector('#recordModal .field-row3'); if (!fr || document.getElementById('cpxWk')) return;
     const ph = isNew ? 'caption' : (item.phase || 'both');
-    fr.insertAdjacentHTML('afterend', `<div class="cpx-wkph"><div class="field-group"><span class="field-label">Week <span class="hint">set by the post date</span></span><div class="cpx-wk" id="cpxWk" aria-live="polite"></div></div>
+    fr.insertAdjacentHTML('afterend', `<div class="cpx-wkph"><div class="field-group"><span class="field-label" title="Set by the post date — the week runs Monday to Sunday">Week</span><div class="cpx-wk" id="cpxWk" aria-live="polite"></div></div>
       <div class="field-group"><span class="field-label" id="cpxPhaseL">Phase</span><div class="cpx-phsel"><input type="hidden" id="cpxPhase" value="${esc(ph)}"><div class="cpx-seg" role="radiogroup" aria-labelledby="cpxPhaseL">${Object.entries(PHASES).map(([k, l])=>`<button type="button" role="radio" aria-checked="${k===ph}" class="${k===ph?'on':''} cpx-seg-${k}" data-cpxph="${k}">${esc(k==='both'?'Both':l)}</button>`).join('')}</div>
       ${!isNew && ph==='caption' && item.status==='Approved' && !A.client ? `<button type="button" class="btn secondary small" data-cpxmtg="${esc(item.id)}">Move to Graphics ▸</button>` : ''}</div></div></div>`);
-    const dt = document.getElementById('fDate'); const show = () => { const w = weekOf(dt?.value); document.getElementById('cpxWk').textContent = w ? ptLabel(w) : 'Pick a post date'; };
+    const dt = document.getElementById('fDate'); const show = () => { const w = weekOf(dt?.value); const el = document.getElementById('cpxWk'); el.textContent = w ? shortWk(w) : 'Pick a post date'; el.title = w ? ptLabel(w) + ' · Monday–Sunday' : ''; };
     dt?.addEventListener('change', show); dt?.addEventListener('input', show); document.querySelectorAll('#recordModal [data-cpxph]').forEach(b => b.addEventListener('click', () => { document.getElementById('cpxPhase').value = b.dataset.cpxph; modalDirty = true;
       document.querySelectorAll('#recordModal [data-cpxph]').forEach(x => { const on = x === b; x.classList.toggle('on', on); x.setAttribute('aria-checked', on); }); }));
     show();
@@ -38724,9 +38756,9 @@ function cpxHubExt(){
   /* ---------- switch weeks from anywhere: side arrows, swipe (touch / trackpad), ← → keys ---------- */
   function stepWeek(dir){ if (state.tab !== 'home' || document.getElementById('recordModal')?.classList.contains('open') || document.querySelector('.dlg-backdrop')) return;
     const n = state.homeViewMode === 'biweekly' ? 2 : 1; const startKey = dateToKey(startOfWeek(state.homeAnchor));
-    const plan = document.querySelector('.cpx-plan'); const top = plan ? plan.getBoundingClientRect().top + window.scrollY - 8 : 0; const down = window.scrollY > top;
+    const plan = document.querySelector('.cpx-tool'); const top = plan ? plan.getBoundingClientRect().top + window.scrollY - 8 : 0; const down = window.scrollY > top;
     state.homeAnchor = addDaysKey(startKey, dir * 7 * n); X.slide = dir; render();
-    if (down) window.scrollTo({top: (document.querySelector('.cpx-plan')?.getBoundingClientRect().top || 0) + window.scrollY - 8}); }
+    if (down) window.scrollTo({top: (document.querySelector('.cpx-tool')?.getBoundingClientRect().top || 0) + window.scrollY - 8}); }
   function navFabs(){ let w = document.getElementById('cpxNav');
     document.body.classList.toggle('cpx-home', state.tab === 'home');
     if (state.tab !== 'home'){ w?.remove(); return; }
@@ -38831,7 +38863,26 @@ html.cbx-peek .record-modal.cpx-2col{top:calc(50% + 24px);max-height:calc(100vh 
 html.cbx-peek,html.cbx-peek body{background:transparent!important;overflow:hidden}html.cbx-peek body *{visibility:hidden}
 html.cbx-peek #recordModal,html.cbx-peek #recordModal *,html.cbx-peek .dlg-backdrop,html.cbx-peek .dlg-backdrop *,html.cbx-peek .toast-wrap,html.cbx-peek .toast-wrap *{visibility:visible}
 html.cbx-peek #modalBackdrop{display:none}html.cbx-peek .cpx-fab,html.cbx-peek #cpxBulk{display:none}
-.cpx-cap p{margin:6px 0 12px;line-height:1.5}.cpx-capb{display:flex;flex-wrap:wrap;gap:8px}
+.cpx-cap p{margin:6px 0 12px;line-height:1.5}
+/* compact hub: one header row, one toolbar row */
+.hub-head{display:flex!important;align-items:center;gap:10px;flex-wrap:wrap;padding:6px 8px!important;margin-bottom:10px!important;min-height:0!important}
+.hub-head .hub-title{order:2;margin-left:auto;display:flex;align-items:center;gap:8px}.hub-head .brand{display:none!important}.hub-head .tabs{order:1;margin:0!important;flex-wrap:wrap}
+.client-strip{display:none!important}.client-strip.cpx-open{display:flex!important;position:fixed;z-index:60;background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:0 18px 40px -16px rgba(0,0,0,.35);padding:10px 12px;flex-wrap:wrap;gap:6px;max-width:min(560px,92vw)}
+.cpx-tool{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:2px 0 10px}.cpx-tool .nav-arrows{display:flex;align-items:center;gap:4px}.cpx-sp{flex:1 1 auto}
+.cpx-info{display:inline-grid;place-items:center;width:26px;height:26px;border-radius:50%;border:1px solid var(--line);color:var(--ink-soft);font-size:13px;cursor:help}
+.cpx-selbtn.on{background:var(--ink);color:var(--surface);border-color:var(--ink)}
+.cpx-cu{display:flex;align-items:center;gap:10px;width:100%;text-align:left;border:1px dashed var(--line);background:var(--surface);border-radius:12px;padding:7px 12px;margin:0 0 10px;font:inherit;font-size:13px;color:var(--ink);cursor:pointer}
+.cpx-cu b{font-weight:800}.cpx-cu-t{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink-soft)}.cpx-cu-s{font-weight:700;color:var(--ink-soft);font-size:12px}
+.cpx-cuhide{margin-left:8px}
+.cpx-menu{position:fixed;z-index:70;background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:0 18px 40px -16px rgba(0,0,0,.35);padding:5px;min-width:200px}
+.cpx-menu button{display:block;width:100%;text-align:left;border:0;background:none;border-radius:8px;padding:8px 10px;font:600 13px inherit;color:var(--ink);cursor:pointer}.cpx-menu button:hover,.cpx-menu button:focus-visible{background:var(--surface-2);outline:none}
+.cpx-mgmt{display:flex;align-items:center;gap:10px;flex-wrap:wrap;border:1px solid var(--line);background:var(--surface);border-radius:14px;padding:10px 14px;margin:0 0 14px}.cpx-mg{display:flex;align-items:center;gap:6px}.cpx-mg i{font-style:normal;font-weight:700;font-size:12.5px;color:var(--ink-soft)}
+.cpx-mgh{font-size:12px;color:var(--ink-soft);margin-left:auto}.cpx-badge{display:inline-block;background:#DC2626;color:#fff;border-radius:99px;font-size:10.5px;font-weight:800;padding:0 6px;margin-left:2px}
+.record-modal.cpx-2col .cpx-tip{display:inline-grid;place-items:center;width:15px;height:15px;border-radius:50%;border:1px solid var(--line);font-size:9.5px;margin-left:4px;cursor:help;vertical-align:1px}
+.record-modal.cpx-2col .record-head .readiness{display:inline-block;margin:0 0 0 4px;padding:3px 10px;border-radius:99px;font-size:11.5px;max-width:420px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;vertical-align:middle}
+.record-modal.cpx-2col .field-row3{grid-template-columns:repeat(3,minmax(0,1fr))}
+@media(max-width:1024px){.cpx-tool .cpx-sp{flex-basis:100%;height:0}}
+@media(max-width:640px){.hub-head .tabs{overflow-x:auto;flex-wrap:nowrap}}.cpx-capb{display:flex;flex-wrap:wrap;gap:8px}
 @media(max-width:640px){.cpx-wkph{grid-template-columns:1fr}}
 .cpx-genbar{font-size:11.5px;font-weight:700;color:#3D5A6E;background:rgba(255,255,255,.55);border:1px dashed #9DB4C4;border-radius:9px;padding:5px 8px}
 .cpx-genbar select{margin-left:4px;font-size:11.5px;padding:2px 6px;border-radius:7px;border:1px solid #9DB4C4;background:#fff}
@@ -39591,6 +39642,18 @@ html body.cb-mode>#cbxPeek#cbxPeek#cbxPeek:not([hidden]),html body.cb-mode>#cbxN
 #cbxNeed .cbx-nh{font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#7b7468;padding:8px 10px 6px}
 #cbxNeed button{display:block;width:100%;text-align:left;border:0;background:none;border-radius:9px;padding:8px 10px;cursor:pointer}#cbxNeed button:hover,#cbxNeed button:focus-visible{background:#fbf4e4;outline:none}
 #cbxNeed b{display:block;font-size:13.5px;color:#17140e}#cbxNeed small{font-size:12px;color:#7b7468}`; document.head.appendChild(st); })();
+
+/* ===================== Nov 6 · 4 — a compact Content Planning Hub for the team ===================== */
+/* the page header is one slim line (client picker only); Brands and Client access live in the hub's Resources tab
+   (the client's PM and company heads only); Classic Content Board is on the hub's Board tab */
+cphHeadHTML = function(){ const A = cphAccounts();
+  if(A.length<2) return '';                                  /* the top bar already names the page */
+  return `<div class="cph-head cpx-slimhead">${A.length>1?`<label class="cph-sel">Client <select onchange="cphSelect(this.value)">${A.length<=6?`<option value="all" ${CPH.sel==='all'?'selected':''}>All my clients</option>`:''}${A.map(a=>`<option value="${a.id}" ${a.id===CPH.sel?'selected':''}>${esc(a.name)}${cphBrands(a).length?` · ${cphBrands(a).length} brands`:''}</option>`).join('')}</select></label>`:''}</div>`; };
+function cpxManageList(){ const A = cphAccounts().filter(a=>CPH.sel==='all' || a.id===CPH.sel); const can = new Set(cbManageable().map(c=>c.id));
+  return A.map(a=>({id:a.id, name:a.name, brands:cphCanManage(a.id), access:can.has(a.id),
+    pending:HUBDOCS.filter(d=>d.col==='feedback' && d.d?.viaClient && d.d?.status==='Pending' && d.acct===a.id).length})).filter(m=>m.brands || m.access); }
+{ const _ha = cpxHubApi; cpxHubApi = function(){ return {..._ha.apply(this, arguments), openClassic:()=>go('tasks'), manage:cpxManageList, openBrands:id=>cphBrandsModal(id), openAccess:id=>cbAccessModal(id)}; }; }
+(function(){ const st = document.createElement('style'); st.textContent = `#v-cphub .cpx-slimhead{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin:0 0 8px}#v-cphub .cpx-slimhead h2{margin:0;font-size:20px}`; document.head.appendChild(st); })();
 
 /* <<< OCT24 MODULES <<< */
 </script>

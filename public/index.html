@@ -6261,7 +6261,7 @@ async function endContract(cid){
   const pms = pmsOf(cid), hr = HR_KEYS(), at = nowISO();
   const patch = {status:ENDED, prevStatus:c.status, endedAt:at, endedBy:PERSON, endedPMs:pms, endReason:reason};
   if(isLive()){
-    const {error} = await BACKEND.sb.rpc('cc_end_contract', {p_client:cid, p_patch:patch, p_audience:uniq([...hr, ...pms])});
+    const {error} = await ccEndContractRpc(cid, patch, uniq([...hr, ...pms]));
     if(error) return toast('Could not end the contract: '+(/function|schema cache/i.test(error.message)?'run the latest supabase-setup.sql first':error.message));
   }
   Object.assign(c, patch);
@@ -6363,7 +6363,7 @@ async function reopenContract(eid){
   if(!confirm(`Reopen ${e.clientName}'s contract?\n\nThe client returns to Client Workspaces for everyone assigned to it${e.stage==='deleted'?' and a new group chat is created':''}.`)) return;
   const patch = {status:e.prevStatus && e.prevStatus!==ENDED ? e.prevStatus : 'Active', reopenedAt:nowISO(), reopenedBy:PERSON};
   if(isLive()){
-    const {error} = await BACKEND.sb.rpc('cc_end_contract', {p_client:e.client, p_patch:patch, p_audience:null});
+    const {error} = await ccEndContractRpc(e.client, patch, null);
     if(error) return toast('Could not reopen: '+error.message);
   }
   const c = client(e.client); if(c){ Object.assign(c, patch); if(isLive()) acceptLocal('clients', e.client); }
@@ -13177,7 +13177,7 @@ function esLayout(d, text){
   if(!fields.length) fields.push({id:`p${pages.length}-sign`, page:pages.length, kind:'signature', inline:false});
   return {pages, fields};
 }
-const esText = (d, k=PERSON) => fillDoc(d.body, k, d.sentAt);
+let esText = (d, k=PERSON) => fillDoc(d.body, k, d.sentAt);
 async function esHash(s){ const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s)); return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join(''); }
 
 /* ---------- Review & Sign ---------- */
@@ -20916,7 +20916,7 @@ async function cooPostFromModal(){ const ch = CHATS.find(c=>c.id===el('paPostC')
    The footer shows which build is running ("Build 2026-10-07 · 1"), and every open portal checks every few minutes
    (and whenever it comes back to the foreground) whether a newer build has been published. If so it shows
    "New version available — Update now" instead of quietly running old code. */
-const BUILD_ID = '2026-11-06 · 4';
+const BUILD_ID = '2026-11-06 · 5';
 function verStamp(){ const f = el('footNote'); if(f && !f.dataset.v){ f.dataset.v = 1; f.textContent = `Cross Core Ops Suite v8 · Build ${BUILD_ID}`; } }
 async function verCheck(){
   if(!/^https?:/.test(location.protocol)) return;
@@ -39654,6 +39654,749 @@ function cpxManageList(){ const A = cphAccounts().filter(a=>CPH.sel==='all' || a
     pending:HUBDOCS.filter(d=>d.col==='feedback' && d.d?.viaClient && d.d?.status==='Pending' && d.acct===a.id).length})).filter(m=>m.brands || m.access); }
 { const _ha = cpxHubApi; cpxHubApi = function(){ return {..._ha.apply(this, arguments), openClassic:()=>go('tasks'), manage:cpxManageList, openBrands:id=>cphBrandsModal(id), openAccess:id=>cbAccessModal(id)}; }; }
 (function(){ const st = document.createElement('style'); st.textContent = `#v-cphub .cpx-slimhead{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin:0 0 8px}#v-cphub .cpx-slimhead h2{margin:0;font-size:20px}`; document.head.appendChild(st); })();
+
+/* ===== t26_contracts.js — Contracts: paste → formatted contract → personal details → e-sign (Nov 6 2026) =====
+   HR, company heads and department heads paste a contract (from Word, Google Docs or an email). Ops Suite formats it —
+   title, headings, numbered clauses, sub-clauses, lists, an aligned parties & dates block and an aligned signature block —
+   and turns its blanks ([Employee Name], ______, "this ___ day of ___", "Address: ____" …) into fields filled for each
+   recipient from their personal details and CrossCore's verified company details. Employees, VAs and applicants complete
+   and correct their own details (required fields marked), review the contract with their details in place, and sign with
+   the built-in e-signature. The contract text uses a small markup that the review screen, the signing screen and the
+   signed PDF all render the same way, so the signed copy keeps its formatting.
+
+   Markup (one item per line; a blank line separates paragraphs; a paragraph is never split across pages):
+     # Title            ## Heading            Label :: value   (aligned row)        1. clause    (a) sub-clause    - list item
+     ::sigs / @ heading | name | role | [signature] | [date-signed] / ::end   (aligned signature columns)
+   Fields: {{recipient.name}} {{recipient.address}} {{recipient.email}} {{recipient.mobile}} {{recipient.position}}
+     {{party}} {{company.name}} {{company.address}} {{company.signatory}} {{company.title}} {{agreement.date}}
+     {{start.date}} {{end.date}} {{term}} {{compensation}} {{blank:N}} */
+
+/*CT-PURE-START*/
+const CT_BLANK = '____________________';          /* a missing value keeps its place (and alignment) as a line */
+const CT_MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+/* one date format everywhere: "November 6, 2026" (Manila calendar day) */
+function ctDate(v){
+  if(!v) return '';
+  const s = String(v); let y, m, d;
+  const iso = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if(iso){ y = +iso[1]; m = +iso[2]; d = +iso[3]; }
+  else { const t = new Date(s); if(isNaN(t)) return s;
+    const p = new Intl.DateTimeFormat('en-US', {timeZone:'Asia/Manila', year:'numeric', month:'numeric', day:'numeric'}).formatToParts(t);
+    y = +p.find(x=>x.type==='year').value; m = +p.find(x=>x.type==='month').value; d = +p.find(x=>x.type==='day').value; }
+  return `${CT_MONTHS[m-1]} ${d}, ${y}`;
+}
+/* an address as one line: "12 Rizal St., Unit 4, Santo Tomas, Batangas 4234, Philippines" — empty parts are skipped */
+function ctAddr(a){
+  if(!a) return '';
+  const cityLine = [a.city, [a.province, a.postal].filter(x=>String(x||'').trim()).join(' ')].filter(x=>String(x||'').trim()).join(', ');
+  return [a.line1, a.line2, cityLine, a.country].map(x=>String(x||'').trim()).filter(Boolean).join(', ');
+}
+const CT_TOKENS = {
+  'recipient.name':'Recipient’s full legal name', 'recipient.address':'Recipient’s address', 'recipient.email':'Recipient’s email',
+  'recipient.mobile':'Recipient’s mobile number', 'recipient.position':'Position', 'recipient.emergency':'Emergency contact',
+  'recipient.tin':'TIN', 'recipient.sss':'SSS number', 'recipient.philhealth':'PhilHealth number', 'recipient.pagibig':'Pag-IBIG number', 'party':'Recipient’s role in the contract',
+  'company.name':'Company name', 'company.address':'Company address', 'company.signatory':'Company signatory', 'company.title':'Signatory’s title',
+  'agreement.date':'Agreement date', 'start.date':'Start date', 'end.date':'End date', 'term':'Contract term', 'compensation':'Compensation'};
+/* what a placeholder or a label means */
+function ctClassify(label, before){
+  const s = String(label||'').toLowerCase().replace(/[’']/g, "'").replace(/[_\s]+/g, ' ').trim(); const b = String(before||'').toLowerCase();
+  const company = /compan|employer|firm|office|principal|business|cross ?core|corporation|opc\b/.test(s) || /(compan|employer|cross ?core)[^.]{0,60}$/.test(b);
+  if(/emergency/.test(s)) return 'recipient.emergency';
+  if(/\btin\b|tax (id|identification)/.test(s)) return company ? null : 'recipient.tin';
+  if(/\bsss\b|social security/.test(s)) return 'recipient.sss';
+  if(/philhealth/.test(s)) return 'recipient.philhealth';
+  if(/pag-?ibig|\bhdmf\b/.test(s)) return 'recipient.pagibig';
+  if(/e-?mail/.test(s)) return company ? null : 'recipient.email';
+  if(/phone|mobile|cell|contact (no|number)/.test(s)) return company ? null : 'recipient.mobile';
+  if(/address|residence|residing|located|domicile/.test(s)) return company ? 'company.address' : 'recipient.address';
+  if(/signator|representative|authori[sz]ed/.test(s)) return 'company.signatory';
+  if(/^(company|employer)( name)?$|^name of (the )?(company|employer)$/.test(s)) return 'company.name';
+  if(/position|job title|designation|^title$|^role$/.test(s)) return 'recipient.position';
+  if(/start|commenc|effectiv|begin/.test(s) && /date|on|day|$/.test(s)) return 'start.date';
+  if(/end date|expir|until|termination date|end of (the )?(contract|term)/.test(s)) return 'end.date';
+  if(/^(the )?term$|contract (term|period)|duration/.test(s)) return 'term';
+  if(/salary|rate|compensation|fee|pay\b|wage|remuneration|amount/.test(s)) return 'compensation';
+  if(/^date$|^dated?$|agreement date|date of (this |the )?(agreement|contract)|signing date|today/.test(s)) return 'agreement.date';
+  if(/name/.test(s) && !company) return 'recipient.name';
+  if(/^(employee|contractor|service provider|consultant|applicant|worker|staff|recipient|va|virtual assistant|freelancer)$/.test(s)) return 'recipient.name';
+  return null;
+}
+/* the field an underscore blank stands for, from the words just before it */
+function ctBlankFromContext(before, after){
+  const b = String(before||'').toLowerCase().replace(/\s+/g, ' ').slice(-110), a = String(after||'').toLowerCase().slice(0, 30);
+  const company = (/(compan|employer|cross ?core|opc)\b[^.;"“]{0,90}$/.test(b) || /(principal|registered|business|head|main) (office|place of business)( address)?( located)?( at)?\s*:?\s*$/.test(b))
+    && !/(employee|contractor|service provider|of legal age)[^.;]{0,40}$/.test(b);
+  if(/(address|residing at|resident of|located at|with (its )?(principal )?office at|domiciled at)\s*:?\s*$/.test(b)) return company ? 'company.address' : 'recipient.address';
+  if(/(e-?mail)\s*:?\s*$/.test(b)) return 'recipient.email';
+  if(/(phone|mobile|contact (no\.?|number))\s*:?\s*$/.test(b)) return 'recipient.mobile';
+  if(/(position|designation|job title|as (a|an|the)|engaged as|employed as|hired as)\s*:?\s*$/.test(b)) return 'recipient.position';
+  if(/(start(s|ing)?( date)?( on)?|commenc\w*( on)?|effective( on| from)?|beginning( on)?|begin\w*( on)?)\s*:?\s*$/.test(b)) return 'start.date';
+  if(/(until|ending( on)?|end(s)?( on)?|expir\w*( on)?|end date)\s*:?\s*$/.test(b)) return 'end.date';
+  if(/(salary|rate|fee|compensation|remuneration|amount of|php|₱|\$|usd)\s*:?\s*$/.test(b)) return 'compensation';
+  if(/(name|mr\.?|ms\.?|mrs\.?|miss|i,|undersigned,?)\s*:?\s*$/.test(b)) return 'recipient.name';
+  if(/(between|and|:)\s*$/.test(b) && /^\s*(\(|,)?\s*("|“)?(the )?(employee|contractor|service provider|consultant)/.test(a)) return 'recipient.name';
+  if(/^\s*,?\s*(of legal age|filipino|a filipino|a resident|single|married)\b/.test(a)) return 'recipient.name';
+  if(/(dated?|on|date)\s*:?\s*$/.test(b)) return 'agreement.date';
+  return null;
+}
+const ct_isTitleish = s => /contract|agreement|offer|order|letter|memorandum|undertaking|nda|non-?disclosure/i.test(s);
+const ct_caps = s => { const L = s.replace(/[^A-Za-z]/g, ''); return L.length >= 3 && L.replace(/[^A-Z]/g, '').length / L.length > 0.8; };
+const CT_SIGZONE = /^(signed\s*:?\s*$|signed by\s*:?\s*$|in witness whereof|signed (and|&) (delivered|agreed)|signatures?\s*:?\s*$|conforme|agreed (and|&) accepted|accepted (and|&) agreed|acknowledged (and|&) agreed)/i;
+const CT_SIGLINE = /^(\{\{[a-z.:0-9]+\}\}\s*$|_{3,}.*|.*_{5,}\s*$|(employee'?s?|employer'?s?|contractor'?s?|company|service provider'?s?|authori[sz]ed)\s*(signature|representative)\b.*|signature( over printed name)?\s*:?.*|printed name\s*:?.*|(date|date signed|signed)\s*:?\s*_*\s*$|by\s*:?\s*_*\s*$|name\s*:?\s*_*\s*$|title\s*:?\s*_*\s*$|witness(es)?\s*:?.*|for (the )?(company|employer|cross ?core).*|(the )?(employee|contractor|service provider|employer|company)\s*$|cross ?core( opc)?\s*$)/i;
+
+/* paste → {body, auto:[{token, from}], blanks:[{n, label}], notes:[…]} */
+function ctFormatPaste(raw, opt={}){
+  const notes = []; const auto = []; const blanks = []; let bn = 0;
+  let t = String(raw||'').replace(/\r\n?/g, '\n').replace(/\u00a0|\u2007|\u202f/g, ' ').replace(/\t+/g, ' ').replace(/[ \u200b]+$/gm, '')
+    .replace(/^\s*[•▪◦●·]\s*/gm, '- ').replace(/\u2013|\u2014/g, m=>m)   /* keep dashes as typed */;
+  /* existing simple placeholders from older templates */
+  t = t.replace(/\{name\}/gi, '{{recipient.name}}').replace(/\{date\}/gi, '{{agreement.date}}');
+  /* "this ___ day of ________, 20__" → the agreement date */
+  t = t.replace(/(this\s+)?_{2,}\s*(st|nd|rd|th)?\s+day\s+of\s+_{2,}\s*,?\s*(20_{1,}|20\d\d|_{2,})?/gi, ()=>{ auto.push({token:'agreement.date', from:'“this ___ day of ___”'}); return '{{agreement.date}}'; });
+  /* bracketed placeholders: [Employee Name], <Address>, «Start Date», {{position}} */
+  t = t.replace(/\[([^\]\n]{2,48})\]|<([^>\n]{2,40})>|«([^»\n]{2,40})»|\{\{\s*([^}\n]{2,40}?)\s*\}\}/g, (m, a, b2, c, d)=>{
+    const inner = (a||b2||c||d||'').trim();
+    if(a && /^(signature|initials|page break|date-signed)$/i.test(inner)) return m;
+    if(d && (CT_TOKENS[inner] || /^blank:\d+$/.test(inner))) return m;
+    const tok = ctClassify(inner);
+    if(tok){ auto.push({token:tok, from:m}); return `{{${tok}}}`; }
+    blanks.push({n:++bn, label:inner}); return `{{blank:${bn}}}`;
+  });
+  /* lines → structure */
+  let L = t.split('\n').map(s=>s.replace(/\s+$/,'').replace(/^\s+/,'')).filter((s, i, arr)=>true);
+  /* join soft-wrapped lines (a sentence broken across lines by the source) */
+  const isStruct = s => !s || /^(#|- |\(?[a-z]\)|\(?[ivx]+\)|\d+(\.\d+)*[.)]?\s)/i.test(s) || ct_caps(s) || /::/.test(s) || /^[A-Za-z][^:]{0,40}:\s*(_{3,}|\{\{[^}]+\}\})?\s*$/.test(s);
+  const J = [];
+  for(const s of L){
+    const prev = J[J.length-1];
+    if(prev && s && prev.trim() && !/[.:;!?)"”]$/.test(prev) && /^[a-z(“"]/.test(s) && !isStruct(s) && !/^#/.test(prev) && !ct_caps(prev)) J[J.length-1] = prev + ' ' + s;
+    else J.push(s);
+  }
+  L = J;
+  /* signature zone at the end: replaced by the standard aligned signature block */
+  let zone = -1;
+  for(let i=L.length-1; i>=Math.floor(L.length*0.5); i--){ if(CT_SIGZONE.test(L[i])){ zone = i; break; } }
+  let witness = '';
+  if(zone >= 0){
+    const rest = L.slice(zone+1).filter(s=>s.trim());
+    const sigish = rest.every(s=>CT_SIGLINE.test(s) || s.length <= 48);
+    if(sigish){ if(/^in witness whereof/i.test(L[zone]) && L[zone].length > 30) witness = L[zone];
+      L = L.slice(0, zone); notes.push('The signature section was replaced with the standard aligned signature block.'); }
+  } else {
+    /* trailing bare signature lines without a heading */
+    let k = L.length; while(k>0 && (!L[k-1].trim() || CT_SIGLINE.test(L[k-1]))) k--;
+    if(L.length - k >= 2){ L = L.slice(0, k); notes.push('The signature lines at the end were replaced with the standard aligned signature block.'); }
+  }
+  /* classify each line */
+  const out = []; let titleDone = !!opt.noTitle;
+  const push = s => out.push(s);
+  for(let i=0; i<L.length; i++){
+    let s = L[i]; if(!s.trim()){ push(''); continue; }
+    if(!titleDone && s.length <= 90 && (ct_caps(s) || ct_isTitleish(s)) && !/[.;,]$/.test(s)){ push('# ' + s.replace(/^#+\s*/,'').toUpperCase()); push(''); titleDone = true; continue; }
+    titleDone = true;
+    /* "Label: ____" / "Label: [x]" / "Label:" on its own → aligned row */
+    const row = s.match(/^([A-Za-z][A-Za-z0-9 '’/().&-]{1,44}?)\s*:\s*(_{3,}|\{\{[^}]+\}\}|)\s*$/);
+    if(row && !/^(note|whereas|now,? therefore)/i.test(row[1])){
+      let tok = row[2].startsWith('{{') ? row[2].slice(2, -2) : ctClassify(row[1]);
+      if(!tok){ blanks.push({n:++bn, label:row[1]}); tok = 'blank:'+bn; } else if(!row[2].startsWith('{{')) auto.push({token:tok, from:row[1]+':'});
+      push(`${row[1].trim()} :: {{${tok}}}`); continue;
+    }
+    const num = s.match(/^(\d+(?:\.\d+)*)[.)]?\s+(.+)$/);
+    const sub = s.match(/^\(?([a-z]|[ivx]{1,4})\)\s+(.+)$/i) || s.match(/^([a-z])\.\s+(.+)$/);
+    if(num && ct_caps(num[2]) && num[2].length <= 70 && !/[.;,]$/.test(num[2])){ push(''); push(`## ${num[1]}. ${num[2].toUpperCase()}`); continue; }
+    if(/^(article|section|part|schedule|annex|appendix)\s+[\divxlc]+\b/i.test(s) && s.length <= 80 && !/[.;,]$/.test(s)){ push(''); push('## ' + s.toUpperCase()); continue; }
+    if(ct_caps(s) && s.length <= 70 && !/[.;,]$/.test(s) && !/^-\s/.test(s)){ push(''); push('## ' + s.replace(/:$/,'')); continue; }
+    { const nx = L.slice(i+1).find(x=>x.trim()) || ''; const w = s.replace(/:$/,'').split(/\s+/);
+      if(s.length <= 48 && w.length <= 6 && /^[A-Z]/.test(s) && !/[.;,!?"”)]$/.test(s) && !/\{\{|_{3,}/.test(s) && (nx.length > 55 || /^(\d+[.)]|\(?[a-z]\)|- )/.test(nx) || /^[A-Za-z][^:]{1,44}:\s*(_{3,}|\{\{[^}]+\}\}|)\s*$/.test(nx))
+         && w.filter(x=>/^[a-z]/.test(x) && !/^(of|and|the|to|for|in|on|a|an|or|with|by|at)$/.test(x)).length <= 1){ push(''); push('## ' + s.replace(/:$/,'').toUpperCase()); continue; } }
+    if(num){ push(`${num[1]}. ${num[2]}`); continue; }
+    if(sub){ push(`(${sub[1].toLowerCase()}) ${sub[2]}`); continue; }
+    if(/^-\s+/.test(s)){ push(s.replace(/^-\s+/, '- ')); continue; }
+    push(s);
+  }
+  /* underscore blanks left inside sentences */
+  let body = out.join('\n');
+  body = body.replace(/_{4,}/g, (m, off, all)=>{
+    const before = all.slice(Math.max(0, off-70), off), after = all.slice(off+m.length, off+m.length+30);
+    const tok = ctBlankFromContext(before, after);
+    if(tok){ auto.push({token:tok, from:'“…'+before.trim().split(/\s+/).slice(-3).join(' ')+' ____”'}); return `{{${tok}}}`; }
+    const label = before.trim().split(/\s+/).slice(-4).join(' ').replace(/^[^A-Za-z]+/,'') || 'Blank';
+    blanks.push({n:++bn, label:'… '+label+' ____'}); return `{{blank:${bn}}}`;
+  });
+  body = body.replace(/\n{3,}/g, '\n\n').replace(/^\n+|\n+$/g, '');
+  /* one blank line between blocks; consecutive rows / clauses stay together */
+  body = body.split('\n').reduce((acc, s, i, arr)=>{ acc.push(s); const n = arr[i+1];
+    if(s && n && !(/ :: /.test(s) && / :: /.test(n)) && (/^#/.test(s) || /^#/.test(n) || (!/^(- |\(|\d)/.test(n) && !/^(- |\(|\d)/.test(s)) || (/ :: /.test(s) !== / :: /.test(n)))) acc.push('');
+    return acc; }, []).join('\n').replace(/\n{3,}/g, '\n\n');
+  /* parties & dates block after the title */
+  if(opt.parties !== false){
+    const has = tk => body.includes(`{{${tk}}}`);
+    const rows = [];
+    if(!has('company.name')) rows.push('Company :: {{company.name}}');
+    if(!has('company.address')) rows.push('Company address :: {{company.address}}');
+    rows.push('{{party}} :: {{recipient.name}}');
+    if(!has('recipient.address')) rows.push('Address :: {{recipient.address}}');
+    if(!has('agreement.date')) rows.push('Agreement date :: {{agreement.date}}');
+    if(!has('start.date') && !has('term')) rows.push('Term :: {{term}}');
+    const block = '## PARTIES\n\n' + rows.join('\n');
+    const m = body.match(/^# .*(\n|$)/);
+    body = m ? body.replace(/^# .*\n*/, s=>s.replace(/\n*$/, '') + '\n\n' + block + '\n\n') : block + '\n\n' + body;
+  }
+  if(!/^# /.test(body)) body = '# ' + (opt.title || 'CONTRACT').toUpperCase() + '\n\n' + body;
+  /* the standard signature block */
+  body = body.replace(/\n*$/, '') + '\n\n' + (witness || 'IN WITNESS WHEREOF, the parties have signed this agreement on the dates written below.') + '\n\n' + ctSigBlock();
+  const seen = new Set(); const autoU = auto.filter(a=>{ const k = a.token+'|'+a.from; if(seen.has(k)) return false; seen.add(k); return true; });
+  return {body, auto:autoU, blanks, notes};
+}
+const ctSigBlock = () => '::sigs\n@ FOR THE COMPANY | {{company.signatory}} | {{company.title}}, {{company.name}} |  | \n@ {{party.upper}} | {{recipient.name}} | {{recipient.position}} | [signature] | [date-signed]\n::end';
+
+/* fill the fields for one recipient. vals: {token: value}. Missing values become an aligned blank line. */
+function ctFillText(body, vals){
+  return String(body||'').replace(/\{\{\s*([a-z.]+(?::\d+)?)\s*\}\}/gi, (m, k)=>{
+    const v = vals[k]; return v == null || String(v).trim()==='' ? CT_BLANK : String(v).replace(/\n+/g, ', ');
+  });
+}
+/* which required fields are still empty for this contract (after filling) */
+const ctUsed = body => [...new Set([...String(body||'').matchAll(/\{\{\s*([a-z.]+(?::\d+)?)\s*\}\}/gi)].map(m=>m[1]))];
+const ctIsFmt = t => /(^|\n)::sigs\n/.test(String(t||'')) || /^# /.test(String(t||''));
+
+/* ---------- rendering: the same layout on screen and (below) in the PDF ---------- */
+const ct_esc = s => String(s).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function ctInline(s, tok){
+  return ct_esc(s).replace(/\[(signature|initials)\]/gi, (m, k)=>tok(k.toLowerCase())).replace(/_{8,}/g, '<span class="ct-blank"></span>');
+}
+/* text → HTML. tok(kind) returns the field HTML for each [signature] / [initials] in reading order; signed(date) for [date-signed] */
+function ctHTML(text, tok=()=>'', dateSigned=()=>'') {
+  const lines = String(text||'').split('\n'); const h = []; let i = 0;
+  while(i < lines.length){
+    const s = lines[i];
+    if(!s.trim()){ i++; continue; }
+    if(s === '::sigs'){
+      const P = []; i++; while(i < lines.length && lines[i] !== '::end'){ if(/^@ /.test(lines[i])) P.push(lines[i].slice(2).split('|').map(x=>x.trim())); i++; } i++;
+      h.push(`<div class="ct-sigs">${P.map(([head, name, role, sig, date])=>{
+        const box = sig ? ctInline(sig, tok) : '<span class="ct-sigline"></span>';
+        const dt = /\[date-signed\]/i.test(date||'') ? (dateSigned()||'<i>on signing</i>') : '';
+        return `<div class="ct-sig"><div class="ct-sig-h">${ct_esc(head||'')}</div><div class="ct-sig-box">${box}</div>
+          <div class="ct-sig-n">${ctInline(name||'', tok)}</div><div class="ct-sig-r">${ctInline(role||'', tok)}</div>
+          <div class="ct-sig-d"><span>Date</span><span class="ct-sig-dv">${dt}</span></div></div>`; }).join('')}</div>`);
+      continue;
+    }
+    if(/^# /.test(s)){ h.push(`<div class="ct-title">${ctInline(s.slice(2), tok)}</div>`); i++; continue; }
+    if(/^## /.test(s)){ h.push(`<div class="ct-h">${ctInline(s.slice(3), tok)}</div>`); i++; continue; }
+    if(/ :: /.test(s)){ const R = []; while(i < lines.length && / :: /.test(lines[i])){ const [l, ...v] = lines[i].split(' :: '); R.push([l, v.join(' :: ')]); i++; }
+      h.push(`<div class="ct-rows">${R.map(([l, v])=>`<div class="ct-row"><span class="ct-l">${ctInline(l, tok)}</span><span class="ct-v">${/^_{8,}$/.test(v.trim()) ? '' : ctInline(v, tok)}</span></div>`).join('')}</div>`); continue; }
+    let m;
+    if((m = s.match(/^(\d+(?:\.\d+)*)\.\s+(.*)$/))){ h.push(`<div class="ct-cl"><span class="ct-n">${m[1]}.</span><span>${ctInline(m[2], tok)}</span></div>`); i++; continue; }
+    if((m = s.match(/^\(([a-z]|[ivx]{1,4})\)\s+(.*)$/i))){ h.push(`<div class="ct-cl ct-sub"><span class="ct-n">(${m[1]})</span><span>${ctInline(m[2], tok)}</span></div>`); i++; continue; }
+    if(/^- /.test(s)){ h.push(`<div class="ct-cl ct-li"><span class="ct-n">•</span><span>${ctInline(s.slice(2), tok)}</span></div>`); i++; continue; }
+    if(/^-{3,}\s*page\s*break\s*-{3,}$/i.test(s)){ i++; continue; }
+    h.push(`<p class="ct-p">${ctInline(s, tok)}</p>`); i++;
+  }
+  return `<div class="ct-doc">${h.join('')}</div>`;
+}
+/*CT-PURE-END*/
+
+/* ---------- styles: one look for preview, signing screen and signed view ---------- */
+(()=>{ if(document.getElementById('ct-css')) return; const st = document.createElement('style'); st.id = 'ct-css'; st.textContent = `
+.ct-doc{font-family:Georgia,'Times New Roman',serif;font-size:13.5px;line-height:1.62;color:#16181d;text-align:left}
+.ct-doc .ct-title{text-align:center;font-weight:700;font-size:17px;letter-spacing:.06em;text-transform:uppercase;margin:2px 0 18px}
+.ct-doc .ct-h{font-weight:700;font-size:13.5px;letter-spacing:.03em;text-transform:uppercase;margin:16px 0 6px}
+.ct-doc .ct-p{margin:0 0 9px;text-align:justify;hyphens:auto}
+.ct-doc .ct-cl{display:grid;grid-template-columns:2.3em 1fr;margin:0 0 7px;text-align:justify}
+.ct-doc .ct-cl.ct-sub{margin-left:2.3em}
+.ct-doc .ct-cl.ct-li{grid-template-columns:1.4em 1fr;margin-left:.9em}
+.ct-doc .ct-n{font-variant-numeric:tabular-nums}
+.ct-doc .ct-rows{margin:4px 0 12px}
+.ct-doc .ct-row{display:grid;grid-template-columns:168px 1fr;gap:12px;align-items:end;margin:0 0 6px}
+.ct-doc .ct-l{font-weight:700}
+.ct-doc .ct-v{border-bottom:1px solid #2b2f38;min-height:1.55em;padding:0 2px;word-break:break-word}
+.ct-doc .ct-blank{display:inline-block;width:11em;border-bottom:1px solid #2b2f38;height:1.1em;vertical-align:-2px}
+.ct-doc .ct-sigs{display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-top:22px;break-inside:avoid}
+.ct-doc .ct-sig-h{font-weight:700;font-size:12px;letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px}
+.ct-doc .ct-sig-box{min-height:68px;display:flex;align-items:flex-end;border-bottom:1px solid #2b2f38;padding-bottom:3px}
+.ct-doc .ct-sig-box .es-field{margin:0}
+.ct-doc .ct-sigline{display:block;height:64px}
+.ct-doc .ct-sig-n{font-weight:700;margin-top:5px}
+.ct-doc .ct-sig-r{font-size:12.5px;color:#3b4150}
+.ct-doc .ct-sig-d{display:grid;grid-template-columns:44px 1fr;gap:8px;align-items:end;margin-top:8px;font-size:12.5px}
+.ct-doc .ct-sig-dv{border-bottom:1px solid #2b2f38;min-height:1.4em}
+.es-paper.ct-paper .ct-doc{padding:4px 2px}
+.ct-preview{background:#fff;border:1px solid var(--line);border-radius:12px;padding:42px 48px;box-shadow:var(--shadow);max-height:66vh;overflow:auto}
+.ct-steps{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:10px}
+.ct-step{border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:var(--panel-2)}
+.ct-step.done{border-color:#b9e3c9;background:#effaf3}
+.ct-step.todo{border-color:#f1d79f;background:#fff9ec}
+.ct-step b{display:block;font-size:12.5px;margin-bottom:6px}
+.ct-req{color:var(--bad);font-weight:700}
+.ct-miss{color:var(--bad);font-size:12px}
+.ct-field-err input,.ct-field-err select{border-color:var(--bad)!important;background:#fff6f6}
+.ct-chip{display:inline-flex;gap:6px;align-items:center;border:1px solid var(--line);border-radius:99px;padding:3px 9px;font-size:12px;margin:2px 4px 2px 0;background:var(--panel)}
+.ct-src{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12.5px;line-height:1.55}
+@media (max-width:860px){.ct-steps{grid-template-columns:1fr}.ct-doc .ct-sigs{grid-template-columns:1fr;gap:26px}.ct-doc .ct-row{grid-template-columns:120px 1fr}.ct-preview{padding:22px 18px}}
+`; document.head.appendChild(st); })();
+
+/* ---------- data: personal details (one record per person) and verified company details ---------- */
+let PDETAILS = [], CTCFG = [];
+COLL.pdetails = {get:()=>PDETAILS, set:v=>PDETAILS=v, aud:r=>uniq([r.person, ...HR_KEYS(), ...HEADS]).filter(Boolean)};
+COLL.ctcfg = {get:()=>CTCFG, set:v=>CTCFG=v, aud:()=>uniq([...HR_KEYS(), ...HEADS, cooKey()]).filter(Boolean)};
+const ctAdmin = () => ROLE==='hr' || isExec() || isFullAccess();
+const ctCanPrepare = () => ctAdmin() || ROLE==='creative' || HEADS.includes(PERSON);
+const ctCanEditDetails = k => k===PERSON || ctAdmin();
+const CT_REQ = [['legalName','Full legal name'], ['addr.line1','Street address'], ['addr.city','City / municipality'], ['addr.province','Province / state'], ['addr.country','Country'], ['mobile','Mobile number'], ['email','Email address']];
+const ctGet = (o, path) => path.split('.').reduce((a, k)=>a==null ? a : a[k], o);
+function ctDetails(k){
+  const r = PDETAILS.find(x=>x.id===k);
+  const app = typeof recApp==='function' ? recApp(k) : null;
+  const base = {legalName: PEOPLE[k]?.name || app?.name || pname(k), email: PEOPLE[k]?.email || app?.email || '', mobile: app?.phone || app?.mobile || ''};
+  if(!r) return {...base, addr:null, saved:false};
+  return {...base, ...r, addr: r.addr ? {...r.addr} : null, saved:true};
+}
+const ctMissing = k => { const D = ctDetails(k); return CT_REQ.filter(([p])=>!String(ctGet(D, p)||'').trim()).map(([, l])=>l); };
+function ctCompany(){ return CTCFG.find(x=>x.id==='company') || {id:'company', name:'Cross Core OPC', address:'', signatory:'', title:'', verifiedAt:null}; }
+const ctCompanyReady = c => !!(c && c.verifiedAt && String(c.name||'').trim() && String(c.address||'').trim() && String(c.signatory||'').trim() && String(c.title||'').trim());
+
+/* ---------- the values that fill one recipient's copy ---------- */
+const CT_TYPES = {employment:{label:'Employment contract', party:'Employee'}, service:{label:'Service contract agreement', party:'Service Provider'},
+  renewal:{label:'Contract renewal', party:'Employee'}, offer:{label:'Job offer', party:'Applicant'}, other:{label:'Contract', party:'Employee'}};
+function ctPosition(k){ const app = typeof recApp==='function' ? recApp(k) : null; return app?.position || app?.role || PEOPLE[k]?.sub || PEOPLE[k]?.title || ''; }
+function ctTerm(s, e){ return s && e ? `${ctDate(s)} to ${ctDate(e)}` : s ? `Starting ${ctDate(s)}` : ''; }
+function ctVals(d, k){
+  const c = d.ct || {}; const D = ctDetails(k); const per = (c.per||{})[k] || {};
+  const co = (['Sent','Published'].includes(d.status) && c.company) ? c.company : ctCompany();
+  const party = per.party || c.party || CT_TYPES[c.type]?.party || 'Employee';
+  const start = per.start || c.dates?.start || '', end = per.end || c.dates?.end || '';
+  const v = {'recipient.name':D.legalName, 'recipient.address':ctAddr(D.addr), 'recipient.email':D.email, 'recipient.mobile':D.mobile,
+    'recipient.emergency':[D.emergencyName, D.emergencyPhone].filter(Boolean).join(' · '), 'recipient.tin':D.tin, 'recipient.sss':D.sss, 'recipient.philhealth':D.philhealth, 'recipient.pagibig':D.pagibig,
+    'recipient.position': per.position || c.terms?.position || ctPosition(k), 'party':party, 'party.upper':party.toUpperCase(),
+    'company.name':co.name, 'company.address':co.address, 'company.signatory':co.signatory, 'company.title':co.title,
+    'agreement.date': ctDate(c.dates?.agreement || d.sentAt || nowISO()), 'start.date':ctDate(start), 'end.date':ctDate(end), 'term':ctTerm(start, end),
+    'compensation': per.compensation || c.terms?.compensation || ''};
+  (c.blanks||[]).forEach(b=>{ v['blank:'+b.n] = per['blank:'+b.n] ?? b.value ?? ''; });
+  return v;
+}
+const ctTextFor = (d, k) => ctFillText(d.body, ctVals(d, k));
+/* values a recipient's copy still lacks (shown to HR before sending and to the recipient before signing) */
+function ctGaps(d, k){ const v = ctVals(d, k); return ctUsed(d.body).filter(t=>!String(v[t]||'').trim()).map(t=>t.startsWith('blank:') ? ((d.ct?.blanks||[]).find(b=>'blank:'+b.n===t)?.label || 'A blank') : (CT_TOKENS[t] || t)); }
+
+/* ---------- personal details form (the person themself; HR and company heads can correct it) ---------- */
+const CT_EDIT = {k:null, addr:null, then:null};
+function ctDetailsModal(k=PERSON, then){
+  if(!ctCanEditDetails(k)) return toast('You can only edit your own personal details');
+  const D = ctDetails(k); CT_EDIT.k = k; CT_EDIT.addr = D.addr ? {...D.addr} : null; CT_EDIT.then = then || null;
+  ctDetailsDraw(D);
+}
+function ctDetailsDraw(D){
+  const k = CT_EDIT.k, A = CT_EDIT.addr; const req = '<span class="ct-req" title="Required">*</span>';
+  const inp = (id, label, val, r, ph='', type='text') => `<div class="field" data-req="${r?1:0}"><label for="${id}">${label} ${r?req:'<span class="hint">(optional)</span>'}</label><input id="${id}" type="${type}" value="${esc(val||'')}" placeholder="${esc(ph)}" oninput="ctDetailsLive()"></div>`;
+  const pending = HRDOCS.filter(d=>d.ct && d.status==='Sent' && (d.sentTo||[]).includes(k) && !esSig(d.id, k) && !d.supersededBy);
+  openModal(k===PERSON ? 'My personal details' : 'Personal details — '+pname(k), `
+    <p class="hint" style="margin:0 0 10px">These details fill your contract${pending.length?'s':''}. Fields marked ${req} are required before you can sign. ${pending.length?`<b>${pending.length} unsigned contract${pending.length>1?'s':''}</b> update${pending.length>1?'':'s'} as soon as you save.`:''}</p>
+    <div class="grid cols-2">${inp('pdName','Full legal name', D.legalName, true, 'As on your government ID')}${inp('pdMobile','Mobile number', D.mobile, true, '+63 9XX XXX XXXX', 'tel')}</div>
+    <div class="grid cols-2">${inp('pdEmail','Email address', D.email, true, 'name@example.com', 'email')}${inp('pdBirth','Date of birth', D.birthdate, false, '', 'date')}</div>
+    <div class="nav-label" style="padding:12px 0 6px;display:flex;justify-content:space-between;align-items:center"><span>Home address ${req}</span>
+      ${A ? `<button class="btn" style="padding:4px 10px;font-size:12px" onclick="ctAddrRemove()">🗑 Remove address</button>` : ''}</div>
+    ${A ? `${inp('pdL1','Street address (house no., street, barangay)', A.line1, true)}${inp('pdL2','Unit / building / subdivision', A.line2, false)}
+      <div class="grid cols-2">${inp('pdCity','City / municipality', A.city, true)}${inp('pdProv','Province / state', A.province, true)}</div>
+      <div class="grid cols-2">${inp('pdPostal','Postal code', A.postal, false)}${inp('pdCountry','Country', A.country || 'Philippines', true)}</div>`
+      : `<div class="empty" style="padding:14px;text-align:left">No address on file. An address is required before signing. <button class="btn primary" style="margin-left:8px;padding:5px 11px;font-size:12px" onclick="ctAddrAdd()">+ Add address</button></div>`}
+    <div class="nav-label" style="padding:12px 0 6px">Emergency contact & government numbers <span class="hint">(optional — some contracts ask for them)</span></div>
+    <div class="grid cols-2">${inp('pdEmN','Emergency contact name', D.emergencyName, false)}${inp('pdEmP','Emergency contact number', D.emergencyPhone, false, '', 'tel')}</div>
+    <div class="grid cols-2">${inp('pdTin','TIN', D.tin, false)}${inp('pdSss','SSS number', D.sss, false)}</div>
+    <div class="grid cols-2">${inp('pdPh','PhilHealth number', D.philhealth, false)}${inp('pdPag','Pag-IBIG number', D.pagibig, false)}</div>
+    <div id="pdMiss" class="ct-miss" style="margin:6px 0 10px"></div>
+    <div style="display:flex;gap:8px"><button class="btn" style="flex:1" onclick="closeModal()">Cancel</button><button class="btn primary" style="flex:2" onclick="ctDetailsSave()">Save details</button></div>`);
+  ctDetailsLive();
+}
+function ctDetailsRead(){
+  const v = id => (el(id)?.value ?? '').trim();
+  const addr = CT_EDIT.addr ? {line1:v('pdL1'), line2:v('pdL2'), city:v('pdCity'), province:v('pdProv'), postal:v('pdPostal'), country:v('pdCountry')} : null;
+  return {legalName:v('pdName'), mobile:v('pdMobile'), email:v('pdEmail'), birthdate:v('pdBirth'), addr, emergencyName:v('pdEmN'), emergencyPhone:v('pdEmP'), tin:v('pdTin'), sss:v('pdSss'), philhealth:v('pdPh'), pagibig:v('pdPag')};
+}
+function ctDetailsLive(){
+  const D = ctDetailsRead(); if(CT_EDIT.addr) CT_EDIT.addr = {...D.addr};
+  const miss = CT_REQ.filter(([p])=>!String(ctGet(D, p)||'').trim());
+  const ids = {legalName:'pdName', mobile:'pdMobile', email:'pdEmail', 'addr.line1':'pdL1', 'addr.city':'pdCity', 'addr.province':'pdProv', 'addr.country':'pdCountry'};
+  Object.entries(ids).forEach(([p, id])=>{ const f = el(id)?.closest('.field'); if(f) f.classList.toggle('ct-field-err', !String(ctGet(D, p)||'').trim()); });
+  const bad = D.email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(D.email);
+  const m = el('pdMiss'); if(m) m.innerHTML = miss.length ? `Required before signing: ${miss.map(([, l])=>esc(l)).join(', ')}` : bad ? 'Check the email address' : '<span style="color:var(--ok)">✓ All required details are complete</span>';
+}
+function ctAddrRemove(){ const D = ctDetailsRead(); CT_EDIT.addr = null; ctDetailsDraw({...D, addr:null}); }
+function ctAddrAdd(){ const D = ctDetailsRead(); CT_EDIT.addr = {line1:'', line2:'', city:'', province:'', postal:'', country:'Philippines'}; ctDetailsDraw({...D, addr:CT_EDIT.addr}); setTimeout(()=>el('pdL1')?.focus(), 50); }
+function ctDetailsSave(){
+  const k = CT_EDIT.k; if(!k || !ctCanEditDetails(k)) return;
+  const D = ctDetailsRead();
+  if(D.email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(D.email)) return toast('Check the email address');
+  let r = PDETAILS.find(x=>x.id===k); const before = r ? JSON.stringify({...r, history:undefined, updatedAt:undefined, updatedBy:undefined}) : '';
+  if(!r){ r = {id:k, person:k, history:[]}; PDETAILS.push(r); }
+  const changed = []; const lab = {legalName:'name', mobile:'mobile number', email:'email', birthdate:'date of birth', addr:'address', emergencyName:'emergency contact', emergencyPhone:'emergency contact', tin:'TIN', sss:'SSS', philhealth:'PhilHealth', pagibig:'Pag-IBIG'};
+  Object.keys(lab).forEach(f=>{ if(JSON.stringify(r[f]??(f==='addr'?null:'')) !== JSON.stringify(D[f]??(f==='addr'?null:''))) changed.push(f==='addr' && !D.addr ? 'address removed' : lab[f]); });
+  Object.assign(r, D, {person:k, updatedAt:nowISO(), updatedBy:PERSON});
+  if(changed.length) r.history = [...(r.history||[]), {at:nowISO(), by:PERSON, changes:[...new Set(changed)]}].slice(-40);
+  recordChange();
+  const pend = HRDOCS.filter(d=>d.ct && d.status==='Sent' && (d.sentTo||[]).includes(k) && !esSig(d.id, k) && !d.supersededBy);
+  if(changed.length && pend.length && k===PERSON) notify(uniq([...pend.map(d=>d.by), ...HR_KEYS()]).filter(x=>x!==PERSON), 'hr', `📝 <b>${esc(pname(k))}</b> updated their personal details (${esc([...new Set(changed)].join(', '))}) — their unsigned contract shows the change`, {view:'contracts'});
+  const miss = ctMissing(k); closeModal(); RENDER[CURRENT]?.();
+  toast(miss.length ? `Saved — still required before signing: ${miss.join(', ')}` : 'Saved — your contract shows these details now');
+  const then = CT_EDIT.then; CT_EDIT.then = null; if(then && !miss.length) setTimeout(then, 120);
+}
+
+/* ---------- recipient: review with my details, then sign ---------- */
+const ctMine = () => HRDOCS.filter(d=>d.ct && d.status==='Sent' && (d.sentTo||[]).includes(PERSON) && !d.supersededBy).sort((a,b)=>(b.sentAt||'').localeCompare(a.sentAt||''));
+function ctReview(id, k=PERSON){
+  const d = HRDOCS.find(x=>x.id===id); if(!d || !d.ct) return toast('This contract is not available to you');
+  const mine = k===PERSON; const miss = ctMissing(k); const gaps = ctGaps(d, k); const signed = esSig(d.id, k);
+  if(signed) return esViewSigned(signed.id);
+  if(mine){ let r = docRead(id); if(!r){ r = {id:id+'|'+PERSON, doc:id, person:PERSON, readAt:nowISO(), ackAt:null}; DOCREADS.push(r); recordChange(); } }
+  openModal(`${d.title}`, `
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px">${badge(signed?'Signed':'Awaiting signature')}<span class="hint">${esc(d.kind)} · version ${d.version||1} · sent ${dstr(d.sentAt)}</span></div>
+    ${miss.length ? `<div class="card" style="border-left:4px solid var(--warn);margin-bottom:10px"><div class="card-b" style="font-size:13px">${mine?'Before you sign, complete':'Still required from '+esc(first(k))+':'} <b>${miss.map(esc).join(', ')}</b>. <button class="btn" style="padding:4px 10px;font-size:12px;margin-left:6px" onclick="ctDetailsModal('${k}', ()=>ctReview('${id}','${k}'))">${mine?'Complete my details':'Edit details'}</button></div></div>` : ''}
+    ${!miss.length && gaps.length ? `<div class="hint" style="margin-bottom:8px">Blank in this copy: ${gaps.map(esc).join(', ')}${mine?' — HR will correct these if needed.':''}</div>` : ''}
+    <div class="ct-preview">${ctHTML(ctTextFor(d, k))}</div>
+    <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
+      ${ctCanEditDetails(k) ? `<button class="btn" onclick="ctDetailsModal('${k}', ()=>ctReview('${id}','${k}'))">✏️ ${mine?'Edit my details':'Edit details'}</button>` : ''}
+      ${mine ? `<button class="btn primary" style="flex:1" ${miss.length?'disabled title="Complete the required details first"':''} onclick="esStart('${id}')">✍️ Review & sign</button>` : ''}</div>`, true);
+}
+function ctMyCardHTML(){
+  const L = ctMine(); if(!L.length) return '';
+  const miss = ctMissing(PERSON);
+  return `<div class="card" style="margin-bottom:16px;border-left:4px solid var(--brand-1)"><div class="card-h"><h3>✍️ Contracts</h3><button class="btn" style="padding:5px 11px;font-size:12px" onclick="ctDetailsModal()">My personal details</button></div><div class="card-b">
+    ${L.map(d=>{ const s = esSig(d.id); const opened = !!docRead(d.id); const step = (cls, t, body) => `<div class="ct-step ${cls}"><b>${t}</b>${body}</div>`;
+      if(s) return `<div class="list-row" style="padding:10px 4px"><span class="badge b-approved">Signed</span><div style="flex:1"><b style="font-size:13px">${esc(d.title)}</b><div class="hint">Signed ${dtstr(s.signedAt)} · version ${s.version} · kept in your records</div></div>
+        <button class="btn" style="padding:5px 11px;font-size:12px" onclick="esViewSigned('${s.id}')">View signed</button><button class="btn" style="padding:5px 11px;font-size:12px" onclick="esDownload('${s.id}')">⬇ PDF</button></div>`;
+      return `<div style="padding:10px 4px 14px;border-bottom:1px solid var(--line-2)"><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><b style="font-size:13.5px">${esc(d.title)}</b><span class="badge b-pending">Awaiting your signature</span><span class="hint">from ${esc(first(d.by))} · ${dstr(d.sentAt)}</span></div>
+        <div class="ct-steps">
+          ${step(miss.length?'todo':'done', `1 · Personal details ${miss.length?'':'✓'}`, miss.length?`<div class="ct-miss" style="margin-bottom:6px">${miss.length} required: ${miss.map(esc).join(', ')}</div><button class="btn primary" style="padding:5px 11px;font-size:12px" onclick="ctDetailsModal('${PERSON}', ()=>ctReview('${d.id}'))">Complete details</button>`:`<div class="hint" style="margin-bottom:6px">Complete — you can still correct them before signing.</div><button class="btn" style="padding:5px 11px;font-size:12px" onclick="ctDetailsModal('${PERSON}', ()=>ctReview('${d.id}'))">Edit details</button>`)}
+          ${step(opened?'done':'', `2 · Review ${opened?'✓':''}`, `<div class="hint" style="margin-bottom:6px">Your name, address and dates are filled in.</div><button class="btn" style="padding:5px 11px;font-size:12px" onclick="ctReview('${d.id}')">Review contract</button>`)}
+          ${step('', '3 · Sign', `<div class="hint" style="margin-bottom:6px">${miss.length?'Available once your details are complete.':'Read each page and sign.'}</div><button class="btn primary" style="padding:5px 11px;font-size:12px" ${miss.length?'disabled':''} onclick="esStart('${d.id}')">Sign now</button>`)}
+        </div></div>`; }).join('')}
+  </div></div>`;
+}
+
+/* ---------- HR / heads / department heads: the Contracts page ---------- */
+const CTS = {f:'open', prev:null, gen:null};
+const ctVisible = d => ctAdmin() || d.by===PERSON || (d.ct?.share||[]).includes(PERSON);
+const ctRecipients = d => (['Sent','Published'].includes(d.status) ? (d.sentTo||[]) : (d.ct?.recipients||[]));
+const ctIsApplicantKey = k => typeof recApp==='function' && !!recApp(k) && (PEOPLE[k]?.role==='applicant' || !PEOPLE[k] || recApp(k).stage!=='employee');
+function ctRecipState(d, k){
+  const s = esSig(d.id, k); if(s) return {cls:'b-approved', t:`Signed ${dstr(s.signedAt)}`};
+  if(!['Sent','Published'].includes(d.status)) return {cls:'b-draft', t:'Not sent yet'};
+  const miss = ctMissing(k).length; const r = docRead(d.id, k);
+  return miss ? {cls:'b-pending', t:`${miss} detail${miss>1?'s':''} missing${r?' · opened':''}`} : {cls:'b-pending', t:r ? 'Details complete · opened' : 'Details complete · not opened'};
+}
+RENDER.contracts = () => {
+  const v = el('v-contracts'); if(!v) return;
+  if(!ctCanPrepare()) { v.innerHTML = '<div class="empty">Contracts are prepared by HR, company heads and department heads.</div>'; return; }
+  const co = ctCompany(); const ready = ctCompanyReady(co);
+  const all = HRDOCS.filter(d=>d.ct && ctVisible(d)).sort((a,b)=>(b.updatedAt||b.at||'').localeCompare(a.updatedAt||a.at||''));
+  const open = d => !d.supersededBy && d.status!=='Rejected' && !(['Sent','Published'].includes(d.status) && ctRecipients(d).every(k=>esSig(d.id, k)));
+  const L = all.filter(d=>CTS.f==='open' ? open(d) : !open(d));
+  v.innerHTML = `
+    <div class="page-head"><div><h2>Contracts</h2><p>Paste a contract and Ops Suite formats it, fills each recipient’s details and CrossCore’s company details, and sends it for e-signature. Recipients complete their own details before signing; everything updates here live.</p></div>
+      <button class="btn primary" onclick="ctPasteModal()">+ Prepare contract</button></div>
+    <div class="card" style="margin-bottom:16px;border-left:4px solid ${ready?'var(--ok)':'var(--warn)'}"><div class="card-b" style="display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap">
+      <div style="flex:1;min-width:260px"><b style="font-size:13px">CrossCore company details for contracts</b> ${ready?'<span class="badge b-approved">Verified</span>':'<span class="badge b-pending">Needs verification</span>'}
+        <div style="font-size:12.5px;margin-top:6px;line-height:1.6">${esc(co.name||'—')}<br>${co.address?esc(co.address):'<span class="ct-miss">Company address not set</span>'}<br>Signatory: ${co.signatory?esc(co.signatory)+(co.title?', '+esc(co.title):''):'<span class="ct-miss">not set</span>'}</div>
+        <div class="hint" style="margin-top:4px">${ready?`Verified by ${esc(pname(co.verifiedBy))} on ${dstr(co.verifiedAt)}. Each sent contract keeps a copy of these details.`:'Contracts can be prepared now, but can only be sent after HR or a company head enters and verifies these details.'}</div></div>
+      ${ctAdmin()?`<button class="btn" onclick="ctCompanyModal()">${ready?'Edit':'Enter & verify'}</button>`:''}</div></div>
+    <div class="tabs"><button class="tab ${CTS.f==='open'?'on':''}" onclick="CTS.f='open';RENDER.contracts()">In progress <span class="hint">${all.filter(open).length}</span></button><button class="tab ${CTS.f==='done'?'on':''}" onclick="CTS.f='done';RENDER.contracts()">Completed & replaced <span class="hint">${all.filter(d=>!open(d)).length}</span></button></div>
+    <div class="card"><div class="card-b" style="padding-top:4px">${L.map(d=>`<div class="list-row" style="flex-wrap:wrap;padding:12px 6px;align-items:flex-start">
+        <span class="badge b-draft" style="min-width:120px;justify-content:center">${esc(d.kind)}</span>
+        <div style="flex:1;min-width:260px"><b style="font-size:13px;cursor:pointer" onclick="ctEditor('${d.id}')">${esc(d.title)}</b> ${badge(d.status==='Submitted'?'Submitted to JA':d.status)}
+          <div class="hint">${d.id} · v${d.version||1} · by ${esc(pname(d.by))} · ${ago(d.updatedAt||d.at)}${d.needsCoo?' · COO approval':''}</div>
+          <div style="margin-top:6px">${ctRecipients(d).map(k=>{ const st = ctRecipState(d, k); return `<span class="ct-chip">${esc(pname(k)||k)}${ctIsApplicantKey(k)?' <span class="hint">applicant</span>':''} <span class="badge ${st.cls}" style="font-size:11px">${esc(st.t)}</span></span>`; }).join('')||'<span class="hint">No recipients yet</span>'}</div></div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">${['Draft','Revisions Needed','Approved'].includes(d.status)?`<button class="btn" style="padding:5px 11px;font-size:12px" onclick="ctEditor('${d.id}')">Review & edit</button>`:''}
+          ${d.status==='Approved'?`<button class="btn primary" style="padding:5px 11px;font-size:12px" onclick="ctSend('${d.id}')">Send for signature</button>`:''}
+          ${['Sent','Published'].includes(d.status)?`<button class="btn" style="padding:5px 11px;font-size:12px" onclick="ctEditor('${d.id}')">Open</button>`:''}</div></div>`).join('') || '<div class="empty">Nothing here yet.</div>'}</div></div>`;
+};
+function ctCompanyModal(){
+  if(!ctAdmin()) return; const c = ctCompany();
+  openModal('CrossCore company details for contracts', `<p class="hint" style="margin:0 0 10px">Enter the registered details exactly as on the company’s registration. They fill every contract and each sent contract keeps a copy.</p>
+    <div class="field"><label>Registered company name <span class="ct-req">*</span></label><input id="coName" value="${esc(c.name||'')}"></div>
+    <div class="field"><label>Registered business address <span class="ct-req">*</span></label><textarea id="coAddr" rows="2">${esc(c.address||'')}</textarea></div>
+    <div class="grid cols-2"><div class="field"><label>Authorized signatory <span class="ct-req">*</span></label><input id="coSig" value="${esc(c.signatory||'')}" placeholder="Full name"></div><div class="field"><label>Signatory’s title <span class="ct-req">*</span></label><input id="coTitle" value="${esc(c.title||'')}" placeholder="e.g. Chief Executive Officer"></div></div>
+    <label style="display:flex;gap:8px;align-items:center;font-size:13px;margin:6px 0 12px"><input type="checkbox" id="coOk" style="width:auto"> I checked these details against the company’s registration documents</label>
+    <button class="btn primary" style="width:100%" onclick="ctCompanySave()">Save & mark verified</button>`);
+}
+function ctCompanySave(){
+  if(!ctAdmin()) return; const c = {name:el('coName').value.trim(), address:el('coAddr').value.trim().replace(/\s*\n\s*/g, ', '), signatory:el('coSig').value.trim(), title:el('coTitle').value.trim()};
+  if(!c.name || !c.address || !c.signatory || !c.title) return toast('All four details are required');
+  if(!el('coOk').checked) return toast('Tick the box to confirm you checked the details');
+  let r = CTCFG.find(x=>x.id==='company'); if(!r){ r = {id:'company'}; CTCFG.push(r); }
+  Object.assign(r, c, {verifiedBy:PERSON, verifiedAt:nowISO(), history:[...(r.history||[]), {at:nowISO(), by:PERSON, act:'Verified company details'}].slice(-30)});
+  recordChange(); closeModal(); RENDER[CURRENT]?.(); toast('Company details saved and verified');
+}
+/* step 1: paste */
+function ctRecipOptions(sel=[]){
+  const emp = activePeople().filter(k=>PEOPLE[k] && !['client','ceo','coo'].includes(PEOPLE[k].role) && k!==PERSON).sort((a,b)=>pname(a).localeCompare(pname(b)));
+  const apps = (typeof APPLICANTS!=='undefined' ? APPLICANTS : []).filter(a=>!['rejected','withdrawn'].includes(a.status) && a.stage!=='employee').sort((a,b)=>String(a.name||'').localeCompare(String(b.name||'')));
+  const row = (k, name, sub) => `<label style="display:flex;gap:8px;align-items:center;font-size:12.5px;padding:3px 0" data-n="${esc((name+' '+sub).toLowerCase())}"><input type="checkbox" class="ctTo" value="${esc(k)}" style="width:auto" ${sel.includes(k)?'checked':''}> <span style="flex:1">${esc(name)}</span><span class="hint">${esc(sub)}</span></label>`;
+  return emp.map(k=>row(k, pname(k), (typeof payClass==='function' && payClass(k)==='contractor') ? 'VA / contractor' : PEOPLE[k].role==='hr' ? 'HR' : 'Employee')).join('') + apps.map(a=>row(a.id, a.name||a.id, 'Applicant')).join('');
+}
+function ctPasteModal(){
+  if(!ctCanPrepare()) return;
+  openModal('Prepare a contract', `
+    <div class="grid cols-2"><div class="field"><label>Contract type</label><select id="ctType" onchange="el('ctParty').value=CT_TYPES[this.value].party">${Object.entries(CT_TYPES).map(([k, t])=>`<option value="${k}" ${k==='service'?'selected':''}>${t.label}</option>`).join('')}</select></div>
+      <div class="field"><label>Title</label><input id="ctTitle" placeholder="e.g. Service Contract Agreement — November 2026"></div></div>
+    <div class="field"><label>Paste the contract text <span class="ct-req">*</span></label><textarea id="ctRaw" rows="12" placeholder="Paste from Word, Google Docs or an email. Blanks like [Employee Name], ______, “this ___ day of ___” or “Address: ____” are filled automatically." style="font-family:inherit;line-height:1.55"></textarea></div>
+    <div class="grid cols-3"><div class="field"><label>Agreement date</label><input id="ctAgree" type="date" value="${manilaDate()}"></div><div class="field"><label>Start date</label><input id="ctStart" type="date"></div><div class="field"><label>End date <span class="hint">(optional)</span></label><input id="ctEnd" type="date"></div></div>
+    <div class="grid cols-3"><div class="field"><label>Recipient is called</label><input id="ctParty" value="Service Provider"></div><div class="field"><label>Position <span class="hint">(blank = each person’s title)</span></label><input id="ctPos"></div><div class="field"><label>Compensation</label><input id="ctPay" placeholder="e.g. PHP 25,000 per month"></div></div>
+    <div class="field"><label>Recipients — employees, VAs and applicants</label><input placeholder="Search…" oninput="document.querySelectorAll('#ctToList label').forEach(l=>l.style.display=l.dataset.n.includes(this.value.toLowerCase())?'':'none')" style="margin-bottom:6px">
+      <div id="ctToList" style="max-height:170px;overflow-y:auto;border:1px solid var(--line);border-radius:9px;padding:6px 9px">${ctRecipOptions()}</div></div>
+    <label style="display:flex;gap:8px;align-items:center;font-size:13px"><input id="ctParties" type="checkbox" checked style="width:auto"> Add a parties & dates block under the title</label>
+    <label style="display:flex;gap:8px;align-items:center;font-size:13px;margin:4px 0 12px"><input id="ctCoo" type="checkbox" checked style="width:auto"> Requires COO (JA) approval before it can be sent</label>
+    <button class="btn primary" style="width:100%" onclick="ctGenerate()">Generate formatted contract →</button>`, true);
+}
+function ctGenerate(){
+  const raw = el('ctRaw').value; if(raw.trim().length < 40) return toast('Paste the contract text first');
+  const type = el('ctType').value; const to = [...document.querySelectorAll('.ctTo:checked')].map(x=>x.value);
+  const g = ctFormatPaste(raw, {parties: el('ctParties').checked, title: el('ctTitle').value || CT_TYPES[type].label});
+  const title = el('ctTitle').value.trim() || (g.body.match(/^# (.*)$/m)?.[1] ? g.body.match(/^# (.*)$/m)[1].replace(/\b\w+/g, w=>w[0]+w.slice(1).toLowerCase()) : CT_TYPES[type].label);
+  const d = {id:uid('HD'), kind:CT_TYPES[type].label, title, body:g.body, files:[], needsCoo:el('ctCoo').checked, sign:{required:true, mode:'auto'}, version:1, by:PERSON, at:nowISO(), updatedAt:nowISO(),
+    status:'Draft', sentTo:[], history:[{at:nowISO(), by:PERSON, act:'Contract generated from pasted text', note:''}],
+    ct:{v:1, type, party:el('ctParty').value.trim() || CT_TYPES[type].party, src:raw, recipients:to, dates:{agreement:el('ctAgree').value, start:el('ctStart').value, end:el('ctEnd').value},
+      terms:{position:el('ctPos').value.trim(), compensation:el('ctPay').value.trim()}, per:{}, blanks:g.blanks.map(b=>({...b, value:''})), auto:g.auto, notes:g.notes}};
+  HRDOCS.unshift(d); recordChange(); closeModal(); CTS.prev = to[0] || null; setTimeout(()=>ctEditor(d.id), 60);
+}
+/* step 2: review & edit (HR sees exactly what each recipient will see) */
+function ctEditor(id){
+  const d = HRDOCS.find(x=>x.id===id); if(!d || !d.ct) return; if(!ctVisible(d)) return toast('This contract is not available to you');
+  const R = ctRecipients(d); if(!R.includes(CTS.prev)) CTS.prev = R[0] || null; const k = CTS.prev;
+  const editable = ['Draft','Revisions Needed','Approved'].includes(d.status) && (ctAdmin() || d.by===PERSON);
+  const sent = ['Sent','Published'].includes(d.status);
+  const c = d.ct; const co = ctCompany();
+  const fieldRow = (label, html) => `<div class="field" style="margin-bottom:8px"><label>${label}</label>${html}</div>`;
+  openModal(`${d.title}`, `
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px">${badge(d.status==='Submitted'?'Submitted to JA':d.status)}<span class="hint">${d.id} · v${d.version||1} · ${esc(d.kind)}</span>
+      ${(c.auto||[]).length?`<span class="hint">· filled automatically: ${[...new Set(c.auto.map(a=>CT_TOKENS[a.token]||a.token))].map(esc).join(', ')}</span>`:''}</div>
+    ${(c.notes||[]).map(n=>`<div class="hint" style="margin-bottom:6px">ℹ️ ${esc(n)}</div>`).join('')}
+    <div class="grid cols-2" style="align-items:start;gap:16px">
+      <div>
+        ${editable?`<div class="grid cols-3">${fieldRow('Agreement date', `<input type="date" id="ceAgree" value="${esc(c.dates?.agreement||'')}" onchange="ctEdit('${id}')">`)}${fieldRow('Start date', `<input type="date" id="ceStart" value="${esc(c.dates?.start||'')}" onchange="ctEdit('${id}')">`)}${fieldRow('End date', `<input type="date" id="ceEnd" value="${esc(c.dates?.end||'')}" onchange="ctEdit('${id}')">`)}</div>
+          <div class="grid cols-3">${fieldRow('Recipient is called', `<input id="ceParty" value="${esc(c.party||'')}" oninput="ctEditSoon('${id}')">`)}${fieldRow('Position (all)', `<input id="cePos" value="${esc(c.terms?.position||'')}" placeholder="each person’s title" oninput="ctEditSoon('${id}')">`)}${fieldRow('Compensation (all)', `<input id="cePay" value="${esc(c.terms?.compensation||'')}" oninput="ctEditSoon('${id}')">`)}</div>
+          ${(c.blanks||[]).length?`<div class="nav-label" style="padding:4px 0 6px">Blanks Ops Suite could not identify — fill or leave as a line</div>${c.blanks.map(b=>fieldRow(esc(b.label), `<input class="ceBlank" data-n="${b.n}" value="${esc(b.value||'')}" oninput="ctEditSoon('${id}')">`)).join('')}`:''}
+          <div class="field"><label>Contract text <span class="hint">— # title · ## heading · “Label :: value” rows · 1. clauses · (a) sub-clauses · - lists · {{fields}}</span></label><textarea id="ceBody" class="ct-src" rows="14" oninput="ctEditSoon('${id}')">${esc(d.body)}</textarea></div>
+          <div class="field"><label>Recipients</label><div style="max-height:130px;overflow-y:auto;border:1px solid var(--line);border-radius:9px;padding:6px 9px" onchange="ctEdit('${id}')">${ctRecipOptions(c.recipients||[])}</div></div>`
+        : `<div class="hint" style="margin-bottom:8px">${sent?'Sent — the text is locked. Each recipient’s copy still updates when they correct their personal details, until they sign. To change the contract itself, issue a new version.':'Waiting for COO approval — the text is locked while JA reviews it.'}</div>`}
+        <div class="nav-label" style="padding:8px 0 6px">Recipients’ details</div>
+        ${R.map(r=>{ const st = ctRecipState(d, r); const gaps = ctGaps(d, r); const s = esSig(d.id, r);
+          return `<div class="list-row" style="padding:7px 2px;align-items:flex-start"><div style="flex:1"><b style="font-size:12.5px">${esc(pname(r)||r)}</b> <span class="badge ${st.cls}" style="font-size:11px">${esc(st.t)}</span>
+            <div class="hint">${esc(ctAddr(ctDetails(r).addr) || 'No address on file')}</div>${gaps.length && !s?`<div class="ct-miss">Blank in this copy: ${gaps.map(esc).join(', ')}</div>`:''}</div>
+            ${s?`<button class="btn" style="padding:4px 9px;font-size:12px" onclick="esViewSigned('${s.id}')">View signed</button>`:`${ctAdmin()?`<button class="btn" style="padding:4px 9px;font-size:12px" onclick="ctDetailsModal('${r}', ()=>ctEditor('${id}'))">Edit details</button>`:''}${editable?`<button class="btn" style="padding:4px 9px;font-size:12px" onclick="ctPerModal('${id}','${r}')">Per-person terms</button>`:''}`}</div>`; }).join('') || '<div class="hint">Choose at least one recipient.</div>'}
+      </div>
+      <div><div style="display:flex;gap:8px;align-items:center;margin-bottom:6px"><b style="font-size:12.5px">Preview for</b><select style="flex:1;padding:5px 8px" onchange="CTS.prev=this.value;ctPreviewPaint('${id}')">${R.map(r=>`<option value="${esc(r)}" ${r===k?'selected':''}>${esc(pname(r)||r)}</option>`).join('')}</select></div>
+        <div class="ct-preview" id="ctPrev"></div></div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">
+      ${editable && ['Draft','Revisions Needed'].includes(d.status)?`<button class="btn" onclick="ctEdit('${id}');closeModal();toast('Draft saved')">Save draft</button>${d.needsCoo?`<button class="btn primary" onclick="ctSubmit('${id}')">Submit to JA for approval →</button>`:`<button class="btn primary" onclick="ctSubmit('${id}')">Mark ready to send</button>`}`:''}
+      ${d.status==='Approved'?`<button class="btn primary" onclick="ctEdit('${id}');ctSend('${id}')">Send for signature →</button>`:''}
+      ${sent && ctAdmin() && !HRDOCS.some(x=>x.prevVersion===d.id)?`<button class="btn" onclick="esNewVersion('${id}')">Issue a new version…</button>`:''}
+      ${editable && ctAdmin() && d.status!=='Approved'?`<button class="btn" style="margin-left:auto;color:var(--bad)" onclick="delHrDoc('${id}')">Delete draft</button>`:''}</div>`, true);
+  ctPreviewPaint(id);
+}
+function ctPreviewPaint(id){ const d = HRDOCS.find(x=>x.id===id); const p = el('ctPrev'); if(!d || !p) return; const k = CTS.prev;
+  p.innerHTML = k ? ctHTML(ctTextFor(d, k)) : ctHTML(ctFillText(d.body, {})); }
+let CT_ET = null; function ctEditSoon(id){ clearTimeout(CT_ET); CT_ET = setTimeout(()=>ctEdit(id, true), 350); }
+function ctEdit(id, quiet){
+  const d = HRDOCS.find(x=>x.id===id); if(!d || !d.ct || !el('ceBody')) return;
+  if(!['Draft','Revisions Needed','Approved'].includes(d.status)) return;
+  const c = d.ct; const body = el('ceBody').value;
+  const before = JSON.stringify([d.body, c.dates, c.party, c.terms, c.blanks, c.recipients]); const textBefore = JSON.stringify([d.body, c.blanks]);
+  d.body = body; c.dates = {agreement:el('ceAgree').value, start:el('ceStart').value, end:el('ceEnd').value};
+  c.party = el('ceParty').value.trim() || CT_TYPES[c.type]?.party || 'Employee'; c.terms = {position:el('cePos').value.trim(), compensation:el('cePay').value.trim()};
+  document.querySelectorAll('.ceBlank').forEach(x=>{ const b = c.blanks.find(y=>String(y.n)===x.dataset.n); if(b) b.value = x.value; });
+  c.recipients = [...document.querySelectorAll('.ctTo:checked')].map(x=>x.value);
+  if(JSON.stringify([d.body, c.dates, c.party, c.terms, c.blanks, c.recipients]) !== before){
+    /* the contract's wording was approved by JA: changing it after approval needs her approval again (dates, recipients and terms do not) */
+    if(d.status==='Approved' && d.needsCoo && JSON.stringify([d.body, c.blanks]) !== textBefore){ d.status = 'Revisions Needed'; d.history.push({at:nowISO(), by:PERSON, act:'Text changed after approval — needs JA’s approval again', note:''}); }
+    d.updatedAt = nowISO(); recordChange();
+  }
+  if(!c.recipients.includes(CTS.prev)) CTS.prev = c.recipients[0] || null;
+  ctPreviewPaint(id);
+}
+function ctPerModal(id, k){
+  const d = HRDOCS.find(x=>x.id===id); if(!d) return; const p = (d.ct.per||{})[k] || {};
+  openModal('Terms for '+pname(k), `<p class="hint" style="margin:0 0 10px">Leave a field empty to use the contract’s value.</p>
+    <div class="grid cols-2"><div class="field"><label>Position</label><input id="cpPos" value="${esc(p.position||'')}" placeholder="${esc(d.ct.terms?.position || ctPosition(k))}"></div><div class="field"><label>Compensation</label><input id="cpPay" value="${esc(p.compensation||'')}" placeholder="${esc(d.ct.terms?.compensation||'')}"></div></div>
+    <div class="grid cols-2"><div class="field"><label>Start date</label><input id="cpStart" type="date" value="${esc(p.start||'')}"></div><div class="field"><label>End date</label><input id="cpEnd" type="date" value="${esc(p.end||'')}"></div></div>
+    <button class="btn primary" style="width:100%" onclick="ctPerSave('${id}','${k}')">Save</button>`);
+}
+function ctPerSave(id, k){ const d = HRDOCS.find(x=>x.id===id); if(!d) return; d.ct.per = d.ct.per || {};
+  d.ct.per[k] = {position:el('cpPos').value.trim(), compensation:el('cpPay').value.trim(), start:el('cpStart').value, end:el('cpEnd').value};
+  d.updatedAt = nowISO(); recordChange(); CTS.prev = k; closeModal(); setTimeout(()=>ctEditor(id), 60); }
+function ctSubmit(id){
+  ctEdit(id); const d = HRDOCS.find(x=>x.id===id); if(!d) return;
+  if(!(d.ct.recipients||[]).length) return toast('Choose at least one recipient');
+  if(!/\[signature\]/i.test(d.body)) return toast('The contract needs a signature field — keep the signature block at the end');
+  if(d.needsCoo){ d.status = 'Submitted'; d.history.push({at:nowISO(), by:PERSON, act:'Submitted to JA', note:''}); notify(cooKey() || 'ja', 'submission', `${esc(first(PERSON))} submitted the contract <b>${esc(d.title)}</b> for your approval`, {view:'coo', doc:d.id}); }
+  else { d.status = 'Approved'; d.history.push({at:nowISO(), by:PERSON, act:'Marked ready (no COO approval needed)', note:''}); }
+  d.updatedAt = nowISO(); recordChange(); closeModal(); RENDER[CURRENT]?.(); toast(d.needsCoo ? 'Submitted — JA was notified' : 'Ready to send');
+}
+/* step 3: send — each recipient gets it in their own portal (My Documents, or Letters & documents for applicants) */
+function ctSend(id){
+  const d = HRDOCS.find(x=>x.id===id); if(!d || !d.ct) return;
+  if(d.status!=='Approved') return toast(d.needsCoo ? 'JA needs to approve this contract first' : 'Mark the contract ready first');
+  const co = ctCompany(); if(!ctCompanyReady(co)) return toast('Enter and verify CrossCore’s company details first (Contracts page)'), ctCompanyModal();
+  const to = (d.ct.recipients||[]).filter(Boolean); if(!to.length) return toast('Choose at least one recipient');
+  d.ct.company = {name:co.name, address:co.address, signatory:co.signatory, title:co.title, verifiedBy:co.verifiedBy, verifiedAt:co.verifiedAt};
+  d.status = 'Sent'; d.sentTo = uniq([...(d.sentTo||[]), ...to]); d.sentAt = d.sentAt || nowISO(); d.updatedAt = nowISO();
+  if(!d.ct.dates?.agreement) d.ct.dates = {...(d.ct.dates||{}), agreement:manilaDate()};
+  if(d.prevVersion){ const pv = HRDOCS.find(x=>x.id===d.prevVersion); if(pv && !pv.supersededBy){ pv.supersededBy = d.id; pv.history = [...(pv.history||[]), {at:nowISO(), by:PERSON, act:`Replaced by version ${d.version} (${d.id})`, note:''}]; } }
+  d.history.push({at:nowISO(), by:PERSON, act:`Sent for signature to ${to.length===1?pname(to[0]):to.length+' people'}`, note:''});
+  to.forEach(k=>{ const app = ctIsApplicantKey(k); notify(k, 'hr', `✍️ <b>${esc(d.title)}</b> is ready — complete your personal details, review it and sign`, {view: app ? 'appletters' : 'mydocs', doc:d.id}); });
+  audit(`Sent ${d.title} for e-signature to ${to.map(pname).join(', ')}`);
+  recordChange(); closeModal(); RENDER[CURRENT]?.(); buildNav(); toast(`Sent — it is in ${to.length===1?first(to[0])+'’s':'each recipient’s'} portal now`);
+}
+
+/* ---------- signing: the built-in e-signature, with the formatted layout ---------- */
+/* each recipient signs their own filled copy (name, address, dates…); the signed record keeps that exact text */
+esText = (orig => (d, k=PERSON) => d?.ct ? ctTextFor(d, k) : orig(d, k))(esText);
+/* signing waits until the required personal details are complete */
+esStart = (orig => function(docId){
+  const d = HRDOCS.find(x=>x.id===docId);
+  if(d?.ct && (d.sentTo||[]).includes(PERSON) && !esSig(docId)){
+    const miss = ctMissing(PERSON);
+    if(miss.length){ toast(`Complete your personal details first: ${miss.join(', ')}`); return ctDetailsModal(PERSON, ()=>esStart(docId)); }
+  }
+  return orig.apply(this, arguments);
+})(esStart);
+/* pages of a formatted contract use the contract layout; the drawn fields sit inside the aligned signature block */
+esPageHTML = (orig => function(pg, preview){
+  const txt = ES.pages?.[pg-1]; if(!ctIsFmt((ES.pages||[]).join('\n\n'))) return orig.apply(this, arguments);
+  let n = 0; const tok = () => { const f = ES.fields.find(x=>x.page===pg && x.inline && x.id===`p${pg}-f${++n}`); return f ? esFieldHTML(f, preview) : ''; };
+  const sf = ES.fields.find(x=>x.page===pg && x.inline && x.kind==='signature'); const s = sf && ES.sig?.[sf.id];
+  const foot = ES.fields.filter(f=>f.page===pg && !f.inline);
+  return `<div class="es-paper ct-paper" data-page="${pg}"><div class="es-pagehead"><span>${esc(ES.doc.title)}${ES.doc.version>1?' · version '+ES.doc.version:''}</span><span>Page ${pg} of ${ES.pages.length}</span></div>
+    ${ctHTML(txt, tok, ()=>s?.at ? ctDate(s.at) : '')}${foot.length?`<div class="es-foot">${foot.map(f=>`<div class="es-foot-f"><span class="hint">${f.kind==='signature'?'Signature':'Initials — page '+pg}</span>${esFieldHTML(f, preview)}</div>`).join('')}</div>`:''}</div>`;
+})(esPageHTML);
+
+/* the signed PDF: the same layout — title, headings, justified paragraphs, hanging clauses, aligned rows and signature columns */
+const ctPdfSafe = s => String(s||'').replace(/₱/g, 'PHP ').replace(/[\u2002-\u200b]/g, ' ').replace(/[^\x00-\xff‘’“”–—•…€™]/g, '');
+async function ctPdf(r){
+  await loadScript(JSPDF_SRC);
+  const doc = new window.jspdf.jsPDF({unit:'pt', format:'a4'}); const W = 595, H = 842, M = 64, TW = W - 2*M, LH = 14.6, BOT = H - 64;
+  let y = 0;
+  const head = () => { doc.setFillColor(242,180,64); doc.rect(0,0,W,6,'F'); doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(120); doc.text(ctPdfSafe(`The Cross Core OPC · ${r.docTitle}${r.version>1?' · version '+r.version:''}`), M, 30); doc.setTextColor(20); y = 62; };
+  const newPage = () => { doc.addPage(); head(); };
+  const need = h => { if(y + h > BOT) newPage(); };
+  const words = (txt, w, font, size) => { doc.setFont('times', font); doc.setFontSize(size); return doc.splitTextToSize(ctPdfSafe(txt), w); };
+  /* justified lines (the last line of a paragraph stays left-aligned) */
+  const para = (txt, x, w, {font='normal', size=10.5, justify=true}={}) => {
+    const L = words(txt.replace(/_{8,}/g, '______________'), w, font, size);
+    L.forEach((ln, i)=>{ need(LH); const last = i===L.length-1; const parts = ln.split(' ');
+      if(justify && !last && parts.length > 1){ const tw = parts.reduce((a, p)=>a + doc.getTextWidth(p), 0); const gap = (w - tw) / (parts.length - 1); let xx = x; parts.forEach(p=>{ doc.text(p, xx, y); xx += doc.getTextWidth(p) + gap; }); }
+      else doc.text(ln, x, y);
+      y += LH; });
+  };
+  const fieldsOn = pg => r.fields.filter(f=>f.page===pg && f.inline);
+  const drawSig = (f, x, yy, w, h) => { if(!f?.img) return; const ratio = Math.min(w/(f.w||w), h/(f.h||h)); const iw = (f.w||w)*ratio, ih = (f.h||h)*ratio; try{ doc.addImage(f.img, 'PNG', x, yy + (h-ih), iw, ih); }catch(e){} };
+  head();
+  r.pages.forEach((txt, pi)=>{
+    const pg = pi+1; if(pi) newPage(); let n = 0; const take = () => fieldsOn(pg).find(x=>x.id===`p${pg}-f${++n}`);
+    const lines = String(txt).split('\n'); let i = 0;
+    while(i < lines.length){
+      const s = lines[i];
+      if(!s.trim()){ y += 4; i++; continue; }
+      if(s === '::sigs'){
+        const P = []; i++; while(i < lines.length && lines[i] !== '::end'){ if(/^@ /.test(lines[i])) P.push(lines[i].slice(2).split('|').map(x=>x.trim())); i++; } i++;
+        const colW = (TW - 36) / 2; need(150); y += 10; const top = y;
+        P.forEach(([hd, name, role, sig, date], ci)=>{
+          const x = M + (ci % 2) * (colW + 36); let yy = top + Math.floor(ci/2) * 150;
+          doc.setFont('times','bold'); doc.setFontSize(9); doc.text(ctPdfSafe(hd||''), x, yy); yy += 6;
+          const f = /\[(signature|initials)\]/i.test(sig||'') ? take() : null;
+          drawSig(f, x, yy, 170, 50); yy += 56; doc.setDrawColor(40); doc.setLineWidth(0.7); doc.line(x, yy, x + colW, yy); yy += 13;
+          doc.setFont('times','bold'); doc.setFontSize(10.5); doc.text(doc.splitTextToSize(ctPdfSafe(name||''), colW)[0] || '', x, yy); yy += 13;
+          doc.setFont('times','normal'); doc.setFontSize(9.5); doc.splitTextToSize(ctPdfSafe(role||''), colW).slice(0, 2).forEach(l=>{ doc.text(l, x, yy); yy += 11.5; });
+          yy += 6; doc.text('Date', x, yy); const dv = /\[date-signed\]/i.test(date||'') && f?.at ? ctDate(f.at) : ''; if(dv) doc.text(dv, x + 34, yy - 1.5); doc.line(x + 32, yy + 2, x + colW, yy + 2);
+        });
+        y = top + Math.ceil(P.length/2) * 150; continue;
+      }
+      if(/^# /.test(s)){ need(34); doc.setFont('times','bold'); doc.setFontSize(14); doc.splitTextToSize(ctPdfSafe(s.slice(2)), TW).forEach(l=>{ doc.text(l, W/2, y, {align:'center'}); y += 18; }); y += 10; i++; continue; }
+      if(/^## /.test(s)){ need(LH*2 + 8); y += 6; para(s.slice(3), M, TW, {font:'bold', size:10.5, justify:false}); y += 2; i++; continue; }
+      if(/ :: /.test(s)){
+        while(i < lines.length && / :: /.test(lines[i])){ const [l, ...rest] = lines[i].split(' :: '); const v = rest.join(' :: '); const LW = 150, vx = M + LW + 10, vw = TW - LW - 10;
+          const VL = /^_{8,}$/.test(v.trim()) ? [''] : words(v, vw - 4, 'normal', 10.5); need(VL.length*LH + 6);
+          doc.setFont('times','bold'); doc.setFontSize(10.5); doc.text(doc.splitTextToSize(ctPdfSafe(l), LW)[0], M, y);
+          doc.setFont('times','normal'); VL.forEach((vl, j)=>{ doc.text(vl, vx + 2, y + j*LH); doc.setDrawColor(60); doc.setLineWidth(0.5); doc.line(vx, y + j*LH + 3, M + TW, y + j*LH + 3); });
+          y += VL.length*LH + 5; i++; }
+        y += 4; continue;
+      }
+      let m;
+      if((m = s.match(/^(\d+(?:\.\d+)*)\.\s+(.*)$/))){ need(LH); doc.setFont('times','normal'); doc.setFontSize(10.5); doc.text(m[1]+'.', M, y); para(m[2], M + 26, TW - 26); y += 3; i++; continue; }
+      if((m = s.match(/^\(([a-z]|[ivx]{1,4})\)\s+(.*)$/i))){ need(LH); doc.setFont('times','normal'); doc.setFontSize(10.5); doc.text(`(${m[1]})`, M + 26, y); para(m[2], M + 52, TW - 52); y += 2; i++; continue; }
+      if(/^- /.test(s)){ need(LH); doc.setFont('times','normal'); doc.setFontSize(10.5); doc.text('•', M + 12, y); para(s.slice(2), M + 26, TW - 26); y += 2; i++; continue; }
+      if(/^-{3,}\s*page\s*break\s*-{3,}$/i.test(s)){ i++; continue; }
+      /* a paragraph; a stray [signature]/[initials] token is drawn as a signed field under the line */
+      const segs = s.split(/(\[(?:signature|initials)\])/i);
+      segs.forEach(sg=>{ if(/^\[(signature|initials)\]$/i.test(sg)){ const f = take(); need(70); drawSig(f, M, y, 170, 46); y += 50; doc.line(M, y, M + 190, y); y += 14; } else if(sg.trim()) para(sg.trim(), M, TW); });
+      y += 6; i++;
+    }
+    /* initials for this page (auto mode) at the foot */
+    const foot = r.fields.filter(f=>f.page===pg && !f.inline);
+    if(foot.length){ if(y + 70 > BOT) newPage(); const fy = Math.max(y + 10, BOT - 62); foot.forEach(f=>{ const x = W - M - 110; drawSig(f, x, fy, 96, 36); doc.setDrawColor(40); doc.line(x, fy + 40, x + 110, fy + 40); doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(90); doc.text(`${f.kind==='signature'?'Signature':'Initials'} · ${ctPdfSafe(r.personName)}`, x, fy + 50); doc.setTextColor(20); }); }
+  });
+  /* the signature certificate (unchanged content) */
+  newPage(); y = 80;
+  doc.setFont('helvetica','bold'); doc.setFontSize(16); doc.text('Signature certificate', M, y); y += 26; doc.setFontSize(10);
+  [['Document', `${r.docKind}: ${r.docTitle}`], ['Document ID · version', `${r.doc} · version ${r.version}`], ['Contract fingerprint (SHA-256)', r.hash], ['Signed by', r.personName], ['Signer account', r.account],
+   ['Signed at', `${esManila(r.signedAt)} · ${r.signedAt} UTC`], ['Sent by', `${pname(r.issuedBy)}${r.sentAt?' on '+esManila(r.sentAt):''}`], ['Pages', String(r.pages.length)], ['Device / browser', r.device], ['Status', 'Signed — locked. Changes require a new version issued by HR.']]
+    .forEach(([k, v])=>{ doc.setFont('helvetica','bold'); doc.text(k, M, y); doc.setFont('helvetica','normal'); const L = doc.splitTextToSize(ctPdfSafe(v), TW-170); doc.text(L, M+170, y); y += Math.max(16, L.length*13)+4; });
+  y += 8; doc.setFont('helvetica','bold'); doc.text('Signature fields', M, y); y += 16; doc.setFont('helvetica','normal');
+  r.fields.forEach(f=>{ if(y > H-80){ newPage(); y = 64; } doc.text(`Page ${f.page} · ${f.kind==='signature'?'Signature':'Initials'} · ${esManila(f.at)}`, M, y); drawSig(f, W-M-90, y-16, 80, 22); y += 26; });
+  /* footers with the final page count */
+  const N = doc.getNumberOfPages();
+  for(let p=1; p<=N; p++){ doc.setPage(p); doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(120);
+    doc.text(doc.splitTextToSize(ctPdfSafe(`Page ${p} of ${N} · Signed electronically by ${r.personName} (${r.account}) on ${esManila(r.signedAt)} · ${r.doc} v${r.version} · SHA-256 ${r.hash.slice(0,24)}…`), TW), M, H-30); doc.setTextColor(20); }
+  return doc;
+}
+esPDF = (orig => async function(r){ return ctIsFmt((r?.pages||[]).join('\n\n')) ? ctPdf(r) : orig.apply(this, arguments); })(esPDF);
+
+/* ---------- where recipients and HR find contracts ---------- */
+/* the HR document window shows a formatted contract formatted (the recipient sees their own filled copy) */
+openHrDoc = (orig => function(id){
+  const r = orig.apply(this, arguments); const d = HRDOCS.find(x=>x.id===id);
+  if(d?.ct){ const p = document.querySelector('#modalBody .doc-paper'); if(p){ const k = (d.sentTo||[]).includes(PERSON) && !ctAdmin() ? PERSON : (ctRecipients(d)[0] || null);
+    p.outerHTML = `<div class="ct-preview">${ctHTML(k ? ctTextFor(d, k) : ctFillText(d.body, {}))}</div>${k && k!==PERSON ? `<div class="hint" style="margin-top:6px">Shown as ${esc(pname(k))}’s copy. <a href="#" onclick="closeModal();ctEditor('${id}');return false">Open in Contracts</a></div>` : ''}`; } }
+  return r;
+})(openHrDoc);
+/* My Documents (employees, VAs, HR, PMs) and Letters & documents (applicants): the contract card on top; a contract with the
+   card is not listed a second time in the older document lists below it */
+function ctPlaceCard(v){
+  if(!v) return; const c = ctMyCardHTML(); if(!c) return;
+  const h = v.querySelector('.page-head'); if(h) h.insertAdjacentHTML('afterend', c); else v.insertAdjacentHTML('afterbegin', c);
+  const ids = ctMine().map(d=>d.id); const card = v.querySelector('.card');
+  v.querySelectorAll('.list-row').forEach(row=>{ if(card && card.contains(row)) return; const html = row.innerHTML; if(ids.some(id=>html.includes(`'${id}'`))) row.remove(); });
+}
+{ const _md = RENDER.mydocs; RENDER.mydocs = function(){ const r = _md.apply(this, arguments); ctPlaceCard(el('v-mydocs')); return r; }; }
+if(typeof RENDER.appletters==='function'){ const _al = RENDER.appletters; RENDER.appletters = function(){ const r = _al.apply(this, arguments); ctPlaceCard(el('v-appletters')); return r; }; }
+/* the Contracts page in the menu (HR, CEO, COO, department heads) */
+{ const at = NAV.findIndex(n=>n.id==='hrdocs'); if(!NAV.some(n=>n.id==='contracts')) NAV.splice(at>=0 ? at+1 : NAV.length, 0, {id:'contracts', name:'Contracts', roles:['hr','ceo','coo','creative'], ico:I.doc});
+  if(!el('v-contracts')){ const v = document.createElement('div'); v.id = 'v-contracts'; v.className = 'view'; (el('v-hrdocs')||document.querySelector('.content .view'))?.after(v); } }
+
+/* ===== t27_endcontract.js — End / reopen a client contract without timeouts (Nov 6 2026) =====
+   The database now re-scopes a client's records in rounds of at most ~4 seconds (supabase/update-nov06-end-contract-speed.sql)
+   and reports how many are left. The portal keeps going until none are left, and a company head's or HR's portal finishes
+   any run that was interrupted (for example a closed browser) the next time it opens. */
+async function ccEndContractRpc(cid, patch, audience){
+  let {data, error} = await BACKEND.sb.rpc('cc_end_contract', {p_client:cid, p_patch:patch, p_audience:audience});
+  if(error) return {error};
+  let left = +(data?.remaining || 0), rounds = 0;
+  while(left > 0 && rounds < 60){
+    rounds++; toast(`Updating ${cname(cid)}’s records… ${left.toLocaleString()} left`);
+    const r = await BACKEND.sb.rpc('cc_rescope_client', {p_client:cid});
+    if(r.error){ console.warn('rescope will finish later', r.error); break; }   /* the contract is already ended; the rest finishes on the next visit */
+    left = +(r.data?.remaining || 0);
+  }
+  return {error:null};
+}
+let CC_RESCOPE_DONE = false;
+async function ccRescopeResume(){
+  if(CC_RESCOPE_DONE || BACKEND?.mode!=='live' || !(ROLE==='hr' || isExec() || isFullAccess())) return;
+  CC_RESCOPE_DONE = true;
+  try{ const {data, error} = await BACKEND.sb.rpc('cc_rescope_pending'); if(error || !Array.isArray(data)) return;
+    for(const cid of data){ let left = 1, n = 0; while(left > 0 && n < 60){ n++; const r = await BACKEND.sb.rpc('cc_rescope_client', {p_client:cid}); if(r.error) break; left = +(r.data?.remaining || 0); } }
+  }catch(e){ /* older database: nothing to resume */ }
+}
+setInterval(()=>{ if(typeof PERSON!=='undefined' && PERSON && !CC_RESCOPE_DONE) ccRescopeResume(); }, 20000);
 
 /* <<< OCT24 MODULES <<< */
 </script>

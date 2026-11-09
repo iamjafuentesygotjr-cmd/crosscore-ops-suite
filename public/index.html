@@ -20916,7 +20916,7 @@ async function cooPostFromModal(){ const ch = CHATS.find(c=>c.id===el('paPostC')
    The footer shows which build is running ("Build 2026-10-07 · 1"), and every open portal checks every few minutes
    (and whenever it comes back to the foreground) whether a newer build has been published. If so it shows
    "New version available — Update now" instead of quietly running old code. */
-const BUILD_ID = '2026-11-06 · 5';
+const BUILD_ID = '2026-11-07 · 1';
 function verStamp(){ const f = el('footNote'); if(f && !f.dataset.v){ f.dataset.v = 1; f.textContent = `Cross Core Ops Suite v8 · Build ${BUILD_ID}`; } }
 async function verCheck(){
   if(!/^https?:/.test(location.protocol)) return;
@@ -32100,7 +32100,8 @@ const pvIsCeo = (k=PERSON) => k === pvCeo();
 /* executive approval: the CEO, or another head the CEO has authorized for a period while unavailable (payconfig.alt) */
 const pvAlt = () => payCfg().alt || {enabled:false};
 function pvAltOk(k=PERSON, on=manilaDate()){ const a = pvAlt(); return !!(a.enabled && a.key===k && k!==pvCeo() && isHead(k) && (!a.from || a.from<=on) && (!a.to || a.to>=on)); }
-const pvIsApprover = (k=PERSON) => k===pvCeo() || pvAltOk(k);
+const pvIsExec = (k=PERSON) => !!k && (k===pvCeo() || k===pvCoo());          /* the CEO and the COO: full approval authority */
+const pvIsApprover = (k=PERSON) => pvIsExec(k) || pvAltOk(k);
 const pvAltOn = () => { const a = pvAlt(); const on = manilaDate(); return !!(a.enabled && a.key && (!a.from || a.from<=on) && (!a.to || a.to>=on)); };
 const pvRun = pid => PAYRUNS.find(r=>r.id===pid);
 const pvFinAud = () => uniq([...financeKeys(), ...HEADS]);
@@ -32282,7 +32283,7 @@ function pvSubmit(id){
   const d = pvDoc(id), why = pvCanSubmit(d); if(why) throw new Error(why);
   d.status = PV_ST.SUB; d.version = (d.version||0) + 1; d.approval = null; d.revision = null; d.submittedAt = nowISO(); d.submittedBy = PERSON;
   pvHist(d, 'Submitted to CEO', `version ${d.version}`);
-  pvEmit([pvCeo()], 'approval', `🧾 Payroll for <b>${esc(d.empName)}</b> (${pvPeriodLabel(d.period)}) was submitted for your review.`, finLink('ceo', {slip:d.id}));
+  pvEmit(uniq([pvCeo(), pvCoo()]), 'approval', `🧾 Payroll for <b>${esc(d.empName)}</b> (${pvPeriodLabel(d.period)}) was submitted for your review.`, finLink('ceo', {slip:d.id}));
   if(pvAltOn()) pvEmit([pvAlt().key], 'approval', `🧾 Payroll for <b>${esc(d.empName)}</b> (${pvPeriodLabel(d.period)}) awaits approval — you are the authorized alternate approver while the CEO is unavailable.`, finLink('ceo', {slip:d.id}));
   pvEmit([pvCoo()], 'payroll', `Payroll for <b>${esc(d.empName)}</b> was submitted for executive approval.`, finLink('oversight'));
   recordChange();
@@ -32293,26 +32294,26 @@ function pvRecall(id){ const d = pvDoc(id); if(![PV_ST.SUB, PV_ST.OK].includes(d
 /* CEO */
 function pvCeoApprove(id, comment){
   const d = pvDoc(id); if(!pvIsApprover()) throw new Error('Only the CEO — or the alternate the CEO has authorized — approves payroll.'); if(![PV_ST.SUB, PV_ST.REV].includes(d.status)) throw new Error('This record is not waiting for approval.');
-  const alt = PERSON !== pvCeo();
+  const alt = !pvIsExec(PERSON);
   d.status = PV_ST.OK; d.approval = {by:PERSON, at:nowISO(), version:d.version, comment:comment||'', alt, onBehalfOf:alt?pvCeo():undefined}; d.revision = null;
-  pvHist(d, alt ? `Approved by the authorized alternate (${pname(PERSON)}) for ${pname(pvCeo())}` : 'CEO approved', `version ${d.version}${comment?' — '+comment:''}`);
+  pvHist(d, alt ? `Approved by the authorized alternate (${pname(PERSON)}) for ${pname(pvCeo())}` : (PERSON===pvCeo() ? 'CEO approved' : 'COO approved'), `version ${d.version}${comment?' — '+comment:''}`);
   pvEmit(financeKeys(), 'approval', `✅ <b>CEO Approved – Ready for Release:</b> ${esc(d.empName)} (${pvPeriodLabel(d.period)})${alt?' — approved by the authorized alternate, '+esc(pname(PERSON)):''}.`, finLink('releases', {slip:d.id}));
   pvEmit([pvCoo()], 'payroll', `${alt?esc(pname(PERSON)):'CEO'} approved <b>${esc(d.empName)}</b>'s payroll.`, finLink('oversight')); recordChange();
 }
 function pvCeoRevise(id, comment){
   const d = pvDoc(id); if(!pvIsApprover()) throw new Error('Only the CEO or the authorized alternate returns payroll for correction.'); if(String(comment||'').trim().length < 3) throw new Error('A revision request needs a comment for Finance.');
   if(![PV_ST.SUB, PV_ST.REV].includes(d.status)) throw new Error('This record is not waiting for approval.');
-  d.status = PV_ST.RET; d.approval = null; d.revision = {by:PERSON, at:nowISO(), comment:comment.trim(), alt:PERSON!==pvCeo()}; pvHist(d, PERSON!==pvCeo() ? 'Returned for correction by the authorized alternate' : 'CEO returned it for correction', comment);
+  d.status = PV_ST.RET; d.approval = null; d.revision = {by:PERSON, at:nowISO(), comment:comment.trim(), alt:!pvIsExec(PERSON)}; pvHist(d, !pvIsExec(PERSON) ? 'Returned for correction by the authorized alternate' : (PERSON===pvCeo() ? 'CEO' : 'COO')+' returned it for correction', comment);
   pvEmit(financeKeys(), 'revision', `↩️ Payroll for <b>${esc(d.empName)}</b> was returned for correction: ${esc(comment)}`, finLink('payroll', {slip:d.id})); recordChange();
 }
-function pvCeoOpen(id){ const d = pvDoc(id); if(pvIsApprover() && d.status === PV_ST.SUB){ d.status = PV_ST.REV; pvHist(d, pvIsCeo() ? 'CEO opened the record' : 'The authorized alternate opened the record'); recordChange(); } }
+function pvCeoOpen(id){ const d = pvDoc(id); if(pvIsApprover() && d.status === PV_ST.SUB){ d.status = PV_ST.REV; pvHist(d, pvIsCeo() ? 'CEO opened the record' : PERSON===pvCoo() ? 'COO opened the record' : 'The authorized alternate opened the record'); recordChange(); } }
 
 /* ---------- releasing (same checks as cc_pay_publish) ---------- */
 function pvPublishCheck(d, schedId){
   if(d.release) return {ok:true, duplicate:true};
   if(d.status !== PV_ST.OK) return {ok:false, error:`Not CEO-approved (status: ${d.status})`};
   if(!pvApprovedCurrent(d)) return {ok:false, error:'The approved version is no longer the current version'};
-  if(d.approval.by !== pvCeo() && !d.approval.alt) return {ok:false, error:'Approval was not given by the CEO or the authorized alternate'};
+  if(!pvIsExec(d.approval.by) && !d.approval.alt) return {ok:false, error:'Approval was not given by the CEO, the COO or the authorized alternate'};
   if(!PEOPLE[d.emp] || !activePeople().includes(d.emp)) return {ok:false, error:'Recipient has no active portal'};
   if(schedId){ const s = PAYREL.find(x=>x.id===schedId); if(!s || s.doc!==d.id || s.version!==d.version) return {ok:false, error:'Schedule does not match the approved version'}; }
   return {ok:true};
@@ -32390,12 +32391,12 @@ function pvProposeRate({emp, kind, current, proposed, effective, reason, support
   if(!(+proposed > 0)) throw new Error('Enter the proposed amount.'); if(String(reason||'').trim().length < 3) throw new Error('A reason is required.'); if(!effective) throw new Error('Choose the effective date.');
   const r = {id:uid('RC'), emp, kind, current:current==null?null:+current, proposed:+proposed, rateType:rateType||'monthly', oldType:oldType||'monthly', clientName:clientName||'', payEligible:payEligible!==false, cutoffs:cutoffs||'both', until:until||null, effective, reason:reason.trim(), support:support||[], target:target||null, status:'Pending CEO', by:PERSON, at:nowISO(), history:[{at:nowISO(), by:PERSON, act:'Proposed'}]};
   RATECHG.unshift(r);
-  pvEmit([pvCeo()], 'approval', `💰 Rate change pending your approval: <b>${esc(pname(emp))}</b>${clientName?' · '+esc(clientName):''} — ${current==null?'Rate Not Configured':pvRateTxt(current, oldType, 'PHP')} → ${pvRateTxt(proposed, rateType, 'PHP')} (${esc(reason)}).`, finLink('ceo'));
-  pvEmit([pvCoo()], 'payroll', `Rate change pending CEO approval for <b>${esc(pname(emp))}</b>${clientName?' · '+esc(clientName):''}.`, finLink('oversight')); recordChange(); return r;
+  pvEmit(uniq([pvCeo(), pvCoo()]), 'approval', `💰 Rate change pending your approval: <b>${esc(pname(emp))}</b>${clientName?' · '+esc(clientName):''} — ${current==null?'Rate Not Configured':pvRateTxt(current, oldType, 'PHP')} → ${pvRateTxt(proposed, rateType, 'PHP')} (${esc(reason)}).`, finLink('ceo'));
+  /* the COO is now an approver: the “pending your approval” notice above replaces the separate COO notice */
 }
 /* the CEO's decision also applies the approved rate (the earlier rate is closed the day before, so earlier periods keep it) */
 function pvDecideRate(id, ok, comment){
-  const r = RATECHG.find(x=>x.id===id); if(!r || r.status!=='Pending CEO') return; if(!pvIsCeo()) throw new Error('Only the CEO approves or rejects a rate change.');
+  const r = RATECHG.find(x=>x.id===id); if(!r || r.status!=='Pending CEO') return; if(!pvIsExec()) throw new Error('Only the CEO or the COO approves or rejects a rate change.');
   if(!ok && String(comment||'').trim().length < 3) throw new Error('Say why the change was rejected.');
   if(ok){
     const t = r.target||{}; const day = shiftDate(r.effective, -1);
@@ -32569,7 +32570,7 @@ function openPv(id, keepScroll){
       ${pvCan()&&pvApprovedCurrent(d)&&!d.release&&!relA?`<button class="btn primary" onclick="pvReleaseClick('${d.id}')">Send payslip now</button><button class="btn" onclick="pvScheduleModal(['${d.id}'])">🗓 Schedule release</button>`:''}
       ${pvCan()&&d.release&&!d.supersededBy?`<button class="btn" onclick="pvCreateCorrection('${d.id}')" title="Starts a new, separately approved document; the released one stays on file">Create correction</button>`:''}
       ${pvCan()&&d.release&&d.pay?.status!=='Paid'?`<button class="btn" onclick="pvMarkPaid('${d.id}')">Mark as paid…</button>`:''}
-      ${pvIsCeo()&&[PV_ST.SUB,PV_ST.REV].includes(d.status)?`<button class="btn primary" onclick="pvCeoReview('${d.id}')">Open for CEO decision</button>`:''}
+      ${pvIsExec()&&[PV_ST.SUB,PV_ST.REV].includes(d.status)?`<button class="btn primary" onclick="pvCeoReview('${d.id}')">Open for ${pvIsCeo()?'CEO':'COO'} decision</button>`:''}
     </div>`, true);
   if(box && keepScroll) el('modal').querySelector('.box').scrollTop = top;
 }
@@ -32636,12 +32637,12 @@ function pvExceptionsHTML(D){
 
 /* ---------- CEO review ---------- */
 function pvCeoHTML(){
-  const ceo = pvIsApprover(), ceoOnly = pvIsCeo();
+  const ceo = pvIsApprover(), ceoOnly = pvIsExec();
   const P = PAYV2.filter(d=>[PV_ST.SUB, PV_ST.REV].includes(d.status)).sort((a,b)=>(a.submittedAt||'').localeCompare(b.submittedAt||''));
   const R = RATECHG.filter(r=>r.status==='Pending CEO');
   const routine = P.filter(d=>!d.lines.some(l=>l.manual));
   const hist = PAYV2.filter(d=>d.approval || d.revision).sort((a,b)=>((b.approval?.at||b.revision?.at)||'').localeCompare((a.approval?.at||a.revision?.at)||'')).slice(0,25);
-  return `${pvAltCardHTML()}${ceo?'':`<div class="hint" style="margin-bottom:10px">Only the CEO (${esc(pname(pvCeo()))}) — or the alternate the CEO authorizes — approves payroll. This is a read-only view.</div>`}
+  return `${pvAltCardHTML()}${ceo?'':`<div class="hint" style="margin-bottom:10px">Only the CEO (${esc(pname(pvCeo()))}), the COO (${esc(pname(pvCoo()))}) — or an alternate they authorize — approve payroll. This is a read-only view.</div>`}
     <div class="card" style="margin-bottom:14px"><div class="card-h"><h3>Pending payroll submissions <span class="badge ${P.length?'b-missed':'b-draft'}">${P.length}</span></h3>
       ${ceo&&routine.length?`<button class="btn primary" onclick="pvCeoBatch()" title="Records without manual adjustments">Approve ${routine.length} routine record${routine.length===1?'':'s'}…</button>`:''}</div>
       <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Recipient</th><th>Type</th><th>Period</th><th>Net payable</th><th>Adjustments</th><th>Submitted</th><th></th></tr></thead><tbody>
@@ -32798,7 +32799,7 @@ function pvSettingsHTML(){
       <div class="field"><label>Annual withholding brackets — one per line: <i>over, base tax, rate</i></label><textarea id="pcBr" rows="6" ${dis} style="font-family:monospace;font-size:12px">${c.tax.brackets.map(b=>b.join(', ')).join('\n')}</textarea></div>
       <div class="hint">${esc(c.note||'')}</div>${can?`<button class="btn primary" style="margin-top:10px" onclick="pvSaveCfg()">Save settings</button>`:''}</div></div>
     <div class="card" style="margin-bottom:14px"><div class="card-h"><h3>Confidentiality of filed payslips</h3></div><div class="card-b"><div class="hint" style="margin-bottom:8px">Released payslips are filed in HR 201 (employees) and the contractor records (VAs). By default only the person, Finance and the company heads can open them.</div>
-      <select ${pvIsCeo()?'':'disabled'} onchange="pvSetHrAccess(this.value)"><option value="restricted" ${c.hrAccess!=='hr'?'selected':''}>Restricted — HR cannot open payslips</option><option value="hr" ${c.hrAccess==='hr'?'selected':''}>HR can open newly filed payslips</option></select> <span class="hint">${pvIsCeo()?'':'Only the CEO changes this.'}</span></div></div>
+      <select ${pvIsExec()?'':'disabled'} onchange="pvSetHrAccess(this.value)"><option value="restricted" ${c.hrAccess!=='hr'?'selected':''}>Restricted — HR cannot open payslips</option><option value="hr" ${c.hrAccess==='hr'?'selected':''}>HR can open newly filed payslips</option></select> <span class="hint">${pvIsCeo()?'':'Only the CEO changes this.'}</span></div></div>
     <div class="card"><div class="card-h"><h3>Workforce classification</h3><span class="sub">decides contractor payment statement vs employee payslip</span></div><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Person</th><th>Position</th><th>Paid as</th></tr></thead><tbody>
       ${people.map(p=>`<tr><td><b>${esc(p.name)}</b></td><td class="hint">${esc(p.role)}</td><td><select ${dis} onchange="pvSetCls('${p.id}',this.value)" style="padding:4px 8px"><option value="contractor" ${p.cls==='contractor'?'selected':''}>Independent contractor</option><option value="employee" ${p.cls==='employee'?'selected':''}>Declared employee</option></select></td></tr>`).join('')}</tbody></table></div>
       <div class="card-b hint">The CEO's executive portal stays outside ordinary payroll unless added to a pay profile. A classification change only affects drafts generated afterwards.</div></div>`;
@@ -32868,11 +32869,11 @@ function pvProfileRateDo(emp, rid){ const pp = payProfile(emp), r = pp.rates.fin
 /* ---------- dashboard card + links ---------- */
 function financeDashCard(){
   if(!finAuth()) return '';
-  const a = PAYV2.filter(d=>d.status===PV_ST.DRAFT).length, b = PAYV2.filter(d=>[PV_ST.SUB,PV_ST.REV].includes(d.status)).length + (pvIsCeo()?RATECHG.filter(r=>r.status==='Pending CEO').length:0),
+  const a = PAYV2.filter(d=>d.status===PV_ST.DRAFT).length, b = PAYV2.filter(d=>[PV_ST.SUB,PV_ST.REV].includes(d.status)).length + (pvIsExec()?RATECHG.filter(r=>r.status==='Pending CEO').length:0),
     c = PAYV2.filter(d=>pvApprovedCurrent(d)&&!d.release&&!pvActiveRel(d)).length, t = FINTIX.filter(x=>['Submitted','Received','In Progress'].includes(x.status)).length;
   if(!isFinance() && !b) return '';
   return `<div class="card" style="margin-bottom:16px"><div class="card-h"><h3>Finance & Payroll</h3><button class="btn" onclick="go('finance')">Open</button></div><div class="card-b"><div class="grid cols-4">
-    <div><div class="k-label">Drafts to review</div><div class="k-val">${a}</div></div><div><div class="k-label">${pvIsCeo()?'Awaiting your approval':'With the CEO'}</div><div class="k-val" style="color:${b&&pvIsCeo()?'var(--bad)':'var(--ink)'}">${b}</div></div>
+    <div><div class="k-label">Drafts to review</div><div class="k-val">${a}</div></div><div><div class="k-label">${pvIsExec()?'Awaiting your approval':'With the CEO / COO'}</div><div class="k-val" style="color:${b&&pvIsCeo()?'var(--bad)':'var(--ink)'}">${b}</div></div>
     <div><div class="k-label">Ready to release</div><div class="k-val">${c}</div></div><div><div class="k-label">Open concerns</div><div class="k-val">${t}</div></div></div></div></div>`;
 }
 { const _fl = followLink; followLink = function(link){
@@ -33037,7 +33038,7 @@ async function pvPrint(id){
 const RTU = {view:'client', filter:'all', q:''};
 const pvIsFixed = t => ['monthly','semimonthly'].includes(t);
 const pvClientKind = f => pvIsNewClient(f) ? `<span class="badge b-pending" title="Rates were entered by the Heads at registration. A Finance change needs CEO approval.">New client · CEO approval for changes</span>` : `<span class="badge b-draft" title="Created before the rate workflow. Finance can configure and correct rates directly (every change is logged).">Existing client · Finance edits directly</span>`;
-const pvCanEditRates = () => isFinance() || pvIsCeo();
+const pvCanEditRates = () => isFinance() || pvIsExec();
 const pvAssignPending = (f, a) => RATECHG.find(r=>r.status==='Pending CEO' && r.target?.fc===f.id && r.target?.aid===a.id);
 const pvPersonTag = k => `<span class="chip" style="font-size:10.5px">${payClass(k)==='employee'?'Employee':'Contractor'}</span>`;
 function pvRateCell(f, a){ const cur = f.payCurrency||'PHP';
@@ -33314,7 +33315,7 @@ function pvAdjDel(id){ PADJ = PADJ.filter(x=>x.id!==id); recordChange(); pvRefre
 
 /* ---------- the CEO's alternate approver ---------- */
 function pvAltCardHTML(){
-  const a = pvAlt(), ceo = pvIsCeo(), heads = HEADS.filter(k=>k!==pvCeo()), on = pvAltOn();
+  const a = pvAlt(), ceo = pvIsExec(), heads = HEADS.filter(k=>k!==pvCeo()), on = pvAltOn();
   if(ceo) return `<div class="card" style="margin-bottom:14px"><div class="card-h"><h3>Alternate approver while you are unavailable</h3><span class="badge ${on?'b-approved':'b-draft'}">${on?'active':a.enabled?'scheduled':'off'}</span></div><div class="card-b">
     <div class="hint" style="margin-bottom:8px">The CEO is the primary payroll approver. If you are away you can authorize <b>one other company head</b> to approve (or return) payroll for a period you choose. One approval is enough and it is recorded as given on your behalf. Rate changes always stay with you.</div>
     <div class="grid cols-4"><label class="switch-row"><input type="checkbox" id="altOn" ${a.enabled?'checked':''} style="width:auto"> Authorize an alternate</label>
@@ -33325,13 +33326,13 @@ function pvAltCardHTML(){
   return a.enabled ? `<div class="hint" style="margin-bottom:10px">Alternate approver: ${esc(pname(a.key))}${a.from?' · from '+dLong(a.from):''}${a.to?' · until '+dLong(a.to):''} — ${on?'currently active':'not active today'}.</div>` : '';
 }
 function pvSaveAlt(){
-  if(!pvIsCeo()) return toast('Only the CEO authorizes an alternate approver'); const r = pvCfgRec(); const on = el('altOn').checked, key = el('altKey').value, from = el('altFrom').value, to = el('altTo').value;
+  if(!pvIsExec()) return toast('Only the CEO or the COO authorizes an alternate approver'); const r = pvCfgRec(); const on = el('altOn').checked, key = el('altKey').value, from = el('altFrom').value, to = el('altTo').value;
   if(on && !key) return toast('Choose the alternate'); if(on && from && to && to<from) return toast('The end date is before the start date');
   r.alt = {enabled:on, key, from, to, reason:el('altWhy').value.trim(), by:PERSON, at:nowISO()}; recordChange();
   if(on) pvEmit([key], 'approval', `🛡 <b>${esc(pname(PERSON))}</b> authorized you as the alternate payroll approver${from?' from '+dLong(from):''}${to?' until '+dLong(to):''}.`, finLink('ceo'));
   toast(on?`${pname(key)} can now approve payroll${from?' from '+dShort(from):''}${to?' until '+dShort(to):''}`:'Alternate approver switched off'); RENDER.finance();
 }
-function pvSetHrAccess(v){ if(!pvIsCeo()) return toast('Only the CEO changes who can open payslip records'); pvCfgRec().hrAccess = v; recordChange(); toast(v==='hr'?'HR can now see newly filed payslips':'Payslips are visible only to the person, Finance and the heads'); RENDER.finance(); }
+function pvSetHrAccess(v){ if(!pvIsExec()) return toast('Only the CEO or the COO changes who can open payslip records'); pvCfgRec().hrAccess = v; recordChange(); toast(v==='hr'?'HR can now see newly filed payslips':'Payslips are visible only to the person, Finance and the heads'); RENDER.finance(); }
 function pvSetStatBase(v){ pvCfgRec().statBase = v; recordChange(); toast('Saved'); }
 
 /* ---------- Send all payslips (bulk): pick the approved batch, confirm, see every recipient's result ---------- */
@@ -36893,7 +36894,7 @@ function pbSubmit(pid){
   Object.assign(b, {status:PB_ST.SUB, round:(b.round||0)+1, submittedBy:PERSON, submittedAt:nowISO(), summary:pbSummary(pid), decision:null, docs:pbDocsAll(pid).filter(d=>d.batch===id).map(d=>({id:d.id, version:d.version}))});
   pbHist(b, b.round>1 ? 'Resubmitted for approval' : 'Submitted for approval', `${b.summary.people} payslips · net ${money(b.summary.net)}`);
   const alt = pvAltOn() ? pvAlt().key : null;
-  pvEmit([pvCeo()], 'approval', `🧾 <b>Payroll batch for ${esc(b.periodLabel)}</b> — ${b.summary.people} payslips, net ${money(b.summary.net)} — was submitted for your approval.`, finLink('batch'));
+  pvEmit(uniq([pvCeo(), pvCoo()]), 'approval', `🧾 <b>Payroll batch for ${esc(b.periodLabel)}</b> — ${b.summary.people} payslips, net ${money(b.summary.net)} — was submitted for your approval.`, finLink('batch'));
   if(alt) pvEmit([alt], 'approval', `🧾 Payroll batch for ${esc(b.periodLabel)} awaits approval — you are the backup approver while ${esc(first(pvCeo()))} is unavailable.`, finLink('batch'));
   pvEmit([pvCoo()].filter(k=>k!==alt), 'payroll', `Payroll batch for ${esc(b.periodLabel)} was submitted to the CEO.`, finLink('batch'));
   recordChange(); return b; }
@@ -36905,7 +36906,7 @@ let PB_QUIET = false;
 
 /* ---------- the approver: open, edit, approve, return ---------- */
 function pbOpen(pid){ const b = pbOf(pid); if(!b || b.status!==PB_ST.SUB || !pvIsApprover()) return;
-  b.status = PB_ST.REV; pbHist(b, pvIsCeo() ? 'Opened by the CEO' : `Opened by ${pname(PERSON)} (backup approver)`);
+  b.status = PB_ST.REV; pbHist(b, pvIsCeo() ? 'Opened by the CEO' : PERSON===pvCoo() ? 'Opened by the COO' : `Opened by ${pname(PERSON)} (backup approver)`);
   PB_QUIET = true; try{ pbDocsAll(pid).filter(d=>d.batch===b.id && d.status===PV_ST.SUB).forEach(d=>pvCeoOpen(d.id)); } finally { PB_QUIET = false; }
   recordChange(); }
 /* amount = the line's pay; rate = the applied rate for this cutoff (monthly / per cutoff / per hour / per project) */
@@ -36924,7 +36925,7 @@ async function pbEdit(docId, lid, field, value){
   if(!pbCanEditLine(d, l)) throw new Error(pvIsApprover() || isFinance() ? 'This line can’t be changed now.' : 'Only Finance or the approver changes pay.');
   if(value==='' || isNaN(+value)) throw new Error('Enter a number.');
   const ch = {[field]: +value}; const approver = pvIsApprover() && [PV_ST.SUB, PV_ST.REV].includes(d.status);
-  const who = approver ? (pvIsCeo() ? 'CEO' : 'backup approver') : 'Finance';
+  const who = approver ? (pvIsCeo() ? 'CEO' : PERSON===pvCoo() ? 'COO' : 'backup approver') : 'Finance';
   const reason = approver ? `Adjusted by ${pname(PERSON)} (${who}) during approval review` : `Adjusted in the bulk payroll review`;
   let res;
   if(approver){
@@ -36945,9 +36946,9 @@ function pbApprove(pid, comment){
   if(!b || ![PB_ST.SUB, PB_ST.REV].includes(b.status)) throw new Error('This batch is not waiting for approval.');
   const L = pbDocsAll(pid).filter(d=>d.batch===b.id && [PV_ST.SUB, PV_ST.REV].includes(d.status)); if(!L.length) throw new Error('There is nothing left to approve in this batch.');
   PB_QUIET = true; try{ L.forEach(d=>pvCeoApprove(d.id, comment)); } finally { PB_QUIET = false; }
-  const alt = PERSON !== pvCeo();
+  const alt = !pvIsExec(PERSON);
   Object.assign(b, {status:PB_ST.OK, decision:{kind:'approved', by:PERSON, at:nowISO(), comment:String(comment||'').trim(), alt}, approvedSummary:pbSummary(pid)});
-  pbHist(b, alt ? `Approved by ${pname(PERSON)} (COO, backup approver) for ${pname(pvCeo())}` : 'Approved by the CEO', [`${L.length} payslips · net ${money(b.approvedSummary.net)}`, b.reviewEdits?`${b.reviewEdits} edit${b.reviewEdits>1?'s':''} made during review`:'', comment].filter(Boolean).join(' — '));
+  pbHist(b, alt ? `Approved by ${pname(PERSON)} (backup approver) for ${pname(pvCeo())}` : (PERSON===pvCeo() ? 'Approved by the CEO' : 'Approved by the COO'), [`${L.length} payslips · net ${money(b.approvedSummary.net)}`, b.reviewEdits?`${b.reviewEdits} edit${b.reviewEdits>1?'s':''} made during review`:'', comment].filter(Boolean).join(' — '));
   pvEmit(financeKeys(), 'approval', `✅ <b>Payroll batch approved — ${esc(b.periodLabel)}</b>${alt?` (by ${esc(first(PERSON))}, backup approver)`:''}: ${L.length} payslips, net ${money(b.approvedSummary.net)}${b.reviewEdits?` · ${b.reviewEdits} change${b.reviewEdits>1?'s':''} made during review are already in your records`:''}. Ready for release.`, finLink('batch'));
   pvEmit([pvCoo(), pvCeo()].filter(k=>k!==PERSON), 'payroll', `Payroll batch for ${esc(b.periodLabel)} was approved by ${esc(first(PERSON))}.`, finLink('batch'));
   recordChange(); }
@@ -36956,18 +36957,18 @@ function pbReturn(pid, comment){
   if(!b || ![PB_ST.SUB, PB_ST.REV].includes(b.status)) throw new Error('This batch is not waiting for approval.');
   if(String(comment||'').trim().length < 3) throw new Error('Add a comment for Finance — what needs to change?');
   PB_QUIET = true; try{ pbDocsAll(pid).filter(d=>d.batch===b.id && [PV_ST.SUB, PV_ST.REV].includes(d.status)).forEach(d=>pvCeoRevise(d.id, comment.trim())); } finally { PB_QUIET = false; }
-  Object.assign(b, {status:PB_ST.RET, decision:{kind:'returned', by:PERSON, at:nowISO(), comment:comment.trim(), alt:PERSON!==pvCeo()}});
-  pbHist(b, PERSON!==pvCeo() ? `Returned to Finance by ${pname(PERSON)} (backup approver)` : 'Returned to Finance by the CEO', comment.trim());
+  Object.assign(b, {status:PB_ST.RET, decision:{kind:'returned', by:PERSON, at:nowISO(), comment:comment.trim(), alt:!pvIsExec(PERSON)}});
+  pbHist(b, !pvIsExec(PERSON) ? `Returned to Finance by ${pname(PERSON)} (backup approver)` : (PERSON===pvCeo() ? 'Returned to Finance by the CEO' : 'Returned to Finance by the COO'), comment.trim());
   pvEmit(financeKeys(), 'revision', `↩️ <b>Payroll batch returned — ${esc(b.periodLabel)}</b>: ${esc(comment.trim())}`, finLink('batch'));
   recordChange(); }
 function pbComment(pid, text){ const b = pbOf(pid); if(!b) throw new Error('Submit the batch first.'); if(!(isFinance() || pvIsApprover() || isHead(PERSON))) throw new Error('Not allowed.');
   if(String(text||'').trim().length < 2) throw new Error('Write a comment.'); pbHist(b, 'Comment', text.trim(), {comment:true});
   const to = isFinance() ? [pvCeo(), ...(pvAltOn()?[pvAlt().key]:[])] : financeKeys(); pvEmit(to.filter(k=>k!==PERSON), 'payroll', `💬 ${esc(first(PERSON))} on the ${esc(b.periodLabel)} payroll batch: “${esc(text.trim().slice(0,160))}”`, finLink('batch')); recordChange(); }
 /* the CEO can hand the decision to the COO while unavailable (same setting as Finance → CEO review → Alternate approver) */
-function pbBackupOn(days){ if(!pvIsCeo()) return toast('Only the CEO can hand approval to the COO'); const r = pvCfgRec(); const from = manilaDate(), to = shiftDate(from, Math.max(1, +days||7) - 1);
+function pbBackupOn(days){ if(!pvIsExec()) return toast('Only the CEO or the COO can hand approval to a backup'); const r = pvCfgRec(); const from = manilaDate(), to = shiftDate(from, Math.max(1, +days||7) - 1);
   r.alt = {enabled:true, key:pvCoo(), from, to, reason:'CEO unavailable — COO is the backup approver', by:PERSON, at:nowISO()}; recordChange();
   pvEmit([pvCoo()], 'approval', `🛡 <b>${esc(pname(PERSON))}</b> is unavailable — you are the backup payroll approver until ${dLong(to)}.`, finLink('batch')); toast(`${pname(pvCoo())} approves payroll until ${dShort(to)}`); RENDER.finance(); }
-function pbBackupOff(){ if(!pvIsCeo()) return; const r = pvCfgRec(); r.alt = {...(r.alt||{}), enabled:false, by:PERSON, at:nowISO()}; recordChange(); toast('You are the approver again'); RENDER.finance(); }
+function pbBackupOff(){ if(!pvIsExec()) return; const r = pvCfgRec(); r.alt = {...(r.alt||{}), enabled:false, by:PERSON, at:nowISO()}; recordChange(); toast('You are the approver again'); RENDER.finance(); }
 
 /* ---------- the screen ---------- */
 const PBU = {view:'emp', client:'', emp:''};
@@ -36976,7 +36977,7 @@ function pbBatchHTML(){
   const fin = isFinance(), apr = pvIsApprover(), ceo = pvIsCeo(), coo = PERSON===pvCoo(), altOn = pvAltOn(), waiting = b && [PB_ST.SUB, PB_ST.REV].includes(b.status);
   if(apr && b?.status===PB_ST.SUB) setTimeout(()=>{ pbOpen(pid); }, 0);
   const bl = fin && !waiting ? pbBlockers(pid) : [];
-  const approverLine = `<b>${esc(pname(pvCeo()))}</b> (CEO) approves · backup: <b>${esc(pname(pvCoo()))}</b> (COO) — ${altOn && pvAlt().key===pvCoo() ? `<span class="badge b-approved">active until ${esc(dShort(pvAlt().to||manilaDate()))}</span>` : altOn ? `<span class="badge b-approved">${esc(pname(pvAlt().key))} is the active backup</span>` : 'only when the CEO is unavailable'}`;
+  const approverLine = `<b>${esc(pname(pvCeo()))}</b> (CEO) or <b>${esc(pname(pvCoo()))}</b> (COO) approves — ${altOn && pvAlt().key===pvCoo() ? `<span class="badge b-approved">active until ${esc(dShort(pvAlt().to||manilaDate()))}</span>` : altOn ? `<span class="badge b-approved">${esc(pname(pvAlt().key))} is the active backup</span>` : 'only when the CEO is unavailable'}`;
   const head = `<div class="card" style="margin-bottom:14px"><div class="card-b pb-head">
       <button class="btn" onclick="FIN.period=shiftPeriod(FIN.period,-1);RENDER.finance()" aria-label="Previous cutoff">←</button><div><b>${esc(pvPeriodLabel(per))}</b><div class="hint">cutoff ${esc(dShort(per.cutoff))}</div></div><button class="btn" onclick="FIN.period=shiftPeriod(FIN.period,1);RENDER.finance()" aria-label="Next cutoff">→</button>
       <div style="margin-left:6px">${pbBadge(st)}${b?.round>1?` <span class="hint">round ${b.round}</span>`:''}</div>
@@ -37076,7 +37077,7 @@ const apCfg = () => { const r = ATTPOL.find(x=>x.id==='global') || {}; return {.
 let apSched = k => apCfg().schedules?.[k] || null;
 let apCovered = () => Object.keys(apCfg().schedules||{}).filter(k=>PEOPLE[k] && !empLeft(PEOPLE[k].status));
 const apIsHr = (k=PERSON) => lvIsHr(k) || isHead(k);
-const apIsPay = (k=PERSON) => isFinance(k) || k===pvCeo();               /* CHA (Finance) and PAU (CEO) */
+const apIsPay = (k=PERSON) => isFinance(k) || pvIsExec(k);               /* Finance, the CEO and the COO */
 const apStaffAud = x => uniq([x.person, ...HR_KEYS(), ...financeKeys(), ...HEADS]).filter(Boolean);
 COLL.attpolicy = {get:()=>ATTPOL, set:v=>ATTPOL=v, aud:()=>null};
 COLL.attexc    = {get:()=>ATTEXC, set:v=>ATTEXC=v, aud:apStaffAud};
@@ -40397,6 +40398,35 @@ async function ccRescopeResume(){
   }catch(e){ /* older database: nothing to resume */ }
 }
 setInterval(()=>{ if(typeof PERSON!=='undefined' && PERSON && !CC_RESCOPE_DONE) ccRescopeResume(); }, 20000);
+
+/* ===== t28_conn.js — the connection pill tells the truth (Nov 2026) =====
+   "Offline" used to follow the live channel: the browser's 'offline' event (a Wi-Fi blip, sleep, VPN) or a live channel
+   closing (including the table-listener being re-joined on purpose) switched it off, and only a fresh channel join or a
+   save switched it back on. Meanwhile the portal kept syncing through its every-few-seconds check with the server, so the
+   pill could say "Offline · 0 queued" while everything was in fact arriving. "Retry now" only resent queued changes, so
+   with nothing queued it did nothing.
+   Now: online means the SERVER answers — a save or the regular check succeeded recently. The live channel only decides
+   between "Live · synced" (instant) and "Synced · checking every few seconds" (a few seconds' delay). "Offline" and its
+   banner appear only when the browser has no network or the server has not answered for about 25 seconds.
+   "Retry now" checks the server, re-joins the live channel and resends anything queued. */
+const connServerOk = () => {
+  if(!navigator.onLine) return false;
+  const last = Math.max(RG?.lastOk || 0, SYNC?.lastOk || 0);
+  return (RG?.fail || 0) < 2 || Date.now() - last < 25e3;
+};
+{ const _su = syncUI; syncUI = function(){
+    if(BACKEND?.mode==='live' && SYNC?.ready) BACKEND.online = connServerOk();
+    return _su.apply(this, arguments); }; }
+async function connRetry(){
+  const b = document.querySelector('#offBanner .btn'); if(b){ b.disabled = true; b.textContent = 'Checking…'; }
+  try{
+    if(BACKEND?.mode==='live'){ RG.fail = 0; await syncCatchUp('retry'); try{ if(!rtAlive()) rtConnect(); }catch(e){} }
+    await SYNC.flush(true);
+  }catch(e){ console.warn('retry', e); }
+  syncUI(); if(b){ b.disabled = false; b.textContent = 'Retry now'; }
+  toast(BACKEND?.online && navigator.onLine ? 'Connected — everything is up to date' : 'Still can’t reach the server — it keeps trying automatically');
+}
+{ const b = document.querySelector('#offBanner .btn'); if(b) b.setAttribute('onclick', 'connRetry()'); }
 
 /* <<< OCT24 MODULES <<< */
 </script>

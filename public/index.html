@@ -20916,7 +20916,7 @@ async function cooPostFromModal(){ const ch = CHATS.find(c=>c.id===el('paPostC')
    The footer shows which build is running ("Build 2026-10-07 · 1"), and every open portal checks every few minutes
    (and whenever it comes back to the foreground) whether a newer build has been published. If so it shows
    "New version available — Update now" instead of quietly running old code. */
-const BUILD_ID = '2026-11-07 · 1';
+const BUILD_ID = '2026-11-09 · 1';
 function verStamp(){ const f = el('footNote'); if(f && !f.dataset.v){ f.dataset.v = 1; f.textContent = `Cross Core Ops Suite v8 · Build ${BUILD_ID}`; } }
 async function verCheck(){
   if(!/^https?:/.test(location.protocol)) return;
@@ -40427,6 +40427,36 @@ async function connRetry(){
   toast(BACKEND?.online && navigator.onLine ? 'Connected — everything is up to date' : 'Still can’t reach the server — it keeps trying automatically');
 }
 { const b = document.querySelector('#offBanner .btn'); if(b) b.setAttribute('onclick', 'connRetry()'); }
+
+/* ===== t29_roster.js — the client roster leaves ended contracts alone (Nov 9 2026) =====
+   The roster is a fixed list of active clients. When a client on it has since had their contract ended, the review used to
+   (1) plan a brand-new, empty client with the same name ("Add") and (2) tick the ended client — and all its records, kept for
+   HR and the previous PM — for permanent deletion. Now an ended contract is never re-added, and it starts unticked, so it is
+   only deleted through the ending process (HR approval + PM confirmation) unless someone deliberately ticks it here.
+   To make an ended client active again, reopen the contract first; the roster then keeps and updates it. */
+let RS_ENDED = [];   /* ended clients found on the server (only HR / the previous PM can see them): [{id, name}] */
+const rsMatches = (r, name) => { try{ return new RegExp(r.match, 'i').test(String(name||'')); }catch(e){ return false; } };
+const rsEndedAll = () => [...CLIENTS.filter(c=>isEnded(c)).map(c=>({id:c.id, name:c.name})), ...RS_ENDED];
+{ const _plan = rosterPlan; rosterPlan = function(){ const p = _plan.apply(this, arguments);
+    const E = rsEndedAll(); p.ended = p.add.filter(r=>E.some(c=>rsMatches(r, c.name))); p.add = p.add.filter(r=>!p.ended.includes(r));
+    return p; }; }
+function rsMarkEnded(){
+  const b = el('modalBody'); if(!b) return; const p = rosterPlan(); const E = rsEndedAll();
+  /* the "Add" list: an ended roster client is shown as not re-added */
+  b.querySelectorAll('.list-row').forEach(row=>{ const plus = row.querySelector('.ck'); const nm = row.querySelector('b')?.textContent || '';
+    if(plus && plus.textContent.trim()==='+' && p.ended.some(r=>r.name===nm)) row.outerHTML = `<div class="list-row" style="font-size:12.5px"><span class="ck">–</span><span style="flex:1"><b>${esc(nm)}</b> <span class="hint">— contract ended, so not re-added. Reopen the contract to make them active again.</span></span></div>`; });
+  b.querySelectorAll('.nav-label').forEach(l=>{ if(/^Add \(\d+\)/.test(l.textContent.trim())) l.textContent = `Add (${p.add.length})`; });
+  /* ended contracts start unticked — in the Remove list and in the server list */
+  const endedIds = new Set(E.map(c=>c.id));
+  b.querySelectorAll('input.rsRm').forEach(x=>{ if(endedIds.has(x.value) && !x.dataset.rsTouched){ x.checked = false; x.addEventListener('change', ()=>{ x.dataset.rsTouched = '1'; }, {once:true}); } });
+  const hl = [...b.querySelectorAll('#rsHidden .nav-label')][0];
+  if(hl && /Also removed/.test(hl.textContent)) hl.innerHTML = `Ended contracts — kept for HR / the previous PM (${RS_ENDED.length}) <span class="hint">— tick only to delete now instead of through the ending process</span>`;
+}
+{ const _pm = rosterPreviewModal; rosterPreviewModal = function(){ const r = _pm.apply(this, arguments); rsMarkEnded(); return r; }; }
+{ const _hc = rosterHiddenCheck; rosterHiddenCheck = async function(){
+    const r = await _hc.apply(this, arguments); const box = el('rsHidden');
+    if(box){ RS_ENDED = [...box.querySelectorAll('label')].map(l=>({id:l.querySelector('input')?.value, name:l.querySelector('b')?.textContent})).filter(x=>x.id); rsMarkEnded(); }
+    return r; }; }
 
 /* <<< OCT24 MODULES <<< */
 </script>

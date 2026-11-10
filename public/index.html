@@ -20916,7 +20916,7 @@ async function cooPostFromModal(){ const ch = CHATS.find(c=>c.id===el('paPostC')
    The footer shows which build is running ("Build 2026-10-07 · 1"), and every open portal checks every few minutes
    (and whenever it comes back to the foreground) whether a newer build has been published. If so it shows
    "New version available — Update now" instead of quietly running old code. */
-const BUILD_ID = '2026-11-10 · 2';
+const BUILD_ID = '2026-11-10 · 4';
 function verStamp(){ const f = el('footNote'); if(f && !f.dataset.v){ f.dataset.v = 1; f.textContent = `Cross Core Ops Suite v8 · Build ${BUILD_ID}`; } }
 async function verCheck(){
   if(!/^https?:/.test(location.protocol)) return;
@@ -39153,6 +39153,8 @@ function prxDelete(){ const P0 = [...PRX.sel].map(id=>PROSPECTS.find(p=>p.id===i
 /* ===================== client access link ===================== */
 /* replaces the early check in t5b (declared again so it is the one that runs before the normal sign-in) */
 function cbEarly(){
+  const pv = /(?:^|[#&])cbv=([A-Za-z0-9_-]{4,40})(?:$|&)/.exec(location.hash||'');        /* a manager's view-only preview of a client link (t25) */
+  if(pv){ setTimeout(()=>{ CB.preview = true; cbBoot(pv[1], 'preview'); }, 0); return true; }
   let raw = location.hash || ''; try{ raw = decodeURIComponent(raw); }catch(e){}
   const pick = s => /(?:^|[#?&])cb=([A-Za-z0-9_-]{4,40})\.([A-Za-z0-9_-]{20,90})/.exec(s || '');
   let m = pick(raw) || pick(location.search);
@@ -39398,7 +39400,7 @@ function cbxStatus(p){ if(p.stage==='review' && p.rounds) return {t:'Updated · 
 /* a client colour that can carry white text (a white or very light brand colour falls back to the Cross Core amber-brown) */
 function cbxColor(h){ h = String(h||''); if(!/^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(h)) return '#B7791F'; if(h.length===4) h = '#'+[...h.slice(1)].map(x=>x+x).join('');
   const [r, g, b] = [1, 3, 5].map(i=>parseInt(h.slice(i, i+2), 16)/255); return (0.2126*r + 0.7152*g + 0.0722*b) > 0.72 ? '#B7791F' : h; }
-function cbxTile(p){ const c = CB.data?.client || {}; const name = p.brand || c.name || ''; const col = cbxColor(c.color);
+function cbxTile(p){ const c = CB.data?.client || {}; const name = p.brand || c.name || ''; const col = cbxColor(p.brandColor || c.color);
   const ini = String(name).split(/\s+/).filter(Boolean).slice(0, 2).map(w=>w[0]).join('').toUpperCase() || '•';
   const vid = p.module==='video' || /reel|video/i.test(p.type||''), des = p.module==='design' || /design|still|image|carousel|graphic/i.test(p.type||'');
   const canva = /canva\.(com|link)/i.test(String(p.outputLink||''));
@@ -39732,6 +39734,105 @@ function cpxManageList(){ const A = cphAccounts().filter(a=>CPH.sel==='all' || a
     pending:HUBDOCS.filter(d=>d.col==='feedback' && d.d?.viaClient && d.d?.status==='Pending' && d.acct===a.id).length})).filter(m=>m.brands || m.access); }
 { const _ha = cpxHubApi; cpxHubApi = function(){ return {..._ha.apply(this, arguments), openClassic:()=>go('tasks'), manage:cpxManageList, openBrands:id=>cphBrandsModal(id), openAccess:id=>cbAccessModal(id)}; }; }
 (function(){ const st = document.createElement('style'); st.textContent = `#v-cphub .cpx-slimhead{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin:0 0 8px}#v-cphub .cpx-slimhead h2{margin:0;font-size:20px}`; document.head.appendChild(st); })();
+
+/* ===================== Nov 10 · 3 — client portal: reliable loading, "View as client" ===================== */
+/* 1. a slow or failed load never ends on "We couldn't open this portal": the first load retries, and a refresh that
+      fails keeps what's on screen. Only a link that is really invalid (revoked, expired, wrong) shows that page. */
+if(CB.preview==null) CB.preview = false;
+{ const _api = cbApi; cbApi = async function(action, a={}){
+    if(CB.preview && ['act','note','fwrite'].includes(action)) return {ok:false, error:'This is a preview of the client’s portal — changes are turned off.'};
+    if(CB.preview && LIVE && !CB.sbPreview){ try{ if(!window.supabase) await loadScript('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js');
+        CB.sb = window.supabase.createClient(CC_CONFIG.SUPABASE_URL, CC_CONFIG.SUPABASE_ANON_KEY, {auth:{persistSession:true, autoRefreshToken:true}}); CB.sbPreview = true; }catch(e){} }   /* the manager's own sign-in */
+    if(action!=='load') return _api.call(this, action, a);
+    for(let i=0; ; i++){ const r = await _api.call(this, action, a);
+      const transient = r && r.ok===false && (r.net===true || r.net===false);          /* a server or network error, not "this link is not valid" */
+      if(!transient) return r;
+      if(CB.data) return {...r, net:true};                                             /* a background refresh: keep the portal as it is */
+      if(i>=3) return {ok:false, net:false, error:'Your portal is taking longer than usual to load. Please refresh this page in a minute — if it keeps happening, tell your Cross Core contact.'};
+      const box = document.querySelector('#cbApp .cb-load'); if(box) box.textContent = 'Still opening your portal — the server is busy, trying again…';
+      await new Promise(res=>setTimeout(res, [1500, 3000, 5000][i])); } }; }
+/* 2. "View as client": the client's PM and company heads open a link's portal from Client access, read-only */
+{ const _dl = cbDemoLink; cbDemoLink = async function(db){ if(!CB.preview) return _dl.apply(this, arguments);
+    const l = (db.cblinks||{})[CB.link]; if(!l || l.revoked || l.paused || new Date(l.expiresAt) <= new Date() || !(db.clients||{})[l.client]) return null;
+    return {...l, lastUsedAt:nowISO()}; }; }                                            /* demo: same checks, and a preview doesn't count as a visit */
+function cbxPreviewBar(){ if(!CB.preview || !CB.data) return; const main = document.querySelector('#cbApp .cb-main'); if(!main || main.querySelector('.cbx-pvbar')) return;
+  main.insertAdjacentHTML('afterbegin', `<div class="cbx-pvbar" role="status">👁 <span>Preview of <b>${esc(CB.data.me?.name || CB.data.link?.label || 'the client')}</b>’s portal — exactly what they see. Changes are turned off.</span><button type="button" onclick="window.close()">Close preview</button></div>`); }
+{ const _r = cbRender; cbRender = function(){ const r = _r.apply(this, arguments); cbxPreviewBar(); return r; }; }
+function cbxPreview(id){ window.open(cbBase() + '#cbv=' + encodeURIComponent(id), '_blank', 'noopener'); }
+{ const _t = cbTabReps; cbTabReps = function(){ return String(_t.apply(this, arguments)).replace(/<button class="btn" style="padding:3px 9px;font-size:12px" onclick="cbEditRep\('([^']+)'\)">Edit<\/button>/g,
+    (m, id)=>`<button class="btn" style="padding:3px 9px;font-size:12px" onclick="cbxPreview('${id}')" title="Open their portal exactly as they see it (view-only) to check it works">👁 View</button> ${m}`); }; }
+(function(){ const st = document.createElement('style'); st.textContent = `
+#cbApp .cbx-pvbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:10px clamp(16px,3vw,36px) 0;padding:9px 14px;border-radius:12px;background:#17140e;color:#fff;font:600 13px Inter,sans-serif}
+#cbApp .cbx-pvbar span{flex:1;min-width:200px}#cbApp .cbx-pvbar button{border:0;border-radius:99px;padding:6px 12px;font:700 12.5px Inter,sans-serif;cursor:pointer;background:#F2B440;color:#2a1d04}
+body.cb-mode.cbx-pv .cbf-frame{outline:3px solid #F2B440;outline-offset:-3px}`; document.head.appendChild(st); })();
+
+/* ===================== Nov 10 · 4 — the Overview, in order of importance ===================== */
+/* Waiting for your review is one list, most important first:
+     1. updated after your feedback (round 2, 3 …)   2. posting within 2 days (or overdue)
+     3. Graphics, then Caption + graphics, then Caption & topic   4. the earliest post date
+   Each card wears its brand's colour and a clear phase tag. What's with the team and what's done are short lists. */
+{ const _po = cbPostOut; cbPostOut = function(t, c, thread){ const p = _po.apply(this, arguments); p.brandColor = ((c?.hubBrands||[]).find(b=>b.id===t.hubBrand)||{}).color || null; return p; }; }
+const CBX_PH = {graphics:{l:'Graphics', i:'🎨', c:'g', r:0}, both:{l:'Caption + graphics', i:'🧩', c:'b', r:1}, caption:{l:'Caption & topic', i:'✍️', c:'c', r:2}};
+function cbxDays(d){ const t = new Date(); t.setHours(0, 0, 0, 0); const x = new Date(String(d).slice(0, 10)+'T00:00:00'); return isNaN(x) ? 99 : Math.round((x - t)/864e5); }
+function cbxWhen(p){ const n = cbxDays(p.date);
+  if(n < 0) return {t:`Overdue · ${cbFmt(p.date)}`, c:'od'}; if(n === 0) return {t:'Posts today', c:'hot'}; if(n === 1) return {t:'Posts tomorrow', c:'hot'}; if(n === 2) return {t:'Posts in 2 days', c:'hot'};
+  return {t:cbFmt(p.date), c:''}; }
+function cbxRank(p){ const n = cbxDays(p.date); return [p.rounds ? 0 : 1, n <= 2 ? 0 : 1, (CBX_PH[p.phase||'both']||CBX_PH.both).r, n]; }
+const cbxCmp = (a, b) => { const A = cbxRank(a), B = cbxRank(b); for(let i=0; i<A.length; i++){ if(A[i]!==B[i]) return A[i]-B[i]; } return String(a.title).localeCompare(String(b.title)); };
+/* no image yet: a calm tile in the brand's colour (the brand and type are on the card already) */
+function cbxTile(p){ const c = CB.data?.client || {}; const name = p.brand || c.name || ''; const col = cbxColor(p.brandColor || c.color);
+  const ini = String(name).split(/\s+/).filter(Boolean).slice(0, 2).map(w=>w[0]).join('').toUpperCase() || '•';
+  const canva = /canva\.(com|link)/i.test(String(p.outputLink||''));
+  return `<div class="cbx-tile cbx-tile2" style="--c:${col}"><span class="cbx-ini" aria-hidden="true">${esc(ini)}</span>${canva?'<em>Canva design — open to preview</em>':''}</div>`; }
+function cbCard(p, showMod){ const s = cbxStatus(p), w = cbxWhen(p), ph = CBX_PH[p.phase||'both'] || CBX_PH.both, cl = p.brand || CB.data?.client?.name || '', col = cbxColor(p.brandColor || CB.data?.client?.color);
+  return `<article class="cb-card cbx-card cbx-v2" style="--bc:${col}" data-cbxcard="${esc(p.id)}" tabindex="0" role="button" aria-label="${esc(p.title)} — ${esc(cl)} — ${esc(ph.l)} — ${esc(s.t)}" onclick="cbOpenPost('${esc(p.id)}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();cbOpenPost('${esc(p.id)}')}">
+    <div class="cb-thumb">${cbThumb(p)}</div>
+    <div class="cb-cbody"><div class="cbx-tags"><span class="cbx-brand">${esc(cl)}</span><span class="cbx-phase ${ph.c}">${ph.i} ${esc(ph.l)}</span></div>
+      <h3>${esc(p.title)}</h3>
+      <div class="cbx-row2"><span class="cbx-when ${w.c}">${esc(w.t)}</span>${p.rounds && p.stage==='review' ? `<span class="cbx-upd">↻ Updated · round ${p.rounds+1}</span>` : p.stage==='review' ? '' : `<span class="badge ${s.c}">${esc(s.t)}</span>`}</div>
+      <div class="cbx-meta2">${esc([p.platforms, p.type].filter(Boolean).join(' · ') || '—')}</div></div></article>`; }
+function cbxRow(p){ const ph = CBX_PH[p.phase||'both'] || CBX_PH.both, s = cbxStatus(p), col = cbxColor(p.brandColor || CB.data?.client?.color);
+  return `<button type="button" class="cbx-lrow" data-cbxcard="${esc(p.id)}" style="--bc:${col}" onclick="cbOpenPost('${esc(p.id)}')"><i aria-hidden="true"></i><b>${esc(p.title)}</b><span class="cbx-phase ${ph.c} sm">${esc(ph.l)}</span><small>${esc(p.brand || '')}${p.brand?' · ':''}${esc(cbFmt(p.date))}</small><span class="badge ${s.c}">${esc(s.t)}</span></button>`; }
+CBX.showDone = false;
+function cbOverview(){
+  const d = CB.data, P = cbPosts(), nm = d.me.name ? d.me.name.split(' ')[0] : '', role = cbRole();
+  const need = P.filter(p=>p.stage==='review').sort(cbxCmp), team = P.filter(p=>p.stage==='revision').sort((a, b)=>String(a.date).localeCompare(String(b.date)));
+  const last = p => [...(p.history||[]).map(h=>h.at), ...(p.thread||[]).map(m=>m.at)].filter(Boolean).sort().pop() || p.date || '';
+  const done = P.filter(p=>['approved', 'scheduled', 'published'].includes(p.stage)).sort((a, b)=>String(last(b)).localeCompare(String(last(a))));
+  const hot = need.filter(p=>cbxDays(p.date) <= 2).length, upd = need.filter(p=>p.rounds).length;
+  const kpi = (n, l, c) => `<div class="cbx-k ${c||''}"><b>${n}</b><span>${l}</span></div>`;
+  const doneL = CBX.showDone ? done : done.slice(0, 5);
+  return `<div class="cbx-ov"><div class="cbx-hi"><div><h2>Hello${nm?', '+esc(nm):''} 👋</h2><p>${need.length ? (role!=='viewer' ? 'Here’s what needs your review, most important first.' : 'Here’s what’s waiting for review.') : 'You’re all caught up.'}</p></div>
+      <div class="cbx-ks">${kpi(need.length, 'to review', need.length?'on':'')}${upd?kpi(upd, 'updated for you', 'upd'):''}${hot?kpi(hot, 'post within 2 days', 'hot'):''}${kpi(team.length, 'with the team')}${kpi(done.length, 'done')}</div></div>
+    <section class="cbx-sec" id="cbx-review"><div class="cbx-sh"><h3>Waiting for your review <i>${need.length}</i></h3><p>Updated posts first, then anything posting within 2 days · Graphics before Caption &amp; topic</p></div>
+      ${need.length ? `<div class="cb-grid cbx-grid">${need.map(p=>cbCard(p)).join('')}</div>` : `<div class="cb-empty">🎉 Nothing is waiting for your review right now.</div>`}</section>
+    <div class="cbx-two">
+      <section class="cbx-panel"><div class="cbx-sh"><h3>With the team <i>${team.length}</i></h3><p>Changes you asked for — they come back to you when ready</p></div>${team.length ? team.map(cbxRow).join('') : '<div class="cb-dim">Nothing with the team right now.</div>'}</section>
+      <section class="cbx-panel"><div class="cbx-sh"><h3>Recently done <i>${done.length}</i></h3><p>Approved, scheduled and posted</p></div>${done.length ? doneL.map(cbxRow).join('') + (done.length > 5 ? `<button type="button" class="cbx-more" onclick="CBX.showDone=!CBX.showDone;cbRender()">${CBX.showDone ? 'Show less' : `Show all ${done.length}`}</button>` : '') : '<div class="cb-dim">Nothing yet.</div>'}</section>
+    </div></div>`; }
+(function(){ const st = document.createElement('style'); st.textContent = `
+#cbApp .cbx-ov{display:flex;flex-direction:column;gap:18px}
+#cbApp .cbx-hi{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap}#cbApp .cbx-hi h2{font:700 22px Sora,sans-serif;margin:0 0 2px}#cbApp .cbx-hi p{margin:0;color:var(--dim);font-size:14px}
+#cbApp .cbx-ks{display:flex;gap:8px;flex-wrap:wrap}#cbApp .cbx-k{background:#fff;border:1px solid var(--line);border-radius:14px;padding:8px 14px;min-width:92px;display:flex;flex-direction:column;align-items:flex-start}
+#cbApp .cbx-k b{font:800 22px Sora,sans-serif;line-height:1.1}#cbApp .cbx-k span{font-size:11.5px;color:var(--dim);font-weight:600}
+#cbApp .cbx-k.on b{color:#8a5a06}#cbApp .cbx-k.upd{border-color:#f0d9a6;background:#fff8e8}#cbApp .cbx-k.upd b{color:#8a5a06}#cbApp .cbx-k.hot{border-color:#f5c2bd;background:#fff3f1}#cbApp .cbx-k.hot b{color:#b3261e}
+#cbApp .cbx-sec{margin:0}#cbApp .cbx-grid{grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px}
+#cbApp .cbx-v2{border-top:4px solid var(--bc);display:flex;flex-direction:column}#cbApp .cbx-v2 .cb-thumb{aspect-ratio:16/7}#cbApp .cbx-v2 .cb-cbody{display:flex;flex-direction:column;gap:6px;padding:11px 14px 13px;flex:1}
+#cbApp .cbx-v2 h3{margin:0;font:700 15px Sora,sans-serif;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:2.6em}
+#cbApp .cbx-tags{display:flex;gap:6px;flex-wrap:wrap;align-items:center}#cbApp .cbx-brand{background:var(--bc);color:#fff;font:700 11px Inter,sans-serif;border-radius:6px;padding:3px 8px;max-width:60%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#cbApp .cbx-phase{font:800 12.5px Inter,sans-serif;border-radius:99px;padding:3px 11px;border:1.5px solid}#cbApp .cbx-phase.g{background:#FCE7F3;color:#9D174D;border-color:#F9A8D4}#cbApp .cbx-phase.c{background:#EEF2FF;color:#3730A3;border-color:#C7D2FE}#cbApp .cbx-phase.b{background:#F1F5F9;color:#334155;border-color:#CBD5E1}
+#cbApp .cbx-phase.sm{font-size:10.5px;padding:1px 8px}
+#cbApp .cbx-row2{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:auto}#cbApp .cbx-when{font:700 12px Inter,sans-serif;color:#4b463c;background:#f4efe3;border-radius:6px;padding:3px 8px}
+#cbApp .cbx-when.hot{background:#FEF3C7;color:#92400E}#cbApp .cbx-when.od{background:#FDE2E0;color:#B3261E}#cbApp .cbx-upd{font:800 11.5px Inter,sans-serif;color:#7a4f06;background:#fff1d1;border:1px solid #f0d9a6;border-radius:99px;padding:2px 9px}
+#cbApp .cbx-meta2{font-size:12px;color:var(--dim)}
+#cbApp .cbx-two{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start}
+#cbApp .cbx-tile2{flex-direction:row;gap:10px}#cbApp .cbx-tile2 .cbx-ini{width:52px;height:52px;font-size:18px;border-radius:14px}#cbApp .cbx-panel{background:#fff;border:1px solid var(--line);border-radius:16px;padding:12px 14px}#cbApp .cbx-panel .cbx-sh{margin-bottom:6px}
+#cbApp .cbx-lrow{display:grid;grid-template-columns:6px minmax(0,1fr) auto;grid-template-areas:"i t p" "i s b";gap:2px 10px;align-items:center;width:100%;text-align:left;border:0;background:none;padding:8px 6px;border-radius:10px;cursor:pointer;border-bottom:1px solid #f1ebdd}
+#cbApp .cbx-lrow:last-of-type{border-bottom:0}#cbApp .cbx-lrow:hover,#cbApp .cbx-lrow:focus-visible{background:#faf6ec;outline:none}
+#cbApp .cbx-lrow i{grid-area:i;align-self:stretch;border-radius:3px;background:var(--bc)}#cbApp .cbx-lrow b{grid-area:t;font:700 13.5px Inter,sans-serif;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#cbApp .cbx-lrow .cbx-phase{grid-area:p;justify-self:end}#cbApp .cbx-lrow small{grid-area:s;color:var(--dim);font-size:12px}#cbApp .cbx-lrow .badge{grid-area:b;justify-self:end}
+#cbApp .cbx-more{margin-top:6px;border:0;background:none;color:#8a5a06;font:700 12.5px Inter,sans-serif;cursor:pointer;padding:4px 6px}
+@media(max-width:900px){#cbApp .cbx-two{grid-template-columns:1fr}#cbApp .cbx-hi{align-items:flex-start}}`; document.head.appendChild(st); })();
 
 /* <<< OCT24 MODULES <<< */
 </script>

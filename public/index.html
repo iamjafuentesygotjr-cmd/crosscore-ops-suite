@@ -20916,7 +20916,7 @@ async function cooPostFromModal(){ const ch = CHATS.find(c=>c.id===el('paPostC')
    The footer shows which build is running ("Build 2026-10-07 · 1"), and every open portal checks every few minutes
    (and whenever it comes back to the foreground) whether a newer build has been published. If so it shows
    "New version available — Update now" instead of quietly running old code. */
-const BUILD_ID = '2026-11-10 · 4';
+const BUILD_ID = '2026-11-11 · 1';
 function verStamp(){ const f = el('footNote'); if(f && !f.dataset.v){ f.dataset.v = 1; f.textContent = `Cross Core Ops Suite v8 · Build ${BUILD_ID}`; } }
 async function verCheck(){
   if(!/^https?:/.test(location.protocol)) return;
@@ -37543,7 +37543,7 @@ const rdDone = d => ['signed','acknowledged','filed','filed-ack'].includes(rdSta
 const rdWaiting = d => ['awaiting','awaiting-ack'].includes(rdState(d));
 const rdDays = d => d.sentAt ? Math.floor((Date.now() - new Date(d.sentAt).getTime())/864e5) : 0;
 const rdOverdue = d => rdWaiting(d) && rdDays(d) >= 3;
-const rdBadge = d => { const [l, c] = RD_ST[rdState(d)] || ['—','b-draft']; return `<span class="badge ${c}">${l}</span>${rdWaiting(d)?` <span class="hint" style="${rdOverdue(d)?'color:var(--bad);font-weight:600':''}">${rdDays(d)} day${rdDays(d)===1?'':'s'}</span>`:''}`; };
+let rdBadge = d => { const [l, c] = RD_ST[rdState(d)] || ['—','b-draft']; return `<span class="badge ${c}">${l}</span>${rdWaiting(d)?` <span class="hint" style="${rdOverdue(d)?'color:var(--bad);font-weight:600':''}">${rdDays(d)} day${rdDays(d)===1?'':'s'}</span>`:''}`; };
 function rdFill(type, f){
   const v = {position:f.position||'', start:f.start?dstr(f.start):'', pay:f.pay||'', emptype:f.emptype||'', supervisor:f.supervisor||'', validuntil:f.validuntil?dstr(f.validuntil):'', probation:f.probation||'six (6) months'};
   return rdNoSup(String(RD_TPL[type]||'').replace(/\{(position|start|pay|emptype|supervisor|validuntil|probation)\}/g, (_, k)=>v[k] || `{${k}}`));
@@ -39833,6 +39833,130 @@ function cbOverview(){
 #cbApp .cbx-lrow .cbx-phase{grid-area:p;justify-self:end}#cbApp .cbx-lrow small{grid-area:s;color:var(--dim);font-size:12px}#cbApp .cbx-lrow .badge{grid-area:b;justify-self:end}
 #cbApp .cbx-more{margin-top:6px;border:0;background:none;color:#8a5a06;font:700 12.5px Inter,sans-serif;cursor:pointer;padding:4px 6px}
 @media(max-width:900px){#cbApp .cbx-two{grid-template-columns:1fr}#cbApp .cbx-hi{align-items:flex-start}}`; document.head.appendChild(st); })();
+
+/* ===== t26_recdocs_sync.js — updated contracts carry the updated details (Nov 11 2026) =====
+   THE BUG: the contract text is filled from the details (position, employment type, start date, compensation, reports to,
+   offer valid until) only when the document is first opened. Changing a detail afterwards — and always when issuing an
+   updated version with "Revise" — saved the new detail but left the OLD value in the text, so the updated contract that
+   reached the applicant's portal still showed, e.g., the old compensation. The old, replaced version also still had a
+   "Review & sign" button in the applicant portal.
+   NOW: changing a detail updates the text at once (and says so under the details); sending checks that every detail is in
+   the text; updated versions already sent with old values are corrected automatically (unsigned ones only — HR, the COO
+   and the person who prepared it see a note on signed ones); the applicant portal shows only the latest version. */
+const RDF_KEYS = ['position','emptype','start','pay','supervisor','validuntil'];
+const RDF_LABEL = {position:'Position', emptype:'Employment type', start:'Start date', pay:'Compensation', supervisor:'Reports to', validuntil:'Offer valid until'};
+const rdfFmt = (k, v) => !v ? '' : (k==='start' || k==='validuntil') ? dstr(v) : String(v).trim();
+const rdfEsc = s => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+/* where a value sits in each template, for values that appear more than once with the same text (e.g. same start and valid-until date) */
+const RDF_CTX = {start:['Start date:\\s*','starts on ','starting ','Employment starts on '], validuntil:['valid until ','Offer valid until:\\s*']};
+/* replace one value: as a whole phrase (not inside a longer word); `ctx` limits it to the places that detail is written */
+function rdfSwap(b, o, n, ctx){
+  const B = '(^|[^A-Za-z0-9])', A = '(?![A-Za-z0-9])';
+  if(ctx){ let hit = false; ctx.forEach(c=>{ const re = new RegExp('(' + c + ')' + rdfEsc(o) + A, 'g'); b = b.replace(re, (m, p)=>{ hit = true; return p + n; }); }); return {b, hit}; }
+  const re = new RegExp(B + rdfEsc(o) + A, 'g'); let hit = false; b = b.replace(re, (m, p)=>{ hit = true; return p + n; }); return {b, hit};
+}
+/* the text with every changed detail updated: old value → new value, or {placeholder} → new value */
+function rdApplyFields(body, oldF, newF){
+  let b = String(body||''); const changed = [], missed = [];
+  const olds = Object.fromEntries(RDF_KEYS.map(k=>[k, rdfFmt(k, oldF?.[k])]));
+  RDF_KEYS.forEach(k=>{
+    const o = olds[k], n = rdfFmt(k, newF?.[k]); if(o===n) return;
+    if(n && b.includes(`{${k}}`)){ b = b.split(`{${k}}`).join(n); changed.push(k); return; }
+    if(!o){ if(n && k!=='supervisor') missed.push(k); return; }
+    if(!n){ if(k==='supervisor'){ const t = rdNoSup(b.split(o).join('{supervisor}')); if(t!==b){ b = t; changed.push(k); } } else missed.push(k); return; }
+    const shared = RDF_KEYS.some(j=>j!==k && olds[j]===o);
+    const r = rdfSwap(b, o, n, shared ? RDF_CTX[k] : null);
+    if(r.hit){ b = r.b; changed.push(k); } else missed.push(k);
+  });
+  return {body:b, changed, missed};
+}
+/* details that are filled in but not written anywhere in the text (only those the template for this type uses) */
+function rdfNotInText(type, body, f){
+  const tpl = String(RD_TPL[type]||''); const b = String(body||'');
+  return RDF_KEYS.filter(k=>tpl.includes(`{${k}}`) && k!=='emptype').filter(k=>{ const v = rdfFmt(k, f?.[k]); return v && !b.includes(v); });
+}
+
+/* ---------- the editor: details and text stay in step ---------- */
+function rdfNote(html){ let n = el('rdfNote'); if(!n){ const g = el('rdValid')?.closest('.grid'); if(!g) return; g.insertAdjacentHTML('afterend', '<div id="rdfNote" class="hint" style="margin:-4px 0 10px"></div>'); n = el('rdfNote'); } n.innerHTML = html || ''; }
+function rdfOnDetail(){
+  const E = RD.edit; const tb = el('rdBody'); if(!E || !tb) return;
+  const now = rdFields(); const r = rdApplyFields(tb.value, E.base || now, now);
+  if(r.body!==tb.value) tb.value = r.body;
+  E.base = now;
+  const parts = [];
+  if(r.changed.length) parts.push(`<span style="color:var(--ok,#1a7f4b)">✓ Updated in the text: ${r.changed.map(k=>RDF_LABEL[k]).join(', ')}</span>`);
+  const miss = rdfNotInText(el('rdType').value, tb.value, now);
+  if(miss.length) parts.push(`<span style="color:var(--bad)">⚠ Not in the text yet: ${miss.map(k=>`${RDF_LABEL[k]} (${esc(rdfFmt(k, now[k]))})`).join(', ')} — edit the text or use “↻ Fill the template”.</span>`);
+  if(parts.length || /Not in the text/.test(el('rdfNote')?.textContent||'')) rdfNote(parts.join(' · '));
+}
+function rdfWire(){
+  const E = RD.edit; if(!E || !el('rdEditor')) return;
+  E.base = rdFields();
+  ['rdPos','rdEmp','rdStart','rdPay','rdSup','rdValid'].forEach(id=>{ const x = el(id); if(x && !x.dataset.rdf){ x.dataset.rdf = '1'; x.addEventListener('change', rdfOnDetail); } });
+  el('rdBody')?.addEventListener('input', ()=>{ const miss = rdfNotInText(el('rdType').value, el('rdBody').value, rdFields()); if(!miss.length && /Not in the text/.test(el('rdfNote')?.textContent||'')) rdfNote(''); });
+  const d = E.id ? HRDOCS.find(x=>x.id===E.id) : null;
+  if(d?.prevVersion) rdfNote('Updated version: change any detail above and the text below changes with it. Check the text before sending.');
+  const miss = rdfNotInText(el('rdType').value, el('rdBody').value, E.base);
+  if(miss.length) rdfOnDetail();
+}
+{ const _e = rdEdit; rdEdit = function(){ const r = _e.apply(this, arguments); try{ rdfWire(); }catch(e){ console.warn('rdf', e); } return r; }; }
+{ const _t = rdTypeChange; rdTypeChange = function(){ const r = _t.apply(this, arguments); try{ if(RD.edit) RD.edit.base = rdFields(); rdfNote(''); }catch(e){} return r; }; }
+{ const _f = rdRefill; rdRefill = function(){ const r = _f.apply(this, arguments); try{ if(RD.edit) RD.edit.base = rdFields(); rdfNote(''); }catch(e){} return r; }; }
+/* saving / sending: the latest details are always applied first; sending stops if a detail is still missing from the text */
+{ const _s = rdSave; rdSave = function(send){
+    try{ if(el('rdBody') && RD.edit){ rdfOnDetail();
+      const miss = rdfNotInText(el('rdType').value, el('rdBody').value, rdFields());
+      if(send && miss.length && !confirm(`The document text doesn’t show: ${miss.map(k=>`${RDF_LABEL[k]} (${rdfFmt(k, rdFields()[k])})`).join(', ')}.\n\nSend it anyway?`)) return; } }catch(e){ console.warn('rdf save', e); }
+    return _s.apply(this, arguments); }; }
+
+/* ---------- versions already sent with the old values ---------- */
+function rdfStale(d){
+  if(!d?.rec || !d.prevVersion) return null; const p = HRDOCS.find(x=>x.id===d.prevVersion); if(!p?.rec?.fields) return null;
+  const oldF = p.rec.fields, newF = d.rec.fields||{}, b = String(d.body||'');
+  /* only details that changed and whose new value isn't already in the text (someone may have typed it in by hand) */
+  const keys0 = RDF_KEYS.filter(k=>{ const o = rdfFmt(k, oldF[k]), n = rdfFmt(k, newF[k]); return o!==n && (n ? !b.includes(n) : b.includes(o)); });
+  if(!keys0.length) return null;
+  const pick = {...oldF}; keys0.forEach(k=>pick[k] = newF[k]);
+  const r = rdApplyFields(b, oldF, pick);
+  return r.changed.length ? {body:r.body, keys:r.changed} : null;
+}
+let RDF_BUSY = false;
+async function rdfRepair(){
+  if(RDF_BUSY || !PEOPLE[PERSON] || typeof recCan!=='function' || !recCan() || (typeof SYNC!=='undefined' && (SYNC.applying || !SYNC.ready))) return;
+  RDF_BUSY = true; const fixed = [];
+  try{
+    rdDocs().forEach(d=>{
+      if(d.status!=='Sent' || d.supersededBy || !rdWaiting(d) || !rdCanManage(d)) return;
+      const s = rdfStale(d); if(!s) return;
+      const t = nowISO(); d.body = s.body; d.updatedAt = t; d.rdfFixed = t;
+      d.history = [...(d.history||[]), {at:t, by:PERSON, act:`Text updated to the revised details (${s.keys.map(k=>RDF_LABEL[k]).join(', ')}) — it still showed the old values`, note:''}];
+      fixed.push(d);
+    });
+    if(!fixed.length) return;
+    recordChange();
+    const keys = fixed.map(d=>mk('hrdocs', d.id)); const v = typeof avSaved==='function' ? await avSaved(keys) : {ok:true};
+    fixed.forEach(d=>{ const a = recApp(d.rec.app);
+      notify(d.rec.app, 'hr', `✍️ <b>${esc(d.title)}</b> now shows the updated details — please review it before signing`, {view: PEOPLE[d.rec.app]?.role==='applicant' ? 'appletters' : 'mydocs', doc:d.id});
+      if(a) recTouch(a, `${d.kind} text updated to the revised details: ${d.title}`); });
+    recordChange();
+    toast(`${fixed.length} updated contract${fixed.length>1?'s':''} now show${fixed.length>1?'':'s'} the revised details in the applicant portal${v.ok?'':' (saving — it will keep retrying)'}`);
+    if(CURRENT==='recruit') RENDER.recruit();
+  }catch(e){ console.warn('rdf repair', e); } finally { RDF_BUSY = false; }
+}
+setTimeout(rdfRepair, 4000); setInterval(rdfRepair, 60e3);
+{ const _ore = onRemoteEvent; let t = 0; onRemoteEvent = function(ev){ _ore.apply(this, arguments); if(ev?.coll==='hrdocs'){ clearTimeout(t); t = setTimeout(rdfRepair, 1500); } }; }
+
+/* a signed (or otherwise unchangeable) document whose text doesn't show its details gets a clear note for staff */
+function rdfMismatch(d){ if(!d?.rec || d.status==='Draft' || d.status==='Cancelled' || d.supersededBy) return [];
+  return rdfNotInText(d.rec.type, d.body, d.rec.fields); }
+{ const _b = rdBadge; rdBadge = function(d){ const h = _b.apply(this, arguments); try{ const m = rdfMismatch(d);
+      if(m.length) return h + ` <span class="badge b-missed" title="The text doesn’t show: ${esc(m.map(k=>RDF_LABEL[k]+' '+rdfFmt(k, d.rec.fields[k])).join(', '))}">⚠ Text doesn’t match the details${rdDone(d)?' — use Revise':''}</span>`; }catch(e){} return h; }; }
+
+/* ---------- applicant / employee portal: only the latest version can be signed ---------- */
+const rdfHidden = d => !!d && (d.status==='Cancelled' || (d.supersededBy && !(esNeeds(d) ? esSig(d.id) : docRead(d.id)?.ackAt)));
+function rdfWithVisible(fn, self, args){ const all = HRDOCS, shown = all.filter(d=>!rdfHidden(d)); HRDOCS = shown; try{ return fn.apply(self, args); } finally { if(HRDOCS===shown) HRDOCS = all; } }
+{ const _al = RENDER.appletters; RENDER.appletters = function(){ return isApplicant() ? rdfWithVisible(_al, this, arguments) : _al.apply(this, arguments); }; }
+{ const _ap = appPills; appPills = function(){ return isApplicant() ? rdfWithVisible(_ap, this, arguments) : _ap.apply(this, arguments); }; }
 
 /* <<< OCT24 MODULES <<< */
 </script>

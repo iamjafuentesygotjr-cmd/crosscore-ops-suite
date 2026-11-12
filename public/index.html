@@ -20916,7 +20916,7 @@ async function cooPostFromModal(){ const ch = CHATS.find(c=>c.id===el('paPostC')
    The footer shows which build is running ("Build 2026-10-07 · 1"), and every open portal checks every few minutes
    (and whenever it comes back to the foreground) whether a newer build has been published. If so it shows
    "New version available — Update now" instead of quietly running old code. */
-const BUILD_ID = '2026-11-09 · 2';
+const BUILD_ID = '2026-11-12 · 1';
 function verStamp(){ const f = el('footNote'); if(f && !f.dataset.v){ f.dataset.v = 1; f.textContent = `Cross Core Ops Suite v8 · Build ${BUILD_ID}`; } }
 async function verCheck(){
   if(!/^https?:/.test(location.protocol)) return;
@@ -33767,7 +33767,7 @@ function sgExport(){   /* tight transparent PNG of the drawing */
 async function lvSigConfirm(reqId, role){
   const r = lvDoc(reqId); if(!r) return; if(sgInk() < 60) return toast('Please draw your signature first'); if(!el('sgOk').checked) return toast('Tick the confirmation to sign');
   const btn = el('sgGo'); btn.disabled = true; btn.textContent = 'Signing…'; const img = sgExport();
-  try{ const cb = SIGP.done; await lvAddSignature(r, role, img, role==='requester'?'Submitted':role==='hr'?'Endorsed':'Endorsed'); await lvSettle(); await cb(r); }
+  try{ const cb = SIGP.done; await lvAddSignature(r, role, img, role==='requester'?'Submitted':role==='executive'?'Approved directly':'Endorsed'); await lvSettle(); await cb(r); }
   catch(e){ btn.disabled = false; btn.textContent = 'Confirm signature'; toast(e.message); }
 }
 
@@ -33787,11 +33787,12 @@ async function lvPDF(r){
   if((r.support||[]).length){ T('SUPPORTING DOCUMENTS', M, y, {s:7.5, b:1, c:[140,140,146]}); r.support.slice(0,5).forEach((f,i)=>T('• '+f.name, M, y+14+i*12, {s:9})); y += 20 + Math.min(5,r.support.length)*12; }
   if(r.pmr?.action==='endorsed'){ T('COVERAGE', M, y, {s:7.5, b:1, c:[140,140,146]}); T(`Replacement: ${r.pmr.replacement?pname(r.pmr.replacement):'none assigned'} · coverage confirmed`, M, y+14, {s:9}); if(r.pmr.handover){ doc.setFontSize(8.5); doc.setTextColor(90,90,96); doc.splitTextToSize('Handover: '+r.pmr.handover, W-2*M).slice(0,3).forEach((l,i)=>doc.text(l, M, y+27+i*11)); y += 24; } y += 34; }
   y += 6; doc.setDrawColor(230,226,216); doc.line(M, y, W-M, y); y += 18; T('ELECTRONIC SIGNATURES', M, y, {s:8, b:1, c:[140,140,146]}); y += 10;
-  const sigs = lvSigs(r, r.version); const sw = (W-2*M-20)/3;
-  ['requester','hr','pm'].filter(role=>role!=='pm' || r.class==='contractor').forEach((role,i)=>{ const s = sigs.find(x=>x.role===role); const x = M + i*(sw+10);
-    doc.setDrawColor(222,218,206); doc.roundedRect(x, y, sw, 96, 6, 6); T(role==='requester'?'Requester':role==='hr'?'HR representative':'Project Manager', x+8, y+13, {s:7.5, b:1, c:[140,140,146]});
+  const sigs = lvSigs(r, r.version); const ROLES = ['requester','hr','pm'].filter(role=>role!=='pm' || r.class==='contractor').concat(sigs.some(x=>x.role==='executive')?['executive']:[]);
+  const sw = (W-2*M-10*(ROLES.length-1))/ROLES.length; const dir = r.final?.direct;
+  ROLES.forEach((role,i)=>{ const s = sigs.find(x=>x.role===role); const x = M + i*(sw+10);
+    doc.setDrawColor(222,218,206); doc.roundedRect(x, y, sw, 96, 6, 6); T(role==='requester'?'Requester':role==='hr'?'HR representative':role==='pm'?'Project Manager':'Executive approval ('+(dir?.role||'CEO / COO')+')', x+8, y+13, {s:7.5, b:1, c:[140,140,146]});
     if(s){ try{ const props = doc.getImageProperties(s.img); const ih = Math.min(40, (sw-24)*props.height/props.width), iw = ih*props.width/props.height; doc.addImage(s.img, 'PNG', x+10, y+20, iw, ih); }catch(_){} T(s.name, x+8, y+70, {b:1, s:8.5}); T(`${s.position||''}`.slice(0,34), x+8, y+80, {s:7, c:[90,90,96]}); T(`${s.action} · ${esManila(s.at).replace(' (Manila time)','')}`.slice(0,52), x+8, y+90, {s:6.5, c:[120,120,126]}); }
-    else T('— not signed —', x+8, y+50, {s:8.5, c:[170,170,176]}); });
+    else T(dir && (role==='hr' ? r.hr?.action==='skipped' : role==='pm' ? r.pmr?.action==='skipped' : false) ? `Skipped — approved directly by the ${dir.role}` : '— not signed —', x+8, y+50, {s:8.5, c:[170,170,176]}); });
   y += 112; T('LEADERSHIP APPROVALS', M, y, {s:8, b:1, c:[140,140,146]}); y += 10;
   (r.approvers||[]).forEach(a=>{ doc.setFillColor(...(a.status==='Approved'?[228,245,235]:[250,246,236])); doc.roundedRect(M, y, W-2*M, 24, 5, 5, 'F'); T(`${pname(a.key)} · ${a.role}`, M+10, y+15, {b:1, s:9}); T(a.status==='Approved'?`Approved ${esManila(a.at).replace(' (Manila time)','')}${a.delegate?' (alternate: '+pname(a.delegate)+')':''}`:a.status, W-M-10, y+15, {s:8.5, a:'right', c:a.status==='Approved'?[24,138,78]:[185,117,9]}); y += 29; });
   if(ok){ const cx = W-M-76, cy = Math.min(Math.max(y+60, 560), H-150); doc.setDrawColor(24,138,78); doc.setTextColor(24,138,78); doc.setLineWidth(2.4); doc.circle(cx, cy, 68); doc.setLineWidth(.8); doc.circle(cx, cy, 61);
@@ -40523,6 +40524,56 @@ async function lvRemoveApprover(id, key){
         ${pend.map(a=>`<div class="list-row" style="padding:6px 2px"><span style="flex:1;font-size:13px"><b>${esc(pname(a.key))}</b> <span class="hint">${esc(a.role||'')} · pending${APPROVAL_EXCLUDED.includes(a.key)?' · no longer approves requests':''}</span></span>
           <button class="btn" style="padding:4px 10px;font-size:12px" onclick="lvRemoveApprover('${r.id}','${a.key}')">Remove from approvers</button></div>`).join('')}
         <div class="hint" style="margin-top:4px">If everyone left has already approved, the request is completed and stamped right away.</div></div></div>`); } }catch(e){ console.warn(e); }
+    return res; }; }
+
+/* ===== t31_execapprove.js — the CEO or COO approves a leave / time-off request directly (Nov 12 2026) =====
+   At any stage while a request is waiting for approval (HR, Project Manager or leadership), the CEO or the COO can approve
+   it completely by signing it themselves. Steps not yet done are recorded as SKIPPED — approved directly by the CEO / COO;
+   no signature is created for anyone else. The request then gets the normal APPROVED stamp (noting the direct approval) and
+   is filed, synced to Finance and the calendar, and announced like any approved request.
+   Server: supabase/update-nov12-exec-approve.sql (cc_lv_exec_approve). An executive can't approve their own request. */
+const lvExecCan = r => !!r && pvIsExec() && r.emp!==PERSON && [LV_ST.HR, LV_ST.PM, LV_ST.LEAD].includes(r.status);
+const lvExecTitle = () => PERSON===pvCeo() ? 'CEO' : 'COO';
+function lvExecStart(id){
+  const r = lvDoc(id); if(!lvExecCan(r)) return toast('Only the CEO or the COO can approve a waiting request directly');
+  const note = (el('lvExNote')?.value || '').trim();
+  lvSignModal({title:`Executive approval — ${r.no||''}`, role:'executive', r,
+    action:`Sign to approve ${pname(r.emp)}’s ${lvWord(r)} completely as the ${lvExecTitle()}. Steps not yet done are recorded as skipped (approved directly by you).`,
+    then: async () => { await lvExecFinish(id, note); }});
+}
+async function lvExecFinish(id, note=''){
+  const r = lvDoc(id); if(!r) return;
+  if(BACKEND?.mode==='live'){
+    const {data, error} = await BACKEND.sb.rpc('cc_lv_exec_approve', {p_req:id, p_note:note});
+    if(error){ toast('Could not approve: ' + error.message); return; }
+    try{ await syncCatchUp('executive approval'); }catch(e){}
+  } else {
+    /* demo: the same steps locally */
+    const ttl = lvExecTitle(), now = nowISO(), skipped = [];
+    if(r.hr?.action!=='endorsed'){ r.hr = {action:'skipped', at:now, by:PERSON, note:`Not required — approved directly by the ${ttl}`}; skipped.push('HR review'); }
+    if(r.class==='contractor' && r.pmr?.action!=='endorsed'){ r.pmr = {action:'skipped', at:now, by:PERSON, note:`Not required — approved directly by the ${ttl}`}; skipped.push('Project Manager review'); }
+    const A = (r.approvers||[]).map(a=>a.key===PERSON ? {...a, status:'Approved', at:now, by:PERSON, comment:note||null} : a.status==='Pending' ? {...a, status:'Not required', at:now, by:PERSON} : a);
+    if(!A.some(a=>a.key===PERSON)) A.push({key:PERSON, role:ttl, status:'Approved', at:now, by:PERSON, comment:note||null});
+    r.approvers = A; const was = r.status; r.status = LV_ST.OK; lvFinalizeLocal(r); r.final.direct = {by:PERSON, role:ttl, skipped};
+    lvAudit(r, `${was} → Approved — approved directly by the ${ttl}${skipped.length?' (skipped: '+skipped.join(', ')+')':''}`);
+    recordChange();
+  }
+  closeModal(); RENDER[CURRENT]?.(); setTimeout(()=>lvOpen(id), 120);
+  toast(`${lvStamp(lvDoc(id)) || 'Approved'} — approved directly by you`);
+}
+/* the request window: the executive card, the executive's signature, and a note when it was approved directly */
+{ const _lo = lvOpen; lvOpen = function(id){ const res = _lo.apply(this, arguments); const r = lvDoc(id); const b = el('modalBody');
+    try{ if(b && r){
+      const ex = lvSigs(r, r.version).find(s=>s.role==='executive'); const box = b.querySelector('.lv-sigs');
+      if(ex && box) box.insertAdjacentHTML('beforeend', `<div class="lv-sig" style="border:1px solid var(--line);border-radius:12px;padding:12px;background:var(--panel)"><div class="nav-label" style="padding:0 0 6px">Executive approval (${esc(r.final?.direct?.role || 'CEO / COO')})</div>
+        <img src="${ex.img}" alt="Signature" style="max-height:60px;max-width:100%"><div style="font-weight:700;margin-top:6px">${esc(ex.name)}</div><div class="hint">${esc(ex.position||'')}</div><div class="hint">${esc(ex.action)} · ${dtstr(ex.at)} · v${ex.ver}</div></div>`);
+      const d = r.final?.direct;
+      if(d) b.insertAdjacentHTML('afterbegin', `<div class="card" style="margin-bottom:10px;border-left:4px solid var(--ok)"><div class="card-b" style="font-size:13px">✅ <b>Approved directly by the ${esc(d.role)}</b> (${esc(pname(d.by))})${(d.skipped||[]).length?` — skipped: ${esc(d.skipped.join(', '))}`:''}.</div></div>`);
+      if(lvExecCan(r)) b.insertAdjacentHTML('beforeend', `<div class="card" style="margin-top:12px;border-left:4px solid var(--brand-1)"><div class="card-b"><div class="nav-label" style="padding:0 0 6px">Executive approval — ${lvExecTitle()}</div>
+        <div class="hint" style="margin-bottom:8px">Approve this request completely now with your signature. Steps not yet done${r.status===LV_ST.HR?' (HR review'+(r.class==='contractor'?', Project Manager review':'')+')':r.status===LV_ST.PM?' (Project Manager review)':''} and other pending heads are recorded as skipped — no one else’s signature is created.</div>
+        <div class="field" style="margin-bottom:8px"><input id="lvExNote" placeholder="Note (optional)"></div>
+        <button class="btn primary" onclick="lvExecStart('${r.id}')">✍️ Sign & approve now</button></div></div>`);
+    } }catch(e){ console.warn('executive approval', e); }
     return res; }; }
 
 /* <<< OCT24 MODULES <<< */

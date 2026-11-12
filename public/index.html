@@ -20916,7 +20916,7 @@ async function cooPostFromModal(){ const ch = CHATS.find(c=>c.id===el('paPostC')
    The footer shows which build is running ("Build 2026-10-07 · 1"), and every open portal checks every few minutes
    (and whenever it comes back to the foreground) whether a newer build has been published. If so it shows
    "New version available — Update now" instead of quietly running old code. */
-const BUILD_ID = '2026-11-09 · 1';
+const BUILD_ID = '2026-11-09 · 2';
 function verStamp(){ const f = el('footNote'); if(f && !f.dataset.v){ f.dataset.v = 1; f.textContent = `Cross Core Ops Suite v8 · Build ${BUILD_ID}`; } }
 async function verCheck(){
   if(!/^https?:/.test(location.protocol)) return;
@@ -33315,7 +33315,7 @@ function pvAdjDel(id){ PADJ = PADJ.filter(x=>x.id!==id); recordChange(); pvRefre
 
 /* ---------- the CEO's alternate approver ---------- */
 function pvAltCardHTML(){
-  const a = pvAlt(), ceo = pvIsExec(), heads = HEADS.filter(k=>k!==pvCeo()), on = pvAltOn();
+  const a = pvAlt(), ceo = pvIsExec(), heads = HEADS.filter(k=>k!==pvCeo() && !(typeof APPROVAL_EXCLUDED!=='undefined' && APPROVAL_EXCLUDED.includes(k))), on = pvAltOn();
   if(ceo) return `<div class="card" style="margin-bottom:14px"><div class="card-h"><h3>Alternate approver while you are unavailable</h3><span class="badge ${on?'b-approved':'b-draft'}">${on?'active':a.enabled?'scheduled':'off'}</span></div><div class="card-b">
     <div class="hint" style="margin-bottom:8px">The CEO is the primary payroll approver. If you are away you can authorize <b>one other company head</b> to approve (or return) payroll for a period you choose. One approval is enough and it is recorded as given on your behalf. Rate changes always stay with you.</div>
     <div class="grid cols-4"><label class="switch-row"><input type="checkbox" id="altOn" ${a.enabled?'checked':''} style="width:auto"> Authorize an alternate</label>
@@ -33612,7 +33612,7 @@ const lvCfg = () => ({required:null, delegates:{}, extra:[], entitlements:LV_DEF
 const lvDoc = id => LEAVE2.find(r=>r.id===id);
 const lvBadge = s => `<span class="badge ${LV_BADGE[s]||'b-draft'}">${esc(s)}</span>`;
 const lvIsHr = (k=PERSON) => HR_KEYS().includes(k) || (PEOPLE[k]?.portal==='hr');
-const lvRequired = emp => uniq((lvCfg().required || HEADS)).filter(k=>k!==emp && PEOPLE[k]);
+const lvRequired = emp => uniq((lvCfg().required || HEADS)).filter(k=>k!==emp && PEOPLE[k] && !(typeof APPROVAL_EXCLUDED!=='undefined' && APPROVAL_EXCLUDED.includes(k)));
 const lvSlotLabel = k => ({paul:'CEO', ja:'COO', norman:'Co-Founder'}[k] || P(k).sub || 'Department head');
 const lvCanAct = (slot, me=PERSON) => me===slot || (lvCfg().delegates?.[slot]||[]).includes(me);
 const lvAudit = (r, act, extra) => { (r.audit = r.audit||[]).push({at:nowISO(), by:PERSON, role:lvIsHr()?'hr':(PEOPLE[PERSON]?.role||''), act, v:r.version, ...(extra||{})}); };
@@ -33919,7 +33919,7 @@ function lvActionPanel(r){
   if(r.emp===me && ![LV_ST.DRAFT,LV_ST.OK,LV_ST.REJ,LV_ST.CAN].includes(r.status)) A.push(`<button class="btn" onclick="lvForm('${r.id}')">Edit details (new version)</button>`);
   if(r.emp===me && ![LV_ST.OK,LV_ST.REJ,LV_ST.CAN].includes(r.status)) A.push(`<button class="btn ghost" onclick="lvCancelClick('${r.id}')">Cancel request</button>`);
   if(lvIsHr() && r.emp!==me && r.status===LV_ST.HR){
-    const need = lvRequired(r.emp), opts = uniq([...HEADS, ...(lvCfg().extra||[])]).filter(k=>k!==r.emp && PEOPLE[k]);
+    const need = lvRequired(r.emp), opts = uniq([...HEADS, ...(lvCfg().extra||[])]).filter(k=>k!==r.emp && PEOPLE[k] && !(typeof APPROVAL_EXCLUDED!=='undefined' && APPROVAL_EXCLUDED.includes(k)));
     return `<div class="nav-label" style="padding:0 0 6px">HR review</div>
       <div class="hint" style="margin-bottom:6px">Check the dates${r.class==='employee'?', leave balance':''}, policy, the relevant agreement and the supporting documents.</div>
       ${r.class==='employee'?`<div class="hint" style="margin-bottom:6px">${lvBalances(r.emp).filter(b=>b.cat===r.category).map(b=>`${esc(b.cat)}: <b>${b.left}</b> of ${b.total} left`).join('') || 'No credit balance for this category.'}</div>`:''}
@@ -40099,6 +40099,7 @@ RENDER.contracts = () => {
         <div style="font-size:12.5px;margin-top:6px;line-height:1.6">${esc(co.name||'—')}<br>${co.address?esc(co.address):'<span class="ct-miss">Company address not set</span>'}<br>Signatory: ${co.signatory?esc(co.signatory)+(co.title?', '+esc(co.title):''):'<span class="ct-miss">not set</span>'}</div>
         <div class="hint" style="margin-top:4px">${ready?`Verified by ${esc(pname(co.verifiedBy))} on ${dstr(co.verifiedAt)}. Each sent contract keeps a copy of these details.`:'Contracts can be prepared now, but can only be sent after HR or a company head enters and verifies these details.'}</div></div>
       ${ctAdmin()?`<button class="btn" onclick="ctCompanyModal()">${ready?'Edit':'Enter & verify'}</button>`:''}</div></div>
+    ${ctMonitorHTML(all)}
     <div class="tabs"><button class="tab ${CTS.f==='open'?'on':''}" onclick="CTS.f='open';RENDER.contracts()">In progress <span class="hint">${all.filter(open).length}</span></button><button class="tab ${CTS.f==='done'?'on':''}" onclick="CTS.f='done';RENDER.contracts()">Completed & replaced <span class="hint">${all.filter(d=>!open(d)).length}</span></button></div>
     <div class="card"><div class="card-b" style="padding-top:4px">${L.map(d=>`<div class="list-row" style="flex-wrap:wrap;padding:12px 6px;align-items:flex-start">
         <span class="badge b-draft" style="min-width:120px;justify-content:center">${esc(d.kind)}</span>
@@ -40107,7 +40108,8 @@ RENDER.contracts = () => {
           <div style="margin-top:6px">${ctRecipients(d).map(k=>{ const st = ctRecipState(d, k); return `<span class="ct-chip">${esc(pname(k)||k)}${ctIsApplicantKey(k)?' <span class="hint">applicant</span>':''} <span class="badge ${st.cls}" style="font-size:11px">${esc(st.t)}</span></span>`; }).join('')||'<span class="hint">No recipients yet</span>'}</div></div>
         <div style="display:flex;gap:6px;flex-wrap:wrap">${['Draft','Revisions Needed','Approved'].includes(d.status)?`<button class="btn" style="padding:5px 11px;font-size:12px" onclick="ctEditor('${d.id}')">Review & edit</button>`:''}
           ${d.status==='Approved'?`<button class="btn primary" style="padding:5px 11px;font-size:12px" onclick="ctSend('${d.id}')">Send for signature</button>`:''}
-          ${['Sent','Published'].includes(d.status)?`<button class="btn" style="padding:5px 11px;font-size:12px" onclick="ctEditor('${d.id}')">Open</button>`:''}</div></div>`).join('') || '<div class="empty">Nothing here yet.</div>'}</div></div>`;
+          ${['Sent','Published'].includes(d.status)?`<button class="btn" style="padding:5px 11px;font-size:12px" onclick="ctEditor('${d.id}')">Open</button>`:''}
+          ${['Sent','Published'].includes(d.status) && ctRecipients(d).some(k=>!esSig(d.id, k))?`<button class="btn" style="padding:5px 11px;font-size:12px" onclick="ctRemind('${d.id}')">🔔 Remind</button>`:''}</div></div>`).join('') || '<div class="empty">Nothing here yet.</div>'}</div></div>`;
 };
 function ctCompanyModal(){
   if(!ctAdmin()) return; const c = ctCompany();
@@ -40238,12 +40240,16 @@ function ctSend(id){
   if(d.status!=='Approved') return toast(d.needsCoo ? 'JA needs to approve this contract first' : 'Mark the contract ready first');
   const co = ctCompany(); if(!ctCompanyReady(co)) return toast('Enter and verify CrossCore’s company details first (Contracts page)'), ctCompanyModal();
   const to = (d.ct.recipients||[]).filter(Boolean); if(!to.length) return toast('Choose at least one recipient');
+  const noPortal = to.filter(k=>{ const a = typeof recApp==='function' ? recApp(k) : null; return a && a.stage!=='employee' && (!a.account || a.access?.state==='ended'); });
+  if(noPortal.length) return toast(`${noPortal.map(k=>recApp(k)?.name||pname(k)).join(', ')} ${noPortal.length>1?'have':'has'} no active applicant portal yet — open it from their profile in Recruitment (Open applicant portal), then send`);
   d.ct.company = {name:co.name, address:co.address, signatory:co.signatory, title:co.title, verifiedBy:co.verifiedBy, verifiedAt:co.verifiedAt};
   d.status = 'Sent'; d.sentTo = uniq([...(d.sentTo||[]), ...to]); d.sentAt = d.sentAt || nowISO(); d.updatedAt = nowISO();
   if(!d.ct.dates?.agreement) d.ct.dates = {...(d.ct.dates||{}), agreement:manilaDate()};
   if(d.prevVersion){ const pv = HRDOCS.find(x=>x.id===d.prevVersion); if(pv && !pv.supersededBy){ pv.supersededBy = d.id; pv.history = [...(pv.history||[]), {at:nowISO(), by:PERSON, act:`Replaced by version ${d.version} (${d.id})`, note:''}]; } }
   d.history.push({at:nowISO(), by:PERSON, act:`Sent for signature to ${to.length===1?pname(to[0]):to.length+' people'}`, note:''});
-  to.forEach(k=>{ const app = ctIsApplicantKey(k); notify(k, 'hr', `✍️ <b>${esc(d.title)}</b> is ready — complete your personal details, review it and sign`, {view: app ? 'appletters' : 'mydocs', doc:d.id}); });
+  to.forEach(k=>{ const app = ctIsApplicantKey(k); const miss = ctMissing(k).length;
+    notify(k, 'hr', `✍️ <b>${esc(d.title)}</b> is ready for you — ${miss?`complete ${miss} required detail${miss>1?'s':''}, then `:''}review it and sign electronically`, {view: app ? 'appletters' : 'mydocs', doc:d.id}); });
+  notify(uniq([...HR_KEYS(), pvCeo(), pvCoo(), d.by]).filter(k=>k && k!==PERSON), 'hr', `📤 ${esc(pname(PERSON))} sent <b>${esc(d.title)}</b> for e-signature to ${esc(to.map(k=>recApp?.(k)?.name||pname(k)).join(', '))}`, {view:'contracts'});
   audit(`Sent ${d.title} for e-signature to ${to.map(pname).join(', ')}`);
   recordChange(); closeModal(); RENDER[CURRENT]?.(); buildNav(); toast(`Sent — it is in ${to.length===1?first(to[0])+'’s':'each recipient’s'} portal now`);
 }
@@ -40373,6 +40379,31 @@ if(typeof RENDER.appletters==='function'){ const _al = RENDER.appletters; RENDER
 { const at = NAV.findIndex(n=>n.id==='hrdocs'); if(!NAV.some(n=>n.id==='contracts')) NAV.splice(at>=0 ? at+1 : NAV.length, 0, {id:'contracts', name:'Contracts', roles:['hr','ceo','coo','creative'], ico:I.doc});
   if(!el('v-contracts')){ const v = document.createElement('div'); v.id = 'v-contracts'; v.className = 'view'; (el('v-hrdocs')||document.querySelector('.content .view'))?.after(v); } }
 
+/* ---------- monitoring (HR, CEO, COO): details still missing · waiting for signature · signed ---------- */
+function ctMonitorHTML(all){
+  const R = []; all.filter(d=>['Sent','Published'].includes(d.status) && !d.supersededBy).forEach(d=>ctRecipients(d).forEach(k=>R.push({d, k, s:esSig(d.id, k), miss:ctMissing(k)})));
+  const det = R.filter(x=>!x.s && x.miss.length), sig = R.filter(x=>!x.s && !x.miss.length), done = R.filter(x=>x.s);
+  const who = L => L.slice(0, 4).map(x=>`<span class="ct-chip" title="${esc(x.d.title)}${x.miss.length?' — missing: '+esc(x.miss.join(', ')):''}">${esc(recApp?.(x.k)?.name||pname(x.k)||x.k)}</span>`).join('') + (L.length>4?`<span class="hint"> +${L.length-4} more</span>`:'');
+  const box = (t, L, col) => `<div class="card" style="flex:1;min-width:220px;border-top:3px solid ${col}"><div class="card-b"><div class="hint">${t}</div><div style="font-size:24px;font-weight:700;margin:2px 0 6px">${L.length}</div>${who(L)||'<span class="hint">Nobody</span>'}</div></div>`;
+  return `<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px">${box('Personal details still missing', det, 'var(--warn)')}${box('Waiting for signature', sig, 'var(--brand-1)')}${box('Signed — filed in the 201 file', done, 'var(--ok)')}</div>`;
+}
+/* a reminder tells each person who has not signed exactly what is left */
+function ctRemind(id){
+  const d = HRDOCS.find(x=>x.id===id); if(!d) return; let n = 0;
+  ctRecipients(d).filter(k=>!esSig(d.id, k)).forEach(k=>{ const miss = ctMissing(k);
+    notify(k, 'hr', `🔔 Reminder: <b>${esc(d.title)}</b> is waiting for you — ${miss.length?`complete ${esc(miss.join(', '))}, then `:''}review and sign it`, {view: ctIsApplicantKey(k) ? 'appletters' : 'mydocs', doc:d.id}); n++; });
+  d.history.push({at:nowISO(), by:PERSON, act:`Reminder sent to ${n} ${n===1?'person':'people'}`, note:''}); recordChange(); toast(`Reminder sent to ${n} ${n===1?'person':'people'}`);
+}
+/* signed: HR, the CEO, the COO and whoever prepared it are told — the signed PDF is already filed in the signer's 201 file */
+{ const _es = esSubmit; esSubmit = async function(){ const d = ES.doc; const r = await _es.apply(this, arguments);
+    try{ const rec = d && d.ct && esSig(d.id); if(rec){ notify(uniq([pvCeo(), pvCoo()]).filter(k=>k && k!==PERSON && k!==d.by && !HR_KEYS().includes(k)), 'hr', `✍️ <b>${esc(pname(PERSON))}</b> signed <b>${esc(d.title)}</b> — the signed copy is in their 201 file`, {view:'contracts'}); recordChange(); } }catch(e){ console.warn('contract signed notice', e); }
+    return r; }; }
+/* applicants appear in the HR 201 Files (group “Applicants”) once they have documents there — they keep them when hired */
+{ const _hp = h201People; h201People = function(){ const L = _hp.apply(this, arguments); const have = new Set(L.map(x=>x.id));
+    (typeof APPLICANTS!=='undefined' ? APPLICANTS : []).filter(a=>!have.has(a.id) && (HRFILES.some(f=>f.emp===a.id) || HRDOCS.some(d=>d.ct && (d.sentTo||[]).includes(a.id))))
+      .forEach(a=>L.push({id:a.id, person:a.id, name:a.name||a.id, sub:'Applicant'+(a.position?' — '+a.position:''), group:'Applicants', status:'Applicant', color:'#6C3BC9'}));
+    return L; }; }
+
 /* ===== t27_endcontract.js — End / reopen a client contract without timeouts (Nov 6 2026) =====
    The database now re-scopes a client's records in rounds of at most ~4 seconds (supabase/update-nov06-end-contract-speed.sql)
    and reports how many are left. The portal keeps going until none are left, and a company head's or HR's portal finishes
@@ -40457,6 +40488,42 @@ function rsMarkEnded(){
     const r = await _hc.apply(this, arguments); const box = el('rsHidden');
     if(box){ RS_ENDED = [...box.querySelectorAll('label')].map(l=>({id:l.querySelector('input')?.value, name:l.querySelector('b')?.textContent})).filter(x=>x.id); rsMarkEnded(); }
     return r; }; }
+
+/* ===== t30_approvals.js — approvals without Norman; removing a pending approver (Nov 9 2026) =====
+   People who no longer approve anything are listed once here (and in supabase/update-nov09-approvals.sql). They are never a
+   required leave approver, can't be added as an approver, and can't be the alternate payroll approver.
+   HR, the CEO and the COO can remove a PENDING approver from a request that is waiting for approval; if everyone left has
+   approved, the request completes exactly as with the last approval (APPROVED stamp, 201 filing, calendar, notices).
+   No approval or signature is ever created for anyone. */
+var APPROVAL_EXCLUDED = ['norman'];
+const lvCanRemoveApprover = () => lvIsHr() || pvIsExec();
+async function lvRemoveApprover(id, key){
+  const r = lvDoc(id); if(!r) return toast('That request is not available');
+  if(!lvCanRemoveApprover()) return toast('Only HR, the CEO or the COO can change a request’s approvers');
+  if(!confirm(`Remove ${pname(key)} from the approvers of ${r.no||'this request'}? This is recorded in the request's audit trail.`)) return;
+  if(BACKEND?.mode==='live'){
+    const {data, error} = await BACKEND.sb.rpc('cc_lv_remove_approver', {p_req:id, p_key:key});
+    if(error) return toast('Could not remove: ' + error.message);
+    try{ await syncCatchUp('approver removed'); }catch(e){}
+    closeModal(); RENDER[CURRENT]?.(); return toast(data?.status==='Approved' ? `Removed ${first(key)} — everyone else had approved, so the request is now ${data.stamp}` : `Removed ${first(key)} from the approvers`);
+  }
+  /* demo: the same steps locally */
+  if(![LV_ST.PM, LV_ST.LEAD].includes(r.status)) return toast('Approvers can only be changed while the request is waiting for approval');
+  const slot = (r.approvers||[]).find(a=>a.key===key && a.status==='Pending'); if(!slot) return toast('That person is not a pending approver on this request');
+  if((r.approvers||[]).length <= 1) return toast('A request needs at least one leadership approver');
+  r.approvers = r.approvers.filter(a=>a!==slot); lvAudit(r, `Removed ${pname(key)} from the approvers`);
+  if(r.status===LV_ST.LEAD && r.approvers.every(a=>a.status==='Approved')){ r.status = LV_ST.OK; lvAudit(r, 'All remaining approvers had approved'); lvFinalizeLocal(r); }
+  recordChange(); closeModal(); RENDER[CURRENT]?.(); toast(r.status===LV_ST.OK ? `Removed ${first(key)} — the request is now ${r.final.stamp}` : `Removed ${first(key)} from the approvers`);
+}
+/* the request window: a "Remove from approvers" button beside each pending approver (HR, CEO, COO) */
+{ const _lo = lvOpen; lvOpen = function(id){ const res = _lo.apply(this, arguments); const r = lvDoc(id);
+    try{ if(r && lvCanRemoveApprover() && [LV_ST.PM, LV_ST.LEAD].includes(r.status) && (r.approvers||[]).length > 1){
+      const pend = r.approvers.filter(a=>a.status==='Pending'); const b = el('modalBody');
+      if(b && pend.length) b.insertAdjacentHTML('beforeend', `<div class="card" style="margin-top:12px;border-left:4px solid var(--warn)"><div class="card-b"><div class="nav-label" style="padding:0 0 6px">Leadership approvers — HR / CEO / COO</div>
+        ${pend.map(a=>`<div class="list-row" style="padding:6px 2px"><span style="flex:1;font-size:13px"><b>${esc(pname(a.key))}</b> <span class="hint">${esc(a.role||'')} · pending${APPROVAL_EXCLUDED.includes(a.key)?' · no longer approves requests':''}</span></span>
+          <button class="btn" style="padding:4px 10px;font-size:12px" onclick="lvRemoveApprover('${r.id}','${a.key}')">Remove from approvers</button></div>`).join('')}
+        <div class="hint" style="margin-top:4px">If everyone left has already approved, the request is completed and stamped right away.</div></div></div>`); } }catch(e){ console.warn(e); }
+    return res; }; }
 
 /* <<< OCT24 MODULES <<< */
 </script>

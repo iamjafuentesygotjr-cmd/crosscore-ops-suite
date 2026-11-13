@@ -20920,7 +20920,7 @@ async function cooPostFromModal(){ const ch = CHATS.find(c=>c.id===el('paPostC')
    The footer shows which build is running ("Build 2026-10-07 · 1"), and every open portal checks every few minutes
    (and whenever it comes back to the foreground) whether a newer build has been published. If so it shows
    "New version available — Update now" instead of quietly running old code. */
-const BUILD_ID = '2026-11-13 · 3';
+const BUILD_ID = '2026-11-13 · 4';
 function verStamp(){ const f = el('footNote'); if(f && !f.dataset.v){ f.dataset.v = 1; f.textContent = `Cross Core Ops Suite v8 · Build ${BUILD_ID}`; } }
 async function verCheck(){
   if(!/^https?:/.test(location.protocol)) return;
@@ -41462,7 +41462,7 @@ function s3PaintScreen(){ const S = SIM3D, x = S.sx, it = S.it; if(!x || !it) re
       if(ch){ const c = S.verdict===true ? '#1d8a52' : S.verdict===false ? '#c0392b' : '#2f6fd6'; s3box(x, X-5, Y-5, W+10, H+10, 10, c+'22', c, 5);
         s3box(x, X+W-30, Y-18, 40, 40, 20, c); s3t(x, S.verdict===true?'✓':S.verdict===false?'✗':'•', X+W-10, Y+2, 24, '#fff', {a:'center', w:700}); } }); }
   if(S.phase==='pre' && S.hover==='pre'){ const [X, Y, W, H] = s3dock(S3_PRE[it.screen]); s3box(x, X-6, Y-6, W+12, H+12, 22, null, '#fff', 3); }
-  x.restore(); if(S.stex){ S.stex.needsUpdate = true; S.dirty = true; } if(S.flat) s3FlatSync(); }
+  x.restore(); if(S.stex) s3ScreenOut(); if(S.flat) s3FlatSync(); }
 function s3Hotspots(){ const S = SIM3D, it = S.it; if(!it || S.locked) return [];
   if(S.phase==='pre') return [['pre', it.pre, s3dock(S3_PRE[it.screen])]];
   return it.type==='click' ? it.targets : []; }
@@ -41478,92 +41478,7 @@ function s3PaintPhone(x){ const W = 540, H = 1120; const g = x.createLinearGradi
 
 /* ---------- textures & scene ---------- */
 function s3cv(w, h){ const c = document.createElement('canvas'); c.width = w; c.height = h; return [c, c.getContext('2d')]; }
-function s3tex(T, c, rep){ const t = new T.CanvasTexture(c); t.encoding = T.sRGBEncoding; t.anisotropy = 8; if(rep){ t.wrapS = t.wrapT = T.RepeatWrapping; t.repeat.set(rep[0], rep[1]); } return t; }
-function s3Wood(T, base, planks, rep, w){ w = w||1024; const [c, x] = s3cv(w, w), rows = planks||1, ph = w/rows;
-  for(let r=0;r<rows;r++){ const k = .82 + Math.random()*.32; x.fillStyle = `rgb(${base.map(v=>Math.min(255, Math.round(v*k))).join(',')})`; x.fillRect(0, r*ph, w, ph);
-    for(let i=0;i<ph*1.4;i++){ const y0 = r*ph + Math.random()*ph; x.strokeStyle = `rgba(${Math.random()<.6?'55,30,12':'255,228,190'},${(Math.random()*.11).toFixed(3)})`; x.lineWidth = Math.random()*2.2+.4; x.beginPath(); let y = y0; x.moveTo(0, y);
-      for(let px=0;px<=w;px+=24){ y += (Math.random()-.5)*1.4; x.lineTo(px, Math.min(Math.max(y, r*ph+1), r*ph+ph-1)); } x.stroke(); }
-    for(let k2=0;k2<(planks?1:3);k2++) if(Math.random()<.5){ const kx = Math.random()*w, ky = r*ph + ph/2; const gk = x.createRadialGradient(kx, ky, 1, kx, ky, ph*.18); gk.addColorStop(0, 'rgba(50,25,8,.45)'); gk.addColorStop(1, 'rgba(50,25,8,0)'); x.fillStyle = gk; x.fillRect(kx-ph*.4, ky-ph*.3, ph*.8, ph*.6); }
-    if(planks){ x.fillStyle = 'rgba(25,14,6,.6)'; x.fillRect(0, r*ph, w, 2.5); x.fillRect(Math.random()*w, r*ph, 2.5, ph); } }
-  return s3tex(T, c, rep); }
-function s3Noise(T, base, amt, rep){ const [c, x] = s3cv(512, 512); x.fillStyle = base; x.fillRect(0, 0, 512, 512); const d = x.getImageData(0, 0, 512, 512); for(let i=0;i<d.data.length;i+=4){ const n = (Math.random()-.5)*amt; d.data[i]+=n; d.data[i+1]+=n; d.data[i+2]+=n; } x.putImageData(d, 0, 0); return s3tex(T, c, rep); }
-function s3Label(T, w, h, draw){ const [c, x] = s3cv(w, h); draw(x, w, h); return s3tex(T, c); }
-function s3Std(T, o){ return new T.MeshStandardMaterial(o); }
-function s3Mesh(T, geo, mat, pos, opt){ const m = new T.Mesh(geo, mat); if(pos) m.position.set(pos[0], pos[1], pos[2]); m.castShadow = opt?.cast!==false; m.receiveShadow = opt?.recv!==false; return m; }
-function s3Build(){ const T = window.THREE, S = SIM3D, sc = new T.Scene(); S.scene = sc; S.pick = {};
-  sc.background = new T.Color(0x1a130d); sc.fog = new T.Fog(0x1a130d, 5, 11);
-  // room
-  const floor = s3Mesh(T, new T.PlaneGeometry(9, 9), s3Std(T, {map:s3Wood(T, [128,84,48], 8, [3,3]), roughness:.62, metalness:0}), [0,0,0], {cast:false}); floor.rotation.x = -Math.PI/2; sc.add(floor);
-  const plaster = s3Noise(T, '#e9e1d4', 10, [3,2]); const wall = s3Mesh(T, new T.PlaneGeometry(9, 3.4), s3Std(T, {map:plaster, roughness:.95}), [0,1.7,-1.25], {cast:false}); sc.add(wall);
-  const lw = s3Mesh(T, new T.PlaneGeometry(6, 3.4), s3Std(T, {map:plaster, roughness:.95, color:0xd8cfc1}), [-2.6,1.7,1.2], {cast:false}); lw.rotation.y = Math.PI/2; sc.add(lw);
-  const skirt = s3Mesh(T, new T.BoxGeometry(9, .1, .02), s3Std(T, {color:0xf3eee6, roughness:.6}), [0,.05,-1.24]); sc.add(skirt);
-  // window with daylight
-  const sky = s3Label(T, 512, 512, (x, w, h)=>{ const g = x.createLinearGradient(0, 0, 0, h); g.addColorStop(0, '#9cc7ec'); g.addColorStop(.7, '#e9f2fa'); g.addColorStop(1, '#f7e7c9'); x.fillStyle = g; x.fillRect(0, 0, w, h); x.fillStyle = 'rgba(120,140,110,.55)'; for(let i=0;i<9;i++){ x.beginPath(); x.arc(i*64, h-40+Math.sin(i)*20, 70, 0, 7); x.fill(); } });
-  const win = new T.Mesh(new T.PlaneGeometry(1.3, 1.05), new T.MeshBasicMaterial({map:sky, toneMapped:false})); win.position.set(-1.35, 1.62, -1.24); sc.add(win);
-  const frameM = s3Std(T, {color:0xf6f2ea, roughness:.5}); [[0,.54,1.4,.05],[0,-.54,1.4,.05],[-.67,0,.05,1.12],[.67,0,.05,1.12],[0,0,.03,1.08],[0,.05,1.3,.03]].forEach(([dx, dy, w, h])=>sc.add(s3Mesh(T, new T.BoxGeometry(w, h, .05), frameM, [-1.35+dx, 1.62+dy, -1.22])));
-  sc.add(s3Mesh(T, new T.BoxGeometry(1.5, .04, .16), frameM, [-1.35, 1.06, -1.17]));
-  // workflow board on the wall
-  const board = s3Label(T, 1300, 760, (x, w, h)=>{ x.fillStyle = '#fbfaf7'; x.fillRect(0, 0, w, h); s3t(x, 'CrossCore · AI website workflow', 60, 70, 46, '#1c140b', {w:700, f:S3F}); x.fillStyle = '#e9a133'; x.fillRect(60, 104, 140, 6);
-    SIM_STEPS.forEach((n, i)=>{ const c = i%3, r = Math.floor(i/3), X = 60 + c*410, Y = 170 + r*140; s3box(x, X, Y, 380, 110, 16, i<4?'#fff4e2':i<8?'#eef4ea':'#e9f0fb', '#d9cbb5', 2); s3t(x, String(i+1).padStart(2,'0'), X+28, Y+55, 40, '#b4540a', {w:700}); s3t(x, n, X+100, Y+55, 34, '#1c140b', {w:600}); }); });
-  const bd = s3Mesh(T, new T.BoxGeometry(1.32, .78, .025), [frameM, frameM, frameM, frameM, new T.MeshStandardMaterial({map:board, roughness:.35}), frameM], [1.05,1.72,-1.23]); sc.add(bd);
-  // desk
-  const deskTop = s3Mesh(T, new T.BoxGeometry(1.9, .045, .82), s3Std(T, {map:s3Wood(T, [150,98,56], 0, [1,1]), roughness:.45, metalness:0}), [0,.7525,-.33]); sc.add(deskTop);
-  const metal = s3Std(T, {color:0x2b2b2d, roughness:.35, metalness:.75}); [[-.9,-.7],[.9,-.7],[-.9,.04],[.9,.04]].forEach(([lx, lz])=>sc.add(s3Mesh(T, new T.BoxGeometry(.05, .73, .05), metal, [lx*.98, .365, lz+.04])));
-  sc.add(s3Mesh(T, new T.BoxGeometry(1.76, .05, .03), metal, [0,.68,-.7]));
-  // monitor
-  const mon = new T.Group(); const blk = s3Std(T, {color:0x111214, roughness:.35, metalness:.5}), alu = s3Std(T, {color:0xb9bcc2, roughness:.28, metalness:.9});
-  mon.add(s3Mesh(T, new T.BoxGeometry(.28, .014, .2), alu, [0,.782,-.42])); mon.add(s3Mesh(T, new T.BoxGeometry(.06, .34, .03), alu, [0,.95,-.46]));
-  mon.add(s3Mesh(T, new T.BoxGeometry(.86, .52, .03), blk, [0,1.12,-.385])); mon.add(s3Mesh(T, new T.BoxGeometry(.78, .44, .02), alu, [0,1.12,-.405]));
-  const [sc2, sx] = s3cv(S3W, S3H); S.sc = sc2; S.sx = sx; S.stex = s3tex(T, sc2); S.stex.anisotropy = 16;
-  const screen = new T.Mesh(new T.PlaneGeometry(.8, .464), new T.MeshBasicMaterial({map:S.stex, toneMapped:false})); screen.position.set(0, 1.124, -.3695); screen.userData.screen = true; mon.add(screen); S.screen = screen;
-  const gloss = new T.Mesh(new T.PlaneGeometry(.8, .464), new T.MeshPhysicalMaterial({color:0xffffff, transparent:true, opacity:.035, roughness:.05, metalness:0, clearcoat:1})); gloss.position.set(0, 1.124, -.369); mon.add(gloss);
-  sc.add(mon);
-  // sticky notes on the monitor
-  const stick = (id, txt, col, px, py, rz)=>{ const t = s3Label(T, 256, 256, (x, w, h)=>{ x.fillStyle = col; x.fillRect(0, 0, w, h); const g = x.createLinearGradient(0, 0, 0, h); g.addColorStop(0, 'rgba(0,0,0,.08)'); g.addColorStop(.2, 'rgba(0,0,0,0)'); x.fillStyle = g; x.fillRect(0, 0, w, h);
-      s3wrap(x, txt, 22, 70, 214, 46, 36, '#2a2016', {f:'"Segoe Print","Bradley Hand","Comic Sans MS",cursive', w:600}); });
-    const m = s3Mesh(T, new T.PlaneGeometry(.1, .1), s3Std(T, {map:t, roughness:.85, side:T.DoubleSide}), [px, py, -.368], {cast:false}); m.rotation.z = rz; m.userData.pick = id; S.pick[id] = m; sc.add(m); };
-  stick('colour', 'A colour I like', '#ffe680', -.455, 1.29, .06); stick('logo', 'Competitor’s logo', '#ffb3c7', -.462, 1.165, -.05); stick('names', 'Names, date & venue', '#b8f0b0', .456, 1.29, -.07); stick('font', 'A font I found online', '#a8d8ff', .46, 1.165, .04);
-  // keyboard & mouse
-  const kb = new T.Group(); kb.add(s3Mesh(T, new T.BoxGeometry(.44, .016, .14), alu, [0,.783,-.02]));
-  const keys = s3Label(T, 880, 280, (x, w, h)=>{ x.fillStyle = '#c9ccd2'; x.fillRect(0, 0, w, h); for(let r=0;r<5;r++) for(let k=0;k<15;k++){ const kw = (r===4 && k===5) ? 300 : 50; if(r===4 && k>5 && k<10) continue; s3box(x, 12 + k*57 + (r===4&&k>9?0:0), 12 + r*54, Math.min(kw, w-24-k*57), 46, 7, '#f7f7f8'); } });
-  const kt = new T.Mesh(new T.PlaneGeometry(.43, .135), s3Std(T, {map:keys, roughness:.5})); kt.rotation.x = -Math.PI/2; kt.position.set(0, .7915, -.02); kb.add(kt); sc.add(kb);
-  const pad = s3Mesh(T, new T.BoxGeometry(.26, .003, .21), s3Std(T, {color:0x2a2622, roughness:.95}), [.38,.776,-.0]); sc.add(pad);
-  const mouse = s3Mesh(T, new T.SphereGeometry(1, 24, 16), s3Std(T, {color:0xeeeeee, roughness:.3}), [.38,.786,.0]); mouse.scale.set(.032, .016, .055); sc.add(mouse);
-  // phone
-  const phone = new T.Group(); phone.add(s3Mesh(T, new T.BoxGeometry(.076, .009, .158), s3Std(T, {color:0x1d1d1f, roughness:.25, metalness:.6}), [0,0,0]));
-  const [pc, px] = s3cv(540, 1120); s3PaintPhone(px); S.ptex = s3tex(T, pc); const ps = new T.Mesh(new T.PlaneGeometry(.07, .151), new T.MeshBasicMaterial({map:S.ptex, toneMapped:false})); ps.rotation.x = -Math.PI/2; ps.position.y = .0047; phone.add(ps);
-  phone.position.set(.64, .7795, .02); phone.rotation.y = -.25; phone.userData.pick = 'phone'; S.pick.phone = phone; S.phoneObj = phone; sc.add(phone);
-  // notebook & pen
-  const nb = new T.Group(); nb.add(s3Mesh(T, new T.BoxGeometry(.2, .018, .27), s3Std(T, {color:0x5a3a22, roughness:.7}), [0,0,0])); nb.add(s3Mesh(T, new T.BoxGeometry(.19, .016, .262), s3Std(T, {color:0xf4efe4, roughness:.9}), [.006,0,0]));
-  nb.add(s3Mesh(T, new T.BoxGeometry(.012, .019, .27), s3Std(T, {color:0x8a2e1c, roughness:.6}), [.06,.001,0]));
-  const pen = s3Mesh(T, new T.CylinderGeometry(.0045, .0045, .14, 12), s3Std(T, {color:0x14213d, roughness:.3, metalness:.4}), [.13,.006,0]); pen.rotation.x = Math.PI/2; pen.rotation.z = .3; nb.add(pen);
-  nb.position.set(-.56, .784, .0); nb.rotation.y = .18; nb.userData.pick = 'notebook'; S.pick.notebook = nb; sc.add(nb);
-  // printer
-  const pr = new T.Group(); const prM = s3Std(T, {color:0xe7e5e0, roughness:.5}); pr.add(s3Mesh(T, new T.BoxGeometry(.4, .17, .3), prM, [0,0,0])); pr.add(s3Mesh(T, new T.BoxGeometry(.36, .01, .2), s3Std(T, {color:0x333333, roughness:.6}), [0,.086,0]));
-  pr.add(s3Mesh(T, new T.BoxGeometry(.3, .004, .14), s3Std(T, {color:0xffffff, roughness:.9}), [0,.03,.19])); pr.add(s3Mesh(T, new T.BoxGeometry(.06, .02, .005), s3Std(T, {color:0x2c8f4f, emissive:0x2c8f4f, emissiveIntensity:.6}), [.13,.04,.152]));
-  pr.position.set(.69, .86, -.5); pr.rotation.y = -.2; pr.userData.pick = 'printer'; S.pick.printer = pr; sc.add(pr);
-  // desk lamp with warm light
-  const lamp = new T.Group(); const lm = s3Std(T, {color:0x2f2f33, roughness:.3, metalness:.8});
-  lamp.add(s3Mesh(T, new T.CylinderGeometry(.075, .085, .02, 32), lm, [0,.01,0])); const a1 = s3Mesh(T, new T.CylinderGeometry(.009, .009, .36, 12), lm, [.04,.18,0]); a1.rotation.z = -.25; lamp.add(a1);
-  const a2 = s3Mesh(T, new T.CylinderGeometry(.008, .008, .3, 12), lm, [.18,.39,0]); a2.rotation.z = -1.15; lamp.add(a2);
-  const shade = s3Mesh(T, new T.ConeGeometry(.07, .12, 32, 1, true), s3Std(T, {color:0x2f2f33, roughness:.35, metalness:.6, side:T.DoubleSide}), [.32,.39,0]); shade.rotation.z = .5; lamp.add(shade);
-  const bulb = new T.Mesh(new T.SphereGeometry(.022, 16, 12), new T.MeshBasicMaterial({color:0xfff1c8})); bulb.position.set(.3,.355,0); lamp.add(bulb);
-  lamp.position.set(-.86, .775, -.62); lamp.rotation.y = -.93; lamp.userData.pick = 'lamp'; S.pick.lamp = lamp; sc.add(lamp);
-  const lampL = new T.PointLight(0xffc27a, .55, 2.0, 2); lampL.position.set(-.66, 1.08, -.36); sc.add(lampL);
-  // mug & plant
-  const mug = new T.Group(); const cer = s3Std(T, {color:0xf3ece1, roughness:.35}); mug.add(s3Mesh(T, new T.CylinderGeometry(.04, .036, .095, 28, 1, true), new T.MeshStandardMaterial({color:0xf3ece1, roughness:.35, side:T.DoubleSide}), [0,.0475,0]));
-  mug.add(s3Mesh(T, new T.CircleGeometry(.038, 24), s3Std(T, {color:0x3b2412, roughness:.2}), [0,.075,0])); mug.children[1].rotation.x = -Math.PI/2; const hd = s3Mesh(T, new T.TorusGeometry(.024, .006, 10, 24), cer, [.045,.05,0]); mug.add(hd);
-  mug.position.set(-.3, .775, .06); sc.add(mug);
-  const plant = new T.Group(); plant.add(s3Mesh(T, new T.CylinderGeometry(.16, .12, .34, 32), s3Std(T, {color:0xc8b9a2, roughness:.8}), [0,.17,0])); const soil = s3Mesh(T, new T.CircleGeometry(.15, 24), s3Std(T, {color:0x2b1d12, roughness:1}), [0,.33,0]); soil.rotation.x = -Math.PI/2; plant.add(soil);
-  const leafM = s3Std(T, {color:0x3f6b35, roughness:.6, side:T.DoubleSide}); for(let i=0;i<22;i++){ const l = s3Mesh(T, new T.SphereGeometry(1, 12, 8), leafM, [0,0,0]); const ang = i*2.4, h = .45 + (i%7)*.11; l.scale.set(.05, .2, .012); l.position.set(Math.cos(ang)*.12, h, Math.sin(ang)*.12); l.rotation.set(Math.sin(ang)*.7, ang, Math.cos(ang)*.7); plant.add(l); }
-  plant.position.set(-1.3, 0, -.75); sc.add(plant);
-  const chairM = s3Std(T, {color:0x26221f, roughness:.8}); const chair = new T.Group(); chair.add(s3Mesh(T, new T.BoxGeometry(.5, .07, .48), chairM, [0,.48,0])); chair.add(s3Mesh(T, new T.BoxGeometry(.48, .55, .06), chairM, [0,.82,.24])); chair.add(s3Mesh(T, new T.CylinderGeometry(.03, .03, .42, 12), metal, [0,.24,0])); chair.position.set(.05, 0, .55); chair.rotation.y = .08; sc.add(chair);
-  // light
-  sc.add(new T.HemisphereLight(0xfff3e0, 0x3a2a1a, .55)); sc.add(new T.AmbientLight(0xffffff, .08));
-  const sun = new T.DirectionalLight(0xfff0d8, 1.25); sun.position.set(-2.2, 3.2, 1.6); sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048); Object.assign(sun.shadow.camera, {left:-2, right:2, top:2, bottom:-2, near:.5, far:8}); sun.shadow.bias = -.0004; sun.shadow.radius = 3; sc.add(sun);
-  const glow = new T.PointLight(0xbcd4ff, .22, 1.3, 2); glow.position.set(0, 1.12, -.15); sc.add(glow);
-  S.pickables = Object.values(S.pick); S.pickables.forEach(o=>o.traverse(m=>{ if(m.isMesh){ m.userData.owner = o; if(m.material && m.material.emissive) m.userData.em = m.material.emissive.getHex(); } }));
-}
+/* (materials and the scene: t29b_sim3d.js) */
 
 /* ---------- overlay, HUD and flow ---------- */
 function s3Css(){ if(el('s3css')) return; const st = document.createElement('style'); st.id = 's3css'; st.textContent = `
@@ -41612,11 +41527,11 @@ async function simOpen(preview){
     <div class="s3-stage" id="s3Stage"><div class="s3-tip" id="s3Tip" hidden></div><div class="s3-guide" id="s3Guide" hidden></div></div><div class="s3-panel" id="s3Panel" hidden></div><div class="s3-cover" id="s3Cover"></div>`;
   document.body.appendChild(o); SIM3D.ov = document.body.style.overflow; document.body.style.overflow = 'hidden';
   el('s3Exit').onclick = () => simClose();
-  s3Steps(); s3Intro(); SIM3D.loading = s3Load();
+  s3Steps(); SIM3D.loading = s3Load(); s3Intro();
 }
 async function s3Load(){ const S = SIM3D; let gl = false;
   try{ const c = document.createElement('canvas'); gl = !!(window.WebGLRenderingContext && (c.getContext('webgl2') || c.getContext('webgl'))); }catch(e){}
-  if(gl && !window.__SIM_FORCE_2D){ try{ if(!window.THREE) await loadScript('https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js'); }catch(e){} }
+  if(gl && !window.__SIM_FORCE_2D){ try{ if(!window.THREE) await loadScript('https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js'); S.q = s3Quality(); if(S.q!=='low') await s3LoadFx(); }catch(e){} }
   if(!S.open) return;
   if(gl && window.THREE && !window.__SIM_FORCE_2D){ try{ s3Init3D(); return; }catch(e){ console.warn('3D unavailable, using 2D', e); s3Dispose(true); } }
   s3InitFlat(); }
@@ -41635,10 +41550,11 @@ async function s3Begin(){ const S = SIM3D, b = el('s3Start'); if(b){ b.disabled 
   if(r.done){ el('s3Cover').innerHTML = `<div class="s3-card"><h2>You already passed 🎉</h2><p>Your assessment is ${r.status==='approved'?'approved':'with HR and the company heads for approval'}. There is nothing more to take.</p><button class="s3-btn" onclick="simClose()">Back to my portal</button></div>`; return; }
   if(r.preview && !S.preview && isApplicant()) S.practice = true;
   S.att = r; S.answered = {...(r.answered||{})}; S.done = false; S.order = {};
-  el('s3Cover').hidden = true; el('s3Panel').hidden = false; s3Resize();
+  el('s3Cover').hidden = true; el('s3Panel').hidden = false; s3Resize(); S.orbit = false; S.lastStep = null; s3Sfx('whoosh');
   const i = SIM_ITEMS.findIndex(it=>!S.answered[it.id]); if(i<0) return s3Finish(); s3Show(i); }
 function s3Show(i){ const S = SIM3D; S.idx = i; S.it = SIM_ITEMS[i]; S.phase = S.it.pre ? 'pre' : 'ask'; S.chosen = null; S.verdict = undefined; S.locked = false; S.hover = null; S.fb = null; S.mark = null;
-  s3Steps(); s3Cam(S.it.station==='monitor' || S.it.pre ? 'monitor' : S.it.station); s3PaintScreen(); s3Panel(); s3Guide(); s3HL(); }
+  s3Steps(); s3Cam(S.it.station==='monitor' || S.it.pre ? 'monitor' : S.it.station); s3PaintScreen(); s3Panel(); s3Guide(); s3HL();
+  if(S.lastStep!==S.it.step){ s3Chapter(S.it.step, S.lastStep==null); S.lastStep = S.it.step; } }
 function s3Steps(){ const S = SIM3D, box = el('s3Steps'); if(!box) return; const cur = S.it?.step;
   box.innerHTML = SIM_STEPS.map((n, i)=>{ const its = SIM_ITEMS.filter(x=>x.step===i+1), done = its.every(x=>S.answered[x.id]);
     return `<div class="s3-step ${cur===i+1?'cur':done?'done':''}" title="Step ${i+1}: ${esc(n)}">${done && cur!==i+1 ? '✓' : i+1}<span class="nm">${esc(n)}</span></div>`; }).join('');
@@ -41666,13 +41582,13 @@ async function s3Answer(choice){ const S = SIM3D, it = S.it; if(S.locked || S.ph
   if(!S.open || S.it!==it) return;
   if(r.repeat && r.choice) S.chosen = r.choice;
   S.answered[it.id] = r; S.verdict = r.correct===true ? true : r.correct===false ? false : null; S.fb = {correct:S.verdict, explain:r.explain};
-  S.mark = it.type==='obj' ? S.chosen : null; s3PaintScreen(); s3HL(); s3Panel(); s3Steps(); }
+  S.mark = it.type==='obj' ? S.chosen : null; s3PaintScreen(); s3HL(); s3Panel(); s3Steps(); s3Feedback(S.verdict); }
 function s3Next(){ const S = SIM3D; let n = SIM_ITEMS.findIndex((x, j)=>j>S.idx && !S.answered[x.id]); if(n<0) n = SIM_ITEMS.findIndex(x=>!S.answered[x.id]); if(n<0) return s3Finish(); s3Show(n); }
-function s3PreDone(){ const S = SIM3D; if(S.phase!=='pre') return; S.phase = 'ask'; S.hover = null; s3Tip(); s3PaintScreen(); s3Panel(); s3Guide(); }
+function s3PreDone(){ const S = SIM3D; if(S.phase!=='pre') return; S.launch = s3dock(S3_PRE[S.it.screen]); s3Sfx('click'); S.phase = 'ask'; S.hover = null; s3Tip(); s3PaintScreen(); s3Panel(); s3Guide(); }
 async function s3Finish(){ const S = SIM3D; el('s3Panel').hidden = true; el('s3Guide').hidden = true; const cv = el('s3Cover'); cv.hidden = false;
   cv.innerHTML = '<div class="s3-card"><h2><span class="s3-load"></span>Scoring your attempt…</h2><p class="s3-hint">Your answers are being checked by the Cross Core server.</p></div>';
   let r; try{ r = await SIMAPI.finish(S.att.attempt_id); }catch(e){ cv.innerHTML = `<div class="s3-card"><h2>We couldn’t score this attempt yet</h2><p>${esc(e.message||'')}</p><p class="s3-hint">Your answers are saved. Close and continue later — the attempt resumes where you left off.</p><button class="s3-btn" onclick="simClose()">Close</button></div>`; return; }
-  S.done = true; s3Steps();
+  S.done = true; s3Steps(); s3Wide(); if(r.passed && !r.preview) s3Confetti(); s3Sfx(r.passed ? 'chime' : 'bad');
   if(r.preview){ cv.innerHTML = `<div class="s3-card"><span class="s3-chip">${S.practice ? 'PRACTICE' : 'PREVIEW'} · NOT RECORDED</span><h2>${r.practice ? 'Practice run complete' : `Preview finished — ${r.score}%`}</h2>
       <p>${r.practice ? 'Scoring needs the live Cross Core database, so this run was not scored or recorded.' : `${r.correct} of ${r.total} correct · ${r.passed ? 'would pass' : 'would not pass'} (80% needed). Nothing was recorded.`}</p><button class="s3-btn" onclick="simClose()">Close</button></div>`; return; }
   const pass = !!r.passed, rem = r.remaining ?? Math.max((r.maxAttempts||SIM.max) - (r.attempt||1), 0);
@@ -41688,57 +41604,7 @@ async function s3Finish(){ const S = SIM3D; el('s3Panel').hidden = true; el('s3G
 function simClose(){ const S = SIM3D; if(!S.open) return; S.open = false; s3Dispose(); el('sim3d')?.remove(); document.body.style.overflow = S.ov || '';
   try{ buildNav(); if(CURRENT==='appsim') RENDER.appsim(); else if(simShown()) RENDER.recruit(); else if(CURRENT==='apphome') RENDER.apphome(); }catch(e){} }
 
-/* ---------- 3D engine ---------- */
-function s3Init3D(){ const T = window.THREE, S = SIM3D, st = el('s3Stage'); s3Build(); S3_SCREENS.desktop(S.sx, {}); S.stex.needsUpdate = true;
-  const r = new T.WebGLRenderer({antialias:true, powerPreference:'high-performance'}); r.setPixelRatio(Math.min(window.devicePixelRatio||1, 2));
-  r.shadowMap.enabled = true; r.shadowMap.type = T.PCFSoftShadowMap; r.outputEncoding = T.sRGBEncoding; r.toneMapping = T.ACESFilmicToneMapping; r.toneMappingExposure = 1.08;
-  st.prepend(r.domElement); S.r = r; S.cam = new T.PerspectiveCamera(40, 1, .02, 30); S.base = new T.Vector3(.4, 1.7, 2.4); S.look = new T.Vector3(0, 1, -.3); S.cam.position.copy(S.base); S.cam.lookAt(S.look);
-  S.ray = new T.Raycaster(); S.ndc = new T.Vector2(); S.par = {x:0, y:0}; S.station = 'overview';
-  const cv = r.domElement; cv.addEventListener('pointermove', s3Move); cv.addEventListener('pointerdown', e=>{ S.down = [e.clientX, e.clientY]; }); cv.addEventListener('pointerup', s3Click); cv.addEventListener('pointerleave', ()=>{ S.par = {x:0, y:0}; s3SetHover(null); });
-  S.ro = new ResizeObserver(()=>s3Resize()); S.ro.observe(st); s3Resize(); s3Cam('overview');
-  r.shadowMap.autoUpdate = false; r.shadowMap.needsUpdate = true; S.dirty = true;
-  const loop = t => { if(!S.open || !S.r) return; S.raf = requestAnimationFrame(loop); if(s3Tick(t) || S.dirty){ S.dirty = false; S.r.render(S.scene, S.cam); } }; S.raf = requestAnimationFrame(loop); }
-function s3Resize(){ const S = SIM3D, st = el('s3Stage'); if(!st || !S.r) return; const w = st.clientWidth, h = st.clientHeight; if(!w || !h) return;
-  S.r.setSize(w, h, false); S.cam.aspect = w/h; S.cam.updateProjectionMatrix(); S.dirty = true; if(!S.tw) s3Cam(S.station, true); }
-function s3Pose(name){ const T = window.THREE, c = SIM3D.cam, f = Math.tan(T.MathUtils.degToRad(c.fov/2)), a = c.aspect, fit = (w, h)=>Math.max(h/2/f, w/2/(f*a));
-  const P = {monitor:()=>{ const d = fit(.84, .49); return [[0, 1.124, -.37+d], [0, 1.124, -.37]]; },
-    stickies:()=>{ const d = fit(1.1, .58); return [[0, 1.17, -.37+d], [0, 1.15, -.37]]; },
-    overview:()=>{ const d = Math.max(1.5, fit(2.1, 1.3)); return [[.18, 1.2+d*.22, -.33+d], [0, .98, -.36]]; },
-    desk:()=>{ const d = fit(1.95, 1.05); return [[.05, .8+d*.74, -.22+d*.67], [.05, .8, -.22]]; },
-    phone:()=>{ const d = fit(.2, .19); return [[.64, .78+d*.93, .02+d*.36], [.64, .78, .02]]; }};
-  return (P[name] || P.overview)(); }
-function s3Cam(name, instant){ const S = SIM3D, T = window.THREE; if(!S.cam) return; S.station = name; const [p, l] = s3Pose(name);
-  S.tw = {fp:S.base.clone(), fl:S.look.clone(), tp:new T.Vector3(...p), tl:new T.Vector3(...l), t0:performance.now(), dur:instant ? 0 : 1000}; if(instant) s3Tick(performance.now()); }
-function s3Tick(t){ const S = SIM3D; const busy = !!S.tw || !!S.hl || Math.abs(S.par.x - (S.sm?.x||0)) + Math.abs(S.par.y - (S.sm?.y||0)) > .002; if(S.tw){ const w = S.tw, k = w.dur ? Math.min(1, (t - w.t0)/w.dur) : 1, e = k<.5 ? 4*k*k*k : 1 - Math.pow(-2*k+2, 3)/2;
-    S.base.lerpVectors(w.fp, w.tp, e); S.look.lerpVectors(w.fl, w.tl, e); if(k>=1) S.tw = null; }
-  const amt = ['overview','desk'].includes(S.station) ? .05 : .008; S.sm = S.sm || {x:0, y:0}; S.sm.x += (S.par.x - S.sm.x)*.06; S.sm.y += (S.par.y - S.sm.y)*.06;
-  S.cam.position.set(S.base.x + S.sm.x*amt, S.base.y + S.sm.y*amt*.6, S.base.z); S.cam.lookAt(S.look);
-  if(S.hl){ const o = S.pick[S.hl]; const v = .5 + .5*Math.sin(t/180); o?.traverse(m=>{ if(m.isMesh && m.material?.emissive) m.material.emissiveIntensity = .55 + v*.45; }); }
-  return busy; }
-function s3PickAt(cx, cy){ const S = SIM3D; if(!S.r || !S.it) return null; const rc = S.r.domElement.getBoundingClientRect();
-  S.ndc.set(((cx - rc.left)/rc.width)*2 - 1, -((cy - rc.top)/rc.height)*2 + 1); S.ray.setFromCamera(S.ndc, S.cam);
-  const it = S.it, live = id => it.type==='obj' && S.phase==='ask' && !S.locked && it.objects.some(x=>x[0]===id);
-  for(const h of S.ray.intersectObjects([S.screen, ...S.pickables], true)){
-    if(h.object===S.screen){ const hs = s3HitScreen(h.uv.x*S3W, (1 - h.uv.y)*S3H); return hs ? {kind:'screen', id:hs[0], label:hs[1]} : null; }
-    let o = h.object; while(o && !o.userData.pick) o = o.parent; if(!o) continue;
-    if(live(o.userData.pick)) return {kind:'obj', id:o.userData.pick, label:simChoiceLabel(it.id, o.userData.pick)}; }
-  return null; }
-function s3Move(e){ const S = SIM3D, rc = e.currentTarget.getBoundingClientRect(); S.par = {x:((e.clientX - rc.left)/rc.width - .5)*2, y:-((e.clientY - rc.top)/rc.height - .5)*2};
-  if(e.pointerType==='touch') return; const r = s3PickAt(e.clientX, e.clientY); s3SetHover(r, e.clientX - rc.left, e.clientY - rc.top); }
-function s3SetHover(r, x, y){ const S = SIM3D, id = r ? r.id : null; const cv = S.r?.domElement || S.sc; if(cv) cv.style.cursor = r ? 'pointer' : 'default';
-  if(r && r.kind==='obj') s3Tip(r.label, x, y); else s3Tip();
-  if(id===S.hover) return; S.hover = id; if(!r || r.kind!=='obj') s3PaintScreen(); s3HL(); }
-function s3Tip(t, x, y){ const tp = el('s3Tip'); if(!tp) return; if(!t){ tp.hidden = true; return; } tp.hidden = false; tp.textContent = t; tp.style.left = (x + 14) + 'px'; tp.style.top = (y + 14) + 'px'; }
-function s3Click(e){ const S = SIM3D; if(S.down && Math.hypot(e.clientX - S.down[0], e.clientY - S.down[1]) > 8) return; const r = s3PickAt(e.clientX, e.clientY); if(!r) return; s3Act(r); }
-function s3Act(r){ const S = SIM3D; if(S.phase==='pre'){ if(r.id==='pre') s3PreDone(); return; } s3Answer(r.id); }
-function s3HL(){ const S = SIM3D; if(!S.pick || !window.THREE) return; S.hl = null;
-  Object.entries(S.pick).forEach(([id, o])=>{ const mark = S.mark===id, hv = S.hover===id && !S.locked; const col = mark ? (S.verdict===true ? 0x1d8a52 : S.verdict===false ? 0xc0392b : 0x2f6fd6) : hv ? 0x7a4a10 : null;
-    o.traverse(m=>{ if(!m.isMesh || !m.material?.emissive) return; if(col!=null){ m.material.emissive.setHex(col); m.material.emissiveIntensity = mark ? .7 : .8; } else { m.material.emissive.setHex(m.userData.em||0); m.material.emissiveIntensity = 1; } });
-    if(hv && !mark) S.hl = id; }); S.dirty = true; }
-function s3Dispose(keepDom){ const S = SIM3D; cancelAnimationFrame(S.raf); S.ro?.disconnect(); S.ro = null;
-  if(S.scene){ S.scene.traverse(o=>{ o.geometry?.dispose(); const ms = o.material ? (Array.isArray(o.material) ? o.material : [o.material]) : []; ms.forEach(m=>{ m.map?.dispose(); m.dispose(); }); }); S.scene = null; }
-  S.stex?.dispose?.(); S.ptex?.dispose?.(); if(S.r){ S.r.dispose(); S.r.forceContextLoss?.(); if(keepDom) S.r.domElement.remove(); S.r = null; } S.pick = null; S.pickables = []; }
-
+/* (the cinematic 3D engine: t29b_sim3d.js) */
 /* ---------- 2D fallback (no WebGL) ---------- */
 function s3InitFlat(){ const S = SIM3D; S.flat = true; const st = el('s3Stage'); st.insertAdjacentHTML('afterbegin', '<div class="s3-flat" id="s3Flat"></div>');
   if(!S.sc){ const [c, x] = s3cv(S3W, S3H); S.sc = c; S.sx = x; } const [pc, px] = s3cv(540, 1120); s3PaintPhone(px); S.pc = pc; pc.style.maxHeight = '100%';
@@ -41779,6 +41645,418 @@ async function simKeyView(){
           ${k?.explain?`<div class="hint" style="margin-top:6px">💡 ${esc(k.explain)}</div>`:''}</div></div>`; }).join('')}</div></div>`; }).join('')}`;
   const b = el('modalBody'); if(b && el('modal').classList.contains('open')) b.innerHTML = html;
 }
+
+/* ===== t29b_sim3d.js — the cinematic renderer for the 3D simulation (Nov 13 2026 · 4) =====
+   A furnished CrossCore studio office rendered with physically based materials, image-based reflections, a real window
+   that lets a sun patch fall across the desk, soft shadows, a monitor that lights the keyboard, a lamp, dust in the sun
+   beam and steam from the coffee. Post-processing: HDR, bloom, ACES film tone curve, colour grade, vignette, film grain,
+   multisample / FXAA anti-aliasing. Camera: an establishing orbit behind the intro card, curved dolly moves between stations
+   with letterbox bars, chapter titles per workflow step, the phone lifted into view, sticky notes that peel on hover, app
+   screens that zoom open from their dock icon and cross-fade. Quality adapts to the device (high / medium / low); slow
+   software renderers fall back to the light version automatically. Everything is procedural — no external images. */
+
+const S3FX = 'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/';
+async function s3LoadFx(){ const L = f => loadScript(S3FX + f).catch(e=>console.warn('fx', f, e));
+  await Promise.all(['shaders/CopyShader.js','shaders/LuminosityHighPassShader.js','shaders/FXAAShader.js','environments/RoomEnvironment.js','geometries/RoundedBoxGeometry.js','lights/RectAreaLightUniformsLib.js'].map(L));
+  await L('postprocessing/EffectComposer.js'); await Promise.all(['postprocessing/RenderPass.js','postprocessing/ShaderPass.js','postprocessing/UnrealBloomPass.js'].map(L)); }
+function s3Quality(){ if(window.__SIM_Q) return window.__SIM_Q;
+  let gpu = ''; try{ const c = document.createElement('canvas'), g = c.getContext('webgl'); const d = g && g.getExtension('WEBGL_debug_renderer_info'); gpu = d ? String(g.getParameter(d.UNMASKED_RENDERER_WEBGL)) : ''; g?.getExtension('WEBGL_lose_context')?.loseContext(); }catch(e){}
+  if(/swiftshader|llvmpipe|software|basic render/i.test(gpu)) return 'low';
+  if(matchMedia('(pointer:coarse)').matches || Math.min(screen.width, screen.height) < 700 || (navigator.deviceMemory && navigator.deviceMemory < 4)) return 'medium';
+  return 'high'; }
+
+/* ---------- procedural PBR surfaces ---------- */
+function s3cvs(n){ return s3cv(n, n); }
+function s3tex(T, c, rep, lin){ const t = new T.CanvasTexture(c); t.encoding = lin ? T.LinearEncoding : T.sRGBEncoding; t.anisotropy = 8; if(rep){ t.wrapS = t.wrapT = T.RepeatWrapping; t.repeat.set(rep[0], rep[1]); } return t; }
+function s3NormalFrom(T, src, strength, rep){ const w = src.width, h = src.height, sx = src.getContext('2d').getImageData(0, 0, w, h).data, [c, x] = s3cv(w, h), out = x.createImageData(w, h), o = out.data;
+  const L = i => (sx[i]*.3 + sx[i+1]*.59 + sx[i+2]*.11)/255;
+  for(let y=0;y<h;y++) for(let X=0;X<w;X++){ const i = (y*w+X)*4, l = L(((y*w)+((X+1)%w))*4) - L(((y*w)+((X-1+w)%w))*4), u = L(((((y+1)%h)*w)+X)*4) - L(((((y-1+h)%h)*w)+X)*4);
+    let nx = -l*strength, ny = -u*strength, nz = 1; const m = Math.hypot(nx, ny, nz); o[i] = (nx/m*.5+.5)*255; o[i+1] = (ny/m*.5+.5)*255; o[i+2] = (nz/m*.5+.5)*255; o[i+3] = 255; }
+  x.putImageData(out, 0, 0); return s3tex(T, c, rep, true); }
+function s3RoughFrom(T, src, lo, hi, rep, inv){ const w = src.width, h = src.height, d = src.getContext('2d').getImageData(0, 0, w, h), a = d.data;
+  for(let i=0;i<a.length;i+=4){ let l = (a[i]*.3 + a[i+1]*.59 + a[i+2]*.11)/255; if(inv) l = 1-l; const v = (lo + (hi-lo)*l)*255; a[i] = a[i+1] = a[i+2] = v; }
+  const [c, x] = s3cv(w, h); x.putImageData(d, 0, 0); return s3tex(T, c, rep, true); }
+function s3WoodCanvas(n, base, planks, fine){ const [c, x] = s3cvs(n), rows = planks||1, ph = n/rows;
+  for(let r=0;r<rows;r++){ const k = .86 + Math.random()*.26, off = Math.random()*n; x.fillStyle = `rgb(${base.map(v=>Math.min(255, Math.round(v*k))).join(',')})`; x.fillRect(0, r*ph, n, ph);
+    const lines = fine ? ph*2.2 : ph*1.5;
+    for(let i=0;i<lines;i++){ const y0 = r*ph + Math.random()*ph, dark = Math.random()<.62; x.strokeStyle = `rgba(${dark?'52,28,10':'255,226,186'},${(Math.random()*(dark?.16:.09)).toFixed(3)})`; x.lineWidth = Math.random()*(fine?1.6:2.4)+.3;
+      x.beginPath(); let y = y0, ph2 = Math.random()*6; x.moveTo(0, y); for(let px=0;px<=n;px+=16){ y = y0 + Math.sin(px/n*Math.PI*2*(1+ph2) + ph2)*(fine?3:2) + Math.sin(px/37+ph2)*.6; x.lineTo(px, Math.min(Math.max(y, r*ph+1), r*ph+ph-1)); } x.stroke(); }
+    for(let k2=0;k2<(planks?1:4);k2++) if(Math.random()<.55){ const kx = Math.random()*n, ky = r*ph + ph*(.25+Math.random()*.5), rr = ph*(planks?.12:.05);
+      const g = x.createRadialGradient(kx, ky, 1, kx, ky, rr*2.6); g.addColorStop(0, 'rgba(40,20,6,.55)'); g.addColorStop(.35, 'rgba(70,38,14,.25)'); g.addColorStop(1, 'rgba(70,38,14,0)'); x.fillStyle = g; x.beginPath(); x.ellipse(kx, ky, rr*3.2, rr*1.4, 0, 0, 7); x.fill(); }
+    if(planks){ x.fillStyle = 'rgba(18,10,4,.75)'; x.fillRect(0, r*ph, n, 2); x.fillRect(off, r*ph, 2, ph); x.fillStyle = 'rgba(255,230,200,.10)'; x.fillRect(0, r*ph+2, n, 1); } }
+  return c; }
+function s3NoiseCanvas(n, base, amt, blot){ const [c, x] = s3cvs(n); x.fillStyle = base; x.fillRect(0, 0, n, n); const d = x.getImageData(0, 0, n, n);
+  for(let i=0;i<d.data.length;i+=4){ const v = (Math.random()-.5)*amt; d.data[i]+=v; d.data[i+1]+=v; d.data[i+2]+=v; } x.putImageData(d, 0, 0);
+  if(blot) for(let i=0;i<60;i++){ const X = Math.random()*n, Y = Math.random()*n, r = 20+Math.random()*90, g = x.createRadialGradient(X, Y, 0, X, Y, r); g.addColorStop(0, `rgba(0,0,0,${blot})`); g.addColorStop(1, 'rgba(0,0,0,0)'); x.fillStyle = g; x.fillRect(X-r, Y-r, r*2, r*2); }
+  return c; }
+function s3Fabric(n, col){ const [c, x] = s3cvs(n); x.fillStyle = col; x.fillRect(0, 0, n, n);
+  for(let y=0;y<n;y+=4) for(let X=0;X<n;X+=4){ const v = ((X/4 + y/4)%2 ? .07 : -.05) + (Math.random()-.5)*.08; x.fillStyle = v>0 ? `rgba(255,255,255,${v})` : `rgba(0,0,0,${-v})`; x.fillRect(X, y, 4, 4); } return c; }
+function s3Std(T, o){ return new T.MeshStandardMaterial(o); }
+function s3Phys(T, o){ return new T.MeshPhysicalMaterial(o); }
+function s3Mesh(T, geo, mat, pos, opt){ const m = new T.Mesh(geo, mat); if(pos) m.position.set(pos[0], pos[1], pos[2]); m.castShadow = opt?.cast!==false; m.receiveShadow = opt?.recv!==false; return m; }
+function s3RBox(T, w, h, d, r, seg){ return T.RoundedBoxGeometry ? new T.RoundedBoxGeometry(w, h, d, seg||3, Math.min(r, w/2, h/2, d/2)) : new T.BoxGeometry(w, h, d); }
+function s3Soft(T){ if(SIM3D._soft) return SIM3D._soft; const [c, x] = s3cvs(128), g = x.createRadialGradient(64, 64, 0, 64, 64, 64); g.addColorStop(0, 'rgba(0,0,0,.85)'); g.addColorStop(.55, 'rgba(0,0,0,.35)'); g.addColorStop(1, 'rgba(0,0,0,0)'); x.fillStyle = g; x.fillRect(0, 0, 128, 128); return SIM3D._soft = s3tex(T, c); }
+function s3Contact(T, sc, x, y, z, w, d, op){ const m = new T.Mesh(new T.PlaneGeometry(w, d), new T.MeshBasicMaterial({map:s3Soft(T), transparent:true, opacity:op||.55, depthWrite:false, toneMapped:false}));
+  m.rotation.x = -Math.PI/2; m.position.set(x, y, z); m.renderOrder = 1; sc.add(m); return m; }
+function s3Glow(T){ if(SIM3D._glow) return SIM3D._glow; const [c, x] = s3cvs(64), g = x.createRadialGradient(32, 32, 0, 32, 32, 32); g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(.4, 'rgba(255,255,255,.35)'); g.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = g; x.fillRect(0, 0, 64, 64); return SIM3D._glow = s3tex(T, c); }
+/* a screen that shows its pixels exactly: the inverse of the film curve, so UI text stays crisp and true after grading */
+function s3ScreenMat(T, map){ if(SIM3D.q==='low') return new T.MeshBasicMaterial({map, toneMapped:false});
+  return new T.ShaderMaterial({uniforms:{map:{value:map}, ex:{value:S3_EXPOSURE}}, vertexShader:'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.0); }',
+    fragmentShader:`uniform sampler2D map; uniform float ex; varying vec2 vUv;
+      vec3 s2l(vec3 c){ return mix(c/12.92, pow((c + 0.055)/1.055, vec3(2.4)), step(0.04045, c)); }
+      vec3 inv(vec3 y){ y = min(y, vec3(0.965)); vec3 a = 2.43*y - 2.51, b = 0.59*y - 0.03, c = 0.14*y; return (-b - sqrt(max(b*b - 4.0*a*c, 0.0)))/(2.0*a); }
+      void main(){ gl_FragColor = vec4(inv(s2l(texture2D(map, vUv).rgb))/ex, 1.0); }`}); }
+const S3_EXPOSURE = .9;
+function s3Label(T, w, h, draw){ const [c, x] = s3cv(w, h); draw(x, w, h); return s3tex(T, c); }
+
+/* ---------- the room ---------- */
+function s3Build(){ const T = window.THREE, S = SIM3D, Q = S.q || 'high', hi = Q==='high', sc = new T.Scene(); S.scene = sc; S.pick = {}; S.anim = []; S.base0 = {};
+  sc.background = new T.Color(0x0f0b08); sc.fog = new T.Fog(0x15100b, 6, 13);
+  const N = hi ? 1024 : 512;
+  /* floor: oak planks */
+  const fc = s3WoodCanvas(N, [150,104,62], 8); const floorM = s3Std(T, {map:s3tex(T, fc, [3,3]), normalMap:s3NormalFrom(T, fc, 2.2, [3,3]), roughnessMap:s3RoughFrom(T, fc, .38, .78, [3,3], true), roughness:1, metalness:0});
+  floorM.normalScale.set(.6, .6); const floor = s3Mesh(T, new T.PlaneGeometry(10, 10), floorM, [0,0,0], {cast:false}); floor.rotation.x = -Math.PI/2; sc.add(floor);
+  /* rug */
+  const rugC = s3Fabric(hi?512:256, '#5b4a3c'); const rug = s3Mesh(T, s3RBox(T, 2.3, .012, 1.6, .006, 2), s3Std(T, {map:s3tex(T, rugC, [5,4]), normalMap:s3NormalFrom(T, rugC, 3, [5,4]), roughness:.97}), [.05,.006,.25], {cast:false}); sc.add(rug);
+  /* walls: plaster, with a real window opening so the sun lands on the desk */
+  const pc = s3NoiseCanvas(N/2, '#ece4d8', 9, .025); const plaster = {map:s3tex(T, pc, [4,2]), normalMap:s3NormalFrom(T, pc, 1.2, [4,2]), roughness:.94};
+  const W0 = -4.5, W1 = 4.5, H1 = 3.2, wx = -1.35, wy = 1.62, ww = 1.3, wh = 1.05;
+  const sh = new T.Shape(); sh.moveTo(W0, 0); sh.lineTo(W1, 0); sh.lineTo(W1, H1); sh.lineTo(W0, H1); sh.lineTo(W0, 0);
+  const hole = new T.Path(); hole.moveTo(wx-ww/2, wy-wh/2); hole.lineTo(wx+ww/2, wy-wh/2); hole.lineTo(wx+ww/2, wy+wh/2); hole.lineTo(wx-ww/2, wy+wh/2); hole.lineTo(wx-ww/2, wy-wh/2); sh.holes.push(hole);
+  const wg = new T.ShapeGeometry(sh); const uv = wg.attributes.uv; for(let i=0;i<uv.count;i++) uv.setXY(i, (uv.getX(i)-W0)/9, uv.getY(i)/H1);
+  const wallM = s3Std(T, {...plaster, side:T.DoubleSide, shadowSide:T.DoubleSide}); const wall = s3Mesh(T, wg, wallM, [0,0,-1.25]); sc.add(wall);
+  const lw = s3Mesh(T, new T.PlaneGeometry(6, H1), s3Std(T, {...plaster, color:0xd9cfc1}), [-2.6,H1/2,1.2], {cast:false}); lw.rotation.y = Math.PI/2; sc.add(lw);
+  const ceil = s3Mesh(T, new T.PlaneGeometry(10, 8), s3Std(T, {color:0xf3eee6, roughness:.95}), [0,H1,0], {cast:false}); ceil.rotation.x = Math.PI/2; sc.add(ceil);
+  const trimM = s3Std(T, {color:0xf6f1ea, roughness:.45}); sc.add(s3Mesh(T, new T.BoxGeometry(9, .1, .02), trimM, [0,.05,-1.24])); const sk2 = s3Mesh(T, new T.BoxGeometry(6, .1, .02), trimM, [-2.59,.05,1.2]); sk2.rotation.y = Math.PI/2; sc.add(sk2);
+  /* window: deep reveal, mullions, sill, glass, and the outside */
+  const reveal = s3Std(T, {color:0xe9e2d7, roughness:.8}), depth = .22;
+  [[wx, wy-wh/2, ww, .02, depth],[wx, wy+wh/2, ww, .02, depth]].forEach(([x, y, w, h, d])=>sc.add(s3Mesh(T, new T.BoxGeometry(w, h, d), reveal, [x, y, -1.25-d/2])));
+  [[wx-ww/2, wy],[wx+ww/2, wy]].forEach(([x, y])=>sc.add(s3Mesh(T, new T.BoxGeometry(.02, wh, depth), reveal, [x, y, -1.25-depth/2])));
+  const frameM = s3Std(T, {color:0xf8f6f2, roughness:.35}); const fz = -1.25-depth+.03;
+  [[0, wh/2-.03, ww, .06],[0, -wh/2+.03, ww, .06],[-ww/2+.03, 0, .06, wh],[ww/2-.03, 0, .06, wh],[0, 0, .045, wh],[0, .12, ww, .04]].forEach(([dx, dy, w, h])=>sc.add(s3Mesh(T, new T.BoxGeometry(w, h, .05), frameM, [wx+dx, wy+dy, fz])));
+  sc.add(s3Mesh(T, s3RBox(T, ww+.2, .035, .2, .01), frameM, [wx, wy-wh/2-.018, -1.16]));
+  const glass = new T.Mesh(new T.PlaneGeometry(ww, wh), s3Phys(T, {color:0xffffff, roughness:.04, metalness:0, transparent:true, opacity:.08, envMapIntensity:1.2})); glass.position.set(wx, wy, fz-.01); sc.add(glass);
+  const outside = s3Label(T, 1024, 768, (x, w, h)=>{ const g = x.createLinearGradient(0, 0, 0, h); g.addColorStop(0, '#7fb4e6'); g.addColorStop(.55, '#cfe3f3'); g.addColorStop(.8, '#f6e6c8'); g.addColorStop(1, '#e9d2a8'); x.fillStyle = g; x.fillRect(0, 0, w, h);
+      for(let i=0;i<5;i++){ const cx = Math.random()*w, cy = 60+Math.random()*180; for(let k=0;k<7;k++){ const gg = x.createRadialGradient(cx+k*28, cy+Math.sin(k)*8, 0, cx+k*28, cy, 60); gg.addColorStop(0, 'rgba(255,255,255,.55)'); gg.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = gg; x.fillRect(cx+k*28-60, cy-60, 120, 120); } }
+      x.fillStyle = 'rgba(120,140,160,.55)'; for(let i=0;i<22;i++){ const bw = 30+Math.random()*70, bh = 80+Math.random()*260, bx = i*48 - 20; x.fillRect(bx, h*.72-bh, bw, bh); }
+      x.fillStyle = 'rgba(70,96,62,.9)'; for(let i=0;i<40;i++){ x.beginPath(); x.arc(i*28, h*.8 + Math.sin(i*1.7)*16, 46+Math.random()*30, 0, 7); x.fill(); }
+      x.fillStyle = '#6f8460'; x.fillRect(0, h*.86, w, h*.14); });
+  const sky = new T.Mesh(new T.PlaneGeometry(4.2, 3.0), new T.MeshBasicMaterial({map:outside, toneMapped:false})); sky.material.color.setScalar(hi ? 2.6 : 1.15); sky.position.set(wx+.25, wy+.15, -2.6); sc.add(sky);
+  /* the workflow board and a framed print */
+  const board = s3Label(T, 1300, 760, (x, w, h)=>{ x.fillStyle = '#fbfaf7'; x.fillRect(0, 0, w, h); s3t(x, 'CrossCore · AI website workflow', 60, 70, 46, '#1c140b', {w:700}); x.fillStyle = '#e9a133'; x.fillRect(60, 104, 140, 6);
+    SIM_STEPS.forEach((n, i)=>{ const c = i%3, r = Math.floor(i/3), X = 60 + c*410, Y = 170 + r*140; s3box(x, X, Y, 380, 110, 16, i<4?'#fff4e2':i<8?'#eef4ea':'#e9f0fb', '#d9cbb5', 2); s3t(x, String(i+1).padStart(2,'0'), X+28, Y+55, 40, '#b4540a', {w:700}); s3t(x, n, X+100, Y+55, 34, '#1c140b', {w:600}); }); });
+  const blackFrame = s3Std(T, {color:0x1d1a17, roughness:.4, metalness:.3});
+  const bd = new T.Group(); bd.add(s3Mesh(T, s3RBox(T, 1.38, .84, .03, .008), blackFrame, [0,0,0])); const bm = s3Mesh(T, new T.PlaneGeometry(1.3, .76), s3Std(T, {map:board, roughness:.32}), [0,0,.0155], {cast:false}); bd.add(bm);
+  bd.position.set(1.05, 1.74, -1.23); sc.add(bd);
+  const art = s3Label(T, 512, 640, (x, w, h)=>{ x.fillStyle = '#f4efe6'; x.fillRect(0, 0, w, h); const cols = ['#c96a3a','#e9a133','#5d7150','#24292f']; for(let i=0;i<4;i++){ x.fillStyle = cols[i]; x.beginPath(); x.arc(150+i*70, 260+Math.sin(i)*60, 110-i*14, 0, 7); x.globalAlpha = .8; x.fill(); } x.globalAlpha = 1; s3t(x, 'BUILD · SHIP · DELIGHT', w/2, 560, 30, '#3a2c1f', {a:'center', w:700}); });
+  const af = new T.Group(); af.add(s3Mesh(T, s3RBox(T, .03, .66, .53, .006), s3Std(T, {color:0xc9a77a, roughness:.5}), [0,0,0])); const ap = s3Mesh(T, new T.PlaneGeometry(.45, .58), s3Std(T, {map:art, roughness:.6}), [.016,0,0], {cast:false}); ap.rotation.y = Math.PI/2; af.add(ap);
+  af.position.set(-2.58, 1.65, .25); sc.add(af);
+  /* floating shelf with books */
+  const shelfM = s3Std(T, {map:s3tex(T, s3WoodCanvas(512, [120,80,46], 0, true), [1,1]), roughness:.55}); sc.add(s3Mesh(T, s3RBox(T, .9, .035, .22, .006), shelfM, [1.05,1.2,-1.13]));
+  const bookCols = [0x8a2e1c,0x24324a,0xd9c8a6,0x2f5a46,0xb4540a,0x1c140b,0x6b4f8a,0xe9a133,0x3a3f45];
+  let bx = .67; for(let i=0;i<11;i++){ const bw = .025+Math.random()*.02, bh = .17+Math.random()*.07; const b = s3Mesh(T, s3RBox(T, bw, bh, .15, .003), s3Std(T, {color:bookCols[i%bookCols.length], roughness:.7}), [bx+bw/2, 1.2175+bh/2, -1.12]); if(i===10){ b.rotation.z = -.32; b.position.x += .03; b.position.y -= .01; } sc.add(b); bx += bw + .003; }
+  const spk = s3Mesh(T, s3RBox(T, .09, .14, .09, .02), s3Std(T, {color:0x2a2a2c, roughness:.85}), [1.38,1.2875,-1.11]); sc.add(spk);
+  /* desk: walnut top with a soft bevel, steel frame */
+  const dc = s3WoodCanvas(N, [124,80,46], 0, true); const deskM = s3Phys(T, {map:s3tex(T, dc, [1,1]), normalMap:s3NormalFrom(T, dc, 1.4), roughnessMap:s3RoughFrom(T, dc, .28, .55, null, true), roughness:1, clearcoat:.35, clearcoatRoughness:.35});
+  sc.add(s3Mesh(T, s3RBox(T, 1.9, .045, .82, .01, 4), deskM, [0,.7525,-.33]));
+  const steel = s3Std(T, {color:0x2b2b2e, roughness:.38, metalness:.85});
+  [[-.92,-.71],[.92,-.71],[-.92,.05],[.92,.05]].forEach(([lx, lz])=>sc.add(s3Mesh(T, s3RBox(T, .05, .73, .05, .006), steel, [lx, .365, lz])));
+  sc.add(s3Mesh(T, new T.BoxGeometry(1.8, .045, .025), steel, [0,.69,-.71])); sc.add(s3Mesh(T, new T.BoxGeometry(.03, .03, .78), steel, [-.92,.06,-.33])); sc.add(s3Mesh(T, new T.BoxGeometry(.03, .03, .78), steel, [.92,.06,-.33]));
+  s3Contact(T, sc, 0, .002, -.33, 2.3, 1.2, .45);
+  /* monitor: aluminium stand, thin black bezel, glass */
+  const alu = s3Std(T, {color:0xc4c7cc, roughness:.24, metalness:.95}), blk = s3Phys(T, {color:0x0d0e10, roughness:.22, metalness:.2, clearcoat:.6, clearcoatRoughness:.2});
+  const mon = new T.Group();
+  mon.add(s3Mesh(T, s3RBox(T, .26, .012, .19, .006), alu, [0,.781,-.42])); const neck = s3Mesh(T, s3RBox(T, .065, .36, .022, .008), alu, [0,.96,-.455]); neck.rotation.x = -.06; mon.add(neck);
+  mon.add(s3Mesh(T, s3RBox(T, .86, .52, .028, .012, 4), blk, [0,1.12,-.384])); mon.add(s3Mesh(T, s3RBox(T, .8, .44, .03, .02), alu, [0,1.12,-.405]));
+  mon.add(s3Mesh(T, new T.BoxGeometry(.04, .005, .004), s3Std(T, {color:0x777777, roughness:.4}), [0, .865, -.369]));
+  const [scv, sx] = s3cv(S3W, S3H); S.sc = scv; S.sx = sx; const [dcv, dx] = s3cv(S3W, S3H); S.dc = dcv; S.dx = dx;
+  S.stex = s3tex(T, dcv); S.stex.anisotropy = 16;
+  const screen = new T.Mesh(new T.PlaneGeometry(.8, .464), s3ScreenMat(T, S.stex)); screen.position.set(0, 1.124, -.3695); screen.userData.screen = true; mon.add(screen); S.screen = screen;
+  const glassM = s3Phys(T, {color:0xffffff, transparent:true, opacity:.018, roughness:.06, metalness:0, clearcoat:.5, envMapIntensity:.6}); const gl = new T.Mesh(new T.PlaneGeometry(.8, .464), glassM); gl.position.set(0, 1.124, -.3688); mon.add(gl);
+  sc.add(mon); s3Contact(T, sc, 0, .7765, -.42, .36, .26, .5);
+  /* sticky notes, slightly curled, peel on hover */
+  const stick = (id, txt, col, px, py, rz)=>{ const t = s3Label(T, 256, 256, (x, w, h)=>{ x.fillStyle = col; x.fillRect(0, 0, w, h); const g = x.createLinearGradient(0, 0, 0, h); g.addColorStop(0, 'rgba(0,0,0,.10)'); g.addColorStop(.18, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(255,255,255,.08)'); x.fillStyle = g; x.fillRect(0, 0, w, h);
+      for(let i=0;i<400;i++){ x.fillStyle = `rgba(0,0,0,${Math.random()*.03})`; x.fillRect(Math.random()*w, Math.random()*h, 2, 2); }
+      s3wrap(x, txt, 22, 74, 214, 46, 36, '#2a2016', {f:'"Segoe Print","Bradley Hand","Comic Sans MS",cursive', w:600}); });
+    const g = new T.PlaneGeometry(.1, .1, 6, 6), p = g.attributes.position; for(let i=0;i<p.count;i++){ const yy = p.getY(i); const k = Math.max(0, (-yy+.01)/.06); p.setZ(i, k*k*.012); } g.computeVertexNormals();
+    const m = s3Mesh(T, g, s3Std(T, {map:t, roughness:.82, side:T.DoubleSide}), [px, py, -.3675], {cast:false}); m.rotation.z = rz; m.userData.pick = id; m.userData.kind = 'sticky'; S.pick[id] = m; S.base0[id] = {p:m.position.clone(), r:m.rotation.clone()}; sc.add(m); };
+  stick('colour', 'A colour I like', '#ffe680', -.455, 1.29, .06); stick('logo', 'Competitor’s logo', '#ffb3c7', -.462, 1.165, -.05); stick('names', 'Names, date & venue', '#b8f0b0', .456, 1.29, -.07); stick('font', 'A font I found online', '#a8d8ff', .46, 1.165, .04);
+  /* keyboard: aluminium base, individual keycaps */
+  const kb = new T.Group(); kb.add(s3Mesh(T, s3RBox(T, .44, .012, .14, .004), alu, [0,.782,-.02]));
+  const capG = s3RBox(T, 1, 1, 1, .18, 2), capM = s3Std(T, {color:0xf3f3f1, roughness:.42}); const keys = []; const pz = .0205;
+  [14,14,13,12,11].forEach((n, r)=>{ const px = .41/n; for(let k=0;k<n;k++) keys.push([(k - (n-1)/2)*px, -.02 - .0513 + r*pz, px*.86, pz*.84]); });
+  [[-.155,.05],[-.105,.03],[0,.14],[.105,.03],[.155,.05]].forEach(([x, w])=>keys.push([x, -.02 - .0513 + 5*pz, w, pz*.84]));
+  const inst = new T.InstancedMesh(capG, capM, keys.length), mtx = new T.Matrix4(), q = new T.Quaternion();
+  keys.forEach(([x, z, w, d], i)=>{ mtx.compose(new T.Vector3(x, .7915, z), q, new T.Vector3(w, .0075, d)); inst.setMatrixAt(i, mtx); }); inst.castShadow = true; inst.receiveShadow = true; kb.add(inst); sc.add(kb);
+  s3Contact(T, sc, 0, .7765, -.02, .52, .22, .45);
+  const pad = s3Mesh(T, s3RBox(T, .27, .003, .22, .02), s3Std(T, {map:s3tex(T, s3Fabric(256, '#2c2723'), [2,2]), roughness:.98}), [.39,.7765,-.0], {cast:false}); sc.add(pad);
+  const mouse = new T.Group(); const mb = s3Mesh(T, new T.SphereGeometry(1, 32, 20), s3Phys(T, {color:0xeeeeee, roughness:.28, clearcoat:.5}), [0,0,0]); mb.scale.set(.031, .015, .054); mouse.add(mb);
+  mouse.add(s3Mesh(T, new T.BoxGeometry(.001, .004, .03), s3Std(T, {color:0x999999}), [0,.0145,-.02])); mouse.position.set(.39, .786, 0); sc.add(mouse); s3Contact(T, sc, .39, .7782, 0, .09, .13, .5);
+  /* phone */
+  const phone = new T.Group(); phone.add(s3Mesh(T, s3RBox(T, .076, .008, .158, .007, 3), s3Phys(T, {color:0x1d1d1f, roughness:.22, metalness:.7, clearcoat:.8}), [0,0,0]));
+  const [pcv, ppx] = s3cv(540, 1120); s3PaintPhone(ppx); S.ptex = s3tex(T, pcv); const ps = new T.Mesh(new T.PlaneGeometry(.07, .151), s3ScreenMat(T, S.ptex)); ps.rotation.x = -Math.PI/2; ps.position.y = .0042; phone.add(ps);
+  phone.add(s3Mesh(T, s3RBox(T, .024, .003, .024, .005), s3Std(T, {color:0x111111, roughness:.3, metalness:.6}), [-.018,-.0055,-.055]));
+  phone.position.set(.64, .7795, .02); phone.rotation.y = -.25; phone.userData.pick = 'phone'; phone.userData.kind = 'desk'; S.pick.phone = phone; S.phoneObj = phone; S.base0.phone = {p:phone.position.clone(), r:phone.rotation.clone()}; sc.add(phone);
+  S.phoneShadow = s3Contact(T, sc, .64, .7782, .02, .11, .19, .55);
+  /* notebook and pen */
+  const nb = new T.Group(); nb.add(s3Mesh(T, s3RBox(T, .2, .018, .27, .006), s3Std(T, {map:s3tex(T, s3NoiseCanvas(256, '#5a3a22', 22), [1,1]), roughness:.62}), [0,0,0]));
+  nb.add(s3Mesh(T, new T.BoxGeometry(.19, .015, .262), s3Std(T, {color:0xf4efe4, roughness:.9}), [.006,0,0])); nb.add(s3Mesh(T, new T.BoxGeometry(.008, .0195, .272), s3Std(T, {color:0x111111, roughness:.6}), [.07,.0005,0]));
+  const pen = new T.Group(); pen.add(s3Mesh(T, new T.CylinderGeometry(.0042, .0042, .13, 16), s3Phys(T, {color:0x14213d, roughness:.25, metalness:.5, clearcoat:.8}), [0,0,0])); pen.add(s3Mesh(T, new T.ConeGeometry(.0042, .012, 16), alu, [0,-.071,0])); pen.add(s3Mesh(T, new T.BoxGeometry(.002, .04, .003), alu, [.0045,.04,0]));
+  pen.rotation.x = Math.PI/2; pen.rotation.z = .3; pen.position.set(.13, .006, 0); nb.add(pen);
+  nb.position.set(-.56, .784, .0); nb.rotation.y = .18; nb.userData.pick = 'notebook'; nb.userData.kind = 'desk'; S.pick.notebook = nb; S.base0.notebook = {p:nb.position.clone(), r:nb.rotation.clone()}; sc.add(nb); s3Contact(T, sc, -.56, .7782, 0, .3, .37, .5);
+  /* printer */
+  const pr = new T.Group(); const prM = s3Std(T, {color:0xe9e7e2, roughness:.42}); pr.add(s3Mesh(T, s3RBox(T, .4, .17, .3, .02), prM, [0,0,0])); pr.add(s3Mesh(T, s3RBox(T, .36, .012, .2, .004), s3Std(T, {color:0x2b2b2e, roughness:.5}), [0,.086,0]));
+  for(let i=0;i<5;i++) pr.add(s3Mesh(T, new T.BoxGeometry(.3, .0015, .14), s3Std(T, {color:0xffffff, roughness:.9}), [0,.026+i*.002,.19]));
+  pr.add(s3Mesh(T, new T.BoxGeometry(.05, .016, .004), s3Std(T, {color:0x2c8f4f, emissive:0x2c8f4f, emissiveIntensity:1.6}), [.13,.04,.152]));
+  pr.position.set(.7, .86, -.5); pr.rotation.y = -.2; pr.userData.pick = 'printer'; pr.userData.kind = 'desk'; S.pick.printer = pr; S.base0.printer = {p:pr.position.clone(), r:pr.rotation.clone()}; sc.add(pr); s3Contact(T, sc, .7, .7782, -.5, .55, .45, .55);
+  /* architect lamp with a warm bulb */
+  const lamp = new T.Group(); const lm = s3Std(T, {color:0x2f2f33, roughness:.3, metalness:.85});
+  lamp.add(s3Mesh(T, new T.CylinderGeometry(.075, .085, .02, 40), lm, [0,.01,0])); lamp.add(s3Mesh(T, new T.SphereGeometry(.014, 16, 12), lm, [.0,.03,0]));
+  const a1 = s3Mesh(T, new T.CylinderGeometry(.008, .008, .36, 16), lm, [.045,.2,0]); a1.rotation.z = -.25; lamp.add(a1); lamp.add(s3Mesh(T, new T.SphereGeometry(.013, 16, 12), lm, [.09,.37,0]));
+  const a2 = s3Mesh(T, new T.CylinderGeometry(.007, .007, .26, 16), lm, [.2,.4,0]); a2.rotation.z = -1.3; lamp.add(a2);
+  const shade = s3Mesh(T, new T.ConeGeometry(.07, .12, 40, 1, true), s3Std(T, {color:0x2f2f33, roughness:.35, metalness:.7, side:T.DoubleSide}), [.33,.39,0]); shade.rotation.z = .55; lamp.add(shade);
+  const bulb = new T.Mesh(new T.SphereGeometry(.022, 20, 14), new T.MeshBasicMaterial({color:0xfff1c8, toneMapped:false})); bulb.material.color.setScalar(hi ? 14 : 1.4); bulb.position.set(.31,.355,0); lamp.add(bulb);
+  lamp.position.set(-.86, .775, -.62); lamp.rotation.y = -.93; lamp.userData.pick = 'lamp'; lamp.userData.kind = 'desk'; S.pick.lamp = lamp; S.base0.lamp = {p:lamp.position.clone(), r:lamp.rotation.clone()}; sc.add(lamp); s3Contact(T, sc, -.86, .7782, -.62, .22, .22, .55);
+  const spot = new T.SpotLight(0xffc27a, hi ? 2.2 : 1.4, 2.4, .75, .85, 2); spot.position.set(-.64, 1.13, -.35); spot.target.position.set(-.5, .76, -.1); sc.add(spot); sc.add(spot.target);
+  /* coffee mug (lathe-turned ceramic) with steam */
+  const mug = new T.Group(); const prof = [[0,0],[.034,0],[.037,.004],[.039,.09],[.041,.095],[.037,.095],[.035,.012],[0,.012]].map(([a, b])=>new T.Vector2(a, b));
+  mug.add(s3Mesh(T, new T.LatheGeometry(prof, 48), s3Phys(T, {color:0xf3ece1, roughness:.3, clearcoat:.6, side:T.DoubleSide}), [0,0,0]));
+  const cof = s3Mesh(T, new T.CircleGeometry(.0352, 40), s3Phys(T, {color:0x2a170a, roughness:.08, clearcoat:1}), [0,.078,0], {cast:false}); cof.rotation.x = -Math.PI/2; mug.add(cof);
+  const hd = s3Mesh(T, new T.TorusGeometry(.024, .0055, 14, 32, Math.PI*1.25), s3Phys(T, {color:0xf3ece1, roughness:.3, clearcoat:.6}), [.043,.05,0]); hd.rotation.z = -Math.PI*.62; mug.add(hd);
+  mug.position.set(-.3, .775, .06); sc.add(mug); s3Contact(T, sc, -.3, .7782, .06, .12, .12, .55);
+  if(Q!=='low'){ const steam = []; for(let i=0;i<14;i++){ const sp = new T.Sprite(new T.SpriteMaterial({map:s3Glow(T), color:0xffffff, transparent:true, opacity:0, depthWrite:false})); sp.position.set(-.3, .86, .06); sp.scale.setScalar(.03); sp.userData.ph = i/14; sc.add(sp); steam.push(sp); } S.steam = steam; }
+  /* plant: ceramic pot, broad leaves */
+  const plant = new T.Group(); const potP = [[0,0],[.12,0],[.16,.06],[.17,.34],[.165,.35],[.15,.35],[.15,.32],[0,.32]].map(([a, b])=>new T.Vector2(a, b));
+  plant.add(s3Mesh(T, new T.LatheGeometry(potP, 48), s3Std(T, {color:0xcdbfa8, roughness:.72}), [0,0,0]));
+  const soil = s3Mesh(T, new T.CircleGeometry(.15, 32), s3Std(T, {map:s3tex(T, s3NoiseCanvas(128, '#2b1d12', 40)), roughness:1}), [0,.325,0], {cast:false}); soil.rotation.x = -Math.PI/2; plant.add(soil);
+  const leafT = s3Label(T, 256, 512, (x, w, h)=>{ x.clearRect(0, 0, w, h); const g = x.createLinearGradient(0, 0, w, 0); g.addColorStop(0, '#2f5a2b'); g.addColorStop(.5, '#4f8a45'); g.addColorStop(1, '#2f5a2b'); x.fillStyle = g;
+    x.beginPath(); x.moveTo(w/2, h*.98); x.bezierCurveTo(-w*.15, h*.7, w*.05, h*.12, w/2, h*.02); x.bezierCurveTo(w*.95, h*.12, w*1.15, h*.7, w/2, h*.98); x.fill();
+    x.strokeStyle = 'rgba(200,230,170,.5)'; x.lineWidth = 4; x.beginPath(); x.moveTo(w/2, h*.97); x.lineTo(w/2, h*.05); x.stroke(); x.lineWidth = 2; for(let i=1;i<9;i++){ const y = h*(.9 - i*.09); x.beginPath(); x.moveTo(w/2, y); x.quadraticCurveTo(w*.3, y-20, w*.12, y-40); x.moveTo(w/2, y); x.quadraticCurveTo(w*.7, y-20, w*.88, y-40); x.stroke(); } });
+  const leafM = s3Std(T, {map:leafT, alphaTest:.5, side:T.DoubleSide, roughness:.55}), stemM = s3Std(T, {color:0x3d6b34, roughness:.7});
+  for(let i=0;i<13;i++){ const ang = i*2.39, len = .35 + (i%5)*.07, tilt = .35 + (i%4)*.14; const g = new T.Group();
+    const stem = s3Mesh(T, new T.CylinderGeometry(.004, .006, len, 6), stemM, [0, len/2, 0]); g.add(stem);
+    const lg = new T.PlaneGeometry(.17, .3, 4, 8), p = lg.attributes.position; for(let k=0;k<p.count;k++){ const yy = p.getY(k), xx = p.getX(k); p.setZ(k, -Math.pow((yy+.15)/.3, 2)*.06 + Math.abs(xx)*.18); } lg.computeVertexNormals();
+    const leaf = s3Mesh(T, lg, leafM, [0, len + .13, 0]); leaf.rotation.x = -.5; g.add(leaf);
+    g.position.set(Math.cos(ang)*.04, .32, Math.sin(ang)*.04); g.rotation.set(Math.sin(ang)*tilt, ang, Math.cos(ang)*tilt*.6); plant.add(g); }
+  plant.position.set(-1.32, 0, -.78); sc.add(plant); s3Contact(T, sc, -1.32, .003, -.78, .55, .55, .6);
+  /* office chair */
+  const chM = s3Std(T, {map:s3tex(T, s3Fabric(256, '#2a2522'), [2,2]), roughness:.95}), chair = new T.Group();
+  chair.add(s3Mesh(T, s3RBox(T, .5, .08, .48, .035, 4), chM, [0,.5,0])); const back = s3Mesh(T, s3RBox(T, .46, .58, .07, .035, 4), chM, [0,.86,.25]); back.rotation.x = -.12; chair.add(back);
+  chair.add(s3Mesh(T, new T.CylinderGeometry(.028, .028, .42, 16), steel, [0,.25,0]));
+  for(let i=0;i<5;i++){ const a = i/5*Math.PI*2, leg = s3Mesh(T, s3RBox(T, .3, .03, .04, .01), steel, [Math.cos(a)*.15, .06, Math.sin(a)*.15]); leg.rotation.y = -a; chair.add(leg); chair.add(s3Mesh(T, new T.SphereGeometry(.025, 12, 10), s3Std(T, {color:0x111111, roughness:.5}), [Math.cos(a)*.29, .025, Math.sin(a)*.29])); }
+  chair.position.set(.05, 0, .62); chair.rotation.y = .1; sc.add(chair); s3Contact(T, sc, .05, .004, .62, .8, .8, .5);
+  /* light: sun through the window, sky fill, image-based reflections, the screen's glow, the lamp */
+  sc.add(new T.HemisphereLight(0xfff1de, 0x2a1d12, Q==='low' ? .5 : .2));
+  const sun = new T.DirectionalLight(0xffdcae, Q==='low' ? 1.3 : 2.5); sun.position.set(-3.6, 3.9, -4.6); sun.target.position.set(-.35, .75, -.15); sc.add(sun.target);
+  sun.castShadow = true; sun.shadow.mapSize.set(hi ? 2048 : 1024, hi ? 2048 : 1024); Object.assign(sun.shadow.camera, {left:-2.4, right:2.4, top:2.4, bottom:-2.4, near:.5, far:12}); sun.shadow.bias = -.0004; sun.shadow.normalBias = .02; sun.shadow.radius = hi ? 5 : 3; sc.add(sun); S.sun = sun;
+  const room = new T.DirectionalLight(0xfff4e6, Q==='low' ? .6 : .32); room.position.set(1.8, 2.8, 2.4); sc.add(room);
+  if(T.RectAreaLightUniformsLib && Q!=='low'){ try{ T.RectAreaLightUniformsLib.init(); const ra = new T.RectAreaLight(0xcfe0ff, 3.2, .8, .46); ra.position.set(0, 1.124, -.36); ra.lookAt(0, 1.0, 1); sc.add(ra); S.screenLight = ra; }catch(e){} }
+  else { const glow = new T.PointLight(0xbcd4ff, .25, 1.3, 2); glow.position.set(0, 1.12, -.15); sc.add(glow); }
+  S.flashL = new T.PointLight(0xffffff, 0, 2.2, 2); S.flashL.position.set(0, 1.2, .4); sc.add(S.flashL);
+  /* sun beams and dust */
+  if(Q!=='low'){ const beamT = s3Label(T, 64, 256, (x, w, h)=>{ const g = x.createLinearGradient(0, 0, 0, h); g.addColorStop(0, 'rgba(255,236,200,.0)'); g.addColorStop(.25, 'rgba(255,236,200,.55)'); g.addColorStop(1, 'rgba(255,236,200,0)'); x.fillStyle = g; x.fillRect(0, 0, w, h); const g2 = x.createLinearGradient(0, 0, w, 0); g2.addColorStop(0, 'rgba(0,0,0,1)'); g2.addColorStop(.5, 'rgba(0,0,0,0)'); g2.addColorStop(1, 'rgba(0,0,0,1)'); x.globalCompositeOperation = 'destination-out'; x.fillStyle = g2; x.fillRect(0, 0, w, h); });
+    const dir = new T.Vector3().subVectors(sun.target.position, sun.position).normalize();
+    for(let i=0;i<4;i++){ const b = new T.Mesh(new T.PlaneGeometry(.55 - i*.07, 2.6), new T.MeshBasicMaterial({map:beamT, transparent:true, opacity:hi ? .085 : .06, blending:T.AdditiveBlending, depthWrite:false, side:T.DoubleSide, toneMapped:false}));
+      const st = new T.Vector3(wx + (i-1.5)*.18, wy + (i%2)*.15, -1.25); b.position.copy(st).addScaledVector(dir, 1.25); b.lookAt(b.position.clone().add(new T.Vector3(.3, 0, 1))); b.quaternion.setFromUnitVectors(new T.Vector3(0, 1, 0), dir.clone().negate()); b.rotateY(i*.7); sc.add(b); }
+    const n = hi ? 420 : 180, pos = new Float32Array(n*3); for(let i=0;i<n;i++){ const t = Math.random(); pos[i*3] = wx + (Math.random()-.5)*.9 + t*2.0*dir.x; pos[i*3+1] = wy + (Math.random()-.5)*.8 + t*2.0*dir.y; pos[i*3+2] = -1.2 + t*2.0*dir.z*1.0 + Math.random()*.15; }
+    const pg = new T.BufferGeometry(); pg.setAttribute('position', new T.BufferAttribute(pos, 3)); S.dust = new T.Points(pg, new T.PointsMaterial({map:s3Glow(T), size:.008, color:0xfff1d6, transparent:true, opacity:.55, depthWrite:false, blending:T.AdditiveBlending, sizeAttenuation:true}));
+    S.dust.userData.base = pos.slice(); sc.add(S.dust); }
+  S.pickables = Object.values(S.pick); S.pickables.forEach(o=>o.traverse(m=>{ if(m.isMesh){ m.userData.owner = o; if(m.material && m.material.emissive) m.userData.em = m.material.emissive.getHex(); } }));
+}
+
+/* ---------- renderer, post-processing ---------- */
+function s3Init3D(){ const T = window.THREE, S = SIM3D, st = el('s3Stage'); S.q = S.q || s3Quality(); s3Build(); S3_SCREENS.desktop(S.sx, {}); s3ScreenOut(true);
+  const hi = S.q==='high', r = new T.WebGLRenderer({antialias:!hi || !T.EffectComposer, powerPreference:'high-performance'});
+  r.setPixelRatio(Math.min(window.devicePixelRatio||1, hi ? 2 : S.q==='medium' ? 1.5 : 1)); r.shadowMap.enabled = true; r.shadowMap.type = S.q==='low' ? T.PCFShadowMap : T.PCFSoftShadowMap; r.physicallyCorrectLights = false;
+  st.prepend(r.domElement); S.r = r; S.cam = new T.PerspectiveCamera(38, 1, .02, 40);
+  if(S.q!=='low'){ try{ if(T.RoomEnvironment){ const pm = new T.PMREMGenerator(r); S.env = pm.fromScene(new T.RoomEnvironment(), .04).texture; S.scene.environment = S.env; pm.dispose();
+      S.scene.traverse(o=>{ if(o.isMesh && o.material && 'envMapIntensity' in o.material && o.material.envMapIntensity===1) o.material.envMapIntensity = .38; }); } }catch(e){ console.warn('env', e); } }
+  const fx = S.q!=='low' && T.EffectComposer && T.RenderPass && T.ShaderPass;
+  if(fx){ try{ r.toneMapping = T.NoToneMapping; r.outputEncoding = T.LinearEncoding;
+      const ms = r.capabilities.isWebGL2 && T.WebGLMultisampleRenderTarget, opt = {type:T.HalfFloatType, minFilter:T.LinearFilter, magFilter:T.LinearFilter, format:T.RGBAFormat};
+      const rt = ms ? new T.WebGLMultisampleRenderTarget(4, 4, opt) : new T.WebGLRenderTarget(4, 4, opt); if(ms) rt.samples = hi ? 4 : 2;
+      const cp = new T.EffectComposer(r, rt); cp.addPass(new T.RenderPass(S.scene, S.cam));
+      if(T.UnrealBloomPass && S.q==='high'){ S.bloom = new T.UnrealBloomPass(new T.Vector2(256, 256), .5, .7, 4.2); cp.addPass(S.bloom); }
+      S.grade = new T.ShaderPass(S3_GRADE); S.grade.uniforms.exposure.value = S3_EXPOSURE; S.grade.uniforms.vig.value = .32; S.grade.uniforms.grain.value = hi ? .016 : .012; S.grade.uniforms.ca.value = hi ? .0012 : 0; cp.addPass(S.grade);
+      if(!ms && T.FXAAShader){ S.fxaa = new T.ShaderPass(T.FXAAShader); cp.addPass(S.fxaa); }
+      S.cp = cp; }catch(e){ console.warn('post-processing off', e); S.cp = null; } }
+  if(!S.cp){ r.outputEncoding = T.sRGBEncoding; r.toneMapping = T.ACESFilmicToneMapping; r.toneMappingExposure = 1.05; }
+  S.ray = new T.Raycaster(); S.ndc = new T.Vector2(); S.par = {x:0, y:0}; S.sm = {x:0, y:0}; S.station = 'establish'; S.orbit = true; S.t00 = performance.now();
+  const [p, l] = s3Pose('establish'); S.base = new T.Vector3(...p); S.look = new T.Vector3(...l); S.fov = 38;
+  const cv = r.domElement; cv.addEventListener('pointermove', s3Move); cv.addEventListener('pointerdown', e=>{ S.down = [e.clientX, e.clientY]; }); cv.addEventListener('pointerup', s3Click); cv.addEventListener('pointerleave', ()=>{ S.par = {x:0, y:0}; s3SetHover(null); });
+  S.ro = new ResizeObserver(()=>s3Resize()); S.ro.observe(st); s3Resize();
+  r.shadowMap.autoUpdate = false; r.shadowMap.needsUpdate = true; S.dirty = true; S.ft = []; S.lastT = 0;
+  const loop = t => { if(!S.open || !S.r) return; S.raf = requestAnimationFrame(loop); const busy = s3Tick(t); if(busy || S.dirty){ S.dirty = false; const t0 = performance.now(); if(S.cp) S.cp.render(); else S.r.render(S.scene, S.cam); s3Perf(performance.now() - t0, t); } };
+  S.raf = requestAnimationFrame(loop); }
+const S3_GRADE = {uniforms:{tDiffuse:{value:null}, time:{value:0}, exposure:{value:1.0}, vig:{value:.4}, grain:{value:.02}, ca:{value:0}, res:{value:null}},
+  vertexShader:'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.0); }',
+  fragmentShader:`uniform sampler2D tDiffuse; uniform float time, exposure, vig, grain, ca; varying vec2 vUv;
+    vec3 aces(vec3 x){ return clamp((x*(2.51*x+0.03))/(x*(2.43*x+0.59)+0.14), 0.0, 1.0); }
+    vec3 toSRGB(vec3 c){ return mix(c*12.92, 1.055*pow(c, vec3(1.0/2.4)) - 0.055, step(0.0031308, c)); }
+    void main(){ vec2 d = vUv - 0.5; float r2 = dot(d, d); vec2 o = d*ca*r2*4.0;
+      vec3 c = vec3(texture2D(tDiffuse, vUv + o).r, texture2D(tDiffuse, vUv).g, texture2D(tDiffuse, vUv - o).b);
+      c = aces(c*exposure); float l = dot(c, vec3(0.2126, 0.7152, 0.0722));
+      c = mix(c, c*vec3(1.035, 1.0, 0.955), smoothstep(0.35, 1.0, l)); c = mix(c, c*vec3(0.97, 1.0, 1.04), 1.0 - smoothstep(0.0, 0.35, l)); c = mix(vec3(l), c, 1.07);
+      c = toSRGB(c); c *= mix(1.0, smoothstep(0.92, 0.18, length(d)*1.25), vig);
+      float n = fract(sin(dot(vUv*vec2(1733.0, 977.0) + time, vec2(12.9898, 78.233)))*43758.5453); c += (n - 0.5)*grain;
+      gl_FragColor = vec4(c, 1.0); }`};
+function s3Perf(ms, t){ const S = SIM3D; if(S.qLocked || window.__SIM_Q) return; S.ft.push(ms); if(S.ft.length < 45) return; const avg = S.ft.reduce((a, b)=>a+b, 0)/S.ft.length; S.ft = [];
+  if(avg > 34 && S.q==='high'){ S.q = 'medium'; if(S.bloom){ S.cp.passes.splice(S.cp.passes.indexOf(S.bloom), 1); S.bloom = null; } S.r.setPixelRatio(Math.min(window.devicePixelRatio||1, 1.25)); S.cp.setPixelRatio?.(S.r.getPixelRatio()); s3Resize(); }
+  else if(avg > 40 && S.q==='medium'){ S.q = 'low'; S.r.setPixelRatio(1); S.cp?.setPixelRatio?.(1); if(S.dust) S.dust.visible = false; s3Resize(); S.qLocked = true; }
+  else S.qLocked = true; }
+function s3Resize(){ const S = SIM3D, st = el('s3Stage'); if(!st || !S.r) return; const w = st.clientWidth, h = st.clientHeight; if(!w || !h) return;
+  S.r.setSize(w, h, false); S.cp?.setSize(w, h); const pr = S.r.getPixelRatio();
+  if(S.fxaa) S.fxaa.uniforms.resolution.value.set(1/(w*pr), 1/(h*pr)); if(S.bloom) S.bloom.resolution.set(w*pr, h*pr);
+  S.cam.aspect = w/h; S.cam.updateProjectionMatrix(); S.dirty = true; if(!S.tw && !S.orbit) s3Cam(S.station, true); }
+
+/* ---------- cinematography ---------- */
+const S3_HELD = {p:[.24, 1.0, .12], r:[1.22, -.12, -.06]};
+function s3Pose(name){ const T = window.THREE, c = SIMI3D(), f = Math.tan(T.MathUtils.degToRad(c.fov/2)), a = c.aspect, fit = (w, h)=>Math.max(h/2/f, w/2/(f*a));
+  const P = {monitor:()=>{ const d = fit(.84, .49); return [[0, 1.124, -.37+d], [0, 1.124, -.37]]; },
+    stickies:()=>{ const d = fit(1.1, .58); return [[0, 1.17, -.37+d], [0, 1.15, -.37]]; },
+    overview:()=>{ const d = Math.max(1.5, fit(2.1, 1.3)); return [[.18, 1.2+d*.22, -.33+d], [0, .98, -.36]]; },
+    establish:()=>{ const d = Math.max(2.3, fit(3.0, 1.7)); return [[.9, 1.45, d-.1], [-.15, 1.0, -.45]]; },
+    desk:()=>{ const d = fit(1.95, 1.05); return [[.05, .8+d*.74, -.22+d*.67], [.05, .8, -.22]]; },
+    phone:()=>{ const d = fit(.17, .2), H = S3_HELD.p, nrm = [0, Math.cos(S3_HELD.r[0]), Math.sin(S3_HELD.r[0])]; return [[H[0] + nrm[0]*d, H[1] + nrm[1]*d + .01, H[2] + nrm[2]*d], [H[0], H[1], H[2]]]; },
+    results:()=>{ const d = Math.max(2.0, fit(2.6, 1.5)); return [[-.6, 1.35, d-.2], [0, .95, -.4]]; }};
+  return (P[name] || P.overview)(); }
+const SIMI3D = () => SIM3D.cam;
+function s3Cam(name, instant){ const S = SIM3D, T = window.THREE; if(!S.cam) return; const prev = S.station; S.station = name; const [p, l] = s3Pose(name); const tp = new T.Vector3(...p), tl = new T.Vector3(...l);
+  if(instant){ S.base.copy(tp); S.look.copy(tl); S.tw = null; S.dirty = true; return; }
+  const dist = S.base.distanceTo(tp), mid = new T.Vector3().lerpVectors(S.base, tp, .5); mid.y += Math.min(.35, dist*.18); mid.z += Math.min(.45, dist*.22);
+  const curve = new T.CatmullRomCurve3([S.base.clone(), mid, tp], false, 'centripetal');
+  const dur = (S.q==='low' ? 700 : 1100) + Math.min(1300, dist*700);
+  S.tw = {curve, fl:S.look.clone(), tl, t0:performance.now(), dur, f0:S.fov, f1:name==='monitor' ? 36 : name==='phone' ? 34 : 38};
+  if(prev!==name && dist > .05){ s3Cine(true); s3Sfx('whoosh'); }
+  const tgt = name==='phone' ? 1 : 0; if(tgt!==(S.phoneT||0)){ S.pa = {k0:S.pk||0, k1:tgt, t0:performance.now(), dur:S.tw ? S.tw.dur : 800}; } S.phoneT = tgt; }
+function s3Wide(){ const S = SIM3D; if(!S.cam) return; s3Cam('results'); setTimeout(()=>{ if(SIM3D===S && S.station==='results') S.orbit = true; }, 1800); }
+const s3Ease = k => k<.5 ? 4*k*k*k : 1 - Math.pow(-2*k+2, 3)/2;
+function s3Tick(t){ const S = SIM3D, T = window.THREE; let busy = S.q!=='low' && (!!S.dust || !!S.steam);
+  if(S.orbit){ const a = (t - S.t00)/1000*.07, [p, l] = s3Pose(S.station==='results' ? 'results' : 'establish'); const R = Math.hypot(p[0]-l[0], p[2]-l[2]), a0 = Math.atan2(p[0]-l[0], p[2]-l[2]) + Math.sin(a)*.42;
+    S.base.set(l[0] + Math.sin(a0)*R, p[1] + Math.sin(a*1.7)*.06, l[2] + Math.cos(a0)*R); S.look.set(...l); busy = true; }
+  if(S.tw){ const w = S.tw, k = Math.max(0, Math.min(1, (t - w.t0)/w.dur)), e = s3Ease(k); S.base.copy(w.curve.getPoint(e)); S.look.lerpVectors(w.fl, w.tl, e); S.fov = w.f0 + (w.f1 - w.f0)*e; busy = true; if(k>=1){ S.tw = null; s3Cine(false); } }
+  /* phone: lifted into view for the phone station */
+  if(S.phoneObj){ S.pk = S.pk ?? 0; if(S.pa){ const q = Math.max(0, Math.min(1, (t - S.pa.t0)/S.pa.dur)); S.pk = S.pa.k0 + (S.pa.k1 - S.pa.k0)*q; if(q>=1) S.pa = null; busy = true; S.r.shadowMap.needsUpdate = true;
+      const b = S.base0.phone, k = s3Ease(S.pk), ph = S.phoneObj; ph.position.set(b.p.x + (S3_HELD.p[0]-b.p.x)*k, b.p.y + (S3_HELD.p[1]-b.p.y)*k + Math.sin(k*Math.PI)*.08, b.p.z + (S3_HELD.p[2]-b.p.z)*k);
+      ph.rotation.set(b.r.x + (S3_HELD.r[0]-b.r.x)*k, b.r.y + (S3_HELD.r[1]-b.r.y)*k, b.r.z + (S3_HELD.r[2]-b.r.z)*k); if(S.phoneShadow) S.phoneShadow.material.opacity = .55*(1-k); }
+    else if(S.pk===1){ S.phoneObj.position.y = S3_HELD.p[1] + Math.sin(t/900)*.0025; S.phoneObj.rotation.z = S3_HELD.r[2] + Math.sin(t/1300)*.01; busy = true; } }
+  /* hover lift / sticky peel */
+  if(S.pick) Object.entries(S.pick).forEach(([id, o])=>{ if(id==='phone' && S.pk) return; const tgt = (S.hover===id && !S.locked) || S.mark===id ? 1 : 0; o.userData.k = o.userData.k || 0;
+    if(Math.abs(tgt - o.userData.k) > .002){ o.userData.k += (tgt - o.userData.k)*.18; busy = true; const k = o.userData.k, b = S.base0[id]; if(!b) return;
+      if(o.userData.kind==='sticky'){ o.position.z = b.p.z + .012*k; o.rotation.x = b.r.x - .28*k; o.rotation.z = b.r.z + .05*k*Math.sign(b.p.x); } else { o.position.y = b.p.y + .014*k; o.rotation.y = b.r.y + .06*k; } } });
+  /* camera: smooth parallax + breathing */
+  const still = S.station==='monitor' || S.station==='phone' || S.station==='stickies'; const amt = still ? .006 : .05;
+  if(Math.abs(S.par.x - S.sm.x) + Math.abs(S.par.y - S.sm.y) > .002){ S.sm.x += (S.par.x - S.sm.x)*.05; S.sm.y += (S.par.y - S.sm.y)*.05; busy = true; }
+  const br = S.q==='low' ? 0 : (still ? .0008 : .0025); if(br) busy = true;
+  S.cam.position.set(S.base.x + S.sm.x*amt + Math.sin(t/2100)*br, S.base.y + S.sm.y*amt*.6 + Math.sin(t/1700)*br*.7, S.base.z); S.cam.lookAt(S.look);
+  if(Math.abs(S.cam.fov - S.fov) > .01){ S.cam.fov = S.fov; S.cam.updateProjectionMatrix(); }
+  /* atmosphere */
+  if(S.dust && S.dust.visible){ const p = S.dust.geometry.attributes.position, b = S.dust.userData.base; for(let i=0;i<p.count;i++){ p.setXYZ(i, b[i*3] + Math.sin(t/3000 + i)*.03, b[i*3+1] + Math.sin(t/4100 + i*1.3)*.025, b[i*3+2] + Math.cos(t/3500 + i*.7)*.02); } p.needsUpdate = true; }
+  if(S.steam) S.steam.forEach(s=>{ const k = ((t/2600) + s.userData.ph)%1; s.position.set(-.3 + Math.sin(k*6 + s.userData.ph*9)*.012*k, .86 + k*.17, .06 + Math.cos(k*5 + s.userData.ph*7)*.01*k); s.scale.setScalar(.018 + k*.05); s.material.opacity = Math.sin(k*Math.PI)*.07; });
+  /* screen transitions, click ripple, answer flash */
+  if(S.fade || S.ripple || S.flash){ s3Compose(t); busy = true; }
+  if(S.flashL){ const f = S.flash ? Math.max(0, 1 - (t - S.flash.t0)/700) : 0; S.flashL.intensity = f*1.4; }
+  if(S.grade) S.grade.uniforms.time.value = (t/1000)%100;
+  if(S.hl){ const o = S.pick[S.hl]; const v = .5 + .5*Math.sin(t/180); o?.traverse(m=>{ if(m.isMesh && m.material?.emissive) m.material.emissiveIntensity = .35 + v*.35; }); busy = true; }
+  return busy; }
+
+/* ---------- the monitor picture: cross-fades, app launch zoom, click ripple ---------- */
+function s3ScreenOut(first){ const S = SIM3D; if(!S.dx){ if(S.stex){ S.stex.needsUpdate = true; S.dirty = true; } return; }
+  const key = (S.phase==='pre' ? 'pre:' : '') + (S.it?.screen || 'desktop') + ':' + (S.idx ?? -1);
+  if(!first && S.lastKey && key!==S.lastKey && S.q!=='low'){ const [c, x] = S.prevC || s3cv(S3W, S3H); S.prevC = [c, x]; x.drawImage(S.dc, 0, 0);
+    S.fade = {prev:c, t0:performance.now(), dur:S.launch ? 650 : 380, zoom:S.launch || null}; S.launch = null; }
+  S.lastKey = key; if(!S.fade) { S.dx.drawImage(S.sc, 0, 0); s3Overlay(performance.now()); S.stex.needsUpdate = true; } S.dirty = true; }
+function s3Compose(t){ const S = SIM3D, d = S.dx;
+  if(S.fade){ const f = S.fade, k = Math.max(0, Math.min(1, (t - f.t0)/f.dur)), e = s3Ease(k); d.globalAlpha = 1; d.drawImage(f.prev, 0, 0);
+    if(f.zoom){ const [X, Y, W, H] = f.zoom; d.globalAlpha = Math.min(1, e*1.8); d.drawImage(S.sc, X*(1-e), Y*(1-e), W + (S3W-W)*e, H + (S3H-H)*e); }
+    else { d.globalAlpha = e; d.drawImage(S.sc, 0, 0); }
+    d.globalAlpha = 1; if(k>=1) S.fade = null; }
+  else d.drawImage(S.sc, 0, 0);
+  s3Overlay(t); S.stex.needsUpdate = true; S.dirty = true; }
+function s3Overlay(t){ const S = SIM3D, d = S.dx;
+  if(S.ripple){ const k = Math.max(0, (t - S.ripple.t0)/600); if(k>=1) S.ripple = null; else { d.beginPath(); d.arc(S.ripple.x, S.ripple.y, 12 + k*90, 0, 7); d.strokeStyle = `rgba(233,161,51,${(1-k)*.9})`; d.lineWidth = 6*(1-k) + 1; d.stroke(); } }
+  if(S.flash){ const k = Math.max(0, (t - S.flash.t0)/700); if(k>=1) S.flash = null; else { d.fillStyle = S.flash.ok===true ? `rgba(29,138,82,${(1-k)*.16})` : S.flash.ok===false ? `rgba(192,57,43,${(1-k)*.16})` : `rgba(47,111,214,${(1-k)*.12})`; d.fillRect(0, 0, S3W, S3H); } } }
+function s3Feedback(ok){ const S = SIM3D; S.flash = {ok, t0:performance.now()}; if(S.flashL) S.flashL.color.setHex(ok===true ? 0x6dffa8 : ok===false ? 0xff6b5a : 0x9cc0ff); s3Sfx(ok===true ? 'ok' : ok===false ? 'bad' : 'click'); S.dirty = true;
+  const card = document.querySelector('#s3Panel .s3-fb'); if(card){ card.classList.add('s3-pop'); } }
+
+/* ---------- picking ---------- */
+function s3PickAt(cx, cy){ const S = SIM3D; if(!S.r || !S.it) return null; const rc = S.r.domElement.getBoundingClientRect();
+  S.ndc.set(((cx - rc.left)/rc.width)*2 - 1, -((cy - rc.top)/rc.height)*2 + 1); S.ray.setFromCamera(S.ndc, S.cam);
+  const it = S.it, live = id => it.type==='obj' && S.phase==='ask' && !S.locked && it.objects.some(x=>x[0]===id);
+  for(const h of S.ray.intersectObjects([S.screen, ...S.pickables], true)){
+    if(h.object===S.screen){ const px = h.uv.x*S3W, py = (1 - h.uv.y)*S3H, hs = s3HitScreen(px, py); return hs ? {kind:'screen', id:hs[0], label:hs[1], px, py} : null; }
+    let o = h.object; while(o && !o.userData.pick) o = o.parent; if(!o) continue;
+    if(live(o.userData.pick)) return {kind:'obj', id:o.userData.pick, label:simChoiceLabel(it.id, o.userData.pick)}; }
+  return null; }
+function s3Move(e){ const S = SIM3D, rc = e.currentTarget.getBoundingClientRect(); S.par = {x:((e.clientX - rc.left)/rc.width - .5)*2, y:-((e.clientY - rc.top)/rc.height - .5)*2};
+  if(e.pointerType==='touch' || S.tw) return; const r = s3PickAt(e.clientX, e.clientY); s3SetHover(r, e.clientX - rc.left, e.clientY - rc.top); }
+function s3SetHover(r, x, y){ const S = SIM3D, id = r ? r.id : null; const cv = S.r?.domElement || S.sc; if(cv) cv.style.cursor = r ? 'pointer' : 'default';
+  if(r && r.kind==='obj') s3Tip(r.label, x, y); else s3Tip();
+  if(id===S.hover) return; S.hover = id; if(id) s3Sfx('tick'); if(!r || r.kind!=='obj') s3PaintScreen(); s3HL(); }
+function s3Tip(t, x, y){ const tp = el('s3Tip'); if(!tp) return; if(!t){ tp.hidden = true; return; } tp.hidden = false; tp.textContent = t; tp.style.left = (x + 14) + 'px'; tp.style.top = (y + 14) + 'px'; }
+function s3Click(e){ const S = SIM3D; if(S.down && Math.hypot(e.clientX - S.down[0], e.clientY - S.down[1]) > 8) return; const r = s3PickAt(e.clientX, e.clientY); if(!r) return;
+  if(r.kind==='screen' && r.px!=null){ S.ripple = {x:r.px, y:r.py, t0:performance.now()}; } s3Act(r); }
+function s3Act(r){ const S = SIM3D; if(S.phase==='pre'){ if(r.id==='pre') s3PreDone(); return; } s3Answer(r.id); }
+function s3HL(){ const S = SIM3D; if(!S.pick || !window.THREE) return; S.hl = null;
+  Object.entries(S.pick).forEach(([id, o])=>{ const mark = S.mark===id, hv = S.hover===id && !S.locked; const col = mark ? (S.verdict===true ? 0x1d8a52 : S.verdict===false ? 0xc0392b : 0x2f6fd6) : hv ? 0x6a3c08 : null;
+    o.traverse(m=>{ if(!m.isMesh || !m.material?.emissive) return; if(col!=null){ m.material.emissive.setHex(col); m.material.emissiveIntensity = mark ? .55 : .6; } else { m.material.emissive.setHex(m.userData.em||0); m.material.emissiveIntensity = 1; } });
+    if(hv && !mark) S.hl = id; }); S.dirty = true; }
+function s3Dispose(keepDom){ const S = SIM3D; cancelAnimationFrame(S.raf); S.ro?.disconnect(); S.ro = null;
+  if(S.scene){ S.scene.traverse(o=>{ o.geometry?.dispose(); const ms = o.material ? (Array.isArray(o.material) ? o.material : [o.material]) : []; ms.forEach(m=>{ ['map','normalMap','roughnessMap'].forEach(k=>m[k]?.dispose?.()); m.dispose(); }); }); S.scene = null; }
+  S.env?.dispose?.(); S.cp?.renderTarget1?.dispose?.(); S.cp?.renderTarget2?.dispose?.(); S.stex?.dispose?.(); S.ptex?.dispose?.();
+  if(S.r){ S.r.dispose(); S.r.forceContextLoss?.(); if(keepDom) S.r.domElement.remove(); S.r = null; } S.cp = null; S.bloom = null; S.grade = null; S.fxaa = null; S.pick = null; S.pickables = []; S._soft = null; S._glow = null; s3Audio.ctx?.close?.(); s3Audio.ctx = null; }
+
+/* ---------- letterbox, chapter titles, confetti ---------- */
+function s3Cine(on){ const o = el('sim3d'); if(o) o.classList.toggle('s3-cinema', !!on); }
+function s3Chapter(step, first){ const c = el('s3Chap'); if(!c) return; c.innerHTML = `<span>${first ? esc(SIM.name) + ' · ' : ''}STEP ${String(step).padStart(2,'0')} OF 12</span><b>${esc(SIM_STEPS[step-1])}</b>`;
+  c.classList.remove('on'); void c.offsetWidth; c.classList.add('on'); clearTimeout(c._t); c._t = setTimeout(()=>c.classList.remove('on'), first ? 3200 : 2400); }
+function s3Confetti(){ const o = el('sim3d'); if(!o) return; const box = document.createElement('div'); box.className = 's3-confetti'; const C = ['#e9a133','#1d8a52','#2f6fd6','#c96a3a','#f4e9d8'];
+  box.innerHTML = Array.from({length:90}, (_, i)=>`<i style="left:${Math.random()*100}%;background:${C[i%5]};animation-delay:${(Math.random()*.9).toFixed(2)}s;animation-duration:${(2.2+Math.random()*1.6).toFixed(2)}s;transform:rotate(${Math.random()*360}deg)"></i>`).join('');
+  o.appendChild(box); setTimeout(()=>box.remove(), 4600); }
+
+/* ---------- sound design (WebAudio, very quiet, starts only after the Start click) ---------- */
+const s3Audio = {ctx:null, on:true};
+function s3Sfx(kind){ if(!s3Audio.on || window.__SIM_MUTE) return; try{ const A = s3Audio.ctx = s3Audio.ctx || new (window.AudioContext || window.webkitAudioContext)(); if(A.state==='suspended') A.resume(); const t = A.currentTime;
+    const tone = (f, d, type, v, f2, at) => { const o = A.createOscillator(), g = A.createGain(); o.type = type||'sine'; o.frequency.setValueAtTime(f, t + (at||0)); if(f2) o.frequency.exponentialRampToValueAtTime(f2, t + (at||0) + d); g.gain.setValueAtTime(0, t + (at||0)); g.gain.linearRampToValueAtTime(v, t + (at||0) + .012); g.gain.exponentialRampToValueAtTime(.0001, t + (at||0) + d); o.connect(g).connect(A.destination); o.start(t + (at||0)); o.stop(t + (at||0) + d + .05); };
+    if(kind==='tick') tone(1800, .03, 'sine', .012); else if(kind==='click') tone(900, .06, 'triangle', .04, 500);
+    else if(kind==='ok'){ tone(660, .18, 'sine', .05); tone(990, .28, 'sine', .045, null, .09); } else if(kind==='bad'){ tone(220, .3, 'triangle', .05, 140); }
+    else if(kind==='chime'){ [523, 659, 784, 1047].forEach((f, i)=>tone(f, .5, 'sine', .04, null, i*.11)); }
+    else if(kind==='whoosh'){ const n = A.createBufferSource(), b = A.createBuffer(1, A.sampleRate*.7, A.sampleRate), d = b.getChannelData(0); for(let i=0;i<d.length;i++) d[i] = (Math.random()*2-1)*Math.sin(i/d.length*Math.PI);
+      const f = A.createBiquadFilter(); f.type = 'bandpass'; f.frequency.setValueAtTime(300, t); f.frequency.exponentialRampToValueAtTime(1400, t+.6); f.Q.value = .8; const g = A.createGain(); g.gain.value = .035; n.buffer = b; n.connect(f).connect(g).connect(A.destination); n.start(t); } }catch(e){} }
+
+/* ---------- cinematic HUD ---------- */
+{ const _o = simOpen; simOpen = async function(){ const r = _o.apply(this, arguments); try{ s3CineCss(); const o = el('sim3d'), st = el('s3Stage');
+      if(o && st && !el('s3Chap')){ st.insertAdjacentHTML('beforeend', '<div class="s3-lb t"></div><div class="s3-lb b"></div><div class="s3-chap" id="s3Chap"></div>');
+        el('s3Exit')?.insertAdjacentHTML('beforebegin', `<button class="s3-btn ghost s3-mute" id="s3Mute" title="Sound" aria-label="Sound on or off">${s3Audio.on ? '🔊' : '🔈'}</button>`);
+        el('s3Mute').onclick = () => { s3Audio.on = !s3Audio.on; el('s3Mute').textContent = s3Audio.on ? '🔊' : '🔈'; }; } }catch(e){}
+    return r; }; }
+function s3CineCss(){ if(el('s3cine')) return; const st = document.createElement('style'); st.id = 's3cine'; st.textContent = `
+#sim3d{background:#0b0806}
+#sim3d .s3-top{background:linear-gradient(180deg,rgba(11,8,6,.96),rgba(11,8,6,.88));border-bottom:1px solid rgba(233,161,51,.18);backdrop-filter:blur(8px)}
+#sim3d .s3-step{background:rgba(255,255,255,.06);color:#bfae97;border:1px solid rgba(255,255,255,.05)}#sim3d .s3-step.cur{background:linear-gradient(135deg,#f2b440,#d98a1c);box-shadow:0 0 18px rgba(233,161,51,.35)}
+#sim3d .s3-panel{background:linear-gradient(180deg,rgba(20,15,10,.97),rgba(14,10,7,.98));color:#f4e9d8;border-top:1px solid rgba(233,161,51,.35);box-shadow:0 -18px 40px rgba(0,0,0,.35)}
+#sim3d .s3-panel .q{color:#fff7ea;font-size:18px;letter-spacing:.005em}#sim3d .s3-hint{color:#bba88f}
+#sim3d .s3-chip{background:rgba(233,161,51,.14);color:#f2b440;border:1px solid rgba(233,161,51,.35)}
+#sim3d .s3-ch button{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);color:#f4e9d8;transition:transform .15s ease,border-color .15s,background .15s}
+#sim3d .s3-ch button:hover:not(:disabled){border-color:#e9a133;background:rgba(233,161,51,.12);transform:translateY(-1px)}
+#sim3d .s3-ch button.ok{background:rgba(29,138,82,.22)!important;border-color:#2fbf75!important;color:#eafff2}#sim3d .s3-ch button.bad{background:rgba(192,57,43,.22)!important;border-color:#e2604f!important;color:#fff0ee}#sim3d .s3-ch button.neu{background:rgba(47,111,214,.2)!important;color:#eef3ff}
+#sim3d .s3-fb{color:#f4e9d8}#sim3d .s3-fb.ok{background:rgba(29,138,82,.16);border-color:rgba(47,191,117,.55)}#sim3d .s3-fb.bad{background:rgba(192,57,43,.16);border-color:rgba(226,96,79,.55)}#sim3d .s3-fb.neu{background:rgba(47,111,214,.14);border-color:rgba(120,160,240,.45)}
+#sim3d .s3-fb.s3-pop{animation:s3pop .45s cubic-bezier(.2,1.4,.4,1)}@keyframes s3pop{0%{transform:scale(.97);opacity:.4}100%{transform:none;opacity:1}}
+#sim3d .s3-cover{background:radial-gradient(ellipse at 50% 40%,rgba(30,20,12,.35),rgba(8,6,4,.78));backdrop-filter:blur(2px)}
+#sim3d .s3-card{background:linear-gradient(180deg,rgba(28,21,14,.92),rgba(18,13,9,.94));color:#f4e9d8;border:1px solid rgba(233,161,51,.28);box-shadow:0 40px 120px rgba(0,0,0,.6);backdrop-filter:blur(14px)}
+#sim3d .s3-card h2{font-size:30px;letter-spacing:-.01em;color:#fff7ea}#sim3d .s3-card .s3-hint{color:#bba88f}
+#sim3d .s3-btn{background:linear-gradient(135deg,#f2b440,#d98a1c);box-shadow:0 8px 24px rgba(233,161,51,.25)}#sim3d .s3-btn.dark{background:rgba(255,255,255,.08);color:#f4e9d8;box-shadow:none;border:1px solid rgba(255,255,255,.14)}
+#sim3d .s3-guide{background:rgba(11,8,6,.72);border:1px solid rgba(233,161,51,.35);backdrop-filter:blur(8px);letter-spacing:.01em}
+#sim3d .s3-lb{position:absolute;left:0;right:0;height:0;background:#000;z-index:4;transition:height .55s cubic-bezier(.6,0,.2,1);pointer-events:none}#sim3d .s3-lb.t{top:0}#sim3d .s3-lb.b{bottom:0}
+#sim3d.s3-cinema .s3-lb{height:7%}
+#sim3d .s3-chap{position:absolute;left:clamp(16px,4vw,48px);bottom:clamp(18px,7%,60px);z-index:5;pointer-events:none;opacity:0;transform:translateY(14px);transition:opacity .6s ease,transform .8s cubic-bezier(.2,.8,.2,1);text-shadow:0 2px 20px rgba(0,0,0,.6)}
+#sim3d .s3-chap.on{opacity:1;transform:none}#sim3d .s3-chap span{display:block;font-size:12px;letter-spacing:.32em;color:#f2b440;font-weight:700;margin-bottom:6px}
+#sim3d .s3-chap b{display:block;font-size:clamp(28px,4.6vw,56px);font-weight:300;letter-spacing:-.02em;color:#fff;font-family:"Cormorant Garamond","Playfair Display",Georgia,serif}
+#sim3d .s3-chap b::after{content:"";display:block;width:64px;height:2px;margin-top:10px;background:linear-gradient(90deg,#f2b440,transparent)}
+#sim3d .s3-confetti{position:absolute;inset:0;pointer-events:none;overflow:hidden;z-index:9}#sim3d .s3-confetti i{position:absolute;top:-4%;width:9px;height:14px;border-radius:2px;animation:s3fall linear forwards}
+@keyframes s3fall{to{top:104%;transform:rotate(720deg) translateX(40px)}}
+#sim3d .s3-mute{padding:8px 12px}
+@media (prefers-reduced-motion: reduce){#sim3d .s3-lb,#sim3d .s3-chap{transition:none}#sim3d .s3-confetti{display:none}}`; document.head.appendChild(st); }
 
 /* <<< OCT24 MODULES <<< */
 </script>

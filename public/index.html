@@ -20916,7 +20916,7 @@ async function cooPostFromModal(){ const ch = CHATS.find(c=>c.id===el('paPostC')
    The footer shows which build is running ("Build 2026-10-07 · 1"), and every open portal checks every few minutes
    (and whenever it comes back to the foreground) whether a newer build has been published. If so it shows
    "New version available — Update now" instead of quietly running old code. */
-const BUILD_ID = '2026-11-12 · 1';
+const BUILD_ID = '2026-11-13 · 2';
 function verStamp(){ const f = el('footNote'); if(f && !f.dataset.v){ f.dataset.v = 1; f.textContent = `Cross Core Ops Suite v8 · Build ${BUILD_ID}`; } }
 async function verCheck(){
   if(!/^https?:/.test(location.protocol)) return;
@@ -35670,9 +35670,10 @@ function jwfPanelHTML(){ const run = JOSEWF.filter(w=>['active','collecting','co
 .jwf-st{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-3);margin-left:4px}.jwf-st.done{color:var(--ok)}
 .jwf-li{font-size:12.5px}.jwf-fail{color:var(--bad);font-size:12px}`; document.head.appendChild(st); })();
 
-/* ===== t11_leavedirect.js — no-PM approval route for people outside the PM structure (Oct 26 2026) =====
+/* ===== t11_leavedirect.js — no-PM approval route for people outside the PM structure (Oct 26 2026; Nov 10: no HR step) =====
    Cha (Charisse, Finance) is not supervised by a Project Manager. Her leave / time-off requests:
-     Requester signs → HR reviews & signs → Pau (CEO) approves → Approved stamp, HR filing, Finance sync, calendar.
+     Requester signs → Pau (CEO) approves → Approved stamp, HR filing, Finance sync, calendar. No HR review or signature;
+     only Pau can approve (no alternate). Requests already waiting for HR are handled as before.
    No Project Manager is chosen, asked or notified, and the leadership step is Pau only. Everyone else keeps the existing
    route (HR → PM for contractors → every required head).
    The route is a setting: lvCfg().direct = {personKey:[approverKeys]} (default: Charisse → Pau). The database enforces
@@ -35687,8 +35688,12 @@ const lvDirectNames = emp => (lvDirect(emp)||[]).map(k=>`${first(k)} (${lvSlotLa
 /* creating: no Project Manager to choose */
 { const _c = lvCreate; lvCreate = function(f){ if(!lvDirect(PERSON)) return _c.apply(this, arguments);
     const r = _c.call(this, {...f, pm:f.pm || '__direct'}); r.pm = null; r.route = 'direct'; return r; }; }
-/* submitting: to HR as usual (marked as the no-PM route) */
-{ const _s = lvSubmit; lvSubmit = function(r){ if(lvDirect(r?.emp)){ r.pm = null; r.route = 'direct'; } return _s.apply(this, arguments); }; }
+/* submitting: straight to the approver (Pau) — no HR review, no Project Manager */
+{ const _s = lvSubmit; lvSubmit = function(r){ const dir = lvDirect(r?.emp); if(!dir) return _s.apply(this, arguments); r.pm = null; r.route = 'direct';
+    if(![LV_ST.DRAFT, LV_ST.RET].includes(r.status) || r.emp!==PERSON) throw new Error('This request can’t be submitted now.'); if(!lvSignedNow(r,'requester')) throw new Error('Sign the request before submitting it.');
+    const was = r.status; r.status = LV_ST.LEAD; r.no = r.no || lvNextNo(); r.submittedAt = nowISO(); r.hr = null; r.pmr = null;
+    r.approvers = dir.map(k=>({key:k, role:lvSlotLabel(k), status:'Pending', at:null, comment:null, by:null}));
+    lvAudit(r, `Submitted and signed → sent to ${lvDirectNames(r.emp)} for approval (no HR or Project Manager step)`); lvEmitStage(r, was); }; }
 /* HR endorsement: straight to Pau — never to a Project Manager, and Pau is the only approver */
 { const _h = lvHrEndorse; lvHrEndorse = function(r, approvers, comment){ const dir = lvDirect(r?.emp); if(!dir) return _h.apply(this, arguments);
     if(!lvIsHr() || r.emp===PERSON || r.status!==LV_ST.HR) throw new Error('Only an HR representative reviews this request.'); if(!lvSignedNow(r,'hr')) throw new Error('HR must sign when endorsing the request.');
@@ -35701,18 +35706,18 @@ const LVD = {hr:null};
     if(r.status===LV_ST.HR){ pvEmit(HR_KEYS(), 'leave', `📝 <b>${esc(nm)}</b> submitted a signed ${w} (${esc(r.no||'')}) — HR review and signature required. After HR it goes to ${esc(lvDirectNames(r.emp))} (no PM step).`, {view:'leavehr', req:r.id});
       pvEmit([r.emp], 'leave', `✅ Your ${w} was submitted and signed. HR reviews it next, then ${esc(lvDirectNames(r.emp))} approves.`, lnk); return; }
     if(r.status===LV_ST.LEAD && was!==LV_ST.LEAD && !a){ const who = (r.approvers||[]).filter(x=>x.status==='Pending').map(x=>x.key);
-      pvEmit(who, 'leave', `🖋 Your approval is needed: <b>${esc(nm)}</b>'s ${w} ${esc(r.no||'')} (${dShort(r.start)}–${dShort(r.end)}) — HR has reviewed it (no PM step).`, lnk);
-      pvEmit([r.emp], 'leave', `HR endorsed your ${w}. It’s now with ${esc(lvDirectNames(r.emp))} for approval.`, lnk); return; }
+      pvEmit(who, 'leave', `🖋 Your approval is needed: <b>${esc(nm)}</b>'s ${w} ${esc(r.no||'')} (${dShort(r.start)}–${dShort(r.end)}) — no HR or PM step.`, lnk);
+      pvEmit([r.emp], 'leave', `✅ Your ${w} was submitted and signed. It’s now with ${esc(lvDirectNames(r.emp))} for approval.`, lnk); return; }
     return _e.apply(this, arguments); }; }
 { const _t = toast; toast = function(msg){ if(LVD.hr && /^Endorsed — the Project Manager reviews it next/.test(String(msg||''))){ const r = lvDoc(LVD.hr); LVD.hr = null; return _t.call(this, `Endorsed — sent to ${lvDirectNames(r?.emp)} for approval`); }
     return _t.apply(this, arguments); }; }
 
 /* the page and the form: no PM picker, the right “what happens next” */
-const lvdNext = emp => `HR reviews and signs, then ${lvDirectNames(emp)} approves — no Project Manager step.`;
+const lvdNext = emp => `${lvDirectNames(emp)} approves — no HR or Project Manager step.`;
 { const _r = RENDER.leave; if(_r) RENDER.leave = function(){ const r = _r.apply(this, arguments); if(!lvDirect(PERSON)) return r;
     const p = el('v-leave')?.querySelector('.page-head p'); if(p && /Project Manager/.test(p.textContent)) p.textContent = `Send a ${lvIsEmp()?'leave':'time-off'} request. ${lvdNext(PERSON)}`; return r; }; }
 { const _f = lvForm; lvForm = function(rid){ const r = _f.apply(this, arguments); const emp = rid ? lvDoc(rid)?.emp : PERSON; if(!lvDirect(emp)) return r;
-    const pm = el('lvPm'); if(pm){ const fld = pm.closest('.field'); fld.innerHTML = `<label>Approval</label><div class="lvd-route">HR, then <b>${esc(lvDirectNames(emp))}</b></div>`; }
+    const pm = el('lvPm'); if(pm){ const fld = pm.closest('.field'); fld.innerHTML = `<label>Approval</label><div class="lvd-route"><b>${esc(lvDirectNames(emp))}</b> only — no HR or Project Manager step</div>`; }
     const h = [...(el('modalBody')?.querySelectorAll('.hint')||[])].find(x=>/Next you sign electronically/.test(x.textContent));
     if(h) h.textContent = `Next you sign electronically. ${lvdNext(emp)}`;
     return r; }; }
@@ -35720,10 +35725,15 @@ const lvdNext = emp => `HR reviews and signs, then ${lvDirectNames(emp)} approve
 /* the request: HR → Pau steps, no PM signature box, HR sees who approves next */
 { const _o = lvOpen; lvOpen = function(id){ const r0 = _o.apply(this, arguments); const r = lvDoc(id); if(!r || !lvIsDirect(r)) return r0;
     const body = el('modalBody'); if(!body) return r0; const appr = (r.approvers||[]).length ? r.approvers : (lvDirect(r.emp)||[]).map(k=>({key:k, status:'Pending'}));
-    const steps = [['Requester signed', r.submittedAt, !!r.submittedAt], ['HR review & signature', r.hr?.at, r.hr?.action==='endorsed'], ...appr.map(a=>[`${first(a.key)} (${lvSlotLabel(a.key)}) approval`, a.at, a.status==='Approved']), ['Approved stamp & HR filing', r.filing?.at, r.filing?.status==='Filed']];
+    const hrStep = r.hr?.action==='endorsed' || r.status===LV_ST.HR;   /* older requests that already went through HR keep that step */
+    const steps = [['Requester signed', r.submittedAt, !!r.submittedAt], ...(hrStep?[['HR review & signature', r.hr?.at, r.hr?.action==='endorsed']]:[]), ...appr.map(a=>[`${first(a.key)} (${lvSlotLabel(a.key)}) ${a.status==='Rejected'?'rejected':'approval'}`, a.at, a.status==='Approved']), ['Approved stamp & HR filing', r.filing?.at, r.filing?.status==='Filed']];
     const st = body.querySelector('.lv-steps'); if(st) st.innerHTML = steps.map(([l,at,done])=>`<div class="${done?'done':''}"><i>${done?'✓':''}</i><b>${esc(l)}</b><span class="hint">${at?esc(dtstr(at)):''}</span></div>`).join('');
-    if(st && !body.querySelector('.lvd-note')) st.insertAdjacentHTML('afterend', `<div class="hint lvd-note">${esc(pname(r.emp))} is not under a Project Manager: HR reviews, then ${esc(lvDirectNames(r.emp))} approves.</div>`);
-    body.querySelectorAll('.lv-sigs .lv-sig').forEach(c=>{ if(/Project Manager/.test(c.querySelector('.hint')?.textContent||'')) c.remove(); });
+    if(st && !body.querySelector('.lvd-note')) st.insertAdjacentHTML('afterend', `<div class="hint lvd-note">${esc(pname(r.emp))} is not under a Project Manager: ${esc(lvDirectNames(r.emp))} approves — no HR step.</div>`);
+    body.querySelectorAll('.lv-sigs .lv-sig').forEach(c=>{ const t = c.querySelector('.hint')?.textContent||''; if(/Project Manager/.test(t) || (/HR representative/.test(t) && !hrStep)) c.remove(); });
+    /* only the named approver (Pau) can act — no alternate */
+    if(!(lvDirect(r.emp)||[]).includes(PERSON)){ const bt = body.querySelector('button[onclick^="lvLeadGo"]'); if(bt){ const row = bt.parentNode, cm = el('ldCm')?.closest('.field');
+        [...body.querySelectorAll('.nav-label')].filter(n=>/Your approval/.test(n.textContent)).forEach(n=>{ let x = n.nextElementSibling; while(x && x.classList.contains('hint') && /Approving as/.test(x.textContent)){ const y = x.nextElementSibling; x.remove(); x = y; } n.textContent = 'Approval'; });
+        cm?.remove(); row.outerHTML = `<div class="hint">Only ${esc(lvDirectNames(r.emp))} can approve this request.</div>`; } }
     body.querySelectorAll('.nav-label').forEach(n=>{ if(/every required head must approve/.test(n.textContent)) n.textContent = 'Approval'; });
     const ap = body.querySelector('#hrAppr'); if(ap){ const f = ap.closest('.field'); f.innerHTML = `<label>Approver after HR</label><div class="lvd-route"><b>${esc(lvDirectNames(r.emp))}</b> only — no Project Manager step</div><div id="hrAppr" hidden></div>`; }
     return r0; }; }
@@ -37535,7 +37545,7 @@ const rdDone = d => ['signed','acknowledged','filed','filed-ack'].includes(rdSta
 const rdWaiting = d => ['awaiting','awaiting-ack'].includes(rdState(d));
 const rdDays = d => d.sentAt ? Math.floor((Date.now() - new Date(d.sentAt).getTime())/864e5) : 0;
 const rdOverdue = d => rdWaiting(d) && rdDays(d) >= 3;
-const rdBadge = d => { const [l, c] = RD_ST[rdState(d)] || ['—','b-draft']; return `<span class="badge ${c}">${l}</span>${rdWaiting(d)?` <span class="hint" style="${rdOverdue(d)?'color:var(--bad);font-weight:600':''}">${rdDays(d)} day${rdDays(d)===1?'':'s'}</span>`:''}`; };
+let rdBadge = d => { const [l, c] = RD_ST[rdState(d)] || ['—','b-draft']; return `<span class="badge ${c}">${l}</span>${rdWaiting(d)?` <span class="hint" style="${rdOverdue(d)?'color:var(--bad);font-weight:600':''}">${rdDays(d)} day${rdDays(d)===1?'':'s'}</span>`:''}`; };
 function rdFill(type, f){
   const v = {position:f.position||'', start:f.start?dstr(f.start):'', pay:f.pay||'', emptype:f.emptype||'', supervisor:f.supervisor||'', validuntil:f.validuntil?dstr(f.validuntil):'', probation:f.probation||'six (6) months'};
   return rdNoSup(String(RD_TPL[type]||'').replace(/\{(position|start|pay|emptype|supervisor|validuntil|probation)\}/g, (_, k)=>v[k] || `{${k}}`));
@@ -38095,6 +38105,74 @@ function atMigrate(){
   return ch; }
 { const _sp = setPerson; setPerson = function(){ const r = _sp.apply(this, arguments); setTimeout(()=>{ try{ atMigrate(); }catch(e){ console.warn('att migrate', e); } }, 15000); return r; }; }
 setInterval(()=>{ try{ atMigrate(); }catch(e){} }, 120000);
+
+/* ===== t22_leavefix.js — leave approvals that stay approved (Nov 10 2026) =====
+   THE BUG: when the last approver approved (or anyone rejected), the browser saved the request with its new status and the
+   database refused that status change — the screen showed Approved, but after a refresh / on other screens the request was
+   back to Pending. Now the browser sends only the approver's decision and the database works out the status (Approved,
+   Rejected or Returned); the screen then reloads the saved request from the server, so every view (employee portal, HR,
+   approvers, Finance, calendar, 201 file) shows the same, final status. A refused save is never left on screen.
+   HR REVIEW ONLY FOR VAs: Cha goes straight to Pau (t11); declared employees go straight to their leadership approvers
+   (setting lvcfg.hrOnlyVAs, on by default). VAs keep HR → Project Manager → leadership. Needs supabase/update-nov10-leave.sql. */
+const lvNoHr = r => !!r && (lvIsDirect(r) || r.route==='nohr' || (r.class==='employee' && lvCfg().hrOnlyVAs!==false && !r.hr?.action));
+/* submit: declared employees go straight to the leadership approvers */
+{ const _s = lvSubmit; lvSubmit = function(r){ if(!r || lvDirect(r.emp) || r.class!=='employee' || lvCfg().hrOnlyVAs===false) return _s.apply(this, arguments);
+    if(![LV_ST.DRAFT, LV_ST.RET].includes(r.status) || r.emp!==PERSON) throw new Error('This request can’t be submitted now.'); if(!lvSignedNow(r,'requester')) throw new Error('Sign the request before submitting it.');
+    const need = lvRequired(r.emp); if(!need.length) throw new Error('No leadership approver is set up.');
+    const was = r.status; r.status = LV_ST.LEAD; r.route = 'nohr'; r.no = r.no || lvNextNo(); r.submittedAt = nowISO(); r.hr = null; r.pmr = null; r.pm = null;
+    r.approvers = need.map(k=>({key:k, role:lvSlotLabel(k), status:'Pending', at:null, comment:null, by:null}));
+    lvAudit(r, `Submitted and signed → sent to the leadership for approval (HR review is only for VAs)`); lvEmitStage(r, was); }; }
+/* decisions: in the live portal the server decides the status — the browser never claims it */
+let LVF_SKIP = false;
+{ const _f = lvFinalizeLocal; lvFinalizeLocal = function(){ if(LVF_SKIP) return; return _f.apply(this, arguments); }; }
+{ const _d = lvDecide; lvDecide = function(r, slot, status, comment){
+    if(r && lvIsDirect(r) && PERSON!==slot) throw new Error(`Only ${pname(slot)} can approve this request.`);
+    if(!pvLive()) return _d.apply(this, arguments);
+    const was = r.status; LVF_SKIP = true; try{ _d.apply(this, arguments); } finally { LVF_SKIP = false; }
+    if(r.status!==was){ r._pending = r.status; r.status = was; r.final = null; }   /* the database sets it in the same save */
+  }; }
+async function lvRefetch(id){
+  if(!pvLive() || !BACKEND?.sb) return null;
+  try{ const {data, error} = await BACKEND.sb.from('cc_records').select('collection,id,data').in('collection', ['leave2','lvcal','lvsync']).in('id', [id, 'LC|'+id, 'LS|'+id]);
+    if(error || !data) return null; const k = SYNC.key('leave2', id);
+    if(SYNC.pending.has(k)) return null;   /* a newer local edit is still on its way */
+    const rows = data.map(x=>({collection:x.collection, id:x.id, data:x.data})); const loc = lvDoc(id);
+    if(loc){ const srv = rows.find(x=>x.collection==='leave2'); if(srv){ delete loc._pending; if(JSON.stringify(srv.data)!==JSON.stringify(loc)){ Object.keys(loc).forEach(f=>{ if(!(f in srv.data)) delete loc[f]; }); Object.assign(loc, JSON.parse(JSON.stringify(srv.data))); (SYNC.last.leave2 = SYNC.last.leave2 || new Map()).set(id, JSON.stringify(loc)); } } }
+    const others = rows.filter(x=>x.collection!=='leave2'); if(others.length) SYNC.applyRemote(others, []);
+    return lvDoc(id); }catch(e){ console.warn('leave refetch', e); return null; } }
+{ const _g = lvLeadGo; lvLeadGo = async function(id, slot, status){
+    if(!pvLive()) return _g.apply(this, arguments);
+    const r0 = lvDoc(id); const before = r0 ? JSON.stringify(r0.approvers||[]) : '';
+    try{ lvDecide(r0, slot, status, el('ldCm')?.value.trim()||''); }catch(e){ return toast(e.message); }
+    await lvSettle(); const refused = DELIVERY?.refusedKeys?.has?.(SYNC.key('leave2', id));
+    const r = await lvRefetch(id) || lvDoc(id);
+    try{ RENDER[CURRENT]?.(); if(el('modal').classList.contains('open')) lvOpen(id); }catch(e){}
+    const mine = (r?.approvers||[]).find(a=>a.key===slot);
+    if(refused || !mine || mine.status==='Pending') return toast('⚠ Your decision was not saved — please try again. Nothing changed.');
+    toast(r.status===LV_ST.OK ? `${lvStamp(r)} — saved. Everyone sees it as approved now.` : r.status===LV_ST.REJ ? 'Rejected — saved. The requester and HR were notified.' : r.status===LV_ST.RET ? 'Changes requested — saved.' : 'Your approval is saved — waiting for the other approvers.'); }; }
+/* opening a request (live): show the server's latest copy */
+const LVF_SEEN = {};
+{ const _o = lvOpen; lvOpen = function(id){ const r0 = _o.apply(this, arguments); const r = lvDoc(id);
+    if(r && lvNoHr(r) && !lvIsDirect(r)){ const body = el('modalBody'); if(body){
+        const hrDone = r.hr?.action==='endorsed';
+        if(!hrDone){ body.querySelectorAll('.lv-steps > div').forEach(d=>{ if(/HR review/.test(d.textContent)) d.remove(); }); body.querySelectorAll('.lv-sigs .lv-sig').forEach(c=>{ if(/HR representative/.test(c.querySelector('.hint')?.textContent||'')) c.remove(); }); }
+        const st = body.querySelector('.lv-steps'); if(st && !body.querySelector('.lvf-note')) st.insertAdjacentHTML('afterend', `<div class="hint lvf-note" style="margin:-6px 0 10px">Declared employee: the leadership approves — HR review is only for VAs.</div>`); } }
+    if(pvLive() && r && (Date.now() - (LVF_SEEN[id]||0)) > 8000){ LVF_SEEN[id] = Date.now(); const before = JSON.stringify(r);
+      lvRefetch(id).then(x=>{ if(x && JSON.stringify(x)!==before && el('modal').classList.contains('open')) _o.call(this, id); }); }
+    return r0; }; }
+/* a refused leave save never stays on screen: reload the server's copy */
+{ const _fl = SYNC.flush.bind(SYNC); SYNC.flush = async function(){ const r = await _fl.apply(this, arguments);
+    try{ (DELIVERY?.refusedKeys ? [...DELIVERY.refusedKeys] : []).filter(k=>/^leave2\|/.test(k)).forEach(k=>{ const id = k.slice(7); if(!LVF_SEEN['r'+id] || Date.now()-LVF_SEEN['r'+id] > 20000){ LVF_SEEN['r'+id] = Date.now(); lvRefetch(id).then(()=>{ try{ RENDER[CURRENT]?.(); }catch(e){} }); } }); }catch(e){}
+    return r; }; }
+/* safety net for missed real-time messages: every 60 s, any leave change on the server since the last check */
+let LVF_SINCE = null;
+async function lvCatchUp(){
+  if(!pvLive() || !BACKEND?.sb || !PEOPLE[PERSON] || !SYNC?.ready) return;
+  try{ const since = LVF_SINCE || new Date(Date.now()-10*60e3).toISOString(); const now = new Date().toISOString();
+    const {data, error} = await BACKEND.sb.from('cc_records').select('collection,id,data,updated_at').in('collection', ['leave2','lvcal','lvsync']).gt('updated_at', since).limit(200);
+    if(error) return; LVF_SINCE = now; const rows = (data||[]).filter(x=>!SYNC.pending.has(SYNC.key(x.collection, x.id))).map(x=>({collection:x.collection, id:x.id, data:x.data}));
+    if(rows.length) SYNC.applyRemote(rows, []); }catch(e){} }
+setInterval(lvCatchUp, 60000);
 
 /* ===== t22_contentplus.js — Content Planning Hub, Content Board and ICP List updates (Nov 5 2026) =====
    CONTENT PLANNING HUB (the hub page gets a small add-on script — the hub itself, its data and the client portal's board
@@ -39077,6 +39155,8 @@ function prxDelete(){ const P0 = [...PRX.sel].map(id=>PROSPECTS.find(p=>p.id===i
 /* ===================== client access link ===================== */
 /* replaces the early check in t5b (declared again so it is the one that runs before the normal sign-in) */
 function cbEarly(){
+  const pv = /(?:^|[#&])cbv=([A-Za-z0-9_-]{4,40})(?:$|&)/.exec(location.hash||'');        /* a manager's view-only preview of a client link (t25) */
+  if(pv){ setTimeout(()=>{ CB.preview = true; cbBoot(pv[1], 'preview'); }, 0); return true; }
   let raw = location.hash || ''; try{ raw = decodeURIComponent(raw); }catch(e){}
   const pick = s => /(?:^|[#?&])cb=([A-Za-z0-9_-]{4,40})\.([A-Za-z0-9_-]{20,90})/.exec(s || '');
   let m = pick(raw) || pick(location.search);
@@ -39322,7 +39402,7 @@ function cbxStatus(p){ if(p.stage==='review' && p.rounds) return {t:'Updated · 
 /* a client colour that can carry white text (a white or very light brand colour falls back to the Cross Core amber-brown) */
 function cbxColor(h){ h = String(h||''); if(!/^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(h)) return '#B7791F'; if(h.length===4) h = '#'+[...h.slice(1)].map(x=>x+x).join('');
   const [r, g, b] = [1, 3, 5].map(i=>parseInt(h.slice(i, i+2), 16)/255); return (0.2126*r + 0.7152*g + 0.0722*b) > 0.72 ? '#B7791F' : h; }
-function cbxTile(p){ const c = CB.data?.client || {}; const name = p.brand || c.name || ''; const col = cbxColor(c.color);
+function cbxTile(p){ const c = CB.data?.client || {}; const name = p.brand || c.name || ''; const col = cbxColor(p.brandColor || c.color);
   const ini = String(name).split(/\s+/).filter(Boolean).slice(0, 2).map(w=>w[0]).join('').toUpperCase() || '•';
   const vid = p.module==='video' || /reel|video/i.test(p.type||''), des = p.module==='design' || /design|still|image|carousel|graphic/i.test(p.type||'');
   const canva = /canva\.(com|link)/i.test(String(p.outputLink||''));
@@ -39656,6 +39736,105 @@ function cpxManageList(){ const A = cphAccounts().filter(a=>CPH.sel==='all' || a
     pending:HUBDOCS.filter(d=>d.col==='feedback' && d.d?.viaClient && d.d?.status==='Pending' && d.acct===a.id).length})).filter(m=>m.brands || m.access); }
 { const _ha = cpxHubApi; cpxHubApi = function(){ return {..._ha.apply(this, arguments), openClassic:()=>go('tasks'), manage:cpxManageList, openBrands:id=>cphBrandsModal(id), openAccess:id=>cbAccessModal(id)}; }; }
 (function(){ const st = document.createElement('style'); st.textContent = `#v-cphub .cpx-slimhead{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin:0 0 8px}#v-cphub .cpx-slimhead h2{margin:0;font-size:20px}`; document.head.appendChild(st); })();
+
+/* ===================== Nov 10 · 3 — client portal: reliable loading, "View as client" ===================== */
+/* 1. a slow or failed load never ends on "We couldn't open this portal": the first load retries, and a refresh that
+      fails keeps what's on screen. Only a link that is really invalid (revoked, expired, wrong) shows that page. */
+if(CB.preview==null) CB.preview = false;
+{ const _api = cbApi; cbApi = async function(action, a={}){
+    if(CB.preview && ['act','note','fwrite'].includes(action)) return {ok:false, error:'This is a preview of the client’s portal — changes are turned off.'};
+    if(CB.preview && LIVE && !CB.sbPreview){ try{ if(!window.supabase) await loadScript('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js');
+        CB.sb = window.supabase.createClient(CC_CONFIG.SUPABASE_URL, CC_CONFIG.SUPABASE_ANON_KEY, {auth:{persistSession:true, autoRefreshToken:true}}); CB.sbPreview = true; }catch(e){} }   /* the manager's own sign-in */
+    if(action!=='load') return _api.call(this, action, a);
+    for(let i=0; ; i++){ const r = await _api.call(this, action, a);
+      const transient = r && r.ok===false && (r.net===true || r.net===false);          /* a server or network error, not "this link is not valid" */
+      if(!transient) return r;
+      if(CB.data) return {...r, net:true};                                             /* a background refresh: keep the portal as it is */
+      if(i>=3) return {ok:false, net:false, error:'Your portal is taking longer than usual to load. Please refresh this page in a minute — if it keeps happening, tell your Cross Core contact.'};
+      const box = document.querySelector('#cbApp .cb-load'); if(box) box.textContent = 'Still opening your portal — the server is busy, trying again…';
+      await new Promise(res=>setTimeout(res, [1500, 3000, 5000][i])); } }; }
+/* 2. "View as client": the client's PM and company heads open a link's portal from Client access, read-only */
+{ const _dl = cbDemoLink; cbDemoLink = async function(db){ if(!CB.preview) return _dl.apply(this, arguments);
+    const l = (db.cblinks||{})[CB.link]; if(!l || l.revoked || l.paused || new Date(l.expiresAt) <= new Date() || !(db.clients||{})[l.client]) return null;
+    return {...l, lastUsedAt:nowISO()}; }; }                                            /* demo: same checks, and a preview doesn't count as a visit */
+function cbxPreviewBar(){ if(!CB.preview || !CB.data) return; const main = document.querySelector('#cbApp .cb-main'); if(!main || main.querySelector('.cbx-pvbar')) return;
+  main.insertAdjacentHTML('afterbegin', `<div class="cbx-pvbar" role="status">👁 <span>Preview of <b>${esc(CB.data.me?.name || CB.data.link?.label || 'the client')}</b>’s portal — exactly what they see. Changes are turned off.</span><button type="button" onclick="window.close()">Close preview</button></div>`); }
+{ const _r = cbRender; cbRender = function(){ const r = _r.apply(this, arguments); cbxPreviewBar(); return r; }; }
+function cbxPreview(id){ window.open(cbBase() + '#cbv=' + encodeURIComponent(id), '_blank', 'noopener'); }
+{ const _t = cbTabReps; cbTabReps = function(){ return String(_t.apply(this, arguments)).replace(/<button class="btn" style="padding:3px 9px;font-size:12px" onclick="cbEditRep\('([^']+)'\)">Edit<\/button>/g,
+    (m, id)=>`<button class="btn" style="padding:3px 9px;font-size:12px" onclick="cbxPreview('${id}')" title="Open their portal exactly as they see it (view-only) to check it works">👁 View</button> ${m}`); }; }
+(function(){ const st = document.createElement('style'); st.textContent = `
+#cbApp .cbx-pvbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:10px clamp(16px,3vw,36px) 0;padding:9px 14px;border-radius:12px;background:#17140e;color:#fff;font:600 13px Inter,sans-serif}
+#cbApp .cbx-pvbar span{flex:1;min-width:200px}#cbApp .cbx-pvbar button{border:0;border-radius:99px;padding:6px 12px;font:700 12.5px Inter,sans-serif;cursor:pointer;background:#F2B440;color:#2a1d04}
+body.cb-mode.cbx-pv .cbf-frame{outline:3px solid #F2B440;outline-offset:-3px}`; document.head.appendChild(st); })();
+
+/* ===================== Nov 10 · 4 — the Overview, in order of importance ===================== */
+/* Waiting for your review is one list, most important first:
+     1. updated after your feedback (round 2, 3 …)   2. posting within 2 days (or overdue)
+     3. Graphics, then Caption + graphics, then Caption & topic   4. the earliest post date
+   Each card wears its brand's colour and a clear phase tag. What's with the team and what's done are short lists. */
+{ const _po = cbPostOut; cbPostOut = function(t, c, thread){ const p = _po.apply(this, arguments); p.brandColor = ((c?.hubBrands||[]).find(b=>b.id===t.hubBrand)||{}).color || null; return p; }; }
+const CBX_PH = {graphics:{l:'Graphics', i:'🎨', c:'g', r:0}, both:{l:'Caption + graphics', i:'🧩', c:'b', r:1}, caption:{l:'Caption & topic', i:'✍️', c:'c', r:2}};
+function cbxDays(d){ const t = new Date(); t.setHours(0, 0, 0, 0); const x = new Date(String(d).slice(0, 10)+'T00:00:00'); return isNaN(x) ? 99 : Math.round((x - t)/864e5); }
+function cbxWhen(p){ const n = cbxDays(p.date);
+  if(n < 0) return {t:`Overdue · ${cbFmt(p.date)}`, c:'od'}; if(n === 0) return {t:'Posts today', c:'hot'}; if(n === 1) return {t:'Posts tomorrow', c:'hot'}; if(n === 2) return {t:'Posts in 2 days', c:'hot'};
+  return {t:cbFmt(p.date), c:''}; }
+function cbxRank(p){ const n = cbxDays(p.date); return [p.rounds ? 0 : 1, n <= 2 ? 0 : 1, (CBX_PH[p.phase||'both']||CBX_PH.both).r, n]; }
+const cbxCmp = (a, b) => { const A = cbxRank(a), B = cbxRank(b); for(let i=0; i<A.length; i++){ if(A[i]!==B[i]) return A[i]-B[i]; } return String(a.title).localeCompare(String(b.title)); };
+/* no image yet: a calm tile in the brand's colour (the brand and type are on the card already) */
+function cbxTile(p){ const c = CB.data?.client || {}; const name = p.brand || c.name || ''; const col = cbxColor(p.brandColor || c.color);
+  const ini = String(name).split(/\s+/).filter(Boolean).slice(0, 2).map(w=>w[0]).join('').toUpperCase() || '•';
+  const canva = /canva\.(com|link)/i.test(String(p.outputLink||''));
+  return `<div class="cbx-tile cbx-tile2" style="--c:${col}"><span class="cbx-ini" aria-hidden="true">${esc(ini)}</span>${canva?'<em>Canva design — open to preview</em>':''}</div>`; }
+function cbCard(p, showMod){ const s = cbxStatus(p), w = cbxWhen(p), ph = CBX_PH[p.phase||'both'] || CBX_PH.both, cl = p.brand || CB.data?.client?.name || '', col = cbxColor(p.brandColor || CB.data?.client?.color);
+  return `<article class="cb-card cbx-card cbx-v2" style="--bc:${col}" data-cbxcard="${esc(p.id)}" tabindex="0" role="button" aria-label="${esc(p.title)} — ${esc(cl)} — ${esc(ph.l)} — ${esc(s.t)}" onclick="cbOpenPost('${esc(p.id)}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();cbOpenPost('${esc(p.id)}')}">
+    <div class="cb-thumb">${cbThumb(p)}</div>
+    <div class="cb-cbody"><div class="cbx-tags"><span class="cbx-brand">${esc(cl)}</span><span class="cbx-phase ${ph.c}">${ph.i} ${esc(ph.l)}</span></div>
+      <h3>${esc(p.title)}</h3>
+      <div class="cbx-row2"><span class="cbx-when ${w.c}">${esc(w.t)}</span>${p.rounds && p.stage==='review' ? `<span class="cbx-upd">↻ Updated · round ${p.rounds+1}</span>` : p.stage==='review' ? '' : `<span class="badge ${s.c}">${esc(s.t)}</span>`}</div>
+      <div class="cbx-meta2">${esc([p.platforms, p.type].filter(Boolean).join(' · ') || '—')}</div></div></article>`; }
+function cbxRow(p){ const ph = CBX_PH[p.phase||'both'] || CBX_PH.both, s = cbxStatus(p), col = cbxColor(p.brandColor || CB.data?.client?.color);
+  return `<button type="button" class="cbx-lrow" data-cbxcard="${esc(p.id)}" style="--bc:${col}" onclick="cbOpenPost('${esc(p.id)}')"><i aria-hidden="true"></i><b>${esc(p.title)}</b><span class="cbx-phase ${ph.c} sm">${esc(ph.l)}</span><small>${esc(p.brand || '')}${p.brand?' · ':''}${esc(cbFmt(p.date))}</small><span class="badge ${s.c}">${esc(s.t)}</span></button>`; }
+CBX.showDone = false;
+function cbOverview(){
+  const d = CB.data, P = cbPosts(), nm = d.me.name ? d.me.name.split(' ')[0] : '', role = cbRole();
+  const need = P.filter(p=>p.stage==='review').sort(cbxCmp), team = P.filter(p=>p.stage==='revision').sort((a, b)=>String(a.date).localeCompare(String(b.date)));
+  const last = p => [...(p.history||[]).map(h=>h.at), ...(p.thread||[]).map(m=>m.at)].filter(Boolean).sort().pop() || p.date || '';
+  const done = P.filter(p=>['approved', 'scheduled', 'published'].includes(p.stage)).sort((a, b)=>String(last(b)).localeCompare(String(last(a))));
+  const hot = need.filter(p=>cbxDays(p.date) <= 2).length, upd = need.filter(p=>p.rounds).length;
+  const kpi = (n, l, c) => `<div class="cbx-k ${c||''}"><b>${n}</b><span>${l}</span></div>`;
+  const doneL = CBX.showDone ? done : done.slice(0, 5);
+  return `<div class="cbx-ov"><div class="cbx-hi"><div><h2>Hello${nm?', '+esc(nm):''} 👋</h2><p>${need.length ? (role!=='viewer' ? 'Here’s what needs your review, most important first.' : 'Here’s what’s waiting for review.') : 'You’re all caught up.'}</p></div>
+      <div class="cbx-ks">${kpi(need.length, 'to review', need.length?'on':'')}${upd?kpi(upd, 'updated for you', 'upd'):''}${hot?kpi(hot, 'post within 2 days', 'hot'):''}${kpi(team.length, 'with the team')}${kpi(done.length, 'done')}</div></div>
+    <section class="cbx-sec" id="cbx-review"><div class="cbx-sh"><h3>Waiting for your review <i>${need.length}</i></h3><p>Updated posts first, then anything posting within 2 days · Graphics before Caption &amp; topic</p></div>
+      ${need.length ? `<div class="cb-grid cbx-grid">${need.map(p=>cbCard(p)).join('')}</div>` : `<div class="cb-empty">🎉 Nothing is waiting for your review right now.</div>`}</section>
+    <div class="cbx-two">
+      <section class="cbx-panel"><div class="cbx-sh"><h3>With the team <i>${team.length}</i></h3><p>Changes you asked for — they come back to you when ready</p></div>${team.length ? team.map(cbxRow).join('') : '<div class="cb-dim">Nothing with the team right now.</div>'}</section>
+      <section class="cbx-panel"><div class="cbx-sh"><h3>Recently done <i>${done.length}</i></h3><p>Approved, scheduled and posted</p></div>${done.length ? doneL.map(cbxRow).join('') + (done.length > 5 ? `<button type="button" class="cbx-more" onclick="CBX.showDone=!CBX.showDone;cbRender()">${CBX.showDone ? 'Show less' : `Show all ${done.length}`}</button>` : '') : '<div class="cb-dim">Nothing yet.</div>'}</section>
+    </div></div>`; }
+(function(){ const st = document.createElement('style'); st.textContent = `
+#cbApp .cbx-ov{display:flex;flex-direction:column;gap:18px}
+#cbApp .cbx-hi{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap}#cbApp .cbx-hi h2{font:700 22px Sora,sans-serif;margin:0 0 2px}#cbApp .cbx-hi p{margin:0;color:var(--dim);font-size:14px}
+#cbApp .cbx-ks{display:flex;gap:8px;flex-wrap:wrap}#cbApp .cbx-k{background:#fff;border:1px solid var(--line);border-radius:14px;padding:8px 14px;min-width:92px;display:flex;flex-direction:column;align-items:flex-start}
+#cbApp .cbx-k b{font:800 22px Sora,sans-serif;line-height:1.1}#cbApp .cbx-k span{font-size:11.5px;color:var(--dim);font-weight:600}
+#cbApp .cbx-k.on b{color:#8a5a06}#cbApp .cbx-k.upd{border-color:#f0d9a6;background:#fff8e8}#cbApp .cbx-k.upd b{color:#8a5a06}#cbApp .cbx-k.hot{border-color:#f5c2bd;background:#fff3f1}#cbApp .cbx-k.hot b{color:#b3261e}
+#cbApp .cbx-sec{margin:0}#cbApp .cbx-grid{grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px}
+#cbApp .cbx-v2{border-top:4px solid var(--bc);display:flex;flex-direction:column}#cbApp .cbx-v2 .cb-thumb{aspect-ratio:16/7}#cbApp .cbx-v2 .cb-cbody{display:flex;flex-direction:column;gap:6px;padding:11px 14px 13px;flex:1}
+#cbApp .cbx-v2 h3{margin:0;font:700 15px Sora,sans-serif;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:2.6em}
+#cbApp .cbx-tags{display:flex;gap:6px;flex-wrap:wrap;align-items:center}#cbApp .cbx-brand{background:var(--bc);color:#fff;font:700 11px Inter,sans-serif;border-radius:6px;padding:3px 8px;max-width:60%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#cbApp .cbx-phase{font:800 12.5px Inter,sans-serif;border-radius:99px;padding:3px 11px;border:1.5px solid}#cbApp .cbx-phase.g{background:#FCE7F3;color:#9D174D;border-color:#F9A8D4}#cbApp .cbx-phase.c{background:#EEF2FF;color:#3730A3;border-color:#C7D2FE}#cbApp .cbx-phase.b{background:#F1F5F9;color:#334155;border-color:#CBD5E1}
+#cbApp .cbx-phase.sm{font-size:10.5px;padding:1px 8px}
+#cbApp .cbx-row2{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:auto}#cbApp .cbx-when{font:700 12px Inter,sans-serif;color:#4b463c;background:#f4efe3;border-radius:6px;padding:3px 8px}
+#cbApp .cbx-when.hot{background:#FEF3C7;color:#92400E}#cbApp .cbx-when.od{background:#FDE2E0;color:#B3261E}#cbApp .cbx-upd{font:800 11.5px Inter,sans-serif;color:#7a4f06;background:#fff1d1;border:1px solid #f0d9a6;border-radius:99px;padding:2px 9px}
+#cbApp .cbx-meta2{font-size:12px;color:var(--dim)}
+#cbApp .cbx-two{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start}
+#cbApp .cbx-tile2{flex-direction:row;gap:10px}#cbApp .cbx-tile2 .cbx-ini{width:52px;height:52px;font-size:18px;border-radius:14px}#cbApp .cbx-panel{background:#fff;border:1px solid var(--line);border-radius:16px;padding:12px 14px}#cbApp .cbx-panel .cbx-sh{margin-bottom:6px}
+#cbApp .cbx-lrow{display:grid;grid-template-columns:6px minmax(0,1fr) auto;grid-template-areas:"i t p" "i s b";gap:2px 10px;align-items:center;width:100%;text-align:left;border:0;background:none;padding:8px 6px;border-radius:10px;cursor:pointer;border-bottom:1px solid #f1ebdd}
+#cbApp .cbx-lrow:last-of-type{border-bottom:0}#cbApp .cbx-lrow:hover,#cbApp .cbx-lrow:focus-visible{background:#faf6ec;outline:none}
+#cbApp .cbx-lrow i{grid-area:i;align-self:stretch;border-radius:3px;background:var(--bc)}#cbApp .cbx-lrow b{grid-area:t;font:700 13.5px Inter,sans-serif;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#cbApp .cbx-lrow .cbx-phase{grid-area:p;justify-self:end}#cbApp .cbx-lrow small{grid-area:s;color:var(--dim);font-size:12px}#cbApp .cbx-lrow .badge{grid-area:b;justify-self:end}
+#cbApp .cbx-more{margin-top:6px;border:0;background:none;color:#8a5a06;font:700 12.5px Inter,sans-serif;cursor:pointer;padding:4px 6px}
+@media(max-width:900px){#cbApp .cbx-two{grid-template-columns:1fr}#cbApp .cbx-hi{align-items:flex-start}}`; document.head.appendChild(st); })();
 
 /* ===== t26_contracts.js — Contracts: paste → formatted contract → personal details → e-sign (Nov 6 2026) =====
    HR, company heads and department heads paste a contract (from Word, Google Docs or an email). Ops Suite formats it —
@@ -40405,6 +40584,7 @@ function ctRemind(id){
       .forEach(a=>L.push({id:a.id, person:a.id, name:a.name||a.id, sub:'Applicant'+(a.position?' — '+a.position:''), group:'Applicants', status:'Applicant', color:'#6C3BC9'}));
     return L; }; }
 
+
 /* ===== t27_endcontract.js — End / reopen a client contract without timeouts (Nov 6 2026) =====
    The database now re-scopes a client's records in rounds of at most ~4 seconds (supabase/update-nov06-end-contract-speed.sql)
    and reports how many are left. The portal keeps going until none are left, and a company head's or HR's portal finishes
@@ -40430,6 +40610,7 @@ async function ccRescopeResume(){
   }catch(e){ /* older database: nothing to resume */ }
 }
 setInterval(()=>{ if(typeof PERSON!=='undefined' && PERSON && !CC_RESCOPE_DONE) ccRescopeResume(); }, 20000);
+
 
 /* ===== t28_conn.js — the connection pill tells the truth (Nov 2026) =====
    "Offline" used to follow the live channel: the browser's 'offline' event (a Wi-Fi blip, sleep, VPN) or a live channel
@@ -40460,6 +40641,7 @@ async function connRetry(){
 }
 { const b = document.querySelector('#offBanner .btn'); if(b) b.setAttribute('onclick', 'connRetry()'); }
 
+
 /* ===== t29_roster.js — the client roster leaves ended contracts alone (Nov 9 2026) =====
    The roster is a fixed list of active clients. When a client on it has since had their contract ended, the review used to
    (1) plan a brand-new, empty client with the same name ("Add") and (2) tick the ended client — and all its records, kept for
@@ -40489,6 +40671,7 @@ function rsMarkEnded(){
     const r = await _hc.apply(this, arguments); const box = el('rsHidden');
     if(box){ RS_ENDED = [...box.querySelectorAll('label')].map(l=>({id:l.querySelector('input')?.value, name:l.querySelector('b')?.textContent})).filter(x=>x.id); rsMarkEnded(); }
     return r; }; }
+
 
 /* ===== t30_approvals.js — approvals without Norman; removing a pending approver (Nov 9 2026) =====
    People who no longer approve anything are listed once here (and in supabase/update-nov09-approvals.sql). They are never a
@@ -40525,6 +40708,7 @@ async function lvRemoveApprover(id, key){
           <button class="btn" style="padding:4px 10px;font-size:12px" onclick="lvRemoveApprover('${r.id}','${a.key}')">Remove from approvers</button></div>`).join('')}
         <div class="hint" style="margin-top:4px">If everyone left has already approved, the request is completed and stamped right away.</div></div></div>`); } }catch(e){ console.warn(e); }
     return res; }; }
+
 
 /* ===== t31_execapprove.js — the CEO or COO approves a leave / time-off request directly (Nov 12 2026) =====
    At any stage while a request is waiting for approval (HR, Project Manager or leadership), the CEO or the COO can approve
@@ -40575,6 +40759,983 @@ async function lvExecFinish(id, note=''){
         <button class="btn primary" onclick="lvExecStart('${r.id}')">✍️ Sign & approve now</button></div></div>`);
     } }catch(e){ console.warn('executive approval', e); }
     return res; }; }
+
+
+/* ===== t26_recdocs_sync.js — updated contracts carry the updated details (Nov 11 2026) =====
+   THE BUG: the contract text is filled from the details (position, employment type, start date, compensation, reports to,
+   offer valid until) only when the document is first opened. Changing a detail afterwards — and always when issuing an
+   updated version with "Revise" — saved the new detail but left the OLD value in the text, so the updated contract that
+   reached the applicant's portal still showed, e.g., the old compensation. The old, replaced version also still had a
+   "Review & sign" button in the applicant portal.
+   NOW: changing a detail updates the text at once (and says so under the details); sending checks that every detail is in
+   the text; updated versions already sent with old values are corrected automatically (unsigned ones only — HR, the COO
+   and the person who prepared it see a note on signed ones); the applicant portal shows only the latest version. */
+const RDF_KEYS = ['position','emptype','start','pay','supervisor','validuntil'];
+const RDF_LABEL = {position:'Position', emptype:'Employment type', start:'Start date', pay:'Compensation', supervisor:'Reports to', validuntil:'Offer valid until'};
+const rdfFmt = (k, v) => !v ? '' : (k==='start' || k==='validuntil') ? dstr(v) : String(v).trim();
+const rdfEsc = s => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+/* where a value sits in each template, for values that appear more than once with the same text (e.g. same start and valid-until date) */
+const RDF_CTX = {start:['Start date:\\s*','starts on ','starting ','Employment starts on '], validuntil:['valid until ','Offer valid until:\\s*']};
+/* replace one value: as a whole phrase (not inside a longer word); `ctx` limits it to the places that detail is written */
+function rdfSwap(b, o, n, ctx){
+  const B = '(^|[^A-Za-z0-9])', A = '(?![A-Za-z0-9])';
+  if(ctx){ let hit = false; ctx.forEach(c=>{ const re = new RegExp('(' + c + ')' + rdfEsc(o) + A, 'g'); b = b.replace(re, (m, p)=>{ hit = true; return p + n; }); }); return {b, hit}; }
+  const re = new RegExp(B + rdfEsc(o) + A, 'g'); let hit = false; b = b.replace(re, (m, p)=>{ hit = true; return p + n; }); return {b, hit};
+}
+/* the text with every changed detail updated: old value → new value, or {placeholder} → new value */
+function rdApplyFields(body, oldF, newF){
+  let b = String(body||''); const changed = [], missed = [];
+  const olds = Object.fromEntries(RDF_KEYS.map(k=>[k, rdfFmt(k, oldF?.[k])]));
+  RDF_KEYS.forEach(k=>{
+    const o = olds[k], n = rdfFmt(k, newF?.[k]); if(o===n) return;
+    if(n && b.includes(`{${k}}`)){ b = b.split(`{${k}}`).join(n); changed.push(k); return; }
+    if(!o){ if(n && k!=='supervisor') missed.push(k); return; }
+    if(!n){ if(k==='supervisor'){ const t = rdNoSup(b.split(o).join('{supervisor}')); if(t!==b){ b = t; changed.push(k); } } else missed.push(k); return; }
+    const shared = RDF_KEYS.some(j=>j!==k && olds[j]===o);
+    const r = rdfSwap(b, o, n, shared ? RDF_CTX[k] : null);
+    if(r.hit){ b = r.b; changed.push(k); } else missed.push(k);
+  });
+  return {body:b, changed, missed};
+}
+/* details that are filled in but not written anywhere in the text (only those the template for this type uses) */
+function rdfNotInText(type, body, f){
+  const tpl = String(RD_TPL[type]||''); const b = String(body||'');
+  return RDF_KEYS.filter(k=>tpl.includes(`{${k}}`) && k!=='emptype').filter(k=>{ const v = rdfFmt(k, f?.[k]); return v && !b.includes(v); });
+}
+
+/* ---------- the editor: details and text stay in step ---------- */
+function rdfNote(html){ let n = el('rdfNote'); if(!n){ const g = el('rdValid')?.closest('.grid'); if(!g) return; g.insertAdjacentHTML('afterend', '<div id="rdfNote" class="hint" style="margin:-4px 0 10px"></div>'); n = el('rdfNote'); } n.innerHTML = html || ''; }
+function rdfOnDetail(){
+  const E = RD.edit; const tb = el('rdBody'); if(!E || !tb) return;
+  const now = rdFields(); const r = rdApplyFields(tb.value, E.base || now, now);
+  if(r.body!==tb.value) tb.value = r.body;
+  E.base = now;
+  const parts = [];
+  if(r.changed.length) parts.push(`<span style="color:var(--ok,#1a7f4b)">✓ Updated in the text: ${r.changed.map(k=>RDF_LABEL[k]).join(', ')}</span>`);
+  const miss = rdfNotInText(el('rdType').value, tb.value, now);
+  if(miss.length) parts.push(`<span style="color:var(--bad)">⚠ Not in the text yet: ${miss.map(k=>`${RDF_LABEL[k]} (${esc(rdfFmt(k, now[k]))})`).join(', ')} — edit the text or use “↻ Fill the template”.</span>`);
+  if(parts.length || /Not in the text/.test(el('rdfNote')?.textContent||'')) rdfNote(parts.join(' · '));
+}
+function rdfWire(){
+  const E = RD.edit; if(!E || !el('rdEditor')) return;
+  E.base = rdFields();
+  ['rdPos','rdEmp','rdStart','rdPay','rdSup','rdValid'].forEach(id=>{ const x = el(id); if(x && !x.dataset.rdf){ x.dataset.rdf = '1'; x.addEventListener('change', rdfOnDetail); } });
+  el('rdBody')?.addEventListener('input', ()=>{ const miss = rdfNotInText(el('rdType').value, el('rdBody').value, rdFields()); if(!miss.length && /Not in the text/.test(el('rdfNote')?.textContent||'')) rdfNote(''); });
+  const d = E.id ? HRDOCS.find(x=>x.id===E.id) : null;
+  if(d?.prevVersion) rdfNote('Updated version: change any detail above and the text below changes with it. Check the text before sending.');
+  const miss = rdfNotInText(el('rdType').value, el('rdBody').value, E.base);
+  if(miss.length) rdfOnDetail();
+}
+{ const _e = rdEdit; rdEdit = function(){ const r = _e.apply(this, arguments); try{ rdfWire(); }catch(e){ console.warn('rdf', e); } return r; }; }
+{ const _t = rdTypeChange; rdTypeChange = function(){ const r = _t.apply(this, arguments); try{ if(RD.edit) RD.edit.base = rdFields(); rdfNote(''); }catch(e){} return r; }; }
+{ const _f = rdRefill; rdRefill = function(){ const r = _f.apply(this, arguments); try{ if(RD.edit) RD.edit.base = rdFields(); rdfNote(''); }catch(e){} return r; }; }
+/* saving / sending: the latest details are always applied first; sending stops if a detail is still missing from the text */
+{ const _s = rdSave; rdSave = function(send){
+    try{ if(el('rdBody') && RD.edit){ rdfOnDetail();
+      const miss = rdfNotInText(el('rdType').value, el('rdBody').value, rdFields());
+      if(send && miss.length && !confirm(`The document text doesn’t show: ${miss.map(k=>`${RDF_LABEL[k]} (${rdfFmt(k, rdFields()[k])})`).join(', ')}.\n\nSend it anyway?`)) return; } }catch(e){ console.warn('rdf save', e); }
+    return _s.apply(this, arguments); }; }
+
+/* ---------- versions already sent with the old values ---------- */
+function rdfStale(d){
+  if(!d?.rec || !d.prevVersion) return null; const p = HRDOCS.find(x=>x.id===d.prevVersion); if(!p?.rec?.fields) return null;
+  const oldF = p.rec.fields, newF = d.rec.fields||{}, b = String(d.body||'');
+  /* only details that changed and whose new value isn't already in the text (someone may have typed it in by hand) */
+  const keys0 = RDF_KEYS.filter(k=>{ const o = rdfFmt(k, oldF[k]), n = rdfFmt(k, newF[k]); return o!==n && (n ? !b.includes(n) : b.includes(o)); });
+  if(!keys0.length) return null;
+  const pick = {...oldF}; keys0.forEach(k=>pick[k] = newF[k]);
+  const r = rdApplyFields(b, oldF, pick);
+  return r.changed.length ? {body:r.body, keys:r.changed} : null;
+}
+let RDF_BUSY = false;
+async function rdfRepair(){
+  if(RDF_BUSY || !PEOPLE[PERSON] || typeof recCan!=='function' || !recCan() || (typeof SYNC!=='undefined' && (SYNC.applying || !SYNC.ready))) return;
+  RDF_BUSY = true; const fixed = [];
+  try{
+    rdDocs().forEach(d=>{
+      if(d.status!=='Sent' || d.supersededBy || !rdWaiting(d) || !rdCanManage(d)) return;
+      const s = rdfStale(d); if(!s) return;
+      const t = nowISO(); d.body = s.body; d.updatedAt = t; d.rdfFixed = t;
+      d.history = [...(d.history||[]), {at:t, by:PERSON, act:`Text updated to the revised details (${s.keys.map(k=>RDF_LABEL[k]).join(', ')}) — it still showed the old values`, note:''}];
+      fixed.push(d);
+    });
+    if(!fixed.length) return;
+    recordChange();
+    const keys = fixed.map(d=>mk('hrdocs', d.id)); const v = typeof avSaved==='function' ? await avSaved(keys) : {ok:true};
+    fixed.forEach(d=>{ const a = recApp(d.rec.app);
+      notify(d.rec.app, 'hr', `✍️ <b>${esc(d.title)}</b> now shows the updated details — please review it before signing`, {view: PEOPLE[d.rec.app]?.role==='applicant' ? 'appletters' : 'mydocs', doc:d.id});
+      if(a) recTouch(a, `${d.kind} text updated to the revised details: ${d.title}`); });
+    recordChange();
+    toast(`${fixed.length} updated contract${fixed.length>1?'s':''} now show${fixed.length>1?'':'s'} the revised details in the applicant portal${v.ok?'':' (saving — it will keep retrying)'}`);
+    if(CURRENT==='recruit') RENDER.recruit();
+  }catch(e){ console.warn('rdf repair', e); } finally { RDF_BUSY = false; }
+}
+setTimeout(rdfRepair, 4000); setInterval(rdfRepair, 60e3);
+{ const _ore = onRemoteEvent; let t = 0; onRemoteEvent = function(ev){ _ore.apply(this, arguments); if(ev?.coll==='hrdocs'){ clearTimeout(t); t = setTimeout(rdfRepair, 1500); } }; }
+
+/* a signed (or otherwise unchangeable) document whose text doesn't show its details gets a clear note for staff */
+function rdfMismatch(d){ if(!d?.rec || d.status==='Draft' || d.status==='Cancelled' || d.supersededBy) return [];
+  return rdfNotInText(d.rec.type, d.body, d.rec.fields); }
+{ const _b = rdBadge; rdBadge = function(d){ const h = _b.apply(this, arguments); try{ const m = rdfMismatch(d);
+      if(m.length) return h + ` <span class="badge b-missed" title="The text doesn’t show: ${esc(m.map(k=>RDF_LABEL[k]+' '+rdfFmt(k, d.rec.fields[k])).join(', '))}">⚠ Text doesn’t match the details${rdDone(d)?' — use Revise':''}</span>`; }catch(e){} return h; }; }
+
+/* ---------- applicant / employee portal: only the latest version can be signed ---------- */
+const rdfHidden = d => !!d && (d.status==='Cancelled' || (d.supersededBy && !(esNeeds(d) ? esSig(d.id) : docRead(d.id)?.ackAt)));
+function rdfWithVisible(fn, self, args){ const all = HRDOCS, shown = all.filter(d=>!rdfHidden(d)); HRDOCS = shown; try{ return fn.apply(self, args); } finally { if(HRDOCS===shown) HRDOCS = all; } }
+{ const _al = RENDER.appletters; RENDER.appletters = function(){ return isApplicant() ? rdfWithVisible(_al, this, arguments) : _al.apply(this, arguments); }; }
+{ const _ap = appPills; appPills = function(){ return isApplicant() ? rdfWithVisible(_ap, this, arguments) : _ap.apply(this, arguments); }; }
+
+/* ===== t27_recdocs_nav.js — Contracts & e-signature is easy to find (Nov 11 2026) =====
+   The contract / job offer / Service Contract Agreement section lived only as the 6th tab inside Recruitment (easy to miss,
+   off-screen on a phone) and on an applicant's profile only after orientation was marked complete. Now:
+   • its own menu item "Contracts & e-signature" (HR, company heads, COO) — the full tracker with "+ Prepare document";
+   • on every applicant profile the section is the first thing under the name, open from the Orientation stage onward;
+   • shortcuts on Recruitment → Overview, Onboarding & Job Orders and HR Documents. */
+(function(){
+  const icon = (typeof I!=='undefined' && I.doc) || 'M6 3h9l3 3v15H6zM9 10h6M9 14h6M9 18h4';
+  const at = NAV.findIndex(n=>n.id==='recruit');
+  if(!NAV.some(n=>n.id==='recdocs')) NAV.splice(at>=0 ? at+1 : NAV.length, 0, {id:'recdocs', name:'Contracts & e-signature', roles:['hr','ceo','coo','creative'], ico:icon});
+  if(!el('v-recdocs')){ const v = document.createElement('div'); v.id = 'v-recdocs'; v.className = 'view'; (el('v-recruit')||document.querySelector('.content .view:last-child'))?.after(v); }
+})();
+{ const _na = navAllowed; navAllowed = function(n){ if(n?.id==='recdocs') return ROLE!=='client' && !(typeof isApplicant==='function' && isApplicant()) && typeof recCan==='function' && recCan(); return _na.apply(this, arguments); }; }
+RENDER.recdocs = function(){
+  const v = el('v-recdocs'); if(!v) return;
+  if(!recCan()){ v.innerHTML = '<div class="empty">Only HR, the company heads and the COO can prepare contracts.</div>'; return; }
+  v.innerHTML = `<div class="page-head"><div><h2>Contracts & e-signature</h2><p>Prepare an employment contract, Service Contract Agreement, job offer (JO), Job Order or letter, send it straight to the applicant’s portal for e-signature, and track it until it is saved to the 201 file.</p></div></div>
+    <div id="recBodyDocs">${rdTabHTML()}</div>`;
+};
+/* filters and actions inside the tracker re-render whichever page is showing it */
+{ const _r = RENDER.recruit; RENDER.recruit = function(){ if(CURRENT==='recdocs') return RENDER.recdocs(); return _r.apply(this, arguments); }; }
+{ const _ore = onRemoteEvent; let t = 0; onRemoteEvent = function(ev){ _ore.apply(this, arguments);
+    if(CURRENT==='recdocs' && ['hrdocs','esign','docreads','hrfiles','applicants'].includes(ev?.coll)){ clearTimeout(t); t = setTimeout(()=>{ if(!el('modal').classList.contains('open') && document.activeElement?.id!=='rdSearch') RENDER.recdocs(); }, 900); } }; }
+{ const _b = rdBack; rdBack = function(){ const r = _b.apply(this, arguments); if(CURRENT==='recdocs') setTimeout(()=>RENDER.recdocs(), 80); return r; }; }
+/* the search box keeps focus when the tracker re-renders on its own page */
+{ const _r2 = RENDER.recdocs; RENDER.recdocs = function(){ const f = document.activeElement?.id==='rdSearch'; const r = _r2.apply(this, arguments); if(f){ const i = el('rdSearch'); if(i){ i.focus(); i.setSelectionRange(i.value.length, i.value.length); } } return r; }; }
+
+/* open from the Orientation stage onward (not only after it is marked complete) */
+{ const _el = rdEligible; rdEligible = function(a){ if(_el.apply(this, arguments)) return true;
+    return !!a && recVisible(a) && !['rejected','withdrawn'].includes(a.status) && recStageIx(a.stage) >= recStageIx('orientation'); }; }
+
+/* the applicant profile: the documents section sits right under the name */
+{ const _rv = recView; recView = function(id){ const r = _rv.apply(this, arguments);
+    try{ const v = el('recView'); const s = v && v.querySelector('#rdSec'); if(s){ const first = v.firstElementChild; if(first && first!==s){ first.after(s); s.style.border = '1px solid var(--line, #ddd)'; s.style.borderRadius = '10px'; s.style.padding = '10px 12px'; s.style.margin = '10px 0'; } } }catch(e){}
+    return r; }; }
+
+/* shortcuts: Recruitment Overview / Onboarding & Job Orders, HR Documents */
+const rdShortcut = (txt) => `<div class="card" id="rdShortcut" style="margin-bottom:16px;cursor:pointer;border-left:4px solid var(--accent, #3b6cf6)" onclick="go('recdocs')"><div class="card-h"><h3>📝 Contracts & e-signature</h3><span class="hint">Open →</span></div><div class="card-b hint" style="padding-top:0">${txt}</div></div>`;
+{ const _r3 = RENDER.recruit; RENDER.recruit = function(){ const r = _r3.apply(this, arguments);
+    try{ if(CURRENT==='recruit' && recCan() && !el('rdShortcut')){ const b = el('recBody'); const S = rdStats();
+        if(RCV.tab==='onboard') b?.insertAdjacentHTML('afterbegin', rdShortcut('Prepare and send an employment contract, Service Contract Agreement, job offer or letter directly to the applicant for e-signature — no COO approval needed. Signed copies go to the 201 file.'));
+        else if(RCV.tab==='overview' && !S.total) b?.insertAdjacentHTML('afterbegin', rdShortcut('Prepare a contract, Service Contract Agreement, job offer (JO), Job Order or letter for an applicant from the Orientation stage onward.')); } }catch(e){}
+    return r; }; }
+if(RENDER.hrdocs){ const _h = RENDER.hrdocs; RENDER.hrdocs = function(){ const r = _h.apply(this, arguments);
+    try{ if(recCan() && !el('rdShortcut')) el('v-hrdocs')?.querySelector('.page-head')?.insertAdjacentHTML('afterend', rdShortcut('Contracts and job offers for applicants and new hires (with e-signature) are prepared here.')); }catch(e){}
+    return r; }; }
+
+/* ===== t28_recdocs_old.js — contracts from before are listed too (Nov 11 2026) =====
+   Contracts sent to applicants BEFORE the Documents & e-signature section existed — the Employee agreement and Job Order
+   from Recruitment → Onboarding & Job Orders (COO approval → release for e-signing) and contracts / job offers issued from
+   HR Documents — are ordinary HR documents without the recruitment tag, so the new tracker did not list them. They now show
+   in "Contracts & e-signature" (and on the applicant's profile) with their signature status, View signed and PDF. Nothing
+   about those documents changes. */
+const RDO_KIND = /contract|agreement|job offer|job order|\bJO\b|offer letter|employment letter/i;
+function rdoApp(d){
+  const k = (d.sentTo||[]).find(x=>recApp(x)); if(k) return k;
+  const a = APPLICANTS.find(a=>{ const o = recOb(a.id); return o && (o.agreementDoc===d.id || o.joDoc===d.id); }); if(a) return a.id;
+  if(d.jo?.va && recApp(d.jo.va)) return d.jo.va;
+  return null;
+}
+function rdoDocs(app){
+  return HRDOCS.filter(d=>!d.rec && (d.onboard || d.jo || RDO_KIND.test(d.kind||'') || RDO_KIND.test(d.title||'')))
+    .map(d=>({d, app:rdoApp(d)})).filter(x=>x.app && (!app || x.app===app))
+    .sort((x,y)=>(y.d.sentAt||y.d.updatedAt||y.d.at||'').localeCompare(x.d.sentAt||x.d.updatedAt||x.d.at||''));
+}
+function rdoState(d, app){
+  if(d.status==='Cancelled') return ['Cancelled','b-missed'];
+  if(esNeeds(d)){ const s = esSig(d.id, app); if(s) return [HRFILES.some(f=>f.id===`HF-ES-${s.id}`) ? 'Signed · in 201 file' : 'Signed', 'b-approved']; }
+  else if(docRead(d.id, app)?.ackAt) return ['Acknowledged','b-approved'];
+  if(d.supersededBy) return ['Replaced by a newer version','b-draft'];
+  if(['Sent','Published'].includes(d.status) && (d.sentTo||[]).includes(app)) return [esNeeds(d) ? 'Awaiting signature' : 'Awaiting acknowledgment', 'b-pending'];
+  if(d.status==='Submitted') return ['Waiting for COO approval','b-pending'];
+  if(d.status==='Approved') return ['Approved · not released yet','b-pending'];
+  if(d.status==='Revisions Needed') return ['Revisions needed','b-missed'];
+  return [d.status||'Draft','b-draft'];
+}
+function rdoActions(d, app){
+  const B = (cls, js, txt) => `<button class="btn ${cls}" style="padding:4px 10px;font-size:12px" onclick="event.stopPropagation();${js}">${txt}</button>`;
+  const s = esNeeds(d) && esSig(d.id, app); const out = [];
+  if(s) out.push(B('', `esViewSigned('${s.id}')`, 'View signed'), B('', `esDownload('${s.id}')`, '⬇ PDF'));
+  out.push(B('ghost', `openHrDoc('${d.id}')`, 'Open'));
+  if(d.onboard || recOb(app)) out.push(B('ghost', `closeModal();go('recruit');RCV.tab='onboard';RENDER.recruit();setTimeout(()=>recView('${app}'),80)`, 'Onboarding →'));
+  return out.join('');
+}
+const rdoSource = d => d.onboard || d.jo ? 'Onboarding & Job Orders' : 'HR Documents';
+function rdoTableHTML(){
+  const L = rdoDocs(); if(!L.length) return '';
+  return `<div class="card" id="rdoCard" style="margin-top:16px"><div class="card-h"><h3>Contracts from before <span class="hint">· sent from Onboarding & Job Orders or HR Documents (${L.length})</span></h3></div>
+    <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Applicant / employee</th><th>Document</th><th>From</th><th>Sent</th><th>Status</th><th></th></tr></thead><tbody>
+    ${L.map(({d, app})=>{ const a = recApp(app); const [l, c] = rdoState(d, app); return `<tr style="cursor:pointer" onclick="openHrDoc('${d.id}')"><td><b>${esc(a?.name||pname(app))}</b><div class="hint">${esc(a?REC_STAGE[a.stage]||a.stage:'')}</div></td>
+      <td><b>${esc(d.title)}</b><div class="hint">${esc(d.kind||'')}${(d.version||1)>1?' · v'+d.version:''}</div></td><td>${esc(rdoSource(d))}</td><td>${d.sentAt?esc(dtstr(d.sentAt)):'—'}</td>
+      <td><span class="badge ${c}">${esc(l)}</span></td><td><div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">${rdoActions(d, app)}</div></td></tr>`; }).join('')}</tbody></table></div></div>`;
+}
+/* the Contracts & e-signature page and the Recruitment → Documents tab */
+{ const _t = rdTabHTML; rdTabHTML = function(){ return _t.apply(this, arguments) + rdoTableHTML(); }; }
+/* the applicant profile */
+{ const _p = rdProfileHTML; rdProfileHTML = function(a){ let h = _p.apply(this, arguments); const L = rdoDocs(a.id); if(!L.length) return h;
+    const rows = L.map(({d, app})=>{ const [l, c] = rdoState(d, app); return `<div class="list-row" style="flex-wrap:wrap"><div style="flex:1;min-width:200px"><b style="font-size:12.5px;cursor:pointer" onclick="openHrDoc('${d.id}')">${esc(d.title)}</b> <span class="badge ${c}">${esc(l)}</span><div class="hint">${esc(d.kind||'')} · from ${esc(rdoSource(d))} · ${esc(dtstr(d.sentAt||d.at))}</div></div><div style="display:flex;gap:6px;flex-wrap:wrap">${rdoActions(d, app)}</div></div>`; }).join('');
+    return h.replace(/<\/div>$/, `<div class="hint" style="margin:10px 0 4px;font-weight:600">Sent before (Onboarding & Job Orders / HR Documents)</div>${rows}</div>`); }; }
+
+/* ===== t29_simassess.js — AI Website VA Onboarding: 3D simulation & knowledge check (Nov 13 2026) =====
+   Applicants walk through the 12-step CrossCore website workflow in a 3D office and must click the right
+   objects, screens and buttons themselves. 24 scored items, pass mark 80%, three attempts in total.
+   • Scoring happens on the server (supabase/update-nov13-simulation.sql): the answer key never reaches the
+     browser, each answer is scored the moment it is given and cannot be changed, and the result records
+     (simresults = one report per attempt, simstatus = current status) can only be written by the server.
+   • Applicant Portal: "3D Simulation" page — status, grade, remaining attempts, reports; notifications.
+   • HR / company heads / management: "Simulation assessments" page, a card on every applicant profile,
+     notifications for every result, approvals (HR + a company head) and an extra attempt after HR review.
+   • Activating the regular VA portal now requires an approved assessment for applicants who take it. */
+
+let SIMRESULTS = [], SIMSTATUS = [];
+COLL.simresults = {get:()=>SIMRESULTS, set:v=>SIMRESULTS=v, aud:r=>uniq([...recStaff(), r.person])};
+COLL.simstatus  = {get:()=>SIMSTATUS,  set:v=>SIMSTATUS=v,  aud:r=>uniq([...recStaff(), r.person])};
+
+const SIM = {name:'AI Website VA Onboarding', pass:80, max:3};
+const SIM_STEPS = ['Brief','Plan','Design','Prompt','Generate','Review','Data & forms','Test','Commit','Deploy','Domain','Hand over'];
+const SIM_ST = {not_started:['Not started','b-draft'], in_progress:['In progress','b-scheduled'], passed:['Assessment Passed — awaiting HR & Heads approval','b-approved'],
+  failed:['Failed — retake available','b-pending'], failed_hr_review:['Failed – HR Review Required','b-missed'], approved:['Approved for onboarding','b-approved'], declined:['Declined','b-missed']};
+const simStatusOf = k => SIMSTATUS.find(s=>s.id===k);
+const simReports = k => SIMRESULTS.filter(r=>r.person===k).sort((a,b)=>(a.attempt||0)-(b.attempt||0));
+const simNeeded = a => !!a && (a.track==='web' || !!a.simRequired || !!simStatusOf(a.id));
+const simStateKey = k => simStatusOf(k)?.status || 'not_started';
+const simBadge = k => { const [t, c] = SIM_ST[simStateKey(k)] || SIM_ST.not_started; return `<span class="badge ${c}">${esc(t)}</span>`; };
+const simRemaining = k => { const s = simStatusOf(k); if(!s) return SIM.max; if(['passed','approved'].includes(s.status)) return 0;
+  if(s.remaining!=null && s.status!=='in_progress') return s.remaining; return Math.max((s.maxAttempts||SIM.max) - (s.attempts||0), 0); };
+const simCanReview = () => ROLE==='hr' || isHead(PERSON) || isFullAccess();
+
+/* ---------- the 24 scored items (questions, required clicks); correct answers live only on the server ---------- */
+const SIM_ITEMS = [
+ {id:'q01', step:1, type:'mc', station:'overview', screen:'desktop', prompt:'A client asks for a wedding invitation site. Before you write a single prompt, what must you have?',
+  choices:[['domain','The final domain name, already bought'],['brief','A brief the client approved in writing'],['figma','A Figma design system'],['pro','A paid Vercel Pro plan']]},
+ {id:'q02', step:1, type:'obj', station:'stickies', screen:'brief', prompt:'Your notes are stuck to the monitor. Click the sticky note with the details you must copy EXACTLY as the client wrote them.',
+  objects:[['colour','A colour I like'],['names','Names, date & venue'],['logo','Competitor’s logo'],['font','A font I found online']]},
+ {id:'q03', step:2, type:'mc', station:'monitor', screen:'sheet0', prompt:'You are planning the RSVP form. Every field on the form must have…',
+  choices:[['vercel','Its own Vercel project'],['font','A different font'],['column','A matching column where its answer is stored'],['key','An API key']]},
+ {id:'q04', step:2, type:'click', station:'monitor', screen:'sheet', pre:'Open Google Sheets', prompt:'In the RSVP Sheet, click the column that should store the answer to “Will you attend?”',
+  targets:[['colA','A · Timestamp',[90,250,340,90]],['colB','B · Name',[440,250,340,90]],['colC','C · Attending',[790,250,340,90]],['colD','D · Dietary',[1140,250,340,90]]]},
+ {id:'q05', step:3, type:'mc', station:'monitor', screen:'claude0', prompt:'Which of these belongs in your style notes for the prompt?',
+  choices:[['bank','The client’s bank details'],['pw','Your Vercel password'],['style','Palette, fonts and motion (e.g. sage + cream, Cormorant, soft fade-in)'],['none','Nothing — Claude will guess the style']]},
+ {id:'q06', step:4, type:'click', station:'monitor', screen:'claude', pre:'Open Claude', prompt:'Read the prompt before you send it. Click the line that must NEVER be in a prompt.',
+  targets:[['ctx','CONTEXT: wedding invitation for Kiara & Marlo, Nov 26, 2026',[120,250,1360,74]],['task','TASK: one index.html with envelope, schedule, RSVP',[120,340,1360,74]],['key','KEY: sk-live-7f3c… (our OpenAI key, so it can test)',[120,430,1360,74]],['rules','RULES: mobile first, inline CSS/JS, images compressed',[120,520,1360,74]]]},
+ {id:'q07', step:4, type:'mc', station:'monitor', screen:'claude1', prompt:'Your prompt is ready. What do you ask Claude for first?',
+  choices:[['all','The whole site in one go, no questions'],['logo','A new logo'],['dom','A domain suggestion'],['plan','A plan you can correct before any code']]},
+ {id:'q08', step:5, type:'click', station:'monitor', screen:'save', pre:'Save Claude’s code', prompt:'Claude wrote the page. Click the correct file name to save it as.',
+  targets:[['docx','website.docx',[420,300,760,80]],['html','index.html',[420,395,760,80]],['pdf','Index.HTML.pdf',[420,490,760,80]],['txt','page.txt',[420,585,760,80]]]},
+ {id:'q09', step:6, type:'mc', station:'monitor', screen:'devtools0', prompt:'Before anyone else sees the page, what should Chrome DevTools’ Console show?',
+  choices:[['warn','At least one warning'],['nored','No red errors'],['key','The API key, to prove it works'],['skip','Nothing — DevTools is optional']]},
+ {id:'q10', step:6, type:'click', station:'monitor', screen:'browser', pre:'Open the page in Chrome', prompt:'Compare the page with the brief on the right. Click the detail on the page that does NOT match the brief.',
+  targets:[['names','Marlo & Kiara',[150,300,820,110]],['date','Thursday, November 27, 2026',[150,430,820,70]],['time','5:00 PM',[150,515,820,64]],['venue','LOLA Café — Mabini',[150,595,820,64]]]},
+ {id:'q11', step:6, type:'click', station:'monitor', screen:'devtools', pre:'Open DevTools', prompt:'The Console shows four lines. Click the one you must fix first.',
+  targets:[['info','[info] invitation loaded',[80,520,1440,64]],['warn','[warning] image “gallery-3.jpg” is large (2.1 MB)',[80,592,1440,64]],['err','Uncaught TypeError: rsvpForm is null (index.html:1844)',[80,664,1440,64]],['verb','[verbose] scroll listener added',[80,736,1440,64]]]},
+ {id:'q12', step:7, type:'mc', station:'monitor', screen:'apps0', prompt:'In our wedding sites, where do RSVP answers go?',
+  choices:[['html','They are saved inside index.html'],['logs','Into the Vercel build logs'],['sheet','Website form → Google Apps Script → Google Sheet'],['git','Into GitHub commits']]},
+ {id:'q13', step:7, type:'click', station:'monitor', screen:'apps', pre:'Open Apps Script', prompt:'Deploy the RSVP receiver as a web app. Guests are not signed in to Google. Who must have access?',
+  targets:[['me','Only myself',[520,440,640,72]],['google','Anyone with a Google account',[520,520,640,72]],['anyone','Anyone',[520,600,640,72]]]},
+ {id:'q14', step:7, type:'mc', station:'monitor', screen:'apps0', prompt:'You changed the Apps Script code. What else must you do?',
+  choices:[['nothing','Nothing — it updates itself'],['sheet','Delete and recreate the Sheet'],['newver','Deploy a new version, or the site keeps calling the old code'],['rename','Rename index.html']]},
+ {id:'q15', step:8, type:'obj', station:'desk', screen:'desktop', prompt:'Test like a guest. Click the device you must test the invitation on before sharing the link.',
+  objects:[['printer','Printer'],['phone','Phone'],['lamp','Desk lamp'],['notebook','Notebook']]},
+ {id:'q16', step:8, type:'mc', station:'phone', screen:'desktop', prompt:'On the phone, when should the invitation’s music start?',
+  choices:[['now','Immediately, at full volume'],['tap','Only after the guest taps'],['never','Never — no music allowed'],['late','After 10 minutes']]},
+ {id:'q17', step:9, type:'click', station:'monitor', screen:'github', pre:'Open GitHub', prompt:'You uploaded the new index.html. Click the button that saves this new version.',
+  targets:[['readme','Add a README',[160,690,300,76]],['cancel','Cancel',[500,690,240,76]],['commit','Commit changes',[780,690,320,76]],['fork','Fork',[1140,690,240,76]]]},
+ {id:'q18', step:9, type:'mc', station:'monitor', screen:'github0', prompt:'Which commit message is best?',
+  choices:[['asdf','asdf'],['update','update'],['clear','Fix RSVP date and venue text'],['final','final final v2']]},
+ {id:'q19', step:10, type:'click', station:'monitor', screen:'vercel', pre:'Open Vercel', prompt:'Import the site on Vercel. It is plain HTML with no build step. Click the right Framework Preset.',
+  targets:[['next','Next.js',[560,330,480,74]],['vite','Vite',[560,414,480,74]],['other','Other',[560,498,480,74]],['cra','Create React App',[560,582,480,74]]]},
+ {id:'q20', step:10, type:'mc', station:'monitor', screen:'overview', prompt:'Vercel says “Ready”, but your phone still shows the old page. What do you try first?',
+  choices:[['delete','Delete the Vercel project'],['domain','Buy a new domain'],['refresh','Hard refresh or a private window, then check the deployed commit'],['rewrite','Rewrite the site']]},
+ {id:'q21', step:11, type:'click', station:'monitor', screen:'domains', pre:'Open Vercel → Domains', prompt:'You typed the client’s domain. Click the button that connects it.',
+  targets:[['refresh','Refresh',[1060,250,180,70]],['add','Add Domain',[1260,250,240,70]],['edit','Edit',[1060,560,180,64]],['remove','Remove',[1260,560,240,64]]]},
+ {id:'q22', step:11, type:'mc', station:'monitor', screen:'env', prompt:'Where do API keys (like OPENAI_API_KEY) belong?',
+  choices:[['html','Inside index.html'],['commit','In the commit message'],['vercel','Vercel environment variables (or Apps Script) — never in the page'],['chat','In the client’s group chat']]},
+ {id:'q23', step:12, type:'mc', station:'monitor', screen:'404', prompt:'The client says the link shows “404: This page doesn’t exist”. What is the likely cause?',
+  choices:[['phone','The client’s phone is too old'],['music','The music is too loud'],['root','index.html is not at the project root, or the wrong link was shared'],['sheet','The Google Sheet is full']]},
+ {id:'q24', step:12, type:'click', station:'monitor', screen:'email', pre:'Open the handover email', prompt:'Review the handover email. Click the item that must NOT be sent to the client.',
+  targets:[['link','Live link: kiara-wedding.vercel.app',[150,300,1300,80]],['data','RSVPs are in the Google Sheet “Wedding RSVPs”',[150,395,1300,80]],['edits','To request edits, message us in the portal',[150,490,1300,80]],['password','Our Vercel login: ops@… / password: ••••••••',[150,585,1300,80]]]},
+];
+const SIM_TOTAL = SIM_ITEMS.length;
+const simItem = q => SIM_ITEMS.find(x=>x.id===q);
+const simChoiceLabel = (q, c) => { const it = simItem(q); if(!it || c==null) return '—'; const L = it.choices || it.objects || it.targets || []; const f = L.find(x=>x[0]===c); return f ? f[1] : String(c); };
+
+/* ---------- server API (live) and the demo-mode stand-in ---------- */
+const SIM_DEMO = {att:{}};
+const SIMAPI = {
+  live(){ return typeof BACKEND!=='undefined' && BACKEND?.mode==='live' && !!BACKEND.sb; },
+  async rpc(fn, args){ const {data, error} = await BACKEND.sb.rpc(fn, args||{}); if(error) throw new Error(error.message||'Request failed'); return data; },
+  async start(){ return this.live() ? this.rpc('cc_sim_start') : simDemo.start(); },
+  async answer(aid, q, c){ return this.live() ? this.rpc('cc_sim_answer', {p_attempt:aid, p_q:q, p_choice:c}) : simDemo.answer(aid, q, c); },
+  async finish(aid){ return this.live() ? this.rpc('cc_sim_finish', {p_attempt:aid}) : simDemo.finish(aid); },
+  async review(p, d, note){ return this.live() ? this.rpc('cc_sim_review', {p_person:p, p_decision:d, p_note:note||''}) : simDemo.review(p, d, note); },
+};
+/* demo / sandbox only (no database): practice mode unless a test key is supplied — the real key never ships in the portal */
+const simDemo = {
+  key(){ return window.__SIM_DEMO_KEY || null; },
+  explain(q, ok){ return this.key() ? (ok ? 'Correct.' : 'Not quite — the correct answer was: ' + simChoiceLabel(q, this.key()[q]) + '.') : 'Practice mode — scoring needs the live database.'; },
+  start(){
+    const me = PERSON, appl = isApplicant(); let st = simStatusOf(me) || {};
+    if(!appl){ const id = 'SIMP-'+me; SIM_DEMO.att[id] = SIM_DEMO.att[id] || {id, person:me, attempt:0, preview:true, answers:{}}; return {attempt_id:id, attempt:0, preview:true, answered:this.answered(SIM_DEMO.att[id]), total:SIM_TOTAL}; }
+    if(!this.key()) { const id = 'SIMX-'+me; SIM_DEMO.att[id] = SIM_DEMO.att[id] || {id, person:me, attempt:0, preview:true, answers:{}}; return {attempt_id:id, attempt:0, preview:true, practice:true, answered:this.answered(SIM_DEMO.att[id]), total:SIM_TOTAL}; }
+    if(['passed','approved'].includes(st.status)) return {done:true, status:st.status};
+    if(['failed_hr_review','declined'].includes(st.status)) throw new Error('No attempts left — HR will review your assessment');
+    let a = Object.values(SIM_DEMO.att).find(x=>x.person===me && !x.preview && !x.finished);
+    const mx = SIM.max + (st.extra||0);
+    if(!a){ const n = Object.values(SIM_DEMO.att).filter(x=>x.person===me && !x.preview && x.finished).length;
+      if(n >= mx) throw new Error('No attempts left — HR will review your assessment');
+      a = SIM_DEMO.att['SIMA-'+me+'-'+(n+1)] = {id:'SIMA-'+me+'-'+(n+1), person:me, attempt:n+1, answers:{}, startedAt:nowISO()};
+      this.put('simstatus', {...st, id:me, person:me, name:myApp()?.name||pname(me), assessment:SIM.name, status:'in_progress', current:a.attempt, maxAttempts:mx, startedAt:nowISO(), updatedAt:nowISO()}); }
+    return {attempt_id:a.id, attempt:a.attempt, maxAttempts:mx, preview:false, answered:this.answered(a), total:SIM_TOTAL};
+  },
+  answered(a){ const o = {}; Object.entries(a.answers).forEach(([q, v])=>o[q] = {choice:v.choice, correct:v.correct, explain:this.explain(q, v.correct)}); return o; },
+  answer(aid, q, c){ const a = SIM_DEMO.att[aid]; if(!a || a.person!==PERSON) throw new Error('This attempt is not yours'); if(a.finished) throw new Error('This attempt is already finished');
+    if(a.answers[q]) return {...a.answers[q], explain:this.explain(q, a.answers[q].correct), repeat:true};
+    const ok = this.key() ? this.key()[q]===c : null; a.answers[q] = {choice:c, correct:ok}; return {correct:ok, choice:c, explain:this.explain(q, ok)}; },
+  put(c, rec){ const L = COLL[c].get(); const i = L.findIndex(x=>x.id===rec.id); if(i>=0) L[i] = rec; else L.push(rec); },
+  finish(aid){ const a = SIM_DEMO.att[aid]; if(!a || a.finished) throw new Error('This attempt is already finished'); a.finished = true;
+    const ok = Object.values(a.answers).filter(v=>v.correct).length, pct = Math.round(ok*1000/SIM_TOTAL)/10, pass = pct >= SIM.pass;
+    if(a.preview) return {preview:true, practice:!this.key(), total:SIM_TOTAL, correct:ok, incorrect:SIM_TOTAL-ok, score:pct, passed:pass};
+    const me = a.person, st = simStatusOf(me) || {}, mx = SIM.max + (st.extra||0), rem = Math.max(mx - a.attempt, 0), t = nowISO();
+    const s = pass ? 'passed' : rem>0 ? 'failed' : 'failed_hr_review'; const nm = myApp()?.name || pname(me);
+    const rep = {id:`SIMR-${me}-${a.attempt}`, person:me, app:me, applicantId:me, name:nm, assessment:SIM.name, attempt:a.attempt, maxAttempts:mx, total:SIM_TOTAL, correct:ok, incorrect:SIM_TOTAL-ok, score:pct, pass:SIM.pass,
+      passed:pass, result:pass?'Passed':'Failed', status:s, startedAt:a.startedAt, completedAt:t, items:SIM_ITEMS.map(x=>({q:x.id, choice:a.answers[x.id]?.choice||null, correct:!!a.answers[x.id]?.correct, answered:!!a.answers[x.id]}))};
+    this.put('simresults', rep);
+    const hist = [...(st.history||[]), {attempt:a.attempt, score:pct, passed:pass, at:t, report:rep.id}]; const ns = {...st}; delete ns.current;
+    this.put('simstatus', {...ns, id:me, person:me, name:nm, assessment:SIM.name, status:s, attempts:a.attempt, maxAttempts:mx, remaining:rem, last:pct, best:Math.max(st.best||0, pct), lastAt:t, history:hist, updatedAt:t});
+    const head = `${nm} — ${SIM.name}: attempt ${a.attempt} of ${mx}, ${pct}% (${ok}/${SIM_TOTAL})`;
+    const stf = recStaff();
+    if(pass){ simDemo.note([me], `🎉 You passed the ${SIM.name} assessment with ${pct}% (${ok} of ${SIM_TOTAL} correct). HR and the company heads will review your results for the next onboarding stage.`, {view:'appsim'});
+      simDemo.note(stf, `✅ <b>${esc(head)}</b> — PASSED. Please review and approve for onboarding.`, {view:'simhub', app:me}); }
+    else if(s==='failed'){ simDemo.note([me], `Your ${SIM.name} result is ready: ${pct}% (${ok} of ${SIM_TOTAL} correct). The passing score is 80%. You have ${rem} attempt(s) left — review the feedback and try again.`, {view:'appsim'});
+      simDemo.note(stf, `❌ <b>${esc(head)}</b> — FAILED (${rem} attempt(s) left).`, {view:'simhub', app:me}); }
+    else { simDemo.note([me], `Your ${SIM.name} result is ready: ${pct}%. You have used all attempts, so HR will review your assessment and contact you.`, {view:'appsim'});
+      simDemo.note(stf, `⚠️ <b>${esc(head)}</b> — FAILED all attempts. Status: Failed – HR Review Required.`, {view:'simhub', app:me}); }
+    recordChange(); return {...rep, items:undefined, remaining:rem};
+  },
+  note(keys, text, link){ uniq(keys).filter(k=>k && PEOPLE[k]).forEach(k=>NOTIFS2.unshift({id:uid('N'), to:k, type:'hr', text, link, by:'system', at:nowISO(), read:false})); },
+  review(p, d, note){ const st = simStatusOf(p); if(!st) throw new Error('This applicant has no assessment yet'); if(!simCanReview()) throw new Error('Only HR and the company heads can review assessments');
+    const t = nowISO(), slot = ROLE==='hr' ? 'hr' : 'head', s = {...st}; s.reviews = [...(s.reviews||[]), {by:PERSON, role:slot, decision:d, note:note||'', at:t}];
+    if(d==='approve'){ if(!['passed','approved'].includes(s.status)) throw new Error('Only a passed assessment can be approved');
+      s.approvals = {...(s.approvals||{}), [slot]:{by:PERSON, at:t, note:note||''}};
+      if(s.approvals.hr && s.approvals.head && s.status!=='approved'){ s.status = 'approved'; s.approvedAt = t;
+        this.note([p], '🎉 Your AI Website VA Onboarding assessment has been approved. You qualify for the next onboarding stage — HR will guide you to your regular VA portal.', {view:'appsim'});
+        this.note(recStaff(), `🟢 <b>${esc(s.name)}</b> is approved for onboarding (HR and company head approvals complete). HR can now continue onboarding and activate the VA portal.`, {view:'simhub', app:p}); } }
+    else if(d==='decline'){ s.status = 'declined'; s.declinedAt = t; this.note(recStaff(), `<b>${esc(s.name)}</b> — assessment declined by ${esc(pname(PERSON))}.`, {view:'simhub', app:p}); }
+    else if(d==='extra'){ if(!['failed_hr_review','declined'].includes(s.status)) throw new Error('An extra attempt is only for applicants who used all attempts');
+      s.extra = (s.extra||0)+1; s.status = 'failed'; s.remaining = 1; s.maxAttempts = (s.maxAttempts||SIM.max)+1;
+      this.note([p], 'HR has allowed you one more attempt at the AI Website VA Onboarding assessment. Open “3D Simulation” in your portal when you are ready.', {view:'appsim'}); }
+    s.updatedAt = t; this.put('simstatus', s); recordChange(); return s; },
+};
+
+/* ---------- navigation: applicant "3D Simulation", staff "Simulation assessments" ---------- */
+if(!APPLICANT_NAV.some(n=>n.id==='appsim')){ const at = APPLICANT_NAV.findIndex(n=>n.id==='appassess'); APPLICANT_NAV.splice(at>=0 ? at : APPLICANT_NAV.length, 0, {id:'appsim', name:'3D Simulation', ico:'M12 2l9 5v10l-9 5-9-5V7l9-5ZM12 22V12M21 7l-9 5-9-5'}); }
+{ const at = NAV.findIndex(n=>n.id==='recruit'); if(!NAV.some(n=>n.id==='simhub')) NAV.splice(at>=0 ? at+1 : NAV.length, 0, {id:'simhub', name:'Simulation assessments', roles:['hr','ceo','coo','creative'], ico:'M12 2l9 5v10l-9 5-9-5V7l9-5ZM12 22V12M21 7l-9 5-9-5'}); }
+['appsim','simhub'].forEach(id=>{ if(!el('v-'+id)){ const v = document.createElement('div'); v.id = 'v-'+id; v.className = 'view'; (el('v-apphome')||el('v-dashboard')||document.querySelector('.content .view'))?.after(v); } });
+{ const _na = navAllowed; navAllowed = function(n){ if(n?.id==='simhub') return !isApplicant() && ROLE!=='client' && recCan(); return _na.apply(this, arguments); }; }
+{ const _bn = buildNav; buildNav = function(){ const r = _bn.apply(this, arguments);
+    try{ const nav = el('nav'); if(isApplicant() && nav){ const b = [...nav.querySelectorAll('.nav-item')].find(x=>/go\('appsim'\)/.test(x.getAttribute('onclick')||''));
+        if(b){ if(!simNeeded(myApp())) b.remove(); else { const n = simAppPill(); if(n && !b.querySelector('.pill')) b.insertAdjacentHTML('beforeend', `<span class="pill">${n}</span>`); } } }
+      if(!isApplicant() && nav && recCan()){ const b = [...nav.querySelectorAll('.nav-item')].find(x=>/go\('simhub'\)/.test(x.getAttribute('onclick')||'')); const n = simReviewQueue().length;
+        if(b && n && !b.querySelector('.pill')) b.insertAdjacentHTML('beforeend', `<span class="pill">${n}</span>`); } }catch(e){}
+    return r; }; }
+const simAppPill = () => { const k = simStateKey(PERSON); return ['not_started','in_progress','failed'].includes(k) ? 1 : 0; };
+const simReviewQueue = () => SIMSTATUS.filter(s=>s.status==='passed' && !(s.approvals||{})[ROLE==='hr'?'hr':'head']);
+{ const _fl = followLink; followLink = function(link){ if(link?.view==='simhub'){ SIMHUB.focus = link.app || null; } return _fl.apply(this, arguments); }; }
+{ const _ore = onRemoteEvent; onRemoteEvent = function(ev){ _ore.apply(this, arguments);
+    if(['simresults','simstatus'].includes(ev?.coll)){ try{ buildNav(); }catch(e){}
+      clearTimeout(SIMHUB.t); SIMHUB.t = setTimeout(()=>{ if(SIM3D.open) return; if(CURRENT==='appsim') RENDER.appsim(); if(CURRENT==='simhub' && !el('modal').classList.contains('open')) RENDER.simhub(); if(CURRENT==='recruit' && el('simCard')) simCardRefresh(); }, 500); } }; }
+
+/* ---------- Applicant Portal: 3D Simulation page ---------- */
+function simScoreRing(pct, pass){ const p = Math.max(0, Math.min(100, +pct||0)); const c = pass ? 'var(--ok, #1d8a52)' : 'var(--bad, #c0392b)';
+  return `<div style="width:120px;height:120px;border-radius:50%;background:conic-gradient(${c} ${p*3.6}deg, var(--line, #e5e5e5) 0);display:flex;align-items:center;justify-content:center"><div style="width:96px;height:96px;border-radius:50%;background:var(--card, #fff);display:flex;flex-direction:column;align-items:center;justify-content:center"><b style="font-size:24px">${p}%</b><span class="hint">score</span></div></div>`; }
+function simStepBreakdown(r){ const by = {}; (r.items||[]).forEach(i=>{ const s = simItem(i.q)?.step; if(!s) return; by[s] = by[s] || [0,0]; by[s][1]++; if(i.correct) by[s][0]++; });
+  return `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px">${SIM_STEPS.map((n,i)=>{ const v = by[i+1]; if(!v) return ''; const ok = v[0]===v[1];
+    return `<div style="border:1px solid var(--line, #e5e5e5);border-radius:10px;padding:8px 10px;background:${ok?'var(--ok-bg, #eaf7ef)':'var(--warn-bg, #fff6e5)'}"><b>${i+1}. ${esc(n)}</b><br><span class="hint">${v[0]} of ${v[1]} correct</span></div>`; }).join('')}</div>`; }
+RENDER.appsim = () => {
+  const v = el('v-appsim'); if(!v) return; const a = myApp();
+  if(!a){ v.innerHTML = '<div class="empty">Your application is loading…</div>'; return; }
+  if(!simNeeded(a)){ v.innerHTML = '<div class="empty">The 3D simulation is not part of your assessment. HR will let you know if that changes.</div>'; return; }
+  const s = simStatusOf(PERSON) || {}, k = simStateKey(PERSON), reps = simReports(PERSON), last = reps[reps.length-1];
+  const rem = simRemaining(PERSON), used = s.attempts || reps.length, mx = s.maxAttempts || SIM.max;
+  const canGo = ['not_started','in_progress','failed'].includes(k) && rem > 0;
+  const msg = {not_started:'Walk through the real CrossCore website workflow in a 3D office. You click the right screens, buttons and objects yourself — 24 scored items, 80% to pass.',
+    in_progress:'You have an attempt in progress. Your answers are saved automatically — continue where you left off.',
+    passed:'You passed! HR and the company heads are reviewing your results. Passing qualifies you for the next onboarding stage; your regular VA portal is activated after their approval.',
+    failed:`You did not reach 80% this time. You have ${rem} attempt(s) left. Review the steps you missed below, then try again.`,
+    failed_hr_review:'You have used all attempts. HR will review your assessment and contact you through your portal.',
+    approved:'Your assessment is approved. You qualify for the next onboarding stage — HR will guide you to your regular VA portal.',
+    declined:'HR has reviewed your assessment. Please message HR for the next steps.'}[k];
+  v.innerHTML = `<div class="page-head"><div><h2>${esc(SIM.name)} — 3D Simulation</h2><p>Hands-on assessment of the 12-step website workflow: brief → plan → design → prompt → generate → review → data & forms → test → commit → deploy → domain → hand over.</p></div></div>
+   <div class="card" id="simMine" style="margin-bottom:16px"><div class="card-b" style="display:flex;gap:22px;align-items:center;flex-wrap:wrap">
+     ${last ? simScoreRing(last.score, last.passed) : `<div style="width:120px;height:120px;border-radius:50%;background:var(--line-2, #f1f1f1);display:flex;align-items:center;justify-content:center;font-size:40px">🧭</div>`}
+     <div style="flex:1;min-width:240px"><div style="margin-bottom:6px">${simBadge(PERSON)}</div>
+       <p style="margin:0 0 10px">${esc(msg)}</p>
+       <div class="hint">Attempts used: <b>${used}</b> of ${mx} · Remaining: <b id="simRem">${rem}</b>${s.best!=null?` · Best score: <b>${s.best}%</b>`:''} · Passing score: 80%</div>
+       ${last?`<div class="hint" style="margin-top:4px">Grade: <b>${last.passed?'Passed':'Failed'}</b> · ${last.correct} correct, ${last.incorrect} incorrect · ${dtstr(last.completedAt)}</div>`:''}</div>
+     <div>${canGo?`<button class="btn primary" id="simGo" onclick="simOpen()">${k==='in_progress'?'Continue simulation':k==='failed'?'Retake simulation':'Start simulation'}</button>`:''}</div></div></div>
+   ${last && !last.passed ? `<div class="card" style="margin-bottom:16px"><div class="card-h"><h3>Your last attempt by workflow step</h3></div><div class="card-b">${simStepBreakdown(last)}</div></div>` : ''}
+   <div class="card"><div class="card-h"><h3>Attempt history</h3><span class="hint">Every attempt is kept on record</span></div><div class="card-b" style="overflow-x:auto">
+     ${reps.length ? `<table class="tbl"><thead><tr><th>Attempt</th><th>Score</th><th>Correct</th><th>Incorrect</th><th>Result</th><th>Completed</th><th></th></tr></thead><tbody>${reps.slice().reverse().map(r=>`<tr><td>${r.attempt} of ${r.maxAttempts}</td><td><b>${r.score}%</b></td><td>${r.correct}</td><td>${r.incorrect}</td><td><span class="badge ${r.passed?'b-approved':'b-missed'}">${r.result}</span></td><td>${dtstr(r.completedAt)}</td><td><button class="btn ghost" onclick="simReportPdf('${r.id}')">Report PDF</button></td></tr>`).join('')}</tbody></table>` : '<div class="empty">No attempts yet.</div>'}
+   </div></div>
+   <div class="hint" style="margin-top:10px">Rules: answers are saved the moment you give them and cannot be changed. Scores are calculated by the Cross Core server and cannot be edited by anyone. You have three attempts in total.</div>`;
+};
+{ const _ah = RENDER.apphome; RENDER.apphome = function(){ const r = _ah.apply(this, arguments);
+    try{ const a = myApp(); const v = el('v-apphome'); if(a && v && simNeeded(a) && !el('simHomeCard')){ const k = simStateKey(PERSON), last = simReports(PERSON).slice(-1)[0];
+        v.querySelector('.page-head')?.insertAdjacentHTML('afterend', `<div class="card" id="simHomeCard" style="margin-bottom:16px;border-left:4px solid var(--accent, #e9a133);cursor:pointer" onclick="go('appsim')"><div class="card-b" style="display:flex;gap:14px;align-items:center;flex-wrap:wrap"><div style="font-size:30px">🧭</div><div style="flex:1;min-width:200px"><b>${esc(SIM.name)} — 3D Simulation</b><div class="hint">${esc((SIM_ST[k]||SIM_ST.not_started)[0])}${last?` · last score ${last.score}%`:''} · ${simRemaining(PERSON)} attempt(s) left</div></div><span class="btn primary">Open →</span></div></div>`); } }catch(e){}
+    return r; }; }
+
+/* ---------- report PDF (applicant, HR, heads) ---------- */
+async function simReportPdf(id){
+  const r = SIMRESULTS.find(x=>x.id===id); if(!r) return toast('Report not found');
+  if(isApplicant() && r.person!==PERSON) return;
+  try{ await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'); await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js'); }
+  catch(e){ return toast('Could not load the PDF tool — check your connection'); }
+  const doc = new window.jspdf.jsPDF({unit:'pt', format:'a4'}); const W = 595, M = 48; let y = 60;
+  doc.setFillColor(233,161,51); doc.rect(0,0,W,8,'F');
+  doc.setFont('helvetica','bold'); doc.setFontSize(18); doc.text('Cross Core OPC — Assessment Report', M, y); y += 22;
+  doc.setFont('helvetica','normal'); doc.setFontSize(11); doc.setTextColor(90);
+  doc.text('Generated automatically by the Cross Core Ops Suite scoring service', M, y); y += 26; doc.setTextColor(20);
+  const rows = [['Applicant', r.name], ['Applicant ID', r.applicantId||r.person], ['Assessment', r.assessment||SIM.name], ['Final score', `${r.correct} of ${r.total} (${r.score}%)`],
+    ['Correct answers', String(r.correct)], ['Incorrect answers', String(r.incorrect)], ['Attempt', `${r.attempt} of ${r.maxAttempts}`], ['Completed', dtstr(r.completedAt)],
+    ['Passing score', `${r.pass||SIM.pass}%`], ['Final result', r.result + (r.status==='failed_hr_review' ? ' — HR Review Required' : '')]];
+  doc.autoTable({startY:y, body:rows, theme:'grid', styles:{fontSize:11, cellPadding:6}, columnStyles:{0:{fontStyle:'bold', cellWidth:150}}, margin:{left:M, right:M}});
+  y = doc.lastAutoTable.finalY + 24;
+  const staff = !isApplicant();
+  doc.setFont('helvetica','bold'); doc.setFontSize(13); doc.text(staff ? 'Item results' : 'Results by workflow step', M, y); y += 8;
+  if(staff) doc.autoTable({startY:y, head:[['#','Step','Item','Answer given','Result']], body:(r.items||[]).map((i,n)=>{ const it = simItem(i.q)||{}; return [n+1, SIM_STEPS[(it.step||1)-1], (it.prompt||i.q).slice(0,90), i.answered ? simChoiceLabel(i.q, i.choice) : '(not answered)', i.correct?'Correct':'Incorrect']; }),
+    theme:'striped', styles:{fontSize:8.5, cellPadding:4}, headStyles:{fillColor:[23,17,10]}, margin:{left:M, right:M}});
+  else { const by = {}; (r.items||[]).forEach(i=>{ const s = simItem(i.q)?.step; if(!s) return; by[s] = by[s]||[0,0]; by[s][1]++; if(i.correct) by[s][0]++; });
+    doc.autoTable({startY:y, head:[['Step','Correct']], body:SIM_STEPS.map((n,i)=>by[i+1]?[`${i+1}. ${n}`, `${by[i+1][0]} of ${by[i+1][1]}`]:null).filter(Boolean), theme:'striped', styles:{fontSize:10}, headStyles:{fillColor:[23,17,10]}, margin:{left:M, right:M}}); }
+  doc.save(`${(r.name||r.person).replace(/[^\w]+/g,'-')}-${SIM.name.replace(/\s+/g,'-')}-attempt-${r.attempt}.pdf`);
+}
+
+/* ---------- HR / heads / management: Simulation assessments ---------- */
+const SIMHUB = {f:'all', q:'', focus:null, t:0};
+function simPeople(){ const ids = new Set(SIMSTATUS.map(s=>s.id)); APPLICANTS.filter(a=>recVisible(a) && simNeeded(a)).forEach(a=>ids.add(a.id));
+  return [...ids].map(id=>({id, a:recApp(id), s:simStatusOf(id)})).filter(x=>x.a || x.s); }
+RENDER.simhub = () => {
+  const v = el('v-simhub'); if(!v) return;
+  if(!recCan()){ v.innerHTML = '<div class="empty">Only HR, the company heads and management can view assessment results.</div>'; return; }
+  const L = simPeople(); const cnt = k => L.filter(x=>simStateKey(x.id)===k).length;
+  const tiles = [['all','All applicants',L.length],['review','Needs my approval',simReviewQueue().length],['passed','Passed — awaiting approval',cnt('passed')],['approved','Approved for onboarding',cnt('approved')],['failed','Failed — retake available',cnt('failed')],['failed_hr_review','HR Review Required',cnt('failed_hr_review')],['in_progress','In progress',cnt('in_progress')],['not_started','Not started',cnt('not_started')]];
+  const q = SIMHUB.q.toLowerCase();
+  const rows = L.filter(x=>SIMHUB.f==='all' || (SIMHUB.f==='review' ? simReviewQueue().some(s=>s.id===x.id) : simStateKey(x.id)===SIMHUB.f))
+    .filter(x=>!q || (x.a?.name||x.s?.name||x.id).toLowerCase().includes(q))
+    .sort((p,r)=>(r.s?.updatedAt||r.a?.updatedAt||'').localeCompare(p.s?.updatedAt||p.a?.updatedAt||''));
+  v.innerHTML = `<div class="page-head"><div><h2>Simulation assessments</h2><p>${esc(SIM.name)} · 24 scored items · pass mark 80% · 3 attempts. Scores come from the server and cannot be edited. Passed applicants need approval from HR and a company head before the regular VA portal can be activated.</p></div>
+     <div><button class="btn ghost" onclick="simOpen(true)">Try the simulation (preview)</button></div></div>
+   <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;margin-bottom:14px">${tiles.map(([k,t,n])=>`<button class="card" style="text-align:left;padding:12px 14px;cursor:pointer;${SIMHUB.f===k?'outline:2px solid var(--accent, #e9a133)':''}" onclick="SIMHUB.f='${k}';RENDER.simhub()"><div style="font-size:22px;font-weight:700">${n}</div><div class="hint">${t}</div></button>`).join('')}</div>
+   <div class="card"><div class="card-h"><h3>Applicants</h3><input id="simQ" placeholder="Search name…" value="${esc(SIMHUB.q)}" oninput="SIMHUB.q=this.value;RENDER.simhub()" style="max-width:220px"></div><div class="card-b" style="overflow-x:auto">
+   ${rows.length?`<table class="tbl"><thead><tr><th>Applicant</th><th>Stage</th><th>Assessment status</th><th>Attempts</th><th>Last</th><th>Best</th><th>Approvals</th><th>Updated</th><th></th></tr></thead><tbody>${rows.map(({id,a,s})=>{ const ap = s?.approvals||{};
+     return `<tr data-sim="${id}"><td><b>${esc(a?.name||s?.name||id)}</b><div class="hint">${esc(id)}</div></td><td>${esc(a?REC_STAGE[a.stage]||a.stage:'—')}</td><td>${simBadge(id)}</td><td>${s?.attempts||0} / ${s?.maxAttempts||SIM.max}</td><td>${s?.last!=null?s.last+'%':'—'}</td><td>${s?.best!=null?s.best+'%':'—'}</td>
+       <td>${ap.hr?'✅ HR':'◻️ HR'} · ${ap.head?'✅ Head':'◻️ Head'}</td><td>${s?.updatedAt?ago(s.updatedAt):'—'}</td><td><button class="btn ghost" onclick="simDetail('${id}')">Open</button></td></tr>`; }).join('')}</tbody></table>`:'<div class="empty">No applicants in this view.</div>'}
+   </div></div>`;
+  if(SIMHUB.focus){ const f = SIMHUB.focus; SIMHUB.focus = null; setTimeout(()=>simDetail(f), 60); }
+  const qi = el('simQ'); if(qi && document.activeElement?.id!=='simQ' && SIMHUB.q){ qi.focus(); qi.setSelectionRange(qi.value.length, qi.value.length); }
+};
+function simDetail(id){
+  const a = recApp(id), s = simStatusOf(id) || {}, reps = simReports(id), k = simStateKey(id), ap = s.approvals || {};
+  const mySlot = ROLE==='hr' ? 'hr' : (isHead(PERSON)||isFullAccess()) ? 'head' : null;
+  const canApprove = simCanReview() && mySlot && ['passed','approved'].includes(k) && !ap[mySlot];
+  const canExtra = simCanReview() && ['failed_hr_review','declined'].includes(k);
+  const canDecline = simCanReview() && ['passed','failed_hr_review'].includes(k);
+  openModal(`${a?.name||s.name||id} — ${SIM.name}`, `
+    <div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;margin-bottom:12px">${reps.length?simScoreRing(reps[reps.length-1].score, reps[reps.length-1].passed):''}
+      <div style="flex:1;min-width:220px">${simBadge(id)}<div class="hint" style="margin-top:6px">Applicant ID: <b>${esc(id)}</b>${a?` · ${esc(a.position||REC_TRACKS[a.track]||'')} · ${esc(REC_STAGE[a.stage]||'')}`:''}</div>
+      <div class="hint">Attempts: <b>${s.attempts||0}</b> of ${s.maxAttempts||SIM.max} · remaining ${simRemaining(id)} · best ${s.best!=null?s.best+'%':'—'}</div>
+      <div class="hint">HR approval: ${ap.hr?`✅ ${esc(pname(ap.hr.by))} · ${dtstr(ap.hr.at)}`:'waiting'} · Company head approval: ${ap.head?`✅ ${esc(pname(ap.head.by))} · ${dtstr(ap.head.at)}`:'waiting'}</div></div></div>
+    ${(canApprove||canExtra||canDecline)?`<div class="field"><label>Note (optional)</label><input id="simNote" placeholder="e.g. Strong on deployment steps"></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">${canApprove?`<button class="btn primary" id="simApprove" onclick="simDecide('${id}','approve')">Approve for onboarding (${mySlot==='hr'?'HR':'company head'})</button>`:''}${canExtra?`<button class="btn" onclick="simDecide('${id}','extra')">Allow one more attempt</button>`:''}${canDecline?`<button class="btn ghost" onclick="simDecide('${id}','decline')">Decline</button>`:''}</div>`:''}
+    <h4 style="margin:6px 0">Attempt reports</h4>
+    ${reps.length?reps.slice().reverse().map(r=>`<div class="card" style="margin-bottom:10px"><div class="card-h"><h3>Attempt ${r.attempt} of ${r.maxAttempts} · ${r.score}% · <span class="badge ${r.passed?'b-approved':'b-missed'}">${r.result}</span></h3><button class="btn ghost" onclick="simReportPdf('${r.id}')">PDF report</button></div>
+      <div class="card-b"><div class="hint" style="margin-bottom:6px">${r.correct} correct · ${r.incorrect} incorrect · started ${dtstr(r.startedAt)} · completed ${dtstr(r.completedAt)}</div>
+      <details><summary>Item-by-item results</summary><table class="tbl" style="margin-top:6px"><thead><tr><th>#</th><th>Step</th><th>Item</th><th>Answer given</th><th></th></tr></thead><tbody>${(r.items||[]).map((i,n)=>{ const it = simItem(i.q)||{};
+        return `<tr><td>${n+1}</td><td>${esc(SIM_STEPS[(it.step||1)-1])}</td><td>${esc(it.prompt||i.q)}</td><td>${i.answered?esc(simChoiceLabel(i.q, i.choice)):'<i>not answered</i>'}</td><td>${i.correct?'✅':'❌'}</td></tr>`; }).join('')}</tbody></table></details></div></div>`).join(''):'<div class="empty">No attempts yet.</div>'}
+    ${(s.reviews||[]).length?`<h4 style="margin:10px 0 4px">Review history</h4>${s.reviews.map(x=>`<div class="hint">• ${dtstr(x.at)} — ${esc(pname(x.by))} (${x.role==='hr'?'HR':'head'}): ${esc(x.decision)}${x.note?' — '+esc(x.note):''}</div>`).join('')}`:''}`, true);
+}
+async function simDecide(id, d){
+  const note = el('simNote')?.value || '';
+  if(d==='decline' && !confirm('Decline this applicant’s assessment?')) return;
+  try{ await SIMAPI.review(id, d, note); toast(d==='approve' ? 'Approval recorded' : d==='extra' ? 'One more attempt allowed — the applicant was notified' : 'Assessment declined'); }
+  catch(e){ return toast(e.message||'Could not save'); }
+  setTimeout(()=>{ simDetail(id); if(CURRENT==='simhub') RENDER.simhub(); }, SIMAPI.live() ? 700 : 50);
+}
+
+/* ---------- applicant profile (Recruitment): status card + "require the simulation" ---------- */
+function simCardHTML(id){ const a = recApp(id); if(!a) return ''; const s = simStatusOf(id), last = simReports(id).slice(-1)[0];
+  return `<div class="card" id="simCard" data-app="${id}" style="margin:10px 0;border-left:4px solid var(--accent, #e9a133)"><div class="card-b" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+    <div style="font-size:26px">🧭</div><div style="flex:1;min-width:220px"><b>${esc(SIM.name)} — 3D simulation</b> ${simNeeded(a)?simBadge(id):'<span class="badge b-draft">Not required</span>'}
+    <div class="hint">${s?`Attempts ${s.attempts||0}/${s.maxAttempts||SIM.max}${last?` · last ${last.score}% (${last.result})`:''}${s.approvals?.hr?' · HR ✅':''}${s.approvals?.head?' · Head ✅':''}`:simNeeded(a)?'Waiting for the applicant to start':'Turn on to add the simulation to this applicant’s portal'}</div></div>
+    ${a.track!=='web' && !s ? `<label class="hint" style="display:flex;gap:6px;align-items:center"><input type="checkbox" ${a.simRequired?'checked':''} onchange="simRequire('${id}', this.checked)"> Require</label>` : ''}
+    ${s?`<button class="btn ghost" onclick="simDetail('${id}')">Open results</button>`:''}</div></div>`; }
+function simRequire(id, on){ const a = recApp(id); if(!a || !recCan()) return; a.simRequired = !!on; a.updatedAt = nowISO(); recordChange(); simCardRefresh();
+  if(on) notify(id, 'hr', `🧭 HR added the <b>${esc(SIM.name)}</b> 3D simulation to your portal. Open “3D Simulation” when you are ready — you have three attempts and need 80% to pass.`, {view:'appsim'}); toast(on ? 'Added to the applicant’s portal' : 'Removed'); }
+function simCardRefresh(){ const c = el('simCard'); if(c) c.outerHTML = simCardHTML(c.dataset.app); }
+{ const _rv = recView; recView = function(id){ const r = _rv.apply(this, arguments);
+    try{ const v = el('recView'); if(v && recCan() && !el('simCard')){ const at = v.querySelector('#rdSec') || v.firstElementChild; at?.insertAdjacentHTML('afterend', simCardHTML(id)); } }catch(e){}
+    return r; }; }
+
+/* ---------- regular VA portal only after an approved assessment ---------- */
+{ const _act = obActivate; obActivate = async function(app){ const a = recApp(app);
+    if(a && simNeeded(a) && simStateKey(app)!=='approved'){ toast(`${a.name.split(' ')[0]} needs an approved ${SIM.name} assessment (passed + HR and company head approval) before the VA portal can be activated`); return; }
+    return _act.apply(this, arguments); }; }
+
+/* =====================================================================================================
+   The 3D simulation — a CrossCore developer desk. three.js r128 (cdnjs), loaded only when opened.
+   The monitor is a live 1600×928 canvas: every app screen is drawn to scale, clicks on the monitor are
+   mapped from the 3D hit point back to screen pixels. Without WebGL a flat 2D version is used instead.
+   ===================================================================================================== */
+const SIM3D = {open:false};
+const S3W = 1600, S3H = 928;
+const S3F = '"Inter","Segoe UI",Roboto,Helvetica,Arial,sans-serif', S3S = '"Cormorant Garamond","Playfair Display",Georgia,serif', S3M = '"JetBrains Mono","SFMono-Regular",Menlo,Consolas,monospace';
+const S3_DOCK = [['chrome','Chrome','#4a7fd4','◉'],['sheets','Sheets','#1e8e4e','▦'],['claude','Claude','#c96a3a','✳'],['apps','Apps Script','#2f6fd6','{ }'],['github','GitHub','#24292f','⑂'],['vercel','Vercel','#111','⇪'],['gmail','Gmail','#d0463b','✉'],['files','Files','#8a6a3c','▤']];
+const S3_PRE = {sheet:'sheets', claude:'claude', save:'claude', browser:'chrome', devtools:'chrome', apps:'apps', github:'github', vercel:'vercel', domains:'vercel', email:'gmail'};
+const s3DockRect = id => { const i = S3_DOCK.findIndex(d=>d[0]===id), w = 96, g = 22, x0 = S3W/2 - (S3_DOCK.length*w + (S3_DOCK.length-1)*g)/2; return [x0 + i*(w+g), 810, w, 96]; };
+
+/* ---------- 2D drawing helpers ---------- */
+function s3rr(x, X, Y, W, H, R){ R = Math.min(R, W/2, H/2); x.beginPath(); x.moveTo(X+R, Y); x.arcTo(X+W, Y, X+W, Y+H, R); x.arcTo(X+W, Y+H, X, Y+H, R); x.arcTo(X, Y+H, X, Y, R); x.arcTo(X, Y, X+W, Y, R); x.closePath(); }
+function s3box(x, X, Y, W, H, R, fill, stroke, lw){ s3rr(x, X, Y, W, H, R); if(fill){ x.fillStyle = fill; x.fill(); } if(stroke){ x.strokeStyle = stroke; x.lineWidth = lw||2; x.stroke(); } }
+function s3t(x, s, X, Y, size, color, o){ o = o||{}; x.font = `${o.w||400} ${size}px ${o.f||S3F}`; x.fillStyle = color; x.textAlign = o.a||'left'; x.textBaseline = 'middle';
+  if(o.max){ let t = String(s); while(t.length > 3 && x.measureText(t).width > o.max) t = t.slice(0, -2); if(t!==String(s)) t = t.replace(/.$/, '…'); x.fillText(t, X, Y); } else x.fillText(String(s), X, Y); }
+function s3wrap(x, s, X, Y, maxW, lh, size, color, o){ o = o||{}; x.font = `${o.w||400} ${size}px ${o.f||S3F}`; const words = String(s).split(' '); let line = '', y = Y;
+  words.forEach(w=>{ const t = line ? line+' '+w : w; if(x.measureText(t).width > maxW && line){ s3t(x, line, X, y, size, color, o); line = w; y += lh; } else line = t; }); if(line) s3t(x, line, X, y, size, color, o); return y; }
+function s3chrome(x, tab, url, dark){
+  x.fillStyle = dark ? '#202124' : '#dee1e6'; x.fillRect(0, 0, S3W, 112);
+  [['#ff5f57',26],['#febc2e',50],['#28c840',74]].forEach(([c, X])=>{ x.beginPath(); x.arc(X, 26, 7, 0, 7); x.fillStyle = c; x.fill(); });
+  s3box(x, 104, 8, 360, 40, 10, dark ? '#35363a' : '#fff'); s3t(x, tab, 124, 28, 17, dark ? '#e8eaed' : '#202124', {max:310}); s3t(x, '×', 444, 28, 18, '#80868b', {a:'center'});
+  s3t(x, '+', 488, 28, 22, '#5f6368', {a:'center'});
+  x.fillStyle = dark ? '#35363a' : '#fff'; x.fillRect(0, 52, S3W, 60);
+  s3t(x, '←   →   ⟳', 22, 82, 20, '#5f6368'); s3box(x, 150, 62, 1320, 40, 20, dark ? '#202124' : '#f1f3f4'); s3t(x, '🔒', 172, 82, 15, '#5f6368'); s3t(x, url, 200, 82, 18, dark ? '#bdc1c6' : '#202124', {max:1240});
+  s3box(x, 1500, 66, 32, 32, 16, '#e9a133'); s3t(x, 'J', 1516, 82, 16, '#fff', {a:'center', w:700});
+  x.fillStyle = dark ? '#3c4043' : '#dadce0'; x.fillRect(0, 111, S3W, 1);
+}
+function s3page(x, bg){ x.fillStyle = bg || '#fff'; x.fillRect(0, 112, S3W, S3H-112); }
+function s3btn(x, X, Y, W, H, label, bg, fg, o){ s3box(x, X, Y, W, H, (o&&o.r)||8, bg, o&&o.stroke, 2); s3t(x, label, X+W/2, Y+H/2, (o&&o.size)||20, fg, {a:'center', w:600}); }
+
+/* ---------- the screens (coordinates match the click targets in SIM_ITEMS) ---------- */
+const S3_SCREENS = {
+  desktop(x, o){ const g = x.createLinearGradient(0, 0, S3W, S3H); g.addColorStop(0, '#2d2118'); g.addColorStop(.55, '#7a4a22'); g.addColorStop(1, '#d99a45'); x.fillStyle = g; x.fillRect(0, 0, S3W, S3H);
+    for(let i=0;i<14;i++){ x.beginPath(); x.arc(200+i*110, 700-Math.sin(i*.7)*120, 260, 0, 7); x.fillStyle = 'rgba(255,220,170,.035)'; x.fill(); }
+    x.fillStyle = 'rgba(20,14,8,.55)'; x.fillRect(0, 0, S3W, 34); s3t(x, 'CrossCore Workstation', 20, 17, 15, '#f4e9d8', {w:600}); s3t(x, 'Fri Nov 13  9:41 AM', S3W-20, 17, 15, '#f4e9d8', {a:'right'});
+    [['kiara-wedding','▤'],['Brief.pdf','▥'],['RSVP Sheet','▦']].forEach(([n, ic], i)=>{ s3box(x, 40, 70+i*120, 76, 76, 14, 'rgba(255,255,255,.14)'); s3t(x, ic, 78, 108+i*120, 34, '#fff', {a:'center'}); s3t(x, n, 78, 160+i*120, 14, '#fff', {a:'center'}); });
+    if(!o.pre){ s3box(x, 1080, 60, 490, 150, 18, 'rgba(255,255,255,.93)'); s3box(x, 1100, 82, 44, 44, 10, '#d0463b'); s3t(x, '✉', 1122, 104, 22, '#fff', {a:'center'});
+      s3t(x, 'New client request · just now', 1160, 92, 15, '#6b5a48'); s3t(x, 'Kiara & Marlo', 1160, 118, 19, '#1c140b', {w:700});
+      s3wrap(x, '“Can you make our wedding invitation website? Sending details soon!”', 1100, 156, 440, 24, 17, '#3a2c1f'); }
+    s3box(x, s3DockRect('chrome')[0]-18, 796, S3_DOCK.length*118-22+36, 124, 26, 'rgba(255,255,255,.22)', 'rgba(255,255,255,.35)', 1.5);
+    S3_DOCK.forEach(([id, n, c, g])=>{ const [X, Y, W, H] = s3dock(id); const on = o.pre===id;
+      if(on){ s3box(x, X-10, Y-10, W+20, H+20, 26, 'rgba(233,161,51,.35)', '#ffcf7a', 5); }
+      s3box(x, X, Y, W, H-22, 18, c); s3t(x, g, X+W/2, Y+(H-22)/2, 30, '#fff', {a:'center', w:700}); s3t(x, n, X+W/2, Y+H-8, 13, '#fff', {a:'center', w:on?700:400});
+      if(on){ s3box(x, X+W/2-120, Y-74, 240, 48, 12, '#e9a133'); s3t(x, 'Click here', X+W/2, Y-50, 20, '#1c140b', {a:'center', w:700}); x.beginPath(); x.moveTo(X+W/2-10, Y-26); x.lineTo(X+W/2+10, Y-26); x.lineTo(X+W/2, Y-14); x.fillStyle = '#e9a133'; x.fill(); } });
+  },
+  brief(x){ s3chrome(x, 'Wedding site brief – Docs', 'docs.google.com/document/d/••••••/edit'); s3page(x, '#f0ece6');
+    x.fillStyle = '#fff'; x.shadowColor = 'rgba(0,0,0,.15)'; x.shadowBlur = 18; x.fillRect(300, 140, 1000, 800); x.shadowBlur = 0;
+    s3t(x, 'Website brief — Kiara & Marlo wedding invitation', 360, 200, 32, '#1c140b', {w:700, f:S3S}); s3box(x, 360, 232, 300, 34, 17, '#e6f4ea'); s3t(x, '✓ Approved by client · Oct 28', 378, 249, 16, '#137333', {w:600});
+    [['Names','Marlo & Kiara'],['Date','Thursday, November 26, 2026 · 5:00 PM'],['Venue','LOLA Café — Mabini'],['Sections','Envelope opening · Schedule · RSVP · Gallery · Music (tap to play)'],['Palette','Sage #9CAF88 + cream #F6F1E7'],['Fonts','Cormorant Garamond + Inter'],['RSVP fields','Name · Attending (Yes/No) · Dietary needs']]
+      .forEach(([k, v], i)=>{ s3t(x, k, 360, 320+i*74, 18, '#7a6a58', {w:600}); s3wrap(x, v, 560, 320+i*74, 700, 26, 21, '#1c140b'); x.fillStyle = '#eee'; x.fillRect(360, 352+i*74, 880, 1); }); },
+  sheet(x){ s3chrome(x, 'Wedding RSVPs – Google Sheets', 'docs.google.com/spreadsheets/d/••••••/edit#gid=0'); s3page(x);
+    s3box(x, 30, 126, 44, 56, 6, '#1e8e4e'); s3t(x, '▦', 52, 154, 24, '#fff', {a:'center'}); s3t(x, 'Wedding RSVPs', 90, 140, 22, '#202124'); s3t(x, 'File   Edit   View   Insert   Format   Data   Tools   Extensions   Help', 90, 170, 16, '#444');
+    s3btn(x, 1420, 132, 140, 44, 'Share', '#c2e7ff', '#001d35', {r:22, size:17});
+    x.fillStyle = '#f9fbfd'; x.fillRect(0, 196, S3W, 48); s3t(x, 'fx', 30, 220, 18, '#888', {f:S3M}); x.fillStyle = '#dadce0'; x.fillRect(70, 204, 1, 32); s3t(x, 'Attending', 90, 220, 18, '#202124');
+    x.fillStyle = '#f8f9fa'; x.fillRect(0, 250, S3W, 34); x.fillRect(40, 250, 50, S3H);
+    const cols = [['A','Timestamp'],['B','Name'],['C','Attending'],['D','Dietary']], rows = [['11/02 09:14','Ana Reyes','Yes','None'],['11/02 10:41','Carlo Dizon','Yes','Vegetarian'],['11/03 18:22','Mika Santos','No','—'],['11/04 07:55','Joel Ramos','Yes','No pork'],['11/05 21:03','Bea Lim','Yes','None']];
+    cols.forEach(([L, h], i)=>{ const X = 90 + i*350; s3t(x, L, X+170, 267, 15, '#5f6368', {a:'center'}); s3t(x, h, X+14, 312, 19, '#202124', {w:700}); rows.forEach((r, j)=>s3t(x, r[i], X+14, 372+j*64, 18, '#202124')); });
+    x.strokeStyle = '#e2e3e3'; x.lineWidth = 1; for(let i=0;i<=4;i++){ x.beginPath(); x.moveTo(90+i*350, 250); x.lineTo(90+i*350, S3H); x.stroke(); }
+    [284, 340, 404, 468, 532, 596, 660, 724, 788, 852].forEach((Y, j)=>{ x.beginPath(); x.moveTo(40, Y); x.lineTo(S3W, Y); x.stroke(); if(j<8) s3t(x, j+1, 65, j ? Y+32 : 312, 14, '#5f6368', {a:'center'}); }); x.fillStyle = '#f1f3f4'; x.fillRect(0, S3H-40, S3W, 40); s3box(x, 60, S3H-36, 120, 32, 4, '#fff'); s3t(x, 'Responses', 120, S3H-20, 15, '#1e8e4e', {a:'center', w:600}); },
+  claude(x, o){ s3chrome(x, 'Claude', 'claude.ai/new'); s3page(x, '#faf9f5'); x.fillStyle = '#f0eee6'; x.fillRect(0, 112, 90, S3H); ['✳','＋','☰','◷'].forEach((c, i)=>s3t(x, c, 45, 160+i*64, 24, i?'#73726c':'#c96a3a', {a:'center'}));
+    const v = o.v||'claude';
+    if(v==='claude0'){ s3box(x, 520, 150, 960, 230, 18, '#f0eee6'); s3t(x, 'You', 548, 180, 16, '#73726c', {w:600});
+      s3wrap(x, 'Here are the style notes for Kiara & Marlo’s invitation — Palette: sage #9CAF88 + cream #F6F1E7. Fonts: Cormorant Garamond for names, Inter for text. Motion: soft fade-in; the envelope opens on tap. Music: only after the guest taps.', 548, 218, 900, 32, 21, '#1f1e1d');
+      s3t(x, '✳', 150, 430, 26, '#c96a3a'); s3wrap(x, 'Got it. I’ll keep these notes for every section. Before I write code, here is a short plan you can correct: 1) envelope intro 2) names & date 3) schedule 4) RSVP form → Apps Script 5) gallery 6) music button…', 190, 430, 1200, 34, 21, '#1f1e1d'); }
+    else { s3t(x, v==='claude1' ? 'Prompt ready — what will you ask for first?' : 'Check your prompt before sending', 800, 160, 28, '#1f1e1d', {a:'center', f:S3S, w:600});
+      s3box(x, 100, 200, 1400, 520, 22, '#fff', '#d9d6cc', 2);
+      const L = [['CONTEXT:','wedding invitation for Kiara & Marlo, Nov 26, 2026'],['TASK:','one index.html with envelope, schedule, RSVP'],['KEY:','sk-live-7f3c… (our OpenAI key, so it can test)'],['RULES:','mobile first, inline CSS/JS, images compressed']];
+      L.forEach(([k, t], i)=>{ const Y = 250 + i*90; s3box(x, 120, Y, 1360, 74, 10, '#faf9f5'); s3t(x, k, 146, Y+37, 21, '#c96a3a', {f:S3M, w:700}); s3t(x, t, 146 + (k.length+1)*13.2, Y+37, 21, '#1f1e1d', {f:S3M, max:1150}); });
+      s3t(x, v==='claude1' ? 'STYLE: sage + cream, Cormorant + Inter, soft fade-in' : 'STYLE: sage + cream, Cormorant + Inter, soft fade-in', 146, 645, 19, '#73726c', {f:S3M});
+      s3box(x, 1180, 660, 200, 44, 22, '#f0eee6'); s3t(x, 'Opus ▾', 1280, 682, 17, '#3d3d3a', {a:'center'}); s3box(x, 1400, 656, 64, 52, 12, '#c96a3a'); s3t(x, '↑', 1432, 682, 26, '#fff', {a:'center', w:700}); }
+    s3t(x, 'Claude can make mistakes. Check every line of code before it goes live.', 800, S3H-40, 15, '#8a877d', {a:'center'}); },
+  save(x){ S3_SCREENS.claude(x, {v:'claude0'}); x.fillStyle = 'rgba(0,0,0,.42)'; x.fillRect(0, 0, S3W, S3H);
+    x.shadowColor = 'rgba(0,0,0,.4)'; x.shadowBlur = 40; s3box(x, 380, 170, 840, 560, 16, '#f6f6f6'); x.shadowBlur = 0;
+    s3t(x, 'Save Claude’s code as…', 800, 214, 24, '#1d1d1f', {a:'center', w:700}); s3t(x, 'Where:  ▤ kiara-wedding  (project root)', 420, 262, 17, '#555');
+    [['docx','website.docx','▥'],['html','index.html','</>'],['pdf','Index.HTML.pdf','▤'],['txt','page.txt','≡']].forEach(([id, n, ic], i)=>{ const Y = 300 + i*95; s3box(x, 420, Y, 760, 80, 10, '#fff', '#ddd', 1.5);
+      s3box(x, 440, Y+16, 48, 48, 8, '#e8e8ed'); s3t(x, ic, 464, Y+40, 16, '#555', {a:'center', w:700, f:S3M}); s3t(x, n, 510, Y+40, 23, '#1d1d1f', {f:S3M}); });
+    s3btn(x, 960, 680, 100, 40, 'Cancel', '#e8e8ed', '#1d1d1f', {size:16}); s3btn(x, 1076, 680, 110, 40, 'Save', '#0a84ff', '#fff', {size:16}); },
+  devtools(x, o){ s3chrome(x, 'Kiara & Marlo — You’re invited', 'localhost:5500/index.html'); s3page(x, '#f6f1e7');
+    s3t(x, 'Marlo & Kiara', 800, 230, 64, '#5d7150', {a:'center', f:S3S, w:600}); s3t(x, 'Tap the envelope to open', 800, 310, 20, '#7a6a58', {a:'center'}); s3box(x, 700, 350, 200, 100, 8, '#fff', '#cdbfa8', 2); x.beginPath(); x.moveTo(700, 350); x.lineTo(800, 410); x.lineTo(900, 350); x.strokeStyle = '#cdbfa8'; x.stroke();
+    x.fillStyle = '#202124'; x.fillRect(0, 470, S3W, S3H-470); x.fillStyle = '#292a2d'; x.fillRect(0, 470, S3W, 44);
+    ['Elements','Console','Sources','Network','Performance','Application'].forEach((t, i)=>{ s3t(x, t, 40+i*150, 492, 17, i===1?'#8ab4f8':'#bdc1c6', {w:i===1?600:400}); }); x.fillStyle = '#8ab4f8'; x.fillRect(32, 511, 90, 3);
+    if(o.v==='devtools0'){ s3t(x, '⊘  Filter          Default levels ▾          No Issues', 40, 548, 16, '#9aa0a6'); s3t(x, 'Console is clear — open the page and check for red errors before anyone else sees it.', 40, 620, 19, '#9aa0a6'); return; }
+    [['info','ⓘ','[info] invitation loaded','#bdc1c6',null,'#202124'],['warn','⚠','[warning] image “gallery-3.jpg” is large (2.1 MB)','#f2ab26','#332b00','#5c3c00'],['err','⊗','Uncaught TypeError: rsvpForm is null (index.html:1844)','#f28b82','#290000','#5c0000'],['verb','·','[verbose] scroll listener added','#9aa0a6',null,'#202124']]
+      .forEach(([id, ic, t, fg, bg, ln], i)=>{ const Y = 520 + i*72; if(bg){ x.fillStyle = bg; x.fillRect(80, Y, 1440, 64); } x.fillStyle = ln; x.fillRect(80, Y+64, 1440, 1); s3t(x, ic, 110, Y+32, 20, fg, {a:'center'}); s3t(x, t, 140, Y+32, 20, fg, {f:S3M}); s3t(x, id==='err'?'index.html:1844':'index.html', 1500, Y+32, 15, '#9aa0a6', {a:'right'}); }); },
+  browser(x){ s3chrome(x, 'Kiara & Marlo — You’re invited', 'kiara-wedding.vercel.app'); s3page(x, '#e9e4dc');
+    s3box(x, 120, 130, 880, 780, 14, '#f6f1e7'); s3t(x, 'TOGETHER WITH THEIR FAMILIES', 560, 230, 18, '#7a8b6c', {a:'center', w:600});
+    s3t(x, 'Marlo & Kiara', 560, 355, 80, '#4d6141', {a:'center', f:S3S, w:600}); s3t(x, 'Thursday, November 27, 2026', 560, 465, 34, '#3a2c1f', {a:'center', f:S3S}); s3t(x, '5:00 PM', 560, 547, 30, '#3a2c1f', {a:'center', f:S3S}); s3t(x, 'LOLA Café — Mabini', 560, 627, 30, '#3a2c1f', {a:'center', f:S3S});
+    s3btn(x, 440, 720, 240, 60, 'RSVP', '#7a8b6c', '#fff', {r:30, size:22}); s3t(x, '♪ Tap to play music', 560, 830, 17, '#7a6a58', {a:'center'});
+    s3box(x, 1020, 130, 520, 780, 14, '#fff', '#d9d0c2', 2); s3t(x, 'APPROVED BRIEF', 1050, 175, 16, '#b4540a', {w:700}); s3t(x, '✓ client-approved Oct 28', 1050, 205, 15, '#137333');
+    [['Names','Marlo & Kiara'],['Date','Thursday, November 26, 2026'],['Time','5:00 PM'],['Venue','LOLA Café — Mabini'],['Palette','Sage + cream']].forEach(([k, v], i)=>{ s3t(x, k, 1050, 270+i*96, 16, '#8a7458', {w:600}); s3t(x, v, 1050, 302+i*96, 22, '#1c140b', {max:470}); x.fillStyle = '#eee'; x.fillRect(1050, 330+i*96, 460, 1); }); },
+  apps(x, o){ s3chrome(x, 'RSVP receiver – Apps Script', 'script.google.com/home/projects/••••••/edit'); s3page(x);
+    s3box(x, 24, 126, 40, 40, 8, '#2f6fd6'); s3t(x, '{ }', 44, 146, 16, '#fff', {a:'center', w:700}); s3t(x, 'Apps Script', 78, 146, 20, '#5f6368'); s3t(x, 'RSVP receiver', 220, 146, 22, '#202124');
+    s3btn(x, 1380, 124, 180, 46, 'Deploy ▾', '#1a73e8', '#fff', {r:6, size:18}); x.fillStyle = '#f8f9fa'; x.fillRect(0, 184, 300, S3H); s3t(x, 'Files', 30, 214, 17, '#202124', {w:700}); s3box(x, 20, 236, 260, 40, 6, '#e8f0fe'); s3t(x, 'Code.gs', 40, 256, 17, '#1967d2');
+    const code = ['function doPost(e) {', '  const sheet = SpreadsheetApp.openById(SHEET_ID).getSheetByName("Responses");', '  const d = JSON.parse(e.postData.contents);', '  sheet.appendRow([new Date(), d.name, d.attending, d.dietary]);', '  return ContentService.createTextOutput(JSON.stringify({ ok: true }))', '    .setMimeType(ContentService.MimeType.JSON);', '}'];
+    code.forEach((l, i)=>{ s3t(x, i+1, 350, 230+i*40, 17, '#9aa0a6', {a:'right', f:S3M}); s3t(x, l, 380, 230+i*40, 19, i===0||i===6 ? '#a142f4' : '#202124', {f:S3M}); });
+    if(o.v==='apps0'){ s3box(x, 340, 560, 1180, 110, 10, '#fef7e0'); s3t(x, '💡 The RSVP form on the site sends each answer here; this script adds it as a new row in the Sheet.', 370, 615, 19, '#5c4400'); return; }
+    x.fillStyle = 'rgba(0,0,0,.4)'; x.fillRect(0, 0, S3W, S3H); x.shadowColor = 'rgba(0,0,0,.35)'; x.shadowBlur = 30; s3box(x, 440, 210, 800, 580, 12, '#fff'); x.shadowBlur = 0;
+    s3t(x, 'New deployment', 480, 256, 26, '#202124'); s3t(x, 'Type: ⚙ Web app        Execute as: Me', 480, 310, 18, '#3c4043'); s3t(x, 'Description: RSVP receiver v3', 480, 350, 18, '#3c4043');
+    s3t(x, 'Who has access', 520, 412, 17, '#5f6368', {w:600}); [['me','Only myself'],['google','Anyone with a Google account'],['anyone','Anyone']].forEach(([id, n], i)=>{ const Y = 440 + i*80; s3box(x, 520, Y, 640, 72, 8, '#fff', '#dadce0', 1.5); x.beginPath(); x.arc(556, Y+36, 11, 0, 7); x.strokeStyle = '#5f6368'; x.lineWidth = 2; x.stroke(); s3t(x, n, 586, Y+36, 21, '#202124'); });
+    s3btn(x, 960, 712, 100, 44, 'Cancel', '#fff', '#1a73e8', {size:17}); s3btn(x, 1076, 712, 130, 44, 'Deploy', '#1a73e8', '#fff', {size:17}); },
+  github(x, o){ s3chrome(x, 'Upload files · crosscore/kiara-wedding', 'github.com/crosscore/kiara-wedding/upload/main'); s3page(x);
+    x.fillStyle = '#f6f8fa'; x.fillRect(0, 112, S3W, 70); s3t(x, '⑂  crosscore / kiara-wedding', 40, 147, 22, '#0969da', {w:600}); s3box(x, 410, 134, 70, 28, 14, '#fff', '#d0d7de', 1); s3t(x, 'Private', 445, 148, 14, '#57606a', {a:'center'});
+    if(o.v==='github0'){ s3t(x, 'Commits on main', 160, 230, 24, '#1f2328', {w:600}); [['Fix RSVP date and venue text','2 min ago'],['Add gallery lazy-loading','yesterday'],['Envelope animation timing','2 days ago'],['First version of the invitation','3 days ago']]
+        .forEach(([m, t], i)=>{ const Y = 270 + i*96; s3box(x, 160, Y, 1280, 84, 6, '#fff', '#d0d7de', 1); s3t(x, i===0?'(new commit — write a message)':m, 190, Y+30, 20, i===0?'#8c959f':'#1f2328', {w:600}); s3t(x, 'ja-fuentes committed ' + t, 190, Y+60, 15, '#57606a'); s3t(x, '•••••••', 1400, Y+42, 15, '#57606a', {a:'right', f:S3M}); }); return; }
+    s3box(x, 160, 210, 1280, 200, 8, '#fff', '#d0d7de', 2); x.setLineDash([10, 8]); s3box(x, 180, 228, 1240, 164, 6, null, '#8c959f', 2); x.setLineDash([]);
+    s3t(x, 'Drag files here to add them to your repository', 800, 280, 20, '#57606a', {a:'center'}); s3box(x, 560, 320, 480, 50, 6, '#ddf4ff'); s3t(x, '✓  index.html   48 KB', 800, 345, 19, '#0969da', {a:'center', f:S3M});
+    s3box(x, 160, 440, 1280, 230, 8, '#fff', '#d0d7de', 2); s3t(x, 'Commit changes', 190, 478, 22, '#1f2328', {w:600}); s3box(x, 190, 506, 1220, 48, 6, '#fff', '#d0d7de', 1.5); s3t(x, 'Fix RSVP date and venue text', 206, 530, 18, '#1f2328');
+    s3t(x, '◉  Commit directly to the  main  branch', 190, 600, 18, '#1f2328'); s3t(x, '○  Create a new branch for this commit and start a pull request', 190, 640, 18, '#57606a');
+    s3btn(x, 160, 690, 300, 76, '+ Add a README', '#f6f8fa', '#1f2328', {size:19, stroke:'#d0d7de'}); s3btn(x, 500, 690, 240, 76, 'Cancel', '#f6f8fa', '#cf222e', {size:19, stroke:'#d0d7de'});
+    s3btn(x, 780, 690, 320, 76, 'Commit changes', '#1f883d', '#fff', {size:20}); s3btn(x, 1140, 690, 240, 76, '⑂ Fork', '#f6f8fa', '#1f2328', {size:19, stroke:'#d0d7de'}); },
+  vercel(x){ s3chrome(x, 'New Project – Vercel', 'vercel.com/new/import?s=kiara-wedding'); s3page(x, '#fafafa');
+    s3t(x, 'You’re almost done.', 120, 180, 36, '#000', {w:700}); s3t(x, 'Configure Project', 520, 245, 26, '#000', {w:600});
+    s3box(x, 480, 210, 640, 680, 12, '#fff', '#eaeaea', 2); s3t(x, 'Framework Preset', 560, 300, 16, '#666', {w:600});
+    s3box(x, 548, 318, 504, 356, 8, '#fff', '#d4d4d4', 1.5); [['next','Next.js'],['vite','Vite'],['other','Other'],['cra','Create React App']].forEach(([id, n], i)=>{ const Y = 330 + i*84; s3box(x, 560, Y, 480, 74, 6, i%2?'#fafafa':'#fff'); s3box(x, 576, Y+21, 32, 32, 8, '#111'); s3t(x, n[0], 592, Y+37, 16, '#fff', {a:'center', w:700}); s3t(x, n, 626, Y+37, 21, '#111'); });
+    s3t(x, 'Root Directory    ./', 560, 712, 18, '#444', {f:S3M}); s3t(x, 'Build and Output Settings  ›', 560, 760, 18, '#444'); s3btn(x, 560, 800, 480, 60, 'Deploy', '#000', '#fff', {size:20});
+    s3box(x, 120, 300, 320, 220, 12, '#fff', '#eaeaea', 2); s3t(x, 'Importing from GitHub', 140, 335, 16, '#666'); s3t(x, '⑂ crosscore/kiara-wedding', 140, 375, 18, '#111', {w:600}); s3t(x, '⎇ main', 140, 410, 17, '#444'); s3t(x, 'index.html at the root', 140, 450, 16, '#137333'); },
+  overview(x){ s3chrome(x, 'kiara-wedding – Overview – Vercel', 'vercel.com/crosscore/kiara-wedding'); s3page(x, '#fff');
+    s3t(x, 'kiara-wedding', 120, 180, 34, '#000', {w:700}); s3t(x, 'Production Deployment', 120, 250, 20, '#000', {w:600});
+    s3box(x, 120, 280, 1360, 420, 12, '#fff', '#eaeaea', 2); s3box(x, 150, 310, 560, 360, 8, '#f6f1e7', '#eaeaea', 1); s3t(x, 'Marlo & Kiara', 430, 470, 46, '#4d6141', {a:'center', f:S3S}); s3t(x, 'Thursday, November 26, 2026', 430, 530, 20, '#3a2c1f', {a:'center', f:S3S});
+    [['Deployment','kiara-wedding-•••••.vercel.app'],['Domains','kiara-wedding.vercel.app'],['Status','● Ready   2m ago'],['Source','⎇ main   Fix RSVP date and venue text']].forEach(([k, v], i)=>{ s3t(x, k, 760, 340+i*84, 16, '#666'); s3t(x, v, 760, 372+i*84, 20, i===2?'#0a7d3e':'#111', {w:i===2?600:400, max:680}); });
+    s3box(x, 120, 740, 1360, 120, 12, '#fff8e6', '#f2d38a', 2); s3t(x, '📱 Client: “My phone still shows the old version.”', 150, 800, 22, '#5c4400'); },
+  domains(x){ s3chrome(x, 'Domains – kiara-wedding – Vercel', 'vercel.com/crosscore/kiara-wedding/settings/domains'); s3page(x, '#fff');
+    x.fillStyle = '#fafafa'; x.fillRect(0, 112, 380, S3H); ['General','Domains','Environment Variables','Git','Deployment Protection'].forEach((t, i)=>{ if(i===1) s3box(x, 30, 160+i*56-22, 320, 44, 6, '#eee'); s3t(x, t, 50, 160+i*56, 18, i===1?'#000':'#666', {w:i===1?600:400}); });
+    s3t(x, 'Domains', 440, 190, 30, '#000', {w:700}); s3box(x, 440, 250, 600, 70, 8, '#fff', '#000', 2); s3t(x, 'kiaraandmarlo.com', 466, 285, 22, '#111', {f:S3M});
+    s3btn(x, 1060, 250, 180, 70, '⟳ Refresh', '#fff', '#111', {size:19, stroke:'#d4d4d4'}); s3btn(x, 1260, 250, 240, 70, 'Add Domain', '#000', '#fff', {size:20});
+    s3box(x, 440, 470, 1060, 180, 10, '#fff', '#eaeaea', 2); s3t(x, 'kiara-wedding.vercel.app', 470, 520, 22, '#111', {w:600}); s3t(x, '✓ Valid Configuration', 470, 560, 18, '#0a7d3e'); s3t(x, 'Assigned to Production', 470, 600, 16, '#666');
+    s3btn(x, 1060, 560, 180, 64, 'Edit', '#fff', '#111', {size:18, stroke:'#d4d4d4'}); s3btn(x, 1260, 560, 240, 64, 'Remove', '#fff', '#e00', {size:18, stroke:'#f5c2c2'}); },
+  env(x){ S3_SCREENS.domains(x); x.fillStyle = '#fff'; x.fillRect(381, 112, S3W, S3H); s3t(x, 'Environment Variables', 440, 190, 30, '#000', {w:700});
+    s3t(x, 'Store secret keys here. The page code reads them on the server — they are never shown to visitors.', 440, 240, 18, '#666');
+    s3box(x, 440, 290, 1060, 260, 10, '#fff', '#eaeaea', 2); s3t(x, 'Key', 470, 330, 16, '#666'); s3t(x, 'Value', 960, 330, 16, '#666');
+    s3box(x, 470, 350, 460, 56, 6, '#fafafa', '#d4d4d4', 1.5); s3t(x, 'OPENAI_API_KEY', 490, 378, 19, '#111', {f:S3M}); s3box(x, 960, 350, 500, 56, 6, '#fafafa', '#d4d4d4', 1.5); s3t(x, '••••••••••••••••', 980, 378, 19, '#111', {f:S3M});
+    s3t(x, '☑ Sensitive     Environments: Production, Preview', 470, 450, 17, '#444'); s3btn(x, 1300, 480, 160, 52, 'Save', '#000', '#fff', {size:18}); },
+  '404'(x){ s3chrome(x, '404: NOT_FOUND', 'kiara-wedding.vercel.app/invite', true); x.fillStyle = '#000'; x.fillRect(0, 112, S3W, S3H);
+    s3t(x, '404', 690, 470, 44, '#fff', {a:'right', w:600}); x.fillStyle = '#444'; x.fillRect(720, 440, 2, 60); s3t(x, 'This page doesn’t exist.', 750, 470, 24, '#fff');
+    s3t(x, 'Code: NOT_FOUND    ID: sin1::•••••••', 800, 560, 16, '#888', {a:'center', f:S3M}); s3box(x, 410, 700, 780, 110, 12, '#1a1a1a', '#333', 1.5);
+    s3t(x, '💬 Client: “The link you sent shows 404 on my phone.”', 800, 755, 20, '#eee', {a:'center'}); },
+  email(x){ s3chrome(x, 'Inbox – ops@crosscore – Gmail', 'mail.google.com/mail/u/0/#inbox?compose=new'); s3page(x, '#f6f8fc');
+    x.shadowColor = 'rgba(0,0,0,.25)'; x.shadowBlur = 24; s3box(x, 110, 132, 1380, 780, 12, '#fff'); x.shadowBlur = 0; x.fillStyle = '#f2f6fc'; x.fillRect(110, 132, 1380, 48); s3t(x, 'New message', 136, 156, 18, '#1f1f1f', {w:600});
+    s3t(x, 'To   Kiara & Marlo (client)', 150, 210, 18, '#444'); x.fillStyle = '#eee'; x.fillRect(150, 230, 1300, 1); s3t(x, 'Your wedding site is live 🎉', 150, 260, 20, '#1f1f1f', {w:600});
+    [['link','🔗','Live link: kiara-wedding.vercel.app'],['data','▦','RSVPs are in the Google Sheet “Wedding RSVPs”'],['edits','💬','To request edits, message us in the portal'],['password','🔑','Our Vercel login: ops@… / password: ••••••••']]
+      .forEach(([id, ic, t], i)=>{ const Y = 300 + i*95; s3box(x, 150, Y, 1300, 80, 10, '#fafafa', '#eee', 1); s3t(x, ic, 190, Y+40, 24, '#444', {a:'center'}); s3t(x, t, 230, Y+40, 22, '#1f1f1f'); });
+    s3t(x, 'Thank you for trusting CrossCore! — JA', 150, 720, 19, '#444'); s3btn(x, 150, 780, 130, 52, 'Send', '#0b57d0', '#fff', {r:26, size:18}); },
+};
+['sheet0'].forEach(k=>S3_SCREENS[k] = S3_SCREENS.sheet);
+['claude0','claude1'].forEach(k=>S3_SCREENS[k] = (x, o)=>S3_SCREENS.claude(x, {...o, v:k}));
+S3_SCREENS.devtools0 = (x, o)=>S3_SCREENS.devtools(x, {...o, v:'devtools0'}); S3_SCREENS.apps0 = (x, o)=>S3_SCREENS.apps(x, {...o, v:'apps0'}); S3_SCREENS.github0 = (x, o)=>S3_SCREENS.github(x, {...o, v:'github0'});
+function s3dock(id){ return s3DockRect(id); }
+function s3PaintScreen(){ const S = SIM3D, x = S.sx, it = S.it; if(!x || !it) return;
+  x.save(); x.clearRect(0, 0, S3W, S3H);
+  if(S.phase==='pre') S3_SCREENS.desktop(x, {pre:S3_PRE[it.screen]});
+  else { (S3_SCREENS[it.screen] || S3_SCREENS.desktop)(x, {});
+    if(it.type==='click') it.targets.forEach(([id, , r])=>{ const [X, Y, W, H] = r; const ch = S.chosen===id, hv = S.hover===id && !S.locked;
+      if(hv){ s3box(x, X-4, Y-4, W+8, H+8, 10, 'rgba(233,161,51,.16)', '#e9a133', 4); }
+      if(ch){ const c = S.verdict===true ? '#1d8a52' : S.verdict===false ? '#c0392b' : '#2f6fd6'; s3box(x, X-5, Y-5, W+10, H+10, 10, c+'22', c, 5);
+        s3box(x, X+W-30, Y-18, 40, 40, 20, c); s3t(x, S.verdict===true?'✓':S.verdict===false?'✗':'•', X+W-10, Y+2, 24, '#fff', {a:'center', w:700}); } }); }
+  if(S.phase==='pre' && S.hover==='pre'){ const [X, Y, W, H] = s3dock(S3_PRE[it.screen]); s3box(x, X-6, Y-6, W+12, H+12, 22, null, '#fff', 3); }
+  x.restore(); if(S.stex){ S.stex.needsUpdate = true; S.dirty = true; } if(S.flat) s3FlatSync(); }
+function s3Hotspots(){ const S = SIM3D, it = S.it; if(!it || S.locked) return [];
+  if(S.phase==='pre') return [['pre', it.pre, s3dock(S3_PRE[it.screen])]];
+  return it.type==='click' ? it.targets : []; }
+function s3HitScreen(px, py){ return s3Hotspots().find(([, , [X, Y, W, H]])=>px>=X && px<=X+W && py>=Y && py<=Y+H) || null; }
+
+/* ---------- the phone screen (invitation on mobile) ---------- */
+function s3PaintPhone(x){ const W = 540, H = 1120; const g = x.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#f6f1e7'); g.addColorStop(1, '#e8dfcf'); x.fillStyle = g; x.fillRect(0, 0, W, H);
+  s3t(x, '9:41', 60, 42, 26, '#222', {w:600}); s3t(x, '▂▄▆ ◔', W-50, 42, 22, '#222', {a:'right'}); s3box(x, 190, 22, 160, 40, 20, '#111');
+  s3t(x, 'TOGETHER WITH THEIR FAMILIES', W/2, 200, 20, '#7a8b6c', {a:'center', w:600}); s3t(x, 'Marlo', W/2, 300, 84, '#4d6141', {a:'center', f:S3S, w:600}); s3t(x, '&', W/2, 380, 50, '#a28b6a', {a:'center', f:S3S}); s3t(x, 'Kiara', W/2, 460, 84, '#4d6141', {a:'center', f:S3S, w:600});
+  s3t(x, 'Thursday · November 26, 2026', W/2, 570, 30, '#3a2c1f', {a:'center', f:S3S}); s3t(x, '5:00 PM · LOLA Café — Mabini', W/2, 620, 26, '#3a2c1f', {a:'center', f:S3S});
+  s3box(x, 120, 700, 300, 84, 42, '#7a8b6c'); s3t(x, 'Open invitation', W/2, 742, 28, '#fff', {a:'center', w:600}); s3box(x, 150, 830, 240, 70, 35, '#fff', '#cdbfa8', 2); s3t(x, '♪  Tap for music', W/2, 865, 24, '#5d4a33', {a:'center'});
+  x.fillStyle = '#222'; s3box(x, W/2-90, H-30, 180, 8, 4, '#222'); }
+
+/* ---------- textures & scene ---------- */
+function s3cv(w, h){ const c = document.createElement('canvas'); c.width = w; c.height = h; return [c, c.getContext('2d')]; }
+function s3tex(T, c, rep){ const t = new T.CanvasTexture(c); t.encoding = T.sRGBEncoding; t.anisotropy = 8; if(rep){ t.wrapS = t.wrapT = T.RepeatWrapping; t.repeat.set(rep[0], rep[1]); } return t; }
+function s3Wood(T, base, planks, rep, w){ w = w||1024; const [c, x] = s3cv(w, w), rows = planks||1, ph = w/rows;
+  for(let r=0;r<rows;r++){ const k = .82 + Math.random()*.32; x.fillStyle = `rgb(${base.map(v=>Math.min(255, Math.round(v*k))).join(',')})`; x.fillRect(0, r*ph, w, ph);
+    for(let i=0;i<ph*1.4;i++){ const y0 = r*ph + Math.random()*ph; x.strokeStyle = `rgba(${Math.random()<.6?'55,30,12':'255,228,190'},${(Math.random()*.11).toFixed(3)})`; x.lineWidth = Math.random()*2.2+.4; x.beginPath(); let y = y0; x.moveTo(0, y);
+      for(let px=0;px<=w;px+=24){ y += (Math.random()-.5)*1.4; x.lineTo(px, Math.min(Math.max(y, r*ph+1), r*ph+ph-1)); } x.stroke(); }
+    for(let k2=0;k2<(planks?1:3);k2++) if(Math.random()<.5){ const kx = Math.random()*w, ky = r*ph + ph/2; const gk = x.createRadialGradient(kx, ky, 1, kx, ky, ph*.18); gk.addColorStop(0, 'rgba(50,25,8,.45)'); gk.addColorStop(1, 'rgba(50,25,8,0)'); x.fillStyle = gk; x.fillRect(kx-ph*.4, ky-ph*.3, ph*.8, ph*.6); }
+    if(planks){ x.fillStyle = 'rgba(25,14,6,.6)'; x.fillRect(0, r*ph, w, 2.5); x.fillRect(Math.random()*w, r*ph, 2.5, ph); } }
+  return s3tex(T, c, rep); }
+function s3Noise(T, base, amt, rep){ const [c, x] = s3cv(512, 512); x.fillStyle = base; x.fillRect(0, 0, 512, 512); const d = x.getImageData(0, 0, 512, 512); for(let i=0;i<d.data.length;i+=4){ const n = (Math.random()-.5)*amt; d.data[i]+=n; d.data[i+1]+=n; d.data[i+2]+=n; } x.putImageData(d, 0, 0); return s3tex(T, c, rep); }
+function s3Label(T, w, h, draw){ const [c, x] = s3cv(w, h); draw(x, w, h); return s3tex(T, c); }
+function s3Std(T, o){ return new T.MeshStandardMaterial(o); }
+function s3Mesh(T, geo, mat, pos, opt){ const m = new T.Mesh(geo, mat); if(pos) m.position.set(pos[0], pos[1], pos[2]); m.castShadow = opt?.cast!==false; m.receiveShadow = opt?.recv!==false; return m; }
+function s3Build(){ const T = window.THREE, S = SIM3D, sc = new T.Scene(); S.scene = sc; S.pick = {};
+  sc.background = new T.Color(0x1a130d); sc.fog = new T.Fog(0x1a130d, 5, 11);
+  // room
+  const floor = s3Mesh(T, new T.PlaneGeometry(9, 9), s3Std(T, {map:s3Wood(T, [128,84,48], 8, [3,3]), roughness:.62, metalness:0}), [0,0,0], {cast:false}); floor.rotation.x = -Math.PI/2; sc.add(floor);
+  const plaster = s3Noise(T, '#e9e1d4', 10, [3,2]); const wall = s3Mesh(T, new T.PlaneGeometry(9, 3.4), s3Std(T, {map:plaster, roughness:.95}), [0,1.7,-1.25], {cast:false}); sc.add(wall);
+  const lw = s3Mesh(T, new T.PlaneGeometry(6, 3.4), s3Std(T, {map:plaster, roughness:.95, color:0xd8cfc1}), [-2.6,1.7,1.2], {cast:false}); lw.rotation.y = Math.PI/2; sc.add(lw);
+  const skirt = s3Mesh(T, new T.BoxGeometry(9, .1, .02), s3Std(T, {color:0xf3eee6, roughness:.6}), [0,.05,-1.24]); sc.add(skirt);
+  // window with daylight
+  const sky = s3Label(T, 512, 512, (x, w, h)=>{ const g = x.createLinearGradient(0, 0, 0, h); g.addColorStop(0, '#9cc7ec'); g.addColorStop(.7, '#e9f2fa'); g.addColorStop(1, '#f7e7c9'); x.fillStyle = g; x.fillRect(0, 0, w, h); x.fillStyle = 'rgba(120,140,110,.55)'; for(let i=0;i<9;i++){ x.beginPath(); x.arc(i*64, h-40+Math.sin(i)*20, 70, 0, 7); x.fill(); } });
+  const win = new T.Mesh(new T.PlaneGeometry(1.3, 1.05), new T.MeshBasicMaterial({map:sky, toneMapped:false})); win.position.set(-1.35, 1.62, -1.24); sc.add(win);
+  const frameM = s3Std(T, {color:0xf6f2ea, roughness:.5}); [[0,.54,1.4,.05],[0,-.54,1.4,.05],[-.67,0,.05,1.12],[.67,0,.05,1.12],[0,0,.03,1.08],[0,.05,1.3,.03]].forEach(([dx, dy, w, h])=>sc.add(s3Mesh(T, new T.BoxGeometry(w, h, .05), frameM, [-1.35+dx, 1.62+dy, -1.22])));
+  sc.add(s3Mesh(T, new T.BoxGeometry(1.5, .04, .16), frameM, [-1.35, 1.06, -1.17]));
+  // workflow board on the wall
+  const board = s3Label(T, 1300, 760, (x, w, h)=>{ x.fillStyle = '#fbfaf7'; x.fillRect(0, 0, w, h); s3t(x, 'CrossCore · AI website workflow', 60, 70, 46, '#1c140b', {w:700, f:S3F}); x.fillStyle = '#e9a133'; x.fillRect(60, 104, 140, 6);
+    SIM_STEPS.forEach((n, i)=>{ const c = i%3, r = Math.floor(i/3), X = 60 + c*410, Y = 170 + r*140; s3box(x, X, Y, 380, 110, 16, i<4?'#fff4e2':i<8?'#eef4ea':'#e9f0fb', '#d9cbb5', 2); s3t(x, String(i+1).padStart(2,'0'), X+28, Y+55, 40, '#b4540a', {w:700}); s3t(x, n, X+100, Y+55, 34, '#1c140b', {w:600}); }); });
+  const bd = s3Mesh(T, new T.BoxGeometry(1.32, .78, .025), [frameM, frameM, frameM, frameM, new T.MeshStandardMaterial({map:board, roughness:.35}), frameM], [1.05,1.72,-1.23]); sc.add(bd);
+  // desk
+  const deskTop = s3Mesh(T, new T.BoxGeometry(1.9, .045, .82), s3Std(T, {map:s3Wood(T, [150,98,56], 0, [1,1]), roughness:.45, metalness:0}), [0,.7525,-.33]); sc.add(deskTop);
+  const metal = s3Std(T, {color:0x2b2b2d, roughness:.35, metalness:.75}); [[-.9,-.7],[.9,-.7],[-.9,.04],[.9,.04]].forEach(([lx, lz])=>sc.add(s3Mesh(T, new T.BoxGeometry(.05, .73, .05), metal, [lx*.98, .365, lz+.04])));
+  sc.add(s3Mesh(T, new T.BoxGeometry(1.76, .05, .03), metal, [0,.68,-.7]));
+  // monitor
+  const mon = new T.Group(); const blk = s3Std(T, {color:0x111214, roughness:.35, metalness:.5}), alu = s3Std(T, {color:0xb9bcc2, roughness:.28, metalness:.9});
+  mon.add(s3Mesh(T, new T.BoxGeometry(.28, .014, .2), alu, [0,.782,-.42])); mon.add(s3Mesh(T, new T.BoxGeometry(.06, .34, .03), alu, [0,.95,-.46]));
+  mon.add(s3Mesh(T, new T.BoxGeometry(.86, .52, .03), blk, [0,1.12,-.385])); mon.add(s3Mesh(T, new T.BoxGeometry(.78, .44, .02), alu, [0,1.12,-.405]));
+  const [sc2, sx] = s3cv(S3W, S3H); S.sc = sc2; S.sx = sx; S.stex = s3tex(T, sc2); S.stex.anisotropy = 16;
+  const screen = new T.Mesh(new T.PlaneGeometry(.8, .464), new T.MeshBasicMaterial({map:S.stex, toneMapped:false})); screen.position.set(0, 1.124, -.3695); screen.userData.screen = true; mon.add(screen); S.screen = screen;
+  const gloss = new T.Mesh(new T.PlaneGeometry(.8, .464), new T.MeshPhysicalMaterial({color:0xffffff, transparent:true, opacity:.035, roughness:.05, metalness:0, clearcoat:1})); gloss.position.set(0, 1.124, -.369); mon.add(gloss);
+  sc.add(mon);
+  // sticky notes on the monitor
+  const stick = (id, txt, col, px, py, rz)=>{ const t = s3Label(T, 256, 256, (x, w, h)=>{ x.fillStyle = col; x.fillRect(0, 0, w, h); const g = x.createLinearGradient(0, 0, 0, h); g.addColorStop(0, 'rgba(0,0,0,.08)'); g.addColorStop(.2, 'rgba(0,0,0,0)'); x.fillStyle = g; x.fillRect(0, 0, w, h);
+      s3wrap(x, txt, 22, 70, 214, 46, 36, '#2a2016', {f:'"Segoe Print","Bradley Hand","Comic Sans MS",cursive', w:600}); });
+    const m = s3Mesh(T, new T.PlaneGeometry(.1, .1), s3Std(T, {map:t, roughness:.85, side:T.DoubleSide}), [px, py, -.368], {cast:false}); m.rotation.z = rz; m.userData.pick = id; S.pick[id] = m; sc.add(m); };
+  stick('colour', 'A colour I like', '#ffe680', -.455, 1.29, .06); stick('logo', 'Competitor’s logo', '#ffb3c7', -.462, 1.165, -.05); stick('names', 'Names, date & venue', '#b8f0b0', .456, 1.29, -.07); stick('font', 'A font I found online', '#a8d8ff', .46, 1.165, .04);
+  // keyboard & mouse
+  const kb = new T.Group(); kb.add(s3Mesh(T, new T.BoxGeometry(.44, .016, .14), alu, [0,.783,-.02]));
+  const keys = s3Label(T, 880, 280, (x, w, h)=>{ x.fillStyle = '#c9ccd2'; x.fillRect(0, 0, w, h); for(let r=0;r<5;r++) for(let k=0;k<15;k++){ const kw = (r===4 && k===5) ? 300 : 50; if(r===4 && k>5 && k<10) continue; s3box(x, 12 + k*57 + (r===4&&k>9?0:0), 12 + r*54, Math.min(kw, w-24-k*57), 46, 7, '#f7f7f8'); } });
+  const kt = new T.Mesh(new T.PlaneGeometry(.43, .135), s3Std(T, {map:keys, roughness:.5})); kt.rotation.x = -Math.PI/2; kt.position.set(0, .7915, -.02); kb.add(kt); sc.add(kb);
+  const pad = s3Mesh(T, new T.BoxGeometry(.26, .003, .21), s3Std(T, {color:0x2a2622, roughness:.95}), [.38,.776,-.0]); sc.add(pad);
+  const mouse = s3Mesh(T, new T.SphereGeometry(1, 24, 16), s3Std(T, {color:0xeeeeee, roughness:.3}), [.38,.786,.0]); mouse.scale.set(.032, .016, .055); sc.add(mouse);
+  // phone
+  const phone = new T.Group(); phone.add(s3Mesh(T, new T.BoxGeometry(.076, .009, .158), s3Std(T, {color:0x1d1d1f, roughness:.25, metalness:.6}), [0,0,0]));
+  const [pc, px] = s3cv(540, 1120); s3PaintPhone(px); S.ptex = s3tex(T, pc); const ps = new T.Mesh(new T.PlaneGeometry(.07, .151), new T.MeshBasicMaterial({map:S.ptex, toneMapped:false})); ps.rotation.x = -Math.PI/2; ps.position.y = .0047; phone.add(ps);
+  phone.position.set(.64, .7795, .02); phone.rotation.y = -.25; phone.userData.pick = 'phone'; S.pick.phone = phone; S.phoneObj = phone; sc.add(phone);
+  // notebook & pen
+  const nb = new T.Group(); nb.add(s3Mesh(T, new T.BoxGeometry(.2, .018, .27), s3Std(T, {color:0x5a3a22, roughness:.7}), [0,0,0])); nb.add(s3Mesh(T, new T.BoxGeometry(.19, .016, .262), s3Std(T, {color:0xf4efe4, roughness:.9}), [.006,0,0]));
+  nb.add(s3Mesh(T, new T.BoxGeometry(.012, .019, .27), s3Std(T, {color:0x8a2e1c, roughness:.6}), [.06,.001,0]));
+  const pen = s3Mesh(T, new T.CylinderGeometry(.0045, .0045, .14, 12), s3Std(T, {color:0x14213d, roughness:.3, metalness:.4}), [.13,.006,0]); pen.rotation.x = Math.PI/2; pen.rotation.z = .3; nb.add(pen);
+  nb.position.set(-.56, .784, .0); nb.rotation.y = .18; nb.userData.pick = 'notebook'; S.pick.notebook = nb; sc.add(nb);
+  // printer
+  const pr = new T.Group(); const prM = s3Std(T, {color:0xe7e5e0, roughness:.5}); pr.add(s3Mesh(T, new T.BoxGeometry(.4, .17, .3), prM, [0,0,0])); pr.add(s3Mesh(T, new T.BoxGeometry(.36, .01, .2), s3Std(T, {color:0x333333, roughness:.6}), [0,.086,0]));
+  pr.add(s3Mesh(T, new T.BoxGeometry(.3, .004, .14), s3Std(T, {color:0xffffff, roughness:.9}), [0,.03,.19])); pr.add(s3Mesh(T, new T.BoxGeometry(.06, .02, .005), s3Std(T, {color:0x2c8f4f, emissive:0x2c8f4f, emissiveIntensity:.6}), [.13,.04,.152]));
+  pr.position.set(.69, .86, -.5); pr.rotation.y = -.2; pr.userData.pick = 'printer'; S.pick.printer = pr; sc.add(pr);
+  // desk lamp with warm light
+  const lamp = new T.Group(); const lm = s3Std(T, {color:0x2f2f33, roughness:.3, metalness:.8});
+  lamp.add(s3Mesh(T, new T.CylinderGeometry(.075, .085, .02, 32), lm, [0,.01,0])); const a1 = s3Mesh(T, new T.CylinderGeometry(.009, .009, .36, 12), lm, [.04,.18,0]); a1.rotation.z = -.25; lamp.add(a1);
+  const a2 = s3Mesh(T, new T.CylinderGeometry(.008, .008, .3, 12), lm, [.18,.39,0]); a2.rotation.z = -1.15; lamp.add(a2);
+  const shade = s3Mesh(T, new T.ConeGeometry(.07, .12, 32, 1, true), s3Std(T, {color:0x2f2f33, roughness:.35, metalness:.6, side:T.DoubleSide}), [.32,.39,0]); shade.rotation.z = .5; lamp.add(shade);
+  const bulb = new T.Mesh(new T.SphereGeometry(.022, 16, 12), new T.MeshBasicMaterial({color:0xfff1c8})); bulb.position.set(.3,.355,0); lamp.add(bulb);
+  lamp.position.set(-.86, .775, -.62); lamp.rotation.y = -.93; lamp.userData.pick = 'lamp'; S.pick.lamp = lamp; sc.add(lamp);
+  const lampL = new T.PointLight(0xffc27a, .55, 2.0, 2); lampL.position.set(-.66, 1.08, -.36); sc.add(lampL);
+  // mug & plant
+  const mug = new T.Group(); const cer = s3Std(T, {color:0xf3ece1, roughness:.35}); mug.add(s3Mesh(T, new T.CylinderGeometry(.04, .036, .095, 28, 1, true), new T.MeshStandardMaterial({color:0xf3ece1, roughness:.35, side:T.DoubleSide}), [0,.0475,0]));
+  mug.add(s3Mesh(T, new T.CircleGeometry(.038, 24), s3Std(T, {color:0x3b2412, roughness:.2}), [0,.075,0])); mug.children[1].rotation.x = -Math.PI/2; const hd = s3Mesh(T, new T.TorusGeometry(.024, .006, 10, 24), cer, [.045,.05,0]); mug.add(hd);
+  mug.position.set(-.3, .775, .06); sc.add(mug);
+  const plant = new T.Group(); plant.add(s3Mesh(T, new T.CylinderGeometry(.16, .12, .34, 32), s3Std(T, {color:0xc8b9a2, roughness:.8}), [0,.17,0])); const soil = s3Mesh(T, new T.CircleGeometry(.15, 24), s3Std(T, {color:0x2b1d12, roughness:1}), [0,.33,0]); soil.rotation.x = -Math.PI/2; plant.add(soil);
+  const leafM = s3Std(T, {color:0x3f6b35, roughness:.6, side:T.DoubleSide}); for(let i=0;i<22;i++){ const l = s3Mesh(T, new T.SphereGeometry(1, 12, 8), leafM, [0,0,0]); const ang = i*2.4, h = .45 + (i%7)*.11; l.scale.set(.05, .2, .012); l.position.set(Math.cos(ang)*.12, h, Math.sin(ang)*.12); l.rotation.set(Math.sin(ang)*.7, ang, Math.cos(ang)*.7); plant.add(l); }
+  plant.position.set(-1.3, 0, -.75); sc.add(plant);
+  const chairM = s3Std(T, {color:0x26221f, roughness:.8}); const chair = new T.Group(); chair.add(s3Mesh(T, new T.BoxGeometry(.5, .07, .48), chairM, [0,.48,0])); chair.add(s3Mesh(T, new T.BoxGeometry(.48, .55, .06), chairM, [0,.82,.24])); chair.add(s3Mesh(T, new T.CylinderGeometry(.03, .03, .42, 12), metal, [0,.24,0])); chair.position.set(.05, 0, .55); chair.rotation.y = .08; sc.add(chair);
+  // light
+  sc.add(new T.HemisphereLight(0xfff3e0, 0x3a2a1a, .55)); sc.add(new T.AmbientLight(0xffffff, .08));
+  const sun = new T.DirectionalLight(0xfff0d8, 1.25); sun.position.set(-2.2, 3.2, 1.6); sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048); Object.assign(sun.shadow.camera, {left:-2, right:2, top:2, bottom:-2, near:.5, far:8}); sun.shadow.bias = -.0004; sun.shadow.radius = 3; sc.add(sun);
+  const glow = new T.PointLight(0xbcd4ff, .22, 1.3, 2); glow.position.set(0, 1.12, -.15); sc.add(glow);
+  S.pickables = Object.values(S.pick); S.pickables.forEach(o=>o.traverse(m=>{ if(m.isMesh){ m.userData.owner = o; if(m.material && m.material.emissive) m.userData.em = m.material.emissive.getHex(); } }));
+}
+
+/* ---------- overlay, HUD and flow ---------- */
+function s3Css(){ if(el('s3css')) return; const st = document.createElement('style'); st.id = 's3css'; st.textContent = `
+#sim3d [hidden]{display:none!important}
+#sim3d{position:fixed;inset:0;z-index:10050;display:flex;flex-direction:column;background:#120d09;color:#f4e9d8;font-family:Inter,"Segoe UI",Roboto,Arial,sans-serif}
+#sim3d .s3-top{display:flex;align-items:center;gap:12px;padding:10px 16px;padding-top:calc(10px + env(safe-area-inset-top,0px));background:#17110a;border-bottom:1px solid rgba(255,255,255,.08);flex-wrap:wrap}
+#sim3d .s3-steps{display:flex;gap:4px;flex:1;min-width:220px;overflow-x:auto}
+#sim3d .s3-step{flex:1;min-width:24px;height:30px;border-radius:7px;background:rgba(255,255,255,.07);font-size:11.5px;display:flex;align-items:center;justify-content:center;white-space:nowrap;padding:0 6px;color:#bfae97;font-variant-numeric:tabular-nums}
+#sim3d .s3-step.done{background:rgba(29,138,82,.38);color:#dbf5e5}#sim3d .s3-step.cur{background:#e9a133;color:#1c140b;font-weight:700;flex:2.6}
+#sim3d .s3-step .nm{display:none}#sim3d .s3-step.cur .nm{display:inline;margin-left:5px}
+#sim3d .s3-stage{position:relative;flex:1;min-height:170px;overflow:hidden;touch-action:manipulation}
+#sim3d .s3-stage>canvas{display:block;width:100%!important;height:100%!important}
+#sim3d .s3-panel{background:#fbf6ee;color:#1c140b;padding:14px 18px calc(14px + env(safe-area-inset-bottom,0px));max-height:46vh;overflow:auto;border-top:3px solid #e9a133}
+#sim3d .s3-panel .q{font-size:17px;font-weight:600;line-height:1.45;margin:8px 0 10px;max-width:980px;text-wrap:balance}
+#sim3d .s3-ch{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:8px;max-width:1120px}
+#sim3d .s3-ch button,#sim3d .s3-obj button{text-align:left;padding:12px 14px;border-radius:10px;border:1.5px solid #dccbb2;background:#fff;font:inherit;font-size:15px;cursor:pointer;color:#1c140b;line-height:1.35}
+#sim3d .s3-ch button:hover:not(:disabled){border-color:#e9a133;background:#fff8ec}#sim3d button:disabled{cursor:default}
+#sim3d .ok{border-color:#1d8a52!important;background:#e8f6ee!important}#sim3d .bad{border-color:#c0392b!important;background:#fdeceb!important}#sim3d .neu{border-color:#2f6fd6!important;background:#eef3fb!important}
+#sim3d .s3-fb{margin-top:10px;padding:12px 14px;border-radius:10px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;border:1px solid}
+#sim3d .s3-fb>div{flex:1;min-width:220px;line-height:1.45}
+#sim3d .s3-chip{display:inline-block;padding:3px 10px;border-radius:999px;background:#17110a;color:#e9a133;font-size:12px;font-weight:700;letter-spacing:.05em}
+#sim3d .s3-hint{font-size:13px;color:#7a6a58}
+#sim3d .s3-btn{padding:10px 18px;border-radius:10px;border:0;background:#e9a133;color:#1c140b;font:inherit;font-weight:700;cursor:pointer;font-size:15px}
+#sim3d .s3-btn.ghost{background:transparent;border:1.5px solid rgba(255,255,255,.28);color:#f4e9d8;font-weight:600}
+#sim3d .s3-btn.dark{background:#17110a;color:#f4e9d8}
+#sim3d .s3-cover{position:absolute;inset:0;background:radial-gradient(ellipse at 50% 30%,rgba(60,40,20,.9),rgba(12,9,6,.97));display:flex;align-items:center;justify-content:center;padding:16px;z-index:5;overflow:auto}
+#sim3d .s3-card{background:#fbf6ee;color:#1c140b;border-radius:18px;max-width:660px;width:100%;padding:26px 28px;box-shadow:0 30px 80px rgba(0,0,0,.5);margin:auto}
+#sim3d .s3-card h2{font-size:26px;margin:6px 0 8px;text-wrap:balance}#sim3d .s3-card ul{margin:10px 0 16px;padding-left:20px;line-height:1.6}
+#sim3d .s3-tip{position:absolute;pointer-events:none;background:#17110a;color:#fff;padding:5px 10px;border-radius:8px;font-size:13px;z-index:3;white-space:nowrap}
+#sim3d .s3-guide{position:absolute;left:50%;top:12px;transform:translateX(-50%);background:rgba(23,17,10,.86);color:#ffd99a;padding:8px 14px;border-radius:999px;font-size:14px;font-weight:600;z-index:2;pointer-events:none;max-width:calc(100% - 32px);text-align:center}
+#sim3d .s3-flat{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:12px;background:#2a1f15}
+#sim3d .s3-flat>canvas{max-width:100%;max-height:100%;width:auto;height:auto;border-radius:8px;box-shadow:0 10px 30px rgba(0,0,0,.5);cursor:pointer}
+#sim3d .s3-obj{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;width:100%;max-width:760px}
+#sim3d .s3-obj button{text-align:center;padding:18px 10px;font-size:16px;font-weight:600}
+#sim3d .s3-obj .ic{font-size:40px;display:block;margin-bottom:6px}
+#sim3d .s3-load{display:inline-block;width:16px;height:16px;border:2px solid #e9a133;border-right-color:transparent;border-radius:50%;animation:s3spin .8s linear infinite;vertical-align:-3px;margin-right:6px}
+@keyframes s3spin{to{transform:rotate(360deg)}}
+@media (max-width:640px){#sim3d .s3-top>b{display:none}#sim3d .s3-panel .q{font-size:15.5px}#sim3d .s3-ch{grid-template-columns:1fr}}`; document.head.appendChild(st); }
+const S3_OBJ_IC = {colour:['🟨','#ffe680'], logo:['🟥','#ffb3c7'], names:['🟩','#b8f0b0'], font:['🟦','#a8d8ff'], printer:['🖨️'], phone:['📱'], lamp:['💡'], notebook:['📓']};
+
+async function simOpen(preview){
+  if(SIM3D.open) return; s3Css();
+  Object.keys(SIM3D).forEach(k=>delete SIM3D[k]); Object.assign(SIM3D, {open:true, preview:!!preview, answered:{}, phase:'ask', order:{}});
+  const o = document.createElement('div'); o.id = 'sim3d'; o.setAttribute('role', 'dialog'); o.setAttribute('aria-modal', 'true'); o.setAttribute('aria-label', SIM.name + ' 3D simulation');
+  o.innerHTML = `<div class="s3-top"><b style="font-size:15px">🧭 ${esc(SIM.name)}</b><div class="s3-steps" id="s3Steps"></div><span id="s3Prog" style="font-size:13px;color:#cbb89c;font-variant-numeric:tabular-nums"></span><button class="s3-btn ghost" id="s3Exit">Save & exit</button></div>
+    <div class="s3-stage" id="s3Stage"><div class="s3-tip" id="s3Tip" hidden></div><div class="s3-guide" id="s3Guide" hidden></div></div><div class="s3-panel" id="s3Panel" hidden></div><div class="s3-cover" id="s3Cover"></div>`;
+  document.body.appendChild(o); SIM3D.ov = document.body.style.overflow; document.body.style.overflow = 'hidden';
+  el('s3Exit').onclick = () => simClose();
+  s3Steps(); s3Intro(); SIM3D.loading = s3Load();
+}
+async function s3Load(){ const S = SIM3D; let gl = false;
+  try{ const c = document.createElement('canvas'); gl = !!(window.WebGLRenderingContext && (c.getContext('webgl2') || c.getContext('webgl'))); }catch(e){}
+  if(gl && !window.__SIM_FORCE_2D){ try{ if(!window.THREE) await loadScript('https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js'); }catch(e){} }
+  if(!S.open) return;
+  if(gl && window.THREE && !window.__SIM_FORCE_2D){ try{ s3Init3D(); return; }catch(e){ console.warn('3D unavailable, using 2D', e); s3Dispose(true); } }
+  s3InitFlat(); }
+function s3Intro(){ const S = SIM3D, appl = isApplicant() && !S.preview, st = appl ? simStatusOf(PERSON) || {} : {};
+  const used = st.attempts || 0, mx = st.maxAttempts || SIM.max, inprog = st.status==='in_progress';
+  el('s3Cover').hidden = false; el('s3Cover').innerHTML = `<div class="s3-card"><span class="s3-chip">${S.preview ? 'PREVIEW · NOT RECORDED' : `ATTEMPT ${inprog ? (st.current||used+1) : used+1} OF ${mx}`}</span>
+    <h2>Welcome to your CrossCore desk</h2><p style="line-height:1.55;margin:0">You will build Kiara & Marlo’s wedding invitation site the CrossCore way — from the client brief to the handover email. Use the monitor, the notes and the devices on the desk exactly as you would on the job.</p>
+    <ul><li><b>12 workflow steps · 24 scored items</b> — questions, required clicks on real app screens, and objects on the desk.</li><li>Steps marked <b>Guided</b> show you where to click first; they are not scored.</li>
+    <li>You get feedback right after each answer. <b>Your first answer counts</b> and is saved immediately.</li><li>Passing score: <b>80%</b> (20 of 24). You have <b>3 attempts</b> in total.</li><li>You can <b>Save & exit</b> any time and continue later.</li></ul>
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><button class="s3-btn" id="s3Start">${inprog ? 'Continue where I left off' : S.preview ? 'Start preview' : 'Start the simulation'}</button><button class="s3-btn dark" onclick="simClose()">Not now</button><span class="s3-hint" id="s3LoadMsg"><span class="s3-load"></span>Preparing the 3D office…</span></div></div>`;
+  el('s3Start').onclick = s3Begin;
+  Promise.resolve(S.loading).then(()=>{ const m = el('s3LoadMsg'); if(m) m.textContent = S.flat ? '2D mode (your browser has no 3D support)' : '3D office ready'; }); }
+async function s3Begin(){ const S = SIM3D, b = el('s3Start'); if(b){ b.disabled = true; b.innerHTML = '<span class="s3-load"></span>Starting…'; }
+  await S.loading; let r;
+  try{ r = await SIMAPI.start(); }catch(e){ el('s3Cover').innerHTML = `<div class="s3-card"><h2>Can’t start right now</h2><p>${esc(e.message||'Please try again.')}</p><button class="s3-btn" onclick="simClose()">Close</button></div>`; return; }
+  if(r.done){ el('s3Cover').innerHTML = `<div class="s3-card"><h2>You already passed 🎉</h2><p>Your assessment is ${r.status==='approved'?'approved':'with HR and the company heads for approval'}. There is nothing more to take.</p><button class="s3-btn" onclick="simClose()">Back to my portal</button></div>`; return; }
+  if(r.preview && !S.preview && isApplicant()) S.practice = true;
+  S.att = r; S.answered = {...(r.answered||{})}; S.done = false; S.order = {};
+  el('s3Cover').hidden = true; el('s3Panel').hidden = false; s3Resize();
+  const i = SIM_ITEMS.findIndex(it=>!S.answered[it.id]); if(i<0) return s3Finish(); s3Show(i); }
+function s3Show(i){ const S = SIM3D; S.idx = i; S.it = SIM_ITEMS[i]; S.phase = S.it.pre ? 'pre' : 'ask'; S.chosen = null; S.verdict = undefined; S.locked = false; S.hover = null; S.fb = null; S.mark = null;
+  s3Steps(); s3Cam(S.it.station==='monitor' || S.it.pre ? 'monitor' : S.it.station); s3PaintScreen(); s3Panel(); s3Guide(); s3HL(); }
+function s3Steps(){ const S = SIM3D, box = el('s3Steps'); if(!box) return; const cur = S.it?.step;
+  box.innerHTML = SIM_STEPS.map((n, i)=>{ const its = SIM_ITEMS.filter(x=>x.step===i+1), done = its.every(x=>S.answered[x.id]);
+    return `<div class="s3-step ${cur===i+1?'cur':done?'done':''}" title="Step ${i+1}: ${esc(n)}">${done && cur!==i+1 ? '✓' : i+1}<span class="nm">${esc(n)}</span></div>`; }).join('');
+  const n = Object.keys(S.answered).length; const p = el('s3Prog'); if(p) p.textContent = `${n}/${SIM_TOTAL} answered${S.preview||S.practice ? ' · practice' : ''}`; }
+function s3Guide(){ const S = SIM3D, g = el('s3Guide'); if(!g) return; const it = S.it; let t = '';
+  if(it && !S.locked){ if(S.phase==='pre') t = `👆 Guided: click “${it.pre}” on the monitor`; else if(it.type==='click') t = '🖱️ Click your answer on the monitor'; else if(it.type==='obj') t = it.station==='stickies' ? '🖱️ Click one of the sticky notes on the monitor' : '🖱️ Click the right object on the desk'; }
+  g.hidden = !t; g.textContent = t; }
+function s3Panel(){ const S = SIM3D, it = S.it, p = el('s3Panel'); if(!p || !it) return;
+  const head = `<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><span class="s3-chip">STEP ${it.step} · ${esc(SIM_STEPS[it.step-1].toUpperCase())}</span><span class="s3-hint">Item ${SIM_ITEMS.indexOf(it)+1} of ${SIM_TOTAL}${S.preview ? ' · preview, not recorded' : S.practice ? ' · practice mode' : ''}</span></div>`;
+  let body = `<div class="q">${esc(it.prompt)}</div>`;
+  if(S.phase==='pre') body += `<div class="s3-fb neu"><div>👆 <b>Guided step (not scored):</b> click <b>${esc(it.pre)}</b> — the highlighted icon on the monitor’s dock — to open the app.</div>${S.flat?'':''}</div>`;
+  else if(it.type==='mc'){ const ord = S.order[it.id] = S.order[it.id] || it.choices.map(c=>c[0]).sort(()=>Math.random()-.5);
+    body += `<div class="s3-ch">${ord.map(id=>{ const c = it.choices.find(x=>x[0]===id); const cls = S.chosen===id ? (S.verdict===true?'ok':S.verdict===false?'bad':'neu') : '';
+      return `<button class="${cls}" data-c="${id}" ${S.locked?'disabled':''}>${esc(c[1])}</button>`; }).join('')}</div>`; }
+  else if(!S.fb) body += `<div class="s3-hint">${it.type==='click' ? 'Click your answer directly on the monitor screen.' : 'Click the object in the office. Hover over it to see what it is.'}</div>`;
+  if(S.locked && !S.fb) body += `<div class="s3-hint" style="margin-top:8px"><span class="s3-load"></span>Checking…</div>`;
+  if(S.fb){ const c = S.fb.correct, last = !SIM_ITEMS.some(x=>!S.answered[x.id]);
+    body += `<div class="s3-fb ${c===true?'ok':c===false?'bad':'neu'}"><div><b>${c===true?'✓ Correct':c===false?'✗ Incorrect':'Answer saved'}</b>${S.chosen && it.type!=='mc' ? ` — you chose “${esc(simChoiceLabel(it.id, S.chosen))}”` : ''}<br>${esc(S.fb.explain||'')}</div><button class="s3-btn" id="s3Next">${last ? 'See my results →' : 'Continue →'}</button></div>`; }
+  p.innerHTML = head + body;
+  p.querySelectorAll('.s3-ch button').forEach(b=>b.onclick = () => s3Answer(b.dataset.c));
+  const nx = el('s3Next'); if(nx){ nx.onclick = s3Next; setTimeout(()=>nx.focus({preventScroll:true}), 30); p.scrollTop = p.scrollHeight; } }
+async function s3Answer(choice){ const S = SIM3D, it = S.it; if(S.locked || S.phase!=='ask' || !S.att) return;
+  S.locked = true; S.chosen = choice; S.hover = null; s3Tip(); s3PaintScreen(); s3Panel(); s3Guide();
+  let r; try{ r = await SIMAPI.answer(S.att.attempt_id, it.id, choice); }catch(e){ S.locked = false; S.chosen = null; s3PaintScreen(); s3Panel(); s3Guide(); toast(e.message || 'Could not save your answer — check your connection and try again'); return; }
+  if(!S.open || S.it!==it) return;
+  if(r.repeat && r.choice) S.chosen = r.choice;
+  S.answered[it.id] = r; S.verdict = r.correct===true ? true : r.correct===false ? false : null; S.fb = {correct:S.verdict, explain:r.explain};
+  S.mark = it.type==='obj' ? S.chosen : null; s3PaintScreen(); s3HL(); s3Panel(); s3Steps(); }
+function s3Next(){ const S = SIM3D; let n = SIM_ITEMS.findIndex((x, j)=>j>S.idx && !S.answered[x.id]); if(n<0) n = SIM_ITEMS.findIndex(x=>!S.answered[x.id]); if(n<0) return s3Finish(); s3Show(n); }
+function s3PreDone(){ const S = SIM3D; if(S.phase!=='pre') return; S.phase = 'ask'; S.hover = null; s3Tip(); s3PaintScreen(); s3Panel(); s3Guide(); }
+async function s3Finish(){ const S = SIM3D; el('s3Panel').hidden = true; el('s3Guide').hidden = true; const cv = el('s3Cover'); cv.hidden = false;
+  cv.innerHTML = '<div class="s3-card"><h2><span class="s3-load"></span>Scoring your attempt…</h2><p class="s3-hint">Your answers are being checked by the Cross Core server.</p></div>';
+  let r; try{ r = await SIMAPI.finish(S.att.attempt_id); }catch(e){ cv.innerHTML = `<div class="s3-card"><h2>We couldn’t score this attempt yet</h2><p>${esc(e.message||'')}</p><p class="s3-hint">Your answers are saved. Close and continue later — the attempt resumes where you left off.</p><button class="s3-btn" onclick="simClose()">Close</button></div>`; return; }
+  S.done = true; s3Steps();
+  if(r.preview){ cv.innerHTML = `<div class="s3-card"><span class="s3-chip">${S.practice ? 'PRACTICE' : 'PREVIEW'} · NOT RECORDED</span><h2>${r.practice ? 'Practice run complete' : `Preview finished — ${r.score}%`}</h2>
+      <p>${r.practice ? 'Scoring needs the live Cross Core database, so this run was not scored or recorded.' : `${r.correct} of ${r.total} correct · ${r.passed ? 'would pass' : 'would not pass'} (80% needed). Nothing was recorded.`}</p><button class="s3-btn" onclick="simClose()">Close</button></div>`; return; }
+  const pass = !!r.passed, rem = r.remaining ?? Math.max((r.maxAttempts||SIM.max) - (r.attempt||1), 0);
+  const msg = pass ? 'Congratulations! Your result was sent to HR and the company heads. Once HR and a company head approve it, you move to the next onboarding stage and your regular VA portal can be activated.'
+    : rem>0 ? `You need 80% to pass. Look at the steps you missed in your portal, then retake when you are ready. You have ${rem} attempt(s) left.`
+    : 'You have used all your attempts. Your status is now “Failed – HR Review Required”. HR and the company heads were notified and will contact you through your portal.';
+  cv.innerHTML = `<div class="s3-card" style="text-align:center"><span class="s3-chip">ATTEMPT ${r.attempt} OF ${r.maxAttempts} · ${esc(SIM.name.toUpperCase())}</span>
+    <div style="display:flex;justify-content:center;margin:16px 0 6px">${simScoreRing(r.score, pass)}</div>
+    <h2 style="color:${pass?'#1d8a52':'#c0392b'}">${pass ? 'Passed' : 'Not passed'}${!pass && rem===0 ? ' — HR Review Required' : ''}</h2>
+    <p style="margin:0 0 6px"><b>${r.correct}</b> correct · <b>${r.incorrect}</b> incorrect · ${r.score}% (pass mark 80%)</p><p class="s3-hint" style="margin:0 0 12px">Completed ${esc(dtstr(r.completedAt))} · report sent to your portal, HR and the company heads</p>
+    <p style="line-height:1.55">${esc(msg)}</p><div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:14px">${!pass && rem>0 ? '<button class="s3-btn" id="s3Retake">Retake now</button>' : ''}<button class="s3-btn ${!pass && rem>0 ? 'dark' : ''}" onclick="simClose()">Back to my portal</button></div></div>`;
+  const rt = el('s3Retake'); if(rt) rt.onclick = () => { S.answered = {}; S.it = null; s3Steps(); s3Begin(); }; }
+function simClose(){ const S = SIM3D; if(!S.open) return; S.open = false; s3Dispose(); el('sim3d')?.remove(); document.body.style.overflow = S.ov || '';
+  try{ buildNav(); if(CURRENT==='appsim') RENDER.appsim(); else if(CURRENT==='simhub') RENDER.simhub(); else if(CURRENT==='apphome') RENDER.apphome(); }catch(e){} }
+
+/* ---------- 3D engine ---------- */
+function s3Init3D(){ const T = window.THREE, S = SIM3D, st = el('s3Stage'); s3Build(); S3_SCREENS.desktop(S.sx, {}); S.stex.needsUpdate = true;
+  const r = new T.WebGLRenderer({antialias:true, powerPreference:'high-performance'}); r.setPixelRatio(Math.min(window.devicePixelRatio||1, 2));
+  r.shadowMap.enabled = true; r.shadowMap.type = T.PCFSoftShadowMap; r.outputEncoding = T.sRGBEncoding; r.toneMapping = T.ACESFilmicToneMapping; r.toneMappingExposure = 1.08;
+  st.prepend(r.domElement); S.r = r; S.cam = new T.PerspectiveCamera(40, 1, .02, 30); S.base = new T.Vector3(.4, 1.7, 2.4); S.look = new T.Vector3(0, 1, -.3); S.cam.position.copy(S.base); S.cam.lookAt(S.look);
+  S.ray = new T.Raycaster(); S.ndc = new T.Vector2(); S.par = {x:0, y:0}; S.station = 'overview';
+  const cv = r.domElement; cv.addEventListener('pointermove', s3Move); cv.addEventListener('pointerdown', e=>{ S.down = [e.clientX, e.clientY]; }); cv.addEventListener('pointerup', s3Click); cv.addEventListener('pointerleave', ()=>{ S.par = {x:0, y:0}; s3SetHover(null); });
+  S.ro = new ResizeObserver(()=>s3Resize()); S.ro.observe(st); s3Resize(); s3Cam('overview');
+  r.shadowMap.autoUpdate = false; r.shadowMap.needsUpdate = true; S.dirty = true;
+  const loop = t => { if(!S.open || !S.r) return; S.raf = requestAnimationFrame(loop); if(s3Tick(t) || S.dirty){ S.dirty = false; S.r.render(S.scene, S.cam); } }; S.raf = requestAnimationFrame(loop); }
+function s3Resize(){ const S = SIM3D, st = el('s3Stage'); if(!st || !S.r) return; const w = st.clientWidth, h = st.clientHeight; if(!w || !h) return;
+  S.r.setSize(w, h, false); S.cam.aspect = w/h; S.cam.updateProjectionMatrix(); S.dirty = true; if(!S.tw) s3Cam(S.station, true); }
+function s3Pose(name){ const T = window.THREE, c = SIM3D.cam, f = Math.tan(T.MathUtils.degToRad(c.fov/2)), a = c.aspect, fit = (w, h)=>Math.max(h/2/f, w/2/(f*a));
+  const P = {monitor:()=>{ const d = fit(.84, .49); return [[0, 1.124, -.37+d], [0, 1.124, -.37]]; },
+    stickies:()=>{ const d = fit(1.1, .58); return [[0, 1.17, -.37+d], [0, 1.15, -.37]]; },
+    overview:()=>{ const d = Math.max(1.5, fit(2.1, 1.3)); return [[.18, 1.2+d*.22, -.33+d], [0, .98, -.36]]; },
+    desk:()=>{ const d = fit(1.95, 1.05); return [[.05, .8+d*.74, -.22+d*.67], [.05, .8, -.22]]; },
+    phone:()=>{ const d = fit(.2, .19); return [[.64, .78+d*.93, .02+d*.36], [.64, .78, .02]]; }};
+  return (P[name] || P.overview)(); }
+function s3Cam(name, instant){ const S = SIM3D, T = window.THREE; if(!S.cam) return; S.station = name; const [p, l] = s3Pose(name);
+  S.tw = {fp:S.base.clone(), fl:S.look.clone(), tp:new T.Vector3(...p), tl:new T.Vector3(...l), t0:performance.now(), dur:instant ? 0 : 1000}; if(instant) s3Tick(performance.now()); }
+function s3Tick(t){ const S = SIM3D; const busy = !!S.tw || !!S.hl || Math.abs(S.par.x - (S.sm?.x||0)) + Math.abs(S.par.y - (S.sm?.y||0)) > .002; if(S.tw){ const w = S.tw, k = w.dur ? Math.min(1, (t - w.t0)/w.dur) : 1, e = k<.5 ? 4*k*k*k : 1 - Math.pow(-2*k+2, 3)/2;
+    S.base.lerpVectors(w.fp, w.tp, e); S.look.lerpVectors(w.fl, w.tl, e); if(k>=1) S.tw = null; }
+  const amt = ['overview','desk'].includes(S.station) ? .05 : .008; S.sm = S.sm || {x:0, y:0}; S.sm.x += (S.par.x - S.sm.x)*.06; S.sm.y += (S.par.y - S.sm.y)*.06;
+  S.cam.position.set(S.base.x + S.sm.x*amt, S.base.y + S.sm.y*amt*.6, S.base.z); S.cam.lookAt(S.look);
+  if(S.hl){ const o = S.pick[S.hl]; const v = .5 + .5*Math.sin(t/180); o?.traverse(m=>{ if(m.isMesh && m.material?.emissive) m.material.emissiveIntensity = .55 + v*.45; }); }
+  return busy; }
+function s3PickAt(cx, cy){ const S = SIM3D; if(!S.r || !S.it) return null; const rc = S.r.domElement.getBoundingClientRect();
+  S.ndc.set(((cx - rc.left)/rc.width)*2 - 1, -((cy - rc.top)/rc.height)*2 + 1); S.ray.setFromCamera(S.ndc, S.cam);
+  const it = S.it, live = id => it.type==='obj' && S.phase==='ask' && !S.locked && it.objects.some(x=>x[0]===id);
+  for(const h of S.ray.intersectObjects([S.screen, ...S.pickables], true)){
+    if(h.object===S.screen){ const hs = s3HitScreen(h.uv.x*S3W, (1 - h.uv.y)*S3H); return hs ? {kind:'screen', id:hs[0], label:hs[1]} : null; }
+    let o = h.object; while(o && !o.userData.pick) o = o.parent; if(!o) continue;
+    if(live(o.userData.pick)) return {kind:'obj', id:o.userData.pick, label:simChoiceLabel(it.id, o.userData.pick)}; }
+  return null; }
+function s3Move(e){ const S = SIM3D, rc = e.currentTarget.getBoundingClientRect(); S.par = {x:((e.clientX - rc.left)/rc.width - .5)*2, y:-((e.clientY - rc.top)/rc.height - .5)*2};
+  if(e.pointerType==='touch') return; const r = s3PickAt(e.clientX, e.clientY); s3SetHover(r, e.clientX - rc.left, e.clientY - rc.top); }
+function s3SetHover(r, x, y){ const S = SIM3D, id = r ? r.id : null; const cv = S.r?.domElement || S.sc; if(cv) cv.style.cursor = r ? 'pointer' : 'default';
+  if(r && r.kind==='obj') s3Tip(r.label, x, y); else s3Tip();
+  if(id===S.hover) return; S.hover = id; if(!r || r.kind!=='obj') s3PaintScreen(); s3HL(); }
+function s3Tip(t, x, y){ const tp = el('s3Tip'); if(!tp) return; if(!t){ tp.hidden = true; return; } tp.hidden = false; tp.textContent = t; tp.style.left = (x + 14) + 'px'; tp.style.top = (y + 14) + 'px'; }
+function s3Click(e){ const S = SIM3D; if(S.down && Math.hypot(e.clientX - S.down[0], e.clientY - S.down[1]) > 8) return; const r = s3PickAt(e.clientX, e.clientY); if(!r) return; s3Act(r); }
+function s3Act(r){ const S = SIM3D; if(S.phase==='pre'){ if(r.id==='pre') s3PreDone(); return; } s3Answer(r.id); }
+function s3HL(){ const S = SIM3D; if(!S.pick || !window.THREE) return; S.hl = null;
+  Object.entries(S.pick).forEach(([id, o])=>{ const mark = S.mark===id, hv = S.hover===id && !S.locked; const col = mark ? (S.verdict===true ? 0x1d8a52 : S.verdict===false ? 0xc0392b : 0x2f6fd6) : hv ? 0x7a4a10 : null;
+    o.traverse(m=>{ if(!m.isMesh || !m.material?.emissive) return; if(col!=null){ m.material.emissive.setHex(col); m.material.emissiveIntensity = mark ? .7 : .8; } else { m.material.emissive.setHex(m.userData.em||0); m.material.emissiveIntensity = 1; } });
+    if(hv && !mark) S.hl = id; }); S.dirty = true; }
+function s3Dispose(keepDom){ const S = SIM3D; cancelAnimationFrame(S.raf); S.ro?.disconnect(); S.ro = null;
+  if(S.scene){ S.scene.traverse(o=>{ o.geometry?.dispose(); const ms = o.material ? (Array.isArray(o.material) ? o.material : [o.material]) : []; ms.forEach(m=>{ m.map?.dispose(); m.dispose(); }); }); S.scene = null; }
+  S.stex?.dispose?.(); S.ptex?.dispose?.(); if(S.r){ S.r.dispose(); S.r.forceContextLoss?.(); if(keepDom) S.r.domElement.remove(); S.r = null; } S.pick = null; S.pickables = []; }
+
+/* ---------- 2D fallback (no WebGL) ---------- */
+function s3InitFlat(){ const S = SIM3D; S.flat = true; const st = el('s3Stage'); st.insertAdjacentHTML('afterbegin', '<div class="s3-flat" id="s3Flat"></div>');
+  if(!S.sc){ const [c, x] = s3cv(S3W, S3H); S.sc = c; S.sx = x; } const [pc, px] = s3cv(540, 1120); s3PaintPhone(px); S.pc = pc; pc.style.maxHeight = '100%';
+  const map = e => { const rc = S.sc.getBoundingClientRect(); return [(e.clientX - rc.left)/rc.width*S3W, (e.clientY - rc.top)/rc.height*S3H]; };
+  S.sc.addEventListener('pointermove', e=>{ if(e.pointerType==='touch') return; const hs = s3HitScreen(...map(e)); s3SetHover(hs ? {kind:'screen', id:hs[0]} : null); });
+  S.sc.addEventListener('click', e=>{ const hs = s3HitScreen(...map(e)); if(hs) s3Act({kind:'screen', id:hs[0]}); }); }
+function s3FlatSync(){ const S = SIM3D, f = el('s3Flat'); if(!f || !S.it) return; const it = S.it;
+  const mode = it.type==='obj' && S.phase==='ask' ? 'obj' : it.station==='phone' ? 'phone' : 'screen';
+  if(mode==='obj'){ f.dataset.mode = 'obj'; f.innerHTML = `<div class="s3-obj">${it.objects.map(([id, n])=>{ const [ic, bg] = S3_OBJ_IC[id] || ['▢']; const cls = S.mark===id ? (S.verdict===true?'ok':S.verdict===false?'bad':'neu') : '';
+      return `<button class="${cls}" data-o="${id}" ${S.locked?'disabled':''} style="${bg?`background:${bg};font-family:'Segoe Print','Bradley Hand',cursive`:''}"><span class="ic">${ic}</span>${esc(n)}</button>`; }).join('')}</div>`;
+    f.querySelectorAll('button').forEach(b=>b.onclick = () => s3Answer(b.dataset.o)); return; }
+  if(f.dataset.mode!==mode){ f.dataset.mode = mode; f.innerHTML = ''; f.appendChild(mode==='phone' ? S.pc : S.sc); } }
 
 /* <<< OCT24 MODULES <<< */
 </script>

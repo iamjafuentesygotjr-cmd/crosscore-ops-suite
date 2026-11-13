@@ -3657,6 +3657,10 @@ const activePeople = () => Object.keys(PEOPLE).filter(k=>{ const p=PEOPLE[k]; if
 function personByEmail(mail){ mail=(mail||'').trim().toLowerCase(); return Object.keys(PEOPLE).find(k=>PEOPLE[k].email&&PEOPLE[k].email.toLowerCase()===mail); }
 const isExec = () => ['ceo','coo','creative'].includes(ROLE);
 const isHead = k => HEADS.includes(k);
+/* people who no longer approve anything (Nov 13 2026: Norman) — they keep their access, they are just never an approver */
+const approvalOff = k => (typeof APPROVAL_EXCLUDED!=='undefined' ? APPROVAL_EXCLUDED : ['norman']).includes(k);
+const approverHeads = () => HEADS.filter(k=>!approvalOff(k));
+const isApproverHead = k => isHead(k) && !approvalOff(k);
 /* System administrators: Administration, accounts, access and company group chats. Pau keeps full access as Super Administrator. */
 const SYS_ADMINS = ['paul','ja'];
 const isSysAdmin = (k=PERSON) => SYS_ADMINS.includes(k);
@@ -4939,7 +4943,7 @@ const assigneeOptions = cid => {
   return keys.filter(k=>PEOPLE[k]);
 };
 const taskApprovers = t => { const p = pmsOf(t.client); return p.length ? p : ['ja']; };
-const canApproveTask = t => isExec() || taskApprovers(t).includes(PERSON);
+const canApproveTask = t => !approvalOff(PERSON) && (isExec() || taskApprovers(t).includes(PERSON));
 /* who may edit a content item: its owner, the approver (PM), company heads, and the client's assigned team, the core team and the Marketing Head */
 const canEditContent = t => !!t && (t.assignee===PERSON || t.createdBy===PERSON || t.handoffFrom===PERSON || canApproveTask(t) || isExec() || isFullAccess()
   || (client(t.client)?.team||[]).includes(PERSON) || pmsOf(t.client).includes(PERSON) || (typeof isCore==='function' && isCore() && t.core) || PERSON===(S().marketingHead||'kiara'));
@@ -5279,7 +5283,7 @@ RENDER.design = () => {
           <div class="a-b"><b>${esc(a.name)}</b><small>${esc(a.v)} · ${esc(cname(a.client))}</small><div style="margin-top:7px">${badge(a.status)}</div></div>
           <div class="a-f">
             ${a.files?.length?`<button class="btn" data-f='${esc(JSON.stringify(a.files[0]))}' onclick="openFileRef(this)">Open</button>`:''}
-            ${a.status==='Review'&&(isExec()||pmsOf(a.client).includes(PERSON))?`<button class="btn primary" onclick="approveAsset('${a.id}')">Approve</button>`:''}
+            ${a.status==='Review'&&!approvalOff(PERSON)&&(isExec()||pmsOf(a.client).includes(PERSON))?`<button class="btn primary" onclick="approveAsset('${a.id}')">Approve</button>`:''}
           </div>
         </div>`).join('') || '<div class="empty">No assets in the library yet.</div>'}
     </div>`;
@@ -9870,7 +9874,7 @@ function slipState(s){
   if((s.adjustments||[]).some(a=>a.status==='Pending')) return 'Waiting approval';
   return 'Ready';
 }
-const holdCleared = s => HEADS.every(k=>s.hold?.[k]?.decision==='approve');
+const holdCleared = s => approverHeads().every(k=>s.hold?.[k]?.decision==='approve');
 const STATE_BADGE = {Held:'b-missed', 'Needs rate':'b-missed', 'Waiting approval':'b-scheduled', Ready:'b-pending', Generated:'b-approved'};
 function refreshSlip(s){ if(s.generated) return s; const c = computeSlip(s.run, s.emp, s); Object.assign(s, c); s.status = slipState(s); return s; }
 function preparePayroll(){
@@ -9934,7 +9938,7 @@ function openSlip(id){
   const logRow = l => { const flag = s.flags.some(f=>f.date===l.date);
     return `<tr><td>${WEEKDAYS[dow(l.date)]} ${dShort(l.date)}</td><td>${l.in?showT(l.in):flag?'<span class="badge b-missed">Missing time-in</span>':l.past?'—':'<span class="hint">upcoming</span>'}${l.corrected?' <span class="hint">(corrected)</span>':''}</td><td>${showT(l.out)}</td>
       <td style="text-align:right">${flag&&!s.generated?`<button class="btn" style="padding:3px 8px;font-size:11.5px" onclick="correctLogModal('${s.emp}','${l.date}','${s.id}')">Correct log</button> <button class="btn ghost" style="padding:3px 8px;font-size:11.5px" onclick="excludeDay('${s.id}','${l.date}')">Not a workday</button>`:''}</td></tr>`; };
-  const decisions = HEADS.map(k=>{ const d=s.hold?.[k]; return `<div class="list-row">${av(P(k))}<div style="flex:1"><b style="font-size:12.5px">${esc(pname(k))}</b><div class="hint">${d?`${d.decision==='approve'?'✅ Approved proceeding':'⏸ Keep on hold'} · ${esc(dtstr(d.at))}${d.comment?' — “'+esc(d.comment)+'”':''}`:'No decision yet'}</div></div></div>`; }).join('');
+  const decisions = approverHeads().map(k=>{ const d=s.hold?.[k]; return `<div class="list-row">${av(P(k))}<div style="flex:1"><b style="font-size:12.5px">${esc(pname(k))}</b><div class="hint">${d?`${d.decision==='approve'?'✅ Approved proceeding':'⏸ Keep on hold'} · ${esc(dtstr(d.at))}${d.comment?' — “'+esc(d.comment)+'”':''}`:'No decision yet'}</div></div></div>`; }).join('');
   openModal(`Payslip — ${s.empName}`, `
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px"><span class="badge ${STATE_BADGE[s.status]||''}">${s.status}</span>
       <span class="hint">${esc(periodLabel(p))} · payout ${dLong(p.payout)} · delivery: ${esc(s.delivery?.status||'Not sent')} · payout: ${esc(s.payout?.status||'Unpaid')}</span></div>
@@ -9976,19 +9980,19 @@ function addAdj(id){ const s=PAYSLIPS.find(x=>x.id===id); const amt=+el('adAmt')
   if(!(amt>0)) return toast('Enter an amount'); if(!why) return toast('A reason is required');
   const a={id:uid('AJ'), kind:el('adKind').value, amount:amt, reason:why, by:PERSON, at:nowISO(), status:'Pending'};
   (s.adjustments=s.adjustments||[]).push(a); finHist(s, `${a.kind==='deduction'?'Deduction':'Addition'} requested`, why);
-  notify(HEADS, 'approval', `Approval needed: a payroll ${a.kind} on <b>${esc(s.empName)}</b>'s payslip (${esc(periodLabel(s.period))}) — ${esc(why)}`, finLink('payroll', {slip:s.id}));
+  notify(approverHeads(), 'approval', `Approval needed: a payroll ${a.kind} on <b>${esc(s.empName)}</b>'s payslip (${esc(periodLabel(s.period))}) — ${esc(why)}`, finLink('payroll', {slip:s.id}));
   refreshSlip(s); recordChange(); openSlip(id); toast('Sent to the company heads for approval'); }
-function decideAdj(id, aid, st){ const s=PAYSLIPS.find(x=>x.id===id); const a=s.adjustments.find(x=>x.id===aid); if(!isHead(PERSON)) return;
+function decideAdj(id, aid, st){ const s=PAYSLIPS.find(x=>x.id===id); const a=s.adjustments.find(x=>x.id===aid); if(!isApproverHead(PERSON)) return;
   const cm = prompt(st==='Approved'?'Comment (optional)':'Reason for rejecting', '') ?? ''; a.status=st; a.decidedBy=PERSON; a.decidedAt=nowISO(); a.comment=cm;
   finHist(s, `${a.kind} ${st.toLowerCase()}`, `${a.reason}${cm?' — '+cm:''}`);
   notify(financeKeys(), 'approval', `${esc(first(PERSON))} ${st.toLowerCase()} the ${a.kind} on <b>${esc(s.empName)}</b>'s payslip`, finLink('payroll', {slip:s.id}));
   refreshSlip(s); recordChange(); openSlip(id); }
-function headDecide(id, decision){ const s=PAYSLIPS.find(x=>x.id===id); if(!isHead(PERSON)) return;
+function headDecide(id, decision){ const s=PAYSLIPS.find(x=>x.id===id); if(!isApproverHead(PERSON)) return;
   const comment = el('hdCmt')?.value.trim()||''; if(decision==='hold' && !comment) return toast('Add a comment explaining why');
   s.hold = {...(s.hold||{}), [PERSON]:{decision, comment, at:nowISO()}};
   finHist(s, decision==='approve'?'Approved proceeding despite missing time-in':'Kept on hold', comment);
   refreshSlip(s);
-  const left = HEADS.filter(k=>s.hold?.[k]?.decision!=='approve');
+  const left = approverHeads().filter(k=>s.hold?.[k]?.decision!=='approve');
   notify(uniq([...financeKeys(), ...HEADS]), 'approval', `${esc(first(PERSON))} ${decision==='approve'?'approved proceeding with':'kept on hold'} <b>${esc(s.empName)}</b>'s payslip${decision==='approve'&&left.length?` — waiting for ${left.map(first).join(', ')}`:decision==='approve'?' — cleared for Finance':''}`, finLink('payroll', {slip:s.id}));
   recordChange(); openSlip(id); }
 function excludeDay(id, date){ const s=PAYSLIPS.find(x=>x.id===id); const why = prompt(`Why is ${dLong(date)} not a scheduled workday for ${s.empName}? (e.g. holiday, approved leave, rest day swap)`); if(!why) return;
@@ -12991,7 +12995,7 @@ COLL.kb = {get:()=>KB, set:v=>KB=v, aud:a=>{ const acc = a.access||'all';
   if(acc==='all') return null; if(acc==='heads') return uniq([a.by, ...HEADS]); if(acc==='hr') return uniq([a.by, ...HEADS, ...HR_KEYS()]);
   return uniq([a.by, ...HEADS, ...HR_KEYS(), ...kbManagers()]); }};
 const kbEditor = () => ['manager','hr'].includes(ROLE) || isExec() || isFullAccess();
-const kbApprover = () => ROLE==='hr' || isHead(PERSON) || isFullAccess();
+const kbApprover = () => !approvalOff(PERSON) && (ROLE==='hr' || isHead(PERSON) || isFullAccess());
 const kbDef = v => v && !/^(—|-|To be defined|none)$/i.test(String(v).trim());
 
 /* clients whose shared profile this person may read */
@@ -17478,7 +17482,7 @@ function assetSave(id){
   const n = (parseInt(String(a.v||'v1').replace(/\D/g,''))||1) + (filesChanged?1:0);
   if(filesChanged) a.versions = [...(a.versions||[]), {v:String(a.v||'v1').split(' ')[0], at:a.updatedAt||a.at, by:a.updatedBy||a.by, files:a.files||[]}].slice(-10);
   Object.assign(a, {name, notes:el('aeNotes').value, link:el('aeLink').value.trim(), files:AE_FILES, v:`v${n} · ${first(PERSON)}`, updatedAt:nowISO(), updatedBy:PERSON});
-  const approver = isExec() || pmsOf(a.client).includes(PERSON);
+  const approver = !approvalOff(PERSON) && (isExec() || pmsOf(a.client).includes(PERSON));
   let msg = 'Graphic saved';
   if(a.status==='Approved' && !approver){ a.status = 'Review'; notify(pmsOf(a.client), 'submission', `${esc(first(PERSON))} changed the approved graphic <b>${esc(a.name)}</b> (${esc(cname(a.client))}) — please review v${n}`, {view:'approvals'}); msg = `Saved as v${n} — sent back to the PM for review`; }
   else if(filesChanged) msg = `Saved as v${n}`;
@@ -20916,7 +20920,7 @@ async function cooPostFromModal(){ const ch = CHATS.find(c=>c.id===el('paPostC')
    The footer shows which build is running ("Build 2026-10-07 · 1"), and every open portal checks every few minutes
    (and whenever it comes back to the foreground) whether a newer build has been published. If so it shows
    "New version available — Update now" instead of quietly running old code. */
-const BUILD_ID = '2026-11-13 · 2';
+const BUILD_ID = '2026-11-13 · 3';
 function verStamp(){ const f = el('footNote'); if(f && !f.dataset.v){ f.dataset.v = 1; f.textContent = `Cross Core Ops Suite v8 · Build ${BUILD_ID}`; } }
 async function verCheck(){
   if(!/^https?:/.test(location.protocol)) return;
@@ -22708,7 +22712,7 @@ const REC_FILE_LABEL = 'PDF, Word (DOC/DOCX), Excel (XLS/XLSX/CSV), JPEG, PNG, P
 const recApp = k => APPLICANTS.find(a=>a.id===k);
 const recApps = () => APPLICANTS.slice().sort((a,b)=>(b.updatedAt||b.at||'').localeCompare(a.updatedAt||a.at||''));
 const recCan = () => ROLE==='hr' || isHead(PERSON) || isFullAccess();
-const recIsHead = (k=PERSON) => HEADS.includes(k);
+const recIsHead = (k=PERSON) => isApproverHead(k);
 /* archived / removed tickets leave every active list (records are kept) */
 const recVisible = a => !!a && !a.archived && !a.removed;
 const recOpen = a => a && recVisible(a) && !['rejected','withdrawn'].includes(a.status) && a.stage!=='employee';
@@ -23216,14 +23220,14 @@ async function recCancelMeeting(id){
 
 /* ---------- final interview: propose → two heads confirm → HR accepts & releases ---------- */
 const recFinal = app => RECFINAL.filter(f=>f.app===app && f.status!=='cancelled').sort((a,b)=>(b.at||'').localeCompare(a.at||''))[0];
-const recFinalConfirms = f => !f ? [] : uniq(RECFCONF.filter(c=>c.f===f.id && c.ver===f.ver && HEADS.includes(c.head)).map(c=>c.head));
+const recFinalConfirms = f => !f ? [] : uniq(RECFCONF.filter(c=>c.f===f.id && c.ver===f.ver && isApproverHead(c.head)).map(c=>c.head));
 function recFinalModal(app){
   const a = recApp(app); if(!a) return; const f = recFinal(app); const head = recIsHead(); const hr = ROLE==='hr' || isFullAccess();
   const conf = f ? recFinalConfirms(f) : []; const fm = f ? {start:f.start, end:f.end, tz:f.tz} : null;
   openModal(`Final interview — ${a.name}`, `
     ${f?`<div class="rec-fi"><div><b>Proposed by ${esc(pname(f.by))}</b> · version ${f.ver}${f.status==='released'?' · <span class="badge b-approved">Released to the applicant</span>':f.status==='ready'?' · <span class="badge b-pending">Ready for HR</span>':' · <span class="badge b-draft">Waiting for confirmations</span>'}</div>
       <div class="hint">${esc(recWhen(f))} · ${esc((f.participants||[]).map(pname).join(', ')||'no participants yet')}${f.link?` · <a href="${esc(f.link)}" target="_blank" rel="noopener">link</a>`:''}</div>
-      <div class="rec-conf">${HEADS.map(k=>`<span class="${conf.includes(k)?'ok':''}">${conf.includes(k)?'✓':'…'} ${esc(first(k))}${conf.includes(k)?' confirmed':' pending'}</span>`).join('')}</div>
+      <div class="rec-conf">${approverHeads().map(k=>`<span class="${conf.includes(k)?'ok':''}">${conf.includes(k)?'✓':'…'} ${esc(first(k))}${conf.includes(k)?' confirmed':' pending'}</span>`).join('')}</div>
       <div class="hint">${conf.length>=2?'Two different heads confirmed — HR can review and release it.':`Needs ${2-conf.length} more confirmation${2-conf.length===1?'':'s'} from a company head. A proposal alone does not count.`}</div>
       ${f.hr?`<div class="hint">HR accepted: ${esc(pname(f.hr.by))} · ${esc(dtstr(f.hr.at))}</div>`:''}</div>`:'<div class="hint" style="margin-bottom:10px">No schedule proposed yet. A company head proposes the date, time, participants and link; two heads then confirm and HR releases it.</div>'}
     ${head?`<div class="nav-label" style="padding:12px 0 6px">${f?'Change the proposal':'Propose the schedule'}</div>
@@ -23246,7 +23250,7 @@ function recFinalPropose(app){
   if(!f){ const n = RECFINAL.filter(x=>x.app===app).length + 1;
     f = {id:`FI-${app}-${n}`, app, by:PERSON, at:now, ver:1, status:'proposed', history:[]}; RECFINAL.push(f);
     Object.assign(f, w, {participants, link, notes}); f.history.push({at:now, by:PERSON, act:`Proposed ${recWhen(f)}`});
-    notify(HEADS.filter(k=>k!==PERSON), 'approval', `🗓 ${esc(first(PERSON))} proposed the final interview for <b>${esc(a.name)}</b> — ${esc(recWhen(f))}. Please confirm.`, {view:'recruit', app});
+    notify(approverHeads().filter(k=>k!==PERSON), 'approval', `🗓 ${esc(first(PERSON))} proposed the final interview for <b>${esc(a.name)}</b> — ${esc(recWhen(f))}. Please confirm.`, {view:'recruit', app});
     notify(HR_KEYS(), 'hr', `🗓 Final interview proposed for <b>${esc(a.name)}</b> — waiting for two head confirmations`, {view:'recruit', app});
   } else {
     const timeChanged = f.start!==w.start || f.end!==w.end;
@@ -23254,7 +23258,7 @@ function recFinalPropose(app){
     if(timeChanged){ Object.assign(f, {start:w.start, end:w.end}); f.ver++; f.hr = null; f.status = 'proposed'; delete f.readyVer;
       f.history.push({at:now, by:PERSON, act:`Date/time changed to ${recWhen(f)} — confirmations reset (version ${f.ver})`});
       if(f.meeting){ const m = MEETINGS.find(x=>x.id===f.meeting); if(m){ m.pendingChange = true; m.updatedAt = now; } }
-      notify(HEADS.filter(k=>k!==PERSON), 'approval', `🔁 The final interview for <b>${esc(a.name)}</b> moved to ${esc(recWhen(f))} — please confirm again`, {view:'recruit', app});
+      notify(approverHeads().filter(k=>k!==PERSON), 'approval', `🔁 The final interview for <b>${esc(a.name)}</b> moved to ${esc(recWhen(f))} — please confirm again`, {view:'recruit', app});
       notify(HR_KEYS(), 'hr', `🔁 Final interview for <b>${esc(a.name)}</b> changed — waiting for fresh confirmations`, {view:'recruit', app});
     } else f.history.push({at:now, by:PERSON, act:'Participants / link / instructions updated'});
   }
@@ -23970,7 +23974,7 @@ function recOverviewHTML(){
     <div class="card" style="margin-bottom:16px"><div class="card-h"><h3>Pending actions & owners</h3><span class="hint">${P.length} open</span></div><div class="card-b" style="overflow-x:auto"><table class="tbl"><thead><tr><th>Applicant</th><th>Stage</th><th>Status</th><th>Owner</th><th>Next action</th><th>Since</th></tr></thead><tbody>
       ${P.slice(0,40).map(p=>`<tr onclick="recView('${p.a.id}')" style="cursor:pointer"><td><b>${esc(p.a.name)}</b><div class="hint">${esc(p.a.position)}</div></td><td>${esc(REC_STAGE[p.a.stage])}</td><td>${recStBadge(p.a)}</td><td>${esc(recOwnerName(p.owner))}</td><td>${esc(p.next)}</td><td class="hint">${esc(ago(p.since))}</td></tr>`).join('') || '<tr><td colspan="6" class="hint">Nothing pending.</td></tr>'}</tbody></table></div></div>
     <div class="grid cols-2" style="margin-bottom:16px">
-      <div class="card"><div class="card-h"><h3>Final interviews — confirmations</h3></div><div class="card-b">${finals.map(f=>{ const c = recFinalConfirms(f); return `<div class="list-row" style="cursor:pointer" onclick="recFinalModal('${f.app}')"><div style="flex:1"><b>${esc(recApp(f.app)?.name)}</b><div class="hint">${esc(recWhen(f))} · proposed by ${esc(first(f.by))}</div><div class="rec-conf">${HEADS.map(k=>`<span class="${c.includes(k)?'ok':''}">${c.includes(k)?'✓':'…'} ${esc(first(k))}</span>`).join('')}</div></div><span class="badge ${f.status==='ready'?'b-pending':'b-draft'}">${f.status==='ready'?'Ready for HR':`${c.length}/2 confirmed`}</span></div>`; }).join('') || '<div class="hint">No final interviews waiting.</div>'}</div></div>
+      <div class="card"><div class="card-h"><h3>Final interviews — confirmations</h3></div><div class="card-b">${finals.map(f=>{ const c = recFinalConfirms(f); return `<div class="list-row" style="cursor:pointer" onclick="recFinalModal('${f.app}')"><div style="flex:1"><b>${esc(recApp(f.app)?.name)}</b><div class="hint">${esc(recWhen(f))} · proposed by ${esc(first(f.by))}</div><div class="rec-conf">${approverHeads().map(k=>`<span class="${c.includes(k)?'ok':''}">${c.includes(k)?'✓':'…'} ${esc(first(k))}</span>`).join('')}</div></div><span class="badge ${f.status==='ready'?'b-pending':'b-draft'}">${f.status==='ready'?'Ready for HR':`${c.length}/2 confirmed`}</span></div>`; }).join('') || '<div class="hint">No final interviews waiting.</div>'}</div></div>
       <div class="card"><div class="card-h"><h3>Orientation & training attendance</h3></div><div class="card-b">${sessions.map(m=>{ const A = m.rec.apps||[]; const conf = A.filter(k=>mtSt(m,k)==='accepted').length; const att = A.filter(k=>recApp(k)?.att?.[m.id]?.attended).length; const done = A.filter(k=>recApp(k)?.att?.[m.rec.kind]?.meeting===m.id).length;
         return `<div class="list-row" style="cursor:pointer" onclick="recSessionView('${m.id}')"><div style="flex:1"><b>${esc(m.title)}</b><div class="hint">${esc(recWhen(m))}</div></div><span class="hint">${A.length} invited · ${conf} confirmed · ${att} attended · ${done} completed</span></div>`; }).join('') || '<div class="hint">No sessions yet.</div>'}</div></div></div>
     <div class="grid cols-2" style="margin-bottom:16px">
@@ -24000,7 +24004,7 @@ function recSchedHTML(){
   const M = MEETINGS.filter(m=>m.rec).sort((a,b)=>a.start.localeCompare(b.start)); const up = M.filter(m=>m.status!=='cancelled' && new Date(m.end) > new Date()); const finals = RECFINAL.filter(f=>f.status!=='cancelled' && f.status!=='released');
   const hr = ROLE==='hr' || isFullAccess();
   return `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">${hr?`<button class="btn" onclick="recScheduleModal('orientation', [])">+ Orientation (batch)</button><button class="btn" onclick="recScheduleModal('training', [])">+ Training (batch)</button>`:''}</div>
-    <div class="card" style="margin-bottom:16px"><div class="card-h"><h3>Final interviews waiting for confirmation or release</h3></div><div class="card-b">${finals.map(f=>{ const c = recFinalConfirms(f); return `<div class="list-row"><div style="flex:1"><b>${esc(recApp(f.app)?.name)}</b><div class="hint">${esc(recWhen(f))} · v${f.ver} · proposed by ${esc(first(f.by))}</div><div class="rec-conf">${HEADS.map(k=>`<span class="${c.includes(k)?'ok':''}">${c.includes(k)?'✓ '+esc(first(k))+' confirmed':'… '+esc(first(k))+' pending'}</span>`).join('')}</div></div><button class="btn ${c.length>=2&&hr?'primary':''}" onclick="recFinalModal('${f.app}')">${c.length>=2&&hr?'Review & release':recIsHead()&&!c.includes(PERSON)?'Confirm':'Open'}</button></div>`; }).join('') || '<div class="hint">Nothing waiting.</div>'}</div></div>
+    <div class="card" style="margin-bottom:16px"><div class="card-h"><h3>Final interviews waiting for confirmation or release</h3></div><div class="card-b">${finals.map(f=>{ const c = recFinalConfirms(f); return `<div class="list-row"><div style="flex:1"><b>${esc(recApp(f.app)?.name)}</b><div class="hint">${esc(recWhen(f))} · v${f.ver} · proposed by ${esc(first(f.by))}</div><div class="rec-conf">${approverHeads().map(k=>`<span class="${c.includes(k)?'ok':''}">${c.includes(k)?'✓ '+esc(first(k))+' confirmed':'… '+esc(first(k))+' pending'}</span>`).join('')}</div></div><button class="btn ${c.length>=2&&hr?'primary':''}" onclick="recFinalModal('${f.app}')">${c.length>=2&&hr?'Review & release':recIsHead()&&!c.includes(PERSON)?'Confirm':'Open'}</button></div>`; }).join('') || '<div class="hint">Nothing waiting.</div>'}</div></div>
     <div class="card"><div class="card-h"><h3>Upcoming interviews & sessions</h3></div><div class="card-b">${up.map(m=>{ const A = m.rec.apps||[]; return `<div class="list-row"><div style="flex:1"><b>${esc(m.title)}</b>${m.pendingChange?' <span class="badge b-pending">new time awaiting confirmation</span>':''}<div class="hint">${esc(recWhen(m))} · ${A.length} applicant${A.length===1?'':'s'} · ${A.filter(k=>mtSt(m,k)==='accepted').length} confirmed</div></div>
       <button class="btn ghost" onclick="recSessionView('${m.id}')">Open</button></div>`; }).join('') || '<div class="hint">Nothing scheduled.</div>'}</div></div>`;
 }
@@ -26757,7 +26761,7 @@ if(typeof TASK_CLOSED!=='undefined' && !TASK_CLOSED.includes(PCA)) TASK_CLOSED.p
 /* ---------- 2. VA reassignment requests → COO / company heads approve ---------- */
 let TEAMREQS = [];
 COLL.teamreqs = {get:()=>TEAMREQS, set:v=>TEAMREQS=v, aud:r=>uniq([...HEADS, r.by, ...pmsOf(r.client)])};
-const trApprover = () => isHead(PERSON) || isFullAccess();
+const trApprover = () => !approvalOff(PERSON) && (isHead(PERSON) || isFullAccess());
 const trNeedsApproval = cid => ROLE==='manager' && !canCreateOrgs() && !trApprover() && !!client(cid);
 const trPending = () => TEAMREQS.filter(r=>r.status==='Pending' && client(r.client));
 function trDesc(r){ const p = [...(r.add||[]).map(k=>'+ '+pname(k)), ...(r.remove||[]).map(k=>'− '+pname(k)), ...(r.pmsAdd||[]).map(k=>'+ '+pname(k)+' (PM)'), ...(r.pmsRemove||[]).map(k=>'− '+pname(k)+' (PM)')]; return p.join(', ') || 'no change'; }
@@ -26773,7 +26777,7 @@ function trDesc(r){ const p = [...(r.add||[]).map(k=>'+ '+pname(k)), ...(r.remov
       const out = _so.apply(this, arguments);
       const r = {id:uid('TR'), client:cid, by:PERSON, at:nowISO(), status:'Pending', add, remove, pmsAdd, pmsRemove, resp, note:''};
       TEAMREQS.unshift(r); c.assignLog = [...(c.assignLog||[]).slice(-40), {at:nowISO(), by:PERSON, note:'Requested a team change (waiting for approval): '+trDesc(r)}];
-      notify(HEADS.filter(k=>k!==PERSON && PEOPLE[k]), 'approval', `👥 <b>${esc(first(PERSON))}</b> requests a VA change for <b>${esc(c.name)}</b>: ${esc(trDesc(r))} — review in Approvals`, {view:'approvals', teamreq:r.id});
+      notify(approverHeads().filter(k=>k!==PERSON && PEOPLE[k]), 'approval', `👥 <b>${esc(first(PERSON))}</b> requests a VA change for <b>${esc(c.name)}</b>: ${esc(trDesc(r))} — review in Approvals`, {view:'approvals', teamreq:r.id});
       recordChange(); closeModal(); toast('Team change sent to the COO and company heads for approval — it takes effect once approved'); return out; }
     return _so.apply(this, arguments); }; }
 function trDecide(id, ok){ const r = TEAMREQS.find(x=>x.id===id); if(!r || r.status!=='Pending' || !trApprover()) return;
@@ -31452,7 +31456,7 @@ function rpStatus(id, st){ const x = PERFREPORTS.find(y=>y.id===id); if(!x) retu
   if(!can && !mg) return; if(x.status==='Finalized') return toast('Finalized reports are locked — issue a correction');
   if(el('rpPmNote')){ x.pmNote = el('rpPmNote').value.trim(); x.notes = el('rpNotes')?.value.trim()||''; x.shareRecs = !!el('rpShareRecs')?.checked; }
   const was = x.status; x.status = st; x.updatedAt = nowISO(); x.history.push({act:st==='Draft'?'Returned to draft':st, by:PERSON, at:nowISO(), note:was!==st?`from ${was}`:''});
-  if(st==='Pending Review') notify(uniq([...HEADS, ...(typeof cooKey==='function'?[cooKey()]:[])]).filter(k=>k!==PERSON), 'approval', `${cname(x.client)} — ${x.label} performance report is waiting for approval`, {view:'reports', rp:x.id});
+  if(st==='Pending Review') notify(uniq([...approverHeads(), ...(typeof cooKey==='function'?[cooKey()]:[])]).filter(k=>k!==PERSON), 'approval', `${cname(x.client)} — ${x.label} performance report is waiting for approval`, {view:'reports', rp:x.id});
   if(st==='Approved' || st==='Finalized'){ x[st==='Approved'?'approvedBy':'finalizedBy'] = PERSON; x[st==='Approved'?'approvedAt':'finalizedAt'] = nowISO(); if(x.by && x.by!=='system') notify(x.by, 'approval', `${cname(x.client)} — ${x.label} report ${st.toLowerCase()} by ${first(PERSON)}`, {view:'reports', rp:x.id}); }
   if(x.clientVisible) rpWriteShare(x); recordChange(); RENDER.reports(); toast(st); }
 /* the client's copy: approved data only, no internal notes, no VA quality scores */
@@ -33997,7 +34001,7 @@ function lvSettingsHTML(){
   return `<div class="card" style="margin-bottom:14px"><div class="card-h"><h3>Employee leave entitlements (days per year)</h3><span class="sub">starting values — set your company policy</span></div><div class="card-b"><div class="grid cols-4">${Object.entries(ent).map(([k,v])=>`<div class="field"><label>${esc(k)}</label><input type="number" min="0" step="0.5" value="${v}" ${can?'':'disabled'} data-lvent="${esc(k)}"></div>`).join('')}</div>
       ${can?`<button class="btn primary" onclick="lvSaveEnt()">Save entitlements</button>`:''}</div></div>
     <div class="card"><div class="card-h"><h3>Leadership approvers & alternates</h3></div><div class="card-b"><div class="hint" style="margin-bottom:8px">Every head listed as required must approve each request (never their own). A head can authorise an alternate who may approve in their place.</div>
-      ${HEADS.map(k=>`<div class="list-row">${av(P(k))}<div style="flex:1"><b>${esc(pname(k))}</b> <span class="hint">${esc(lvSlotLabel(k))}</span></div><label class="hint"><input type="checkbox" style="width:auto" ${(c.required||HEADS).includes(k)?'checked':''} ${isHead(PERSON)?'':'disabled'} onchange="lvToggleReq('${k}',this.checked)"> required</label>
+      ${approverHeads().map(k=>`<div class="list-row">${av(P(k))}<div style="flex:1"><b>${esc(pname(k))}</b> <span class="hint">${esc(lvSlotLabel(k))}</span></div><label class="hint"><input type="checkbox" style="width:auto" ${(c.required||HEADS).includes(k)?'checked':''} ${isHead(PERSON)?'':'disabled'} onchange="lvToggleReq('${k}',this.checked)"> required</label>
         <select style="padding:4px 8px" ${isHead(PERSON)?'':'disabled'} onchange="lvSetAlt('${k}',this.value)"><option value="">No alternate</option>${activePeople().filter(x=>x!==k&&!['client','applicant'].includes(PEOPLE[x]?.role)).map(x=>`<option value="${x}" ${(c.delegates?.[k]||[])[0]===x?'selected':''}>${esc(pname(x))}</option>`).join('')}</select></div>`).join('')}</div></div>`;
 }
 function lvCfgRec(){ let r = LVCFG.find(x=>x.id==='global'); if(!r){ r = {id:'global'}; LVCFG.push(r); } return r; }
@@ -36171,13 +36175,13 @@ const IDM_REGISTRY = [
   {person:'sam', name:'Michael Sam J. Flores', position:'Graphics — Video Editor', no:'CC-IC-001', cls:IDM_IC, dept:'Creative Studio', regPhoto:'Sam', regStatus:'Pending details'},
 ];
 const idmCfg = () => ({validityMonths:12, deptHeads:IDM_DEPT_HEADS, printHeads:[], empPrefix:'CC-EMP-', icPrefix:'CC-IC-', site:'crosscoreopc.com', ...(IDCFG.find(x=>x.id==='global')||{})});
-const idmIsHr = (k=PERSON) => !!k && (lvIsHr(k) || isFullAccess(k) || HEADS.includes(k));   /* HR and the company heads: create → verify → approve */
-const idmIsTop = (k=PERSON) => HEADS.includes(k);   /* JA (COO), Pau (CEO) and Norman: final approval; their own IDs are approved automatically */
+const idmIsHr = (k=PERSON) => !!k && (lvIsHr(k) || isFullAccess(k) || isApproverHead(k));   /* HR and the company heads: create → verify → approve */
+const idmIsTop = (k=PERSON) => isApproverHead(k);   /* JA (COO) and Pau (CEO): final approval; their own IDs are approved automatically */
 const idmIsFinal = (k=PERSON) => idmIsTop(k) || (idmCfg().finalExtra||[]).includes(k);   /* + anyone the heads explicitly authorize */
 const idmIsExec = (k=PERSON) => HEADS.includes(k);
 const idmEmpRec = k => EMPLOYEES.find(e=>e.id===k);
 const idmDeptOf = k => idmEmpRec(k)?.dept || IDM_LEADER_DEPT[k] || 'Operations';
-const idmHeadsFor = (person, dept) => uniq((idmCfg().deptHeads||{})[dept || idmDeptOf(person)] || []).filter(x=>x && x!==person && PEOPLE[x]);
+const idmHeadsFor = (person, dept) => uniq((idmCfg().deptHeads||{})[dept || idmDeptOf(person)] || []).filter(x=>x && x!==person && PEOPLE[x] && !approvalOff(x));
 const idmAllHeads = () => uniq(Object.values(idmCfg().deptHeads||{}).flat()).filter(k=>PEOPLE[k]);
 const idmIsDeptHead = (rec, k=PERSON) => !!rec && idmHeadsFor(rec.person, rec.dept).includes(k);
 const idmCanManageAny = (k=PERSON) => idmIsHr(k) || idmIsExec(k) || idmIsFinal(k) || idmAllHeads().includes(k);
@@ -36310,7 +36314,7 @@ function idmHrApprove(r){
   if(![IDM_ST.PEND, IDM_ST.DEPT, IDM_ST.HR, IDM_ST.RET].includes(r.status)) throw new Error('This ID can’t be approved now.');
   const iss = idmIssues(r).filter(x=>!/one word/.test(x)); if(iss.length) throw new Error(iss[0]);
   r.status = IDM_ST.FIN; r.hrApprovedAt = nowISO(); r.hrApprovedBy = PERSON; idmHist(r, 'Approved by HR — sent for final approval', 'A company head gives the final approval before release');
-  const heads = uniq([...HEADS, ...(idmCfg().finalExtra||[])]).filter(k=>k!==r.person && PEOPLE[k]);
+  const heads = uniq([...approverHeads(), ...(idmCfg().finalExtra||[])]).filter(k=>k!==r.person && PEOPLE[k] && !approvalOff(k));
   pvEmit(heads, 'companyid', `🖋 Final approval needed: <b>${esc(r.name)}</b>’s Company ID ${esc(r.no)} (${esc(r.cls)}) — approved by ${esc(first(PERSON))}.`, {view:'idmgmt', idrec:r.id});
   notify([r.person], 'companyid', `🪪 Your Company ID was approved by HR and is waiting for the final approval of the company heads.`, {view:'myid'});
   recordChange(); }
@@ -36800,7 +36804,7 @@ function idmSettingsHTML(){ const c = idmCfg(); const depts = uniq([...Object.ke
         <td>${(c.deptHeads?.[d]||[]).map(k=>`<label class="hint" style="display:block"><input type="checkbox" style="width:auto" data-idmprint="${k}" ${(c.printHeads||[]).includes(k)?'checked':''}> ${esc(first(k))}</label>`).join('') || '<span class="hint">—</span>'}</td></tr>`).join('')}</tbody></table>
       <div class="hint">Without a department head, IDs go straight to HR. Department heads can’t release IDs unless JA, Pau or Norman authorize them below.</div></div></div>
     <div class="card" style="margin-bottom:14px"><div class="card-h"><b>Final approval</b><span class="hint">JA, Pau and Norman always approve; their own IDs are approved automatically</span></div><div class="card-b">
-      <div class="field"><label>Also authorized to give final approval ${idmIsTop()?'':'<span class="hint">(only JA, Pau or Norman can change this)</span>'}</label><select multiple size="4" id="idmFinX" ${idmIsTop()?'':'disabled'} style="min-width:260px">${ppl.filter(k=>!HEADS.includes(k)).map(k=>`<option value="${k}" ${(c.finalExtra||[]).includes(k)?'selected':''}>${esc(pname(k))}</option>`).join('')}</select></div>
+      <div class="field"><label>Also authorized to give final approval ${idmIsTop()?'':'<span class="hint">(only JA or Pau can change this)</span>'}</label><select multiple size="4" id="idmFinX" ${idmIsTop()?'':'disabled'} style="min-width:260px">${ppl.filter(k=>!HEADS.includes(k)).map(k=>`<option value="${k}" ${(c.finalExtra||[]).includes(k)?'selected':''}>${esc(pname(k))}</option>`).join('')}</select></div>
       <div class="hint">One approval is enough. Nobody approves their own ID except JA, Pau and Norman (automatically).</div>
       <button class="btn primary" style="margin-top:10px" onclick="idmSaveSettings()">Save settings</button></div></div>`; }
 function idmSaveSettings(){ if(!idmIsHr()) return toast('Only HR or a company head changes these settings.'); let r = IDCFG.find(x=>x.id==='global'); if(!r){ r = {id:'global'}; IDCFG.push(r); }
@@ -41011,7 +41015,7 @@ const simStateKey = k => simStatusOf(k)?.status || 'not_started';
 const simBadge = k => { const [t, c] = SIM_ST[simStateKey(k)] || SIM_ST.not_started; return `<span class="badge ${c}">${esc(t)}</span>`; };
 const simRemaining = k => { const s = simStatusOf(k); if(!s) return SIM.max; if(['passed','approved'].includes(s.status)) return 0;
   if(s.remaining!=null && s.status!=='in_progress') return s.remaining; return Math.max((s.maxAttempts||SIM.max) - (s.attempts||0), 0); };
-const simCanReview = () => ROLE==='hr' || isHead(PERSON) || isFullAccess();
+const simCanReview = () => !approvalOff(PERSON) && (ROLE==='hr' || isHead(PERSON) || isFullAccess());   /* Norman no longer approves (Nov 13) */
 
 /* ---------- the 24 scored items (questions, required clicks); correct answers live only on the server ---------- */
 const SIM_ITEMS = [
@@ -41121,7 +41125,7 @@ const simDemo = {
       simDemo.note(stf, `⚠️ <b>${esc(head)}</b> — FAILED all attempts. Status: Failed – HR Review Required.`, {view:'simhub', app:me}); }
     recordChange(); return {...rep, items:undefined, remaining:rem};
   },
-  note(keys, text, link){ uniq(keys).filter(k=>k && PEOPLE[k]).forEach(k=>NOTIFS2.unshift({id:uid('N'), to:k, type:'hr', text, link, by:'system', at:nowISO(), read:false})); },
+  note(keys, text, link){ uniq(keys).filter(k=>k && PEOPLE[k] && !approvalOff(k)).forEach(k=>NOTIFS2.unshift({id:uid('N'), to:k, type:'hr', text, link, by:'system', at:nowISO(), read:false})); },
   review(p, d, note){ const st = simStatusOf(p); if(!st) throw new Error('This applicant has no assessment yet'); if(!simCanReview()) throw new Error('Only HR and the company heads can review assessments');
     const t = nowISO(), slot = ROLE==='hr' ? 'hr' : 'head', s = {...st}; s.reviews = [...(s.reviews||[]), {by:PERSON, role:slot, decision:d, note:note||'', at:t}];
     if(d==='approve'){ if(!['passed','approved'].includes(s.status)) throw new Error('Only a passed assessment can be approved');
@@ -41138,21 +41142,22 @@ const simDemo = {
 
 /* ---------- navigation: applicant "3D Simulation", staff "Simulation assessments" ---------- */
 if(!APPLICANT_NAV.some(n=>n.id==='appsim')){ const at = APPLICANT_NAV.findIndex(n=>n.id==='appassess'); APPLICANT_NAV.splice(at>=0 ? at : APPLICANT_NAV.length, 0, {id:'appsim', name:'3D Simulation', ico:'M12 2l9 5v10l-9 5-9-5V7l9-5ZM12 22V12M21 7l-9 5-9-5'}); }
-{ const at = NAV.findIndex(n=>n.id==='recruit'); if(!NAV.some(n=>n.id==='simhub')) NAV.splice(at>=0 ? at+1 : NAV.length, 0, {id:'simhub', name:'Simulation assessments', roles:['hr','ceo','coo','creative'], ico:'M12 2l9 5v10l-9 5-9-5V7l9-5ZM12 22V12M21 7l-9 5-9-5'}); }
 ['appsim','simhub'].forEach(id=>{ if(!el('v-'+id)){ const v = document.createElement('div'); v.id = 'v-'+id; v.className = 'view'; (el('v-apphome')||el('v-dashboard')||document.querySelector('.content .view'))?.after(v); } });
-{ const _na = navAllowed; navAllowed = function(n){ if(n?.id==='simhub') return !isApplicant() && ROLE!=='client' && recCan(); return _na.apply(this, arguments); }; }
+{ const _na = navAllowed; navAllowed = function(n){ if(n?.id==='simhub') return false;   /* lives in Recruitment → Assessments → 3D Simulation */ return _na.apply(this, arguments); }; }
 { const _bn = buildNav; buildNav = function(){ const r = _bn.apply(this, arguments);
     try{ const nav = el('nav'); if(isApplicant() && nav){ const b = [...nav.querySelectorAll('.nav-item')].find(x=>/go\('appsim'\)/.test(x.getAttribute('onclick')||''));
         if(b){ if(!simNeeded(myApp())) b.remove(); else { const n = simAppPill(); if(n && !b.querySelector('.pill')) b.insertAdjacentHTML('beforeend', `<span class="pill">${n}</span>`); } } }
-      if(!isApplicant() && nav && recCan()){ const b = [...nav.querySelectorAll('.nav-item')].find(x=>/go\('simhub'\)/.test(x.getAttribute('onclick')||'')); const n = simReviewQueue().length;
-        if(b && n && !b.querySelector('.pill')) b.insertAdjacentHTML('beforeend', `<span class="pill">${n}</span>`); } }catch(e){}
+      if(!isApplicant() && nav && recCan()){ const b = [...nav.querySelectorAll('.nav-item')].find(x=>x.getAttribute('onclick')==="go('recruit')"); const n = simReviewQueue().length;
+        if(b && n){ const p = b.querySelector('.pill'); if(p) p.textContent = (+p.textContent||0) + n; else b.insertAdjacentHTML('beforeend', `<span class="pill">${n}</span>`); } } }catch(e){}
     return r; }; }
 const simAppPill = () => { const k = simStateKey(PERSON); return ['not_started','in_progress','failed'].includes(k) ? 1 : 0; };
-const simReviewQueue = () => SIMSTATUS.filter(s=>s.status==='passed' && !(s.approvals||{})[ROLE==='hr'?'hr':'head']);
-{ const _fl = followLink; followLink = function(link){ if(link?.view==='simhub'){ SIMHUB.focus = link.app || null; } return _fl.apply(this, arguments); }; }
+const simReviewQueue = () => simCanReview() ? SIMSTATUS.filter(s=>s.status==='passed' && !(s.approvals||{})[ROLE==='hr'?'hr':'head']) : [];
+const simShown = () => CURRENT==='recruit' && RCV.tab==='assess' && RCV.asub==='sim';
+function simGoHub(app){ RCV.tab = 'assess'; RCV.asub = 'sim'; SIMHUB.focus = app || null; if(CURRENT==='recruit') RENDER.recruit(); else go('recruit'); }
+{ const _fl = followLink; followLink = function(link){ if(link?.view==='simhub'){ RCV.tab = 'assess'; RCV.asub = 'sim'; SIMHUB.focus = link.app || null; link = {...link, view:'recruit'}; delete link.app; return _fl.call(this, link); } return _fl.apply(this, arguments); }; }
 { const _ore = onRemoteEvent; onRemoteEvent = function(ev){ _ore.apply(this, arguments);
     if(['simresults','simstatus'].includes(ev?.coll)){ try{ buildNav(); }catch(e){}
-      clearTimeout(SIMHUB.t); SIMHUB.t = setTimeout(()=>{ if(SIM3D.open) return; if(CURRENT==='appsim') RENDER.appsim(); if(CURRENT==='simhub' && !el('modal').classList.contains('open')) RENDER.simhub(); if(CURRENT==='recruit' && el('simCard')) simCardRefresh(); }, 500); } }; }
+      clearTimeout(SIMHUB.t); SIMHUB.t = setTimeout(()=>{ if(SIM3D.open) return; if(CURRENT==='appsim') RENDER.appsim(); if(simShown() && !el('modal').classList.contains('open')) RENDER.recruit(); if(CURRENT==='recruit' && el('simCard')) simCardRefresh(); }, 500); } }; }
 
 /* ---------- Applicant Portal: 3D Simulation page ---------- */
 function simScoreRing(pct, pass){ const p = Math.max(0, Math.min(100, +pct||0)); const c = pass ? 'var(--ok, #1d8a52)' : 'var(--bad, #c0392b)';
@@ -41222,29 +41227,38 @@ async function simReportPdf(id){
 const SIMHUB = {f:'all', q:'', focus:null, t:0};
 function simPeople(){ const ids = new Set(SIMSTATUS.map(s=>s.id)); APPLICANTS.filter(a=>recVisible(a) && simNeeded(a)).forEach(a=>ids.add(a.id));
   return [...ids].map(id=>({id, a:recApp(id), s:simStatusOf(id)})).filter(x=>x.a || x.s); }
-RENDER.simhub = () => {
-  const v = el('v-simhub'); if(!v) return;
-  if(!recCan()){ v.innerHTML = '<div class="empty">Only HR, the company heads and management can view assessment results.</div>'; return; }
+RENDER.simhub = () => setTimeout(()=>simGoHub(), 0);   /* old links */
+function simHubHTML(){
+  if(!recCan()) return '<div class="empty">Only HR, the company heads and management can view assessment results.</div>';
   const L = simPeople(); const cnt = k => L.filter(x=>simStateKey(x.id)===k).length;
   const tiles = [['all','All applicants',L.length],['review','Needs my approval',simReviewQueue().length],['passed','Passed — awaiting approval',cnt('passed')],['approved','Approved for onboarding',cnt('approved')],['failed','Failed — retake available',cnt('failed')],['failed_hr_review','HR Review Required',cnt('failed_hr_review')],['in_progress','In progress',cnt('in_progress')],['not_started','Not started',cnt('not_started')]];
   const q = SIMHUB.q.toLowerCase();
   const rows = L.filter(x=>SIMHUB.f==='all' || (SIMHUB.f==='review' ? simReviewQueue().some(s=>s.id===x.id) : simStateKey(x.id)===SIMHUB.f))
     .filter(x=>!q || (x.a?.name||x.s?.name||x.id).toLowerCase().includes(q))
     .sort((p,r)=>(r.s?.updatedAt||r.a?.updatedAt||'').localeCompare(p.s?.updatedAt||p.a?.updatedAt||''));
-  v.innerHTML = `<div class="page-head"><div><h2>Simulation assessments</h2><p>${esc(SIM.name)} · 24 scored items · pass mark 80% · 3 attempts. Scores come from the server and cannot be edited. Passed applicants need approval from HR and a company head before the regular VA portal can be activated.</p></div>
-     <div><button class="btn ghost" onclick="simOpen(true)">Try the simulation (preview)</button></div></div>
-   <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;margin-bottom:14px">${tiles.map(([k,t,n])=>`<button class="card" style="text-align:left;padding:12px 14px;cursor:pointer;${SIMHUB.f===k?'outline:2px solid var(--accent, #e9a133)':''}" onclick="SIMHUB.f='${k}';RENDER.simhub()"><div style="font-size:22px;font-weight:700">${n}</div><div class="hint">${t}</div></button>`).join('')}</div>
-   <div class="card"><div class="card-h"><h3>Applicants</h3><input id="simQ" placeholder="Search name…" value="${esc(SIMHUB.q)}" oninput="SIMHUB.q=this.value;RENDER.simhub()" style="max-width:220px"></div><div class="card-b" style="overflow-x:auto">
+  return `<div class="card" style="margin-bottom:14px;border-left:4px solid var(--accent, #e9a133)"><div class="card-b" style="display:flex;gap:14px;align-items:center;flex-wrap:wrap"><div style="font-size:30px">🧭</div>
+     <div style="flex:1;min-width:240px"><b>${esc(SIM.name)} — 3D simulation & knowledge check</b><div class="hint">12 workflow steps · 24 scored items (questions, required clicks on app screens, desk objects) · pass mark 80% · 3 attempts. Scores come from the server and cannot be edited. A passed applicant needs approval from HR and a company head (Pau or JA) before the regular VA portal can be activated.</div></div>
+     <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" onclick="simKeyView()">📋 View the assessment</button><button class="btn" onclick="simOpen(true)">▶ Try it (preview)</button></div></div></div>
+   <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;margin-bottom:14px">${tiles.map(([k,t,n])=>`<button class="card" style="text-align:left;padding:12px 14px;cursor:pointer;${SIMHUB.f===k?'outline:2px solid var(--accent, #e9a133)':''}" onclick="SIMHUB.f='${k}';RENDER.recruit()"><div style="font-size:22px;font-weight:700">${n}</div><div class="hint">${t}</div></button>`).join('')}</div>
+   <div class="card"><div class="card-h"><h3>Applicants</h3><input id="simQ" placeholder="Search name…" value="${esc(SIMHUB.q)}" oninput="SIMHUB.q=this.value;RENDER.recruit()" style="max-width:220px"></div><div class="card-b" style="overflow-x:auto">
    ${rows.length?`<table class="tbl"><thead><tr><th>Applicant</th><th>Stage</th><th>Assessment status</th><th>Attempts</th><th>Last</th><th>Best</th><th>Approvals</th><th>Updated</th><th></th></tr></thead><tbody>${rows.map(({id,a,s})=>{ const ap = s?.approvals||{};
      return `<tr data-sim="${id}"><td><b>${esc(a?.name||s?.name||id)}</b><div class="hint">${esc(id)}</div></td><td>${esc(a?REC_STAGE[a.stage]||a.stage:'—')}</td><td>${simBadge(id)}</td><td>${s?.attempts||0} / ${s?.maxAttempts||SIM.max}</td><td>${s?.last!=null?s.last+'%':'—'}</td><td>${s?.best!=null?s.best+'%':'—'}</td>
        <td>${ap.hr?'✅ HR':'◻️ HR'} · ${ap.head?'✅ Head':'◻️ Head'}</td><td>${s?.updatedAt?ago(s.updatedAt):'—'}</td><td><button class="btn ghost" onclick="simDetail('${id}')">Open</button></td></tr>`; }).join('')}</tbody></table>`:'<div class="empty">No applicants in this view.</div>'}
    </div></div>`;
+}
+function simHubAfter(){
   if(SIMHUB.focus){ const f = SIMHUB.focus; SIMHUB.focus = null; setTimeout(()=>simDetail(f), 60); }
-  const qi = el('simQ'); if(qi && document.activeElement?.id!=='simQ' && SIMHUB.q){ qi.focus(); qi.setSelectionRange(qi.value.length, qi.value.length); }
-};
+  const qi = el('simQ'); if(qi && SIMHUB.q){ qi.focus(); qi.setSelectionRange(qi.value.length, qi.value.length); }
+}
+/* Recruitment → Assessments: "Written assessments" | "3D Simulation — AI Website VA" */
+{ const _rr = RENDER.recruit; RENDER.recruit = function(){ const r = _rr.apply(this, arguments);
+    try{ if(RCV.tab!=='assess' || !recCan()) return r; const body = el('recBody'); if(!body) return r; const sim = RCV.asub==='sim', n = simReviewQueue().length;
+      const bar = `<div class="rec-tabs" style="margin:0 0 14px"><button class="${sim?'':'on'}" onclick="RCV.asub='written';RENDER.recruit()">Written assessments</button><button class="${sim?'on':''}" onclick="RCV.asub='sim';RENDER.recruit()">🧭 3D Simulation — AI Website VA${n?` <small class="hint">${n} to approve</small>`:''}</button></div>`;
+      if(sim){ body.innerHTML = bar + simHubHTML(); simHubAfter(); } else body.insertAdjacentHTML('afterbegin', bar); }catch(e){ console.warn('simulation tab', e); }
+    return r; }; }
 function simDetail(id){
   const a = recApp(id), s = simStatusOf(id) || {}, reps = simReports(id), k = simStateKey(id), ap = s.approvals || {};
-  const mySlot = ROLE==='hr' ? 'hr' : (isHead(PERSON)||isFullAccess()) ? 'head' : null;
+  const mySlot = approvalOff(PERSON) ? null : ROLE==='hr' ? 'hr' : (isHead(PERSON)||isFullAccess()) ? 'head' : null;
   const canApprove = simCanReview() && mySlot && ['passed','approved'].includes(k) && !ap[mySlot];
   const canExtra = simCanReview() && ['failed_hr_review','declined'].includes(k);
   const canDecline = simCanReview() && ['passed','failed_hr_review'].includes(k);
@@ -41255,6 +41269,7 @@ function simDetail(id){
       <div class="hint">HR approval: ${ap.hr?`✅ ${esc(pname(ap.hr.by))} · ${dtstr(ap.hr.at)}`:'waiting'} · Company head approval: ${ap.head?`✅ ${esc(pname(ap.head.by))} · ${dtstr(ap.head.at)}`:'waiting'}</div></div></div>
     ${(canApprove||canExtra||canDecline)?`<div class="field"><label>Note (optional)</label><input id="simNote" placeholder="e.g. Strong on deployment steps"></div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">${canApprove?`<button class="btn primary" id="simApprove" onclick="simDecide('${id}','approve')">Approve for onboarding (${mySlot==='hr'?'HR':'company head'})</button>`:''}${canExtra?`<button class="btn" onclick="simDecide('${id}','extra')">Allow one more attempt</button>`:''}${canDecline?`<button class="btn ghost" onclick="simDecide('${id}','decline')">Decline</button>`:''}</div>`:''}
+    <div style="margin:0 0 12px"><button class="btn" onclick="simKeyView()">📋 View the assessment (all 24 items & answers)</button></div>
     <h4 style="margin:6px 0">Attempt reports</h4>
     ${reps.length?reps.slice().reverse().map(r=>`<div class="card" style="margin-bottom:10px"><div class="card-h"><h3>Attempt ${r.attempt} of ${r.maxAttempts} · ${r.score}% · <span class="badge ${r.passed?'b-approved':'b-missed'}">${r.result}</span></h3><button class="btn ghost" onclick="simReportPdf('${r.id}')">PDF report</button></div>
       <div class="card-b"><div class="hint" style="margin-bottom:6px">${r.correct} correct · ${r.incorrect} incorrect · started ${dtstr(r.startedAt)} · completed ${dtstr(r.completedAt)}</div>
@@ -41267,7 +41282,7 @@ async function simDecide(id, d){
   if(d==='decline' && !confirm('Decline this applicant’s assessment?')) return;
   try{ await SIMAPI.review(id, d, note); toast(d==='approve' ? 'Approval recorded' : d==='extra' ? 'One more attempt allowed — the applicant was notified' : 'Assessment declined'); }
   catch(e){ return toast(e.message||'Could not save'); }
-  setTimeout(()=>{ simDetail(id); if(CURRENT==='simhub') RENDER.simhub(); }, SIMAPI.live() ? 700 : 50);
+  setTimeout(()=>{ simDetail(id); if(simShown()) RENDER.recruit(); }, SIMAPI.live() ? 700 : 50);
 }
 
 /* ---------- applicant profile (Recruitment): status card + "require the simulation" ---------- */
@@ -41671,7 +41686,7 @@ async function s3Finish(){ const S = SIM3D; el('s3Panel').hidden = true; el('s3G
     <p style="line-height:1.55">${esc(msg)}</p><div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:14px">${!pass && rem>0 ? '<button class="s3-btn" id="s3Retake">Retake now</button>' : ''}<button class="s3-btn ${!pass && rem>0 ? 'dark' : ''}" onclick="simClose()">Back to my portal</button></div></div>`;
   const rt = el('s3Retake'); if(rt) rt.onclick = () => { S.answered = {}; S.it = null; s3Steps(); s3Begin(); }; }
 function simClose(){ const S = SIM3D; if(!S.open) return; S.open = false; s3Dispose(); el('sim3d')?.remove(); document.body.style.overflow = S.ov || '';
-  try{ buildNav(); if(CURRENT==='appsim') RENDER.appsim(); else if(CURRENT==='simhub') RENDER.simhub(); else if(CURRENT==='apphome') RENDER.apphome(); }catch(e){} }
+  try{ buildNav(); if(CURRENT==='appsim') RENDER.appsim(); else if(simShown()) RENDER.recruit(); else if(CURRENT==='apphome') RENDER.apphome(); }catch(e){} }
 
 /* ---------- 3D engine ---------- */
 function s3Init3D(){ const T = window.THREE, S = SIM3D, st = el('s3Stage'); s3Build(); S3_SCREENS.desktop(S.sx, {}); S.stex.needsUpdate = true;
@@ -41736,6 +41751,34 @@ function s3FlatSync(){ const S = SIM3D, f = el('s3Flat'); if(!f || !S.it) return
       return `<button class="${cls}" data-o="${id}" ${S.locked?'disabled':''} style="${bg?`background:${bg};font-family:'Segoe Print','Bradley Hand',cursive`:''}"><span class="ic">${ic}</span>${esc(n)}</button>`; }).join('')}</div>`;
     f.querySelectorAll('button').forEach(b=>b.onclick = () => s3Answer(b.dataset.o)); return; }
   if(f.dataset.mode!==mode){ f.dataset.mode = mode; f.innerHTML = ''; f.appendChild(mode==='phone' ? S.pc : S.sc); } }
+
+
+/* ---------- HR / heads: view the whole assessment — every step, item, screen and (from the server) the answer key ---------- */
+async function simKeyFetch(){
+  if(SIMAPI.live()){ try{ const rows = await SIMAPI.rpc('cc_sim_key_view'); const o = {}; (rows||[]).forEach(r=>o[r.q] = {answer:r.answer, explain:r.explain}); return o; }catch(e){ console.warn('answer key', e); return null; } }
+  const k = window.__SIM_DEMO_KEY; if(!k) return null; const o = {}; Object.entries(k).forEach(([q, a])=>o[q] = {answer:a, explain:''}); return o;
+}
+function simThumb(it, ans){ try{ const c = document.createElement('canvas'); c.width = S3W; c.height = S3H; const x = c.getContext('2d');
+    if(it.station==='phone'){ const [pc, px] = s3cv(540, 1120); s3PaintPhone(px); x.fillStyle = '#c9b79c'; x.fillRect(0, 0, S3W, S3H); x.drawImage(pc, S3W/2-200, 40, 400, 830); }
+    else (S3_SCREENS[it.screen] || S3_SCREENS.desktop)(x, {});
+    if(it.type==='click') it.targets.forEach(([id, , [X, Y, W, H]])=>{ const ok = ans && ans===id; s3box(x, X-5, Y-5, W+10, H+10, 10, ok?'rgba(29,138,82,.18)':null, ok?'#1d8a52':'rgba(233,161,51,.85)', ok?7:3); });
+    const o = document.createElement('canvas'); o.width = 640; o.height = Math.round(640*S3H/S3W); o.getContext('2d').drawImage(c, 0, 0, o.width, o.height); return o.toDataURL('image/jpeg', .82); }catch(e){ return ''; } }
+async function simKeyView(){
+  if(!recCan()) return toast('Only HR, the company heads and management can view the assessment');
+  openModal(`${SIM.name} — the assessment`, '<div class="empty">Loading…</div>', true);
+  const key = await simKeyFetch(); const TYPE = {mc:'Question', click:'Required click on the screen', obj:'Required click on a desk object'};
+  const html = `<div class="hint" style="margin-bottom:12px;line-height:1.5">What applicants do, step by step: 12 workflow steps · ${SIM_TOTAL} scored items · pass mark ${SIM.pass}% (${Math.ceil(SIM_TOTAL*SIM.pass/100)} of ${SIM_TOTAL}) · 3 attempts. Guided clicks (opening an app) are not scored.
+      ${key ? '<b style="color:var(--ok, #1d8a52)">✓ marks the correct answer.</b> The answer key comes from the server and is shown only to HR, the company heads and management — never to applicants.' : '<b>Correct answers</b> are shown here in the live portal (they come from the server and never reach applicants).'}</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px"><button class="btn" onclick="closeModal();simOpen(true)">▶ Try it yourself (preview, not recorded)</button></div>
+    ${SIM_STEPS.map((nm, si)=>{ const its = SIM_ITEMS.filter(x=>x.step===si+1); return `<div class="card" style="margin-bottom:12px"><div class="card-h"><h3>Step ${si+1} · ${esc(nm)}</h3><span class="hint">${its.length} item${its.length>1?'s':''}</span></div><div class="card-b">
+      ${its.map(it=>{ const n = SIM_ITEMS.indexOf(it)+1, k = key?.[it.id], L = it.choices || it.objects || it.targets || []; const img = (it.type!=='obj' || it.station==='phone') ? simThumb(it, k?.answer) : '';
+        return `<div style="display:flex;gap:14px;flex-wrap:wrap;padding:10px 0;border-top:1px solid var(--line, #eee)">${img?`<img src="${img}" alt="Screen for item ${n}" style="width:280px;max-width:100%;border-radius:8px;border:1px solid var(--line, #ddd)">`:''}
+          <div style="flex:1;min-width:240px"><div class="hint"><b>Item ${n}</b> · ${TYPE[it.type]}${it.pre?` · guided first: “${esc(it.pre)}”`:''}${it.type==='obj'?` · ${it.station==='stickies'?'sticky notes on the monitor':'objects on the desk'}`:''}</div>
+          <div style="font-weight:600;margin:4px 0 8px;line-height:1.4">${esc(it.prompt)}</div>
+          <div style="display:grid;gap:4px">${L.map(c=>{ const ok = k && k.answer===c[0]; return `<div style="font-size:13px;padding:6px 10px;border-radius:8px;border:1px solid ${ok?'#1d8a52':'var(--line, #e5e5e5)'};background:${ok?'rgba(29,138,82,.08)':'transparent'}">${ok?'✓ <b>':''}${esc(c[1])}${ok?'</b>':''}</div>`; }).join('')}</div>
+          ${k?.explain?`<div class="hint" style="margin-top:6px">💡 ${esc(k.explain)}</div>`:''}</div></div>`; }).join('')}</div></div>`; }).join('')}`;
+  const b = el('modalBody'); if(b && el('modal').classList.contains('open')) b.innerHTML = html;
+}
 
 /* <<< OCT24 MODULES <<< */
 </script>

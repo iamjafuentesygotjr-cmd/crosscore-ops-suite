@@ -20920,7 +20920,7 @@ async function cooPostFromModal(){ const ch = CHATS.find(c=>c.id===el('paPostC')
    The footer shows which build is running ("Build 2026-10-07 · 1"), and every open portal checks every few minutes
    (and whenever it comes back to the foreground) whether a newer build has been published. If so it shows
    "New version available — Update now" instead of quietly running old code. */
-const BUILD_ID = '2026-11-13 · 5';
+const BUILD_ID = '2026-11-14 · 1';
 function verStamp(){ const f = el('footNote'); if(f && !f.dataset.v){ f.dataset.v = 1; f.textContent = `Cross Core Ops Suite v8 · Build ${BUILD_ID}`; } }
 async function verCheck(){
   if(!/^https?:/.test(location.protocol)) return;
@@ -36870,7 +36870,7 @@ const pbId = pid => 'PB|' + pid;
 const pbOf = pid => PAYBATCH.find(b=>b.id===pbId(pid));
 const pbStatus = pid => pbOf(pid)?.status || 'Not submitted';
 const pbBadge = s => `<span class="badge ${PB_BADGE[s]||'b-draft'}">${esc(s)}</span>`;
-const pbDocsAll = pid => pvDocs(pid).filter(d=>!d.supersededBy);
+const pbDocsAll = pid => pvDocs(pid).filter(d=>!d.supersededBy && !d.self);   /* self-managed payslips (t34_chapay.js) are published by Cha, not batched */
 const pbHist = (b, act, note, extra) => { (b.history = b.history || []).push({at:nowISO(), by:PERSON, act, note:note||'', ...(extra||{})}); };
 const pbIsEarn = l => PV_EARN.includes(l.kind) || (l.kind==='adjust' && l.sign==='+');
 const pbClientOf = l => l.client || (l.internal ? 'Internal salary (Cross Core)' : (['basic','fee'].includes(l.kind) ? 'Not client-specific' : 'Other earnings'));
@@ -42375,6 +42375,469 @@ async function devSetFull(k, on){ if(!devCanGrant()) return toast('Only the CEO 
 .dv-err{padding:4px 0;border-bottom:1px solid var(--line);word-break:break-word}
 .dv-cnt{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12.5px} .dv-cnt a{text-decoration:none}
 .dv-tbl td,.dv-tbl th{padding:4px 8px;font-size:12px}`; document.head.appendChild(s); })();
+
+/* ===== t34_chapay.js — CHA's self-managed payslips + My Payslips (Nov 14 2026) =====
+   Cha (Charisse, Finance) prepares, edits, reviews and publishes HER OWN payslips; her employee side shows only what she published.
+   This is part of the existing payroll system, not a copy of it:
+     • every payslip is an ordinary payroll record (collection payv2, id PD|<period>|charisse) — same filing in HR 201, same
+       My Payslips & Payment History, same PDF / image / print engine, same audit history and "Viewed" tracking;
+     • records carry self:true (managed here) and layout:'ccps1' (drawn in the original CCPS v1.0 payslip format);
+     • ccps = the editor's inputs (rates, hours, earnings, deductions); lines are rebuilt from it on every edit, and the document,
+       the totals and the database all read the lines;
+     • drafts are visible to Finance and the company heads only (database audience); the employee sees a payslip only after it is
+       published (cc_pay_self_publish — the database checks it is her own, reviewed, unreleased draft);
+     • the rate card (collection payself, one record per person) is the source for new payslips; the CEO / COO switch
+       self-management on or off and are notified of every publish;
+     • the six original payslips (Aug 1 – Oct 31 2026) are loaded by supabase/update-nov14-cha-payslips.sql (demo mode: below).
+   The regular cutoff generator skips a self-managed person, and her records stay out of the bulk CEO review. */
+const PS_FMT = {W:886, H:576, SCALE:2.4, VER:'CCPS v1.0'};
+const PS_DED = [['tax','tax','WTH Tax'], ['ca','deduction','Cash Advance'], ['sss','sss','SSS'], ['hdmf','hdmf','HDMF'], ['phic','phic','Philhealth']];
+const psN = v => Math.max(0, +v || 0);
+/* the editor's inputs → payroll lines (earnings kinds add, deductions subtract — payTotals / cc_pay_totals) */
+function psLines(c){
+  const L = [], r2 = pvR2;
+  (c.clients||[]).forEach((x, i) => { const nm = String(x.name||'').trim() || 'Cross Core';
+    if(psN(x.fixed) > 0) L.push({id:`L-c${i+1}-fixed`, kind:'basic', label:`Regular Pay — ${nm}`, client:nm, rt:'semimonthly', rate:r2(psN(x.fixed)), qty:null, amount:r2(psN(x.fixed)), self:true});
+    if(psN(x.hours) > 0 && psN(x.hourly) > 0) L.push({id:`L-c${i+1}-hourly`, kind:'basic', label:`Regular Pay (hourly) — ${nm}`, client:nm, rt:'hourly', rate:r2(psN(x.hourly)), qty:psN(x.hours), amount:r2(psN(x.hours)*psN(x.hourly)), self:true}); });
+  const ot = c.ot || {};
+  if(psN(ot.amount) > 0) L.push({id:'L-ot', kind:'adjust', sign:'+', cat:'ot', label:'Overtime Pay', qty:psN(ot.hours)||null, rate:psN(ot.rate)||null, amount:r2(psN(ot.amount)), self:true});
+  if(psN(c.incentive?.amount) > 0) L.push({id:'L-inc', kind:'bonus', cat:'incentive', label:'Incentive', note:String(c.incentive.note||''), amount:r2(psN(c.incentive.amount)), self:true});
+  if(psN(c.add?.amount) > 0) L.push({id:'L-add', kind:'allowance', cat:'add', label:'Add', note:String(c.add.note||''), amount:r2(psN(c.add.amount)), self:true});
+  const D = c.ded || {};
+  PS_DED.forEach(([k, kind, label]) => { if(psN(D[k]) > 0) L.push({id:'L-d-'+k, kind, cat:k, label, amount:r2(psN(D[k])), self:true}); });
+  (c.otherDed||[]).forEach((x, j) => { if(psN(x.amount) > 0) L.push({id:'L-od'+(j+1), kind:'deduction', cat:'other', label:String(x.label||'').trim() || 'Other deduction', amount:r2(psN(x.amount)), self:true}); });
+  return L;
+}
+const psBlankCard = () => ({nameLabel:'VA Name', position:'', clients:[{name:'CROSS CORE INTERNAL-FC', fixed:0, hours:0, hourly:0}], ot:{hours:0, rate:0, amount:0}, incentive:{amount:0, note:''}, add:{amount:0, note:''}, ded:{tax:0, ca:0, sss:0, hdmf:0, phic:0}, otherDed:[]});
+/* inputs for a period: the rate card (or a copy of an earlier payslip) with the period's own pay-out date */
+function psInputsFor(src, pid){ const c = JSON.parse(JSON.stringify(src || psBlankCard())); c.payout = pv2Period(pid).payout; delete c.basis; delete c.effective; return c; }
+function psMakeDoc(emp, name, dept, cls, pid, c){
+  const per = {...pv2Period(pid)}; if(c.payout) per.payout = c.payout; const lines = psLines(c);
+  return {id:`PD|${pid}|${emp}`, emp, empName:name, empRole:c.position||'', dept:dept||'', class:cls||'employee', period:per, lines, cur:'PHP', ...payTotals(lines),
+    status:'Draft – Finance Review', version:0, approval:null, release:null, pay:{status:'Unpaid'}, flags:{}, leave:[], supporting:[], remarks:'', self:true, layout:'ccps1', ccps:c, edits:0, selfReview:null};
+}
+/* the six original payslips (CCPS v1.0, Google Docs PDFs) — identical figures: Regular Pay 15,000.00 fixed (CROSS CORE INTERNAL-FC), no deductions */
+const PS_ORIG = {emp:'charisse', name:'Charisse Mih Sotto', dept:'Operations', position:'Accounting and Finance Officer', client:'CROSS CORE INTERNAL-FC', fixed:15000};
+const PS_HIST = [
+  ['2026-08-A', 'Charisse_Mih_Sotto_Payslip_for_the_period_of_Aug1-15__2026.pdf', '7081737ffc38c9043bf7b88301c1481e32b56315985c61efc1073046d3bdacfa'],
+  ['2026-08-B', 'Charisse_Mih_Sotto_Payslip_for_the_period_of_Aug16-31__2026.pdf', '4dc0f5398f04e51ce5f2cc1817ddb02939615f5152f128b296939d2a40adfe9c'],
+  ['2026-09-A', 'Charisse_Mih_Sotto_Payslip_for_the_period_of_Sep1-15__2026.pdf', '9c5edb33288bd7f7bd4da0e72c5a26050589de724d2c2883d78e5c3c1624a4e0'],
+  ['2026-09-B', 'Charisse_Mih_Sotto_Payslip_for_the_period_of_Sep16-30__2026.pdf', '8d7919b02e6ace51c5a21e16b8e9ee202622a6073f410e4058341d4afadd432b'],
+  ['2026-10-A', 'Charisse_Mih_Sotto_Payslip_for_the_period_of_Oct_1-15__2026.pdf', '2b56decfff05f377c053e9f7afb3a055b73e722f0de47829f6c389e726c0ab57'],
+  ['2026-10-B', 'Charisse_Mih_Sotto_Payslip_for_the_period_of_Oct_16-31__2026.pdf', '7ed6af26624a61883d798098c9123fd0fddabfd035cd143891737b04f4da170d']];
+function psOrigCard(){ const c = psBlankCard(); c.position = PS_ORIG.position; c.clients = [{name:PS_ORIG.client, fixed:PS_ORIG.fixed, hours:0, hourly:0}]; return c; }
+function psHistDocs(stamp){
+  return PS_HIST.map(([pid, file, sha]) => {
+    const d = psMakeDoc(PS_ORIG.emp, PS_ORIG.name, PS_ORIG.dept, 'employee', pid, psInputsFor(psOrigCard(), pid));
+    const at = new Date(`${d.period.payout}T09:00:00+08:00`).toISOString();
+    return Object.assign(d, {docNo:`CCPS1-${pid}`, status:'Released', version:1, createdAt:at, edits:0, selfReview:{by:PS_ORIG.emp, at, edits:0, imported:true},
+      approval:{by:PS_ORIG.emp, at, version:1, self:true, imported:true, comment:'Original payslip — imported into the payroll system'},
+      release:{at, by:'system', mode:'imported', sched:null, version:1, message:null},
+      pay:{status:'Paid', at:d.period.payout, ref:'Pay-out date on the original payslip', by:'system', imported:true},
+      imported:{source:'Original payslip (CCPS v1.0, PDF)', file, sha256:sha, at:stamp},
+      history:[{at:stamp, by:'system', act:'Imported original payslip', note:`${file} · Regular Pay 15,000.00 · net 15,000.00 · pay-out ${d.period.payout}`}]}); });
+}
+function psSeedCard(stamp){ return {id:PS_ORIG.emp, emp:PS_ORIG.emp, enabled:true, enabledBy:'system', enabledAt:stamp, card:{...psOrigCard(), effective:'2026-08-01', basis:'Rates from the original payslips, Aug 1 – Oct 31, 2026'},
+  history:[{at:stamp, by:'system', act:'Rate card created from the original payslips', note:'Regular Pay 15,000.00 fixed per cutoff · CROSS CORE INTERNAL-FC · no deductions'}]}; }
+
+
+/* ---------- collection, who manages, who sees ---------- */
+let PAYSELF = [];
+COLL.payself = {get:()=>PAYSELF, set:v=>PAYSELF=v, aud:r=>uniq([r.emp||r.id, ...financeKeys(), ...HEADS])};
+const psRec = (k=PERSON) => PAYSELF.find(r=>r.id===k);
+const psSelfOn = (k=PERSON) => { const r = psRec(k); return !!(r && r.enabled !== false && isFinance(k)); };
+const psCanManage = () => psSelfOn(PERSON);
+const psCanView = () => psCanManage() || isHead(PERSON) || pvIsExec();
+const psEmp = () => psCanManage() ? PERSON : (PAYSELF.find(r=>r.enabled!==false)?.id || PAYSELF[0]?.id || 'charisse');
+const psDocsOf = emp => PAYV2.filter(d=>d.emp===emp).sort((a,b)=>b.period.id.localeCompare(a.period.id) || (b.id.length - a.id.length));
+const psIsSelf = d => !!(d && d.self);
+const psReviewed = d => !!(d.selfReview && (d.selfReview.edits||0) === (d.edits||0));
+const psEditable = d => psIsSelf(d) && !d.release && [PV_ST.DRAFT, PV_ST.RET].includes(d.status) && d.emp===PERSON && psCanManage();
+const psPer = d => pvPeriodLabel(d.period).replace('–','-');
+const psStatus = d => d.release ? (d.imported ? 'Published · original' : (d.self ? 'Published' : 'Released')) : d.self ? (psReviewed(d) ? 'Draft · reviewed' : 'Draft') : d.status;
+const PS_BADGE = {'Published · original':'b-approved', Published:'b-approved', Released:'b-approved', Draft:'b-draft', 'Draft · reviewed':'b-scheduled'};
+const psBadge = d => { const s = psStatus(d); return `<span class="badge ${PS_BADGE[s]||'b-pending'}">${esc(s)}</span>`; };
+const psFmt = n => (+n||0) ? (+n).toLocaleString('en-US',{minimumFractionDigits:2, maximumFractionDigits:2}) : '-';
+
+/* demo mode: load the same six originals and rate card the SQL migration loads in a live database */
+function psSeedLocal(){
+  if(!(typeof BACKEND!=='undefined' && BACKEND?.mode==='demo') || !SYNC?.ready || !PEOPLE[PS_ORIG.emp] || psRec(PS_ORIG.emp)) return;
+  const at = nowISO(); PAYSELF.push(psSeedCard(at));
+  psHistDocs(at).forEach(d => { const o = pvDoc(d.id); if(o?.release) return; if(o) PAYV2 = PAYV2.filter(x=>x.id!==d.id); PAYV2.push(d);
+    if(!HRFILES.some(f=>f.id==='HF-PS-'+d.id)) HRFILES.push(psFiling(d)); });
+  recordChange();
+}
+setTimeout(psSeedLocal, 3000); setInterval(psSeedLocal, 15000);
+function psFiling(d){ return {id:'HF-PS-'+d.id, emp:d.emp, person:d.emp, share:true, folder:'payslips', kind:'doc', source:'payroll', doc:d.id, recordClass:d.class, docNo:d.docNo, period:d.period.id,
+  year:d.period.start.slice(0,4), month:d.period.start.slice(5,7), cut:String(d.period.cut), restricted:true, name:`Payslip — ${pvPeriodLabel(d.period)}${d.correctionOf?' (corrected)':''}`, status:'Released', by:'system', at:d.release?.at||nowISO(), version:d.version}; }
+
+/* ---------- the rest of the payroll system leaves self-managed records alone ---------- */
+{ const _c = pvCompSync; pvCompSync = function(d){ if(psIsSelf(d)) return false; return _c.apply(this, arguments); }; }
+{ const _a = attPayrollMark; attPayrollMark = function(d){ if(psIsSelf(d)) return false; return _a.apply(this, arguments); }; }
+{ const _s = pvCanSubmit; pvCanSubmit = function(d){ if(psIsSelf(d)) return 'Self-managed payslip — Cha reviews and publishes it in Payslip Management.'; return _s.apply(this, arguments); }; }
+{ const _e = payEligible; payEligible = function(){ return _e.apply(this, arguments).filter(p=>!psSelfOn(p.id)); }; }
+{ const _o = openPv; openPv = function(id){ const d = pvDoc(id); if(psIsSelf(d)) return psOpen(id); return _o.apply(this, arguments); }; }
+{ const _d = pvDisp; pvDisp = function(d){ if(psIsSelf(d)) return d.release ? (pvViewed(d) ? 'Viewed' : 'Published by CHA') : (psReviewed(d) ? 'Self-managed draft · reviewed' : 'Self-managed draft'); return _d.apply(this, arguments); }; }
+Object.assign(PV_DISP_BADGE, {'Published by CHA':'b-approved', 'Self-managed draft':'b-draft', 'Self-managed draft · reviewed':'b-scheduled'});
+
+/* ---------- the document: the original CCPS v1.0 layout (886 × 576 pt), drawn from the payroll lines ---------- */
+function psOps(d, m){
+  const ops = [], INK = [0,0,0];
+  const T = (s, x, y, o={}) => ops.push({t:'text', s:String(s), x, y, size:o.size||11.5, bold:!!o.bold, c:o.c||INK, a:o.a||'l'});
+  const L = (x1, y1, x2, y2, w=2) => ops.push({t:'line', x1, y1, x2, y2, w, c:INK});
+  const kv = (lab, val, x, y, colon) => { T(lab, x, y, {bold:true}); const w = m(lab, 11.5, true); if(colon){ T(':', x+w, y); T(' '+val, x+w+m(':',11.5,false), y); } else T(' '+val, x+w, y); };
+  const lines = d.lines || [], sum = f => pvR2(lines.filter(f).reduce((s,l)=>s+(+l.amount||0),0));
+  if(!d.release) ops.push({t:'wm', text:'DRAFT', sub:'NOT PUBLISHED', x:443, y:330});
+  ops.push({t:'img', src:LOGO_B64, x:353, y:13.5, w:34, h:41}); T('PAYSLIP', 397.5, 42, {size:15.5, bold:true});
+  const c = d.ccps || {};
+  kv(c.nameLabel||'VA Name', pvName(d), 23.5, 79.8, true); kv('Job Position:', c.position || d.empRole || '', 23.5, 96.9);
+  kv('Pay Period:', psPer(d), 519.2, 79.8); kv('Pay-Out Date', dLong(d.period.payout), 519.2, 96.9, true);
+  T('EARNINGS', 220.5, 122, {size:12, bold:true}); T('DEDUCTIONS', 543.3, 122, {size:12, bold:true}); T('NET PAY', 751.4, 122, {size:12, bold:true});
+  L(14, 138.75, 872.5, 138.75);
+  const h2 = (a, b, x) => { T(a, x, 154.8, {bold:true, a:'c'}); T(b, x, 174.6, {bold:true, a:'c'}); };
+  T('Particulars', 23.4, 164.7, {bold:true}); h2('Hours','Worked',146.45); h2('Hourly','Rate',209.45); h2('Total','Hourly Rate',283.7); h2('Fixed','Rate',366.95); h2('Total','Amount',447.95);
+  T('Particulars', 495.9, 164.7, {bold:true}); h2('Total','Amount',641.45); T('Particulars', 685, 164.7, {bold:true}); h2('Total','Amount',830.45);
+  L(14, 187.75, 872.5, 187.75);
+  /* earnings */
+  const base = lines.filter(l=>['basic','fee'].includes(l.kind)), hl = base.filter(l=>l.rt==='hourly');
+  const fixed = pvR2(base.filter(l=>l.rt!=='hourly').reduce((s,l)=>s+(+l.amount||0),0)), hourly = pvR2(hl.reduce((s,l)=>s+(+l.amount||0),0));
+  const hours = Math.round(hl.reduce((s,l)=>s+(+l.qty||0),0)*100)/100, hr = hl.length && new Set(hl.map(l=>l.rate)).size===1 ? hl[0].rate : null;
+  const num = n => String(+n||0);
+  T('Regular Pay', 23.4, 206); T(num(hours), 146.45, 206, {a:'c'}); T(hr?psFmt(hr):(hl.length?'mixed':'-'), 233.5, 206, {a:'r'}); T(psFmt(hourly), 319, 206, {a:'r'}); T(fixed?psFmt(fixed):'-', 400, 206, {a:'r'}); T(psFmt(fixed+hourly), 481, 206, {a:'r'});
+  const ot = lines.filter(l=>l.cat==='ot' || (l.kind==='adjust' && l.sign==='+')), otA = sum(l=>ot.includes(l));
+  T('Overtime Pay', 23.4, 227.1); if(otA){ const o = ot[0]; if(o?.qty) T(num(o.qty), 146.45, 227.1, {a:'c'}); if(o?.rate) T(psFmt(o.rate), 233.5, 227.1, {a:'r'}); T(psFmt(otA), 481, 227.1, {a:'r'}); }
+  T('Incentive', 23.4, 242.3); T(psFmt(sum(l=>l.kind==='bonus')), 481, 242.3, {a:'r'});
+  T('Add', 23.4, 260.8); T(psFmt(sum(l=>['allowance','leavepay','reimb'].includes(l.kind))), 481, 260.8, {a:'r'});
+  /* deductions */
+  const dr = [['WTH Tax', sum(l=>l.kind==='tax')], ['Cash Advance', sum(l=>l.cat==='ca')], ['SSS', sum(l=>l.kind==='sss')], ['HDMF', sum(l=>l.kind==='hdmf')], ['Philhealth', sum(l=>l.kind==='phic')],
+    ...lines.filter(l=>(l.kind==='deduction' && l.cat!=='ca') || l.kind==='unpaidleave' || (l.kind==='adjust' && l.sign==='-')).map(l=>[String(l.label).slice(0,24), +l.amount])];
+  const dy = [206, 222, 237.1, 250.9, 264.7]; let lastY = 264.7;
+  dr.forEach((r, i) => { const y = i < dy.length ? dy[i] : 264.7 + (i-4)*13.8; lastY = y; T(r[0], 497.5, y); T(psFmt(r[1]), 670, y, {a:'r'}); });
+  const sh = Math.max(0, lastY - 264.7);
+  /* net */
+  const totE = pvR2(+d.gross + (+d.reimb||0)), totD = pvR2(d.deductions), net = pvR2(d.net);
+  T('Total Earnings', 685, 206); T(psFmt(totE), 861.5, 206, {a:'r'}); T('Less: Deductions', 685, 227.1); T(psFmt(totD), 861.5, 227.1, {a:'r'});
+  L(14, 268.75+sh, 872.5, 268.75+sh);
+  T('Total Earnings', 18.9, 281.5+sh, {bold:true}); T(psFmt(totE), 481, 281.5+sh, {bold:true, a:'r'});
+  T('Total Deductions', 488.9, 281.5+sh, {bold:true}); T(psFmt(totD), 670, 281.5+sh, {bold:true, a:'r'});
+  T('Total Net Pay', 685, 281.5+sh, {bold:true}); T(psFmt(net), 861.5, 281.5+sh, {bold:true, a:'r'});
+  L(14, 293.75+sh, 872.5, 293.75+sh);
+  /* clients breakdown */
+  const cl = []; base.forEach(l=>{ const n = l.client || 'Cross Core'; const f = cl.find(x=>x.n===n); if(f) f.a += +l.amount; else cl.push({n, a:+l.amount}); });
+  if(cl.length){ T('CLIENTS BREAKDOWN:', 18.2, 328+sh, {size:12, bold:true}); let y = 348 + sh;
+    cl.forEach(x=>{ T(String(x.n).slice(0,48), 18.9, y, {size:10}); T(psFmt(pvR2(x.a)), 399.2, y, {size:10, a:'r'}); y += 16; });
+    L(14, y-4.25, 403.5, y-4.25); T('Total Amount', 18.9, y+10, {size:10, bold:true}); T(psFmt(pvR2(cl.reduce((s,x)=>s+x.a,0))), 399.2, y+10, {size:10, bold:true, a:'r'}); L(14, y+17.75, 403.5, y+17.75); }
+  T(PS_FMT.VER, 13.7, 564.5, {size:9, c:[190,190,190]}); T('1', 870.1, 564.5, {size:9, a:'r', c:[190,190,190]});
+  return ops;
+}
+async function psPDF(d){
+  await loadScript(JSPDF_SRC); const doc = new window.jspdf.jsPDF({unit:'pt', format:[PS_FMT.W, PS_FMT.H], orientation:'landscape'});
+  psOps(d, pvMeasure).forEach(o => {
+    if(o.t==='text'){ doc.setFont('helvetica', o.bold?'bold':'normal'); doc.setFontSize(o.size); doc.setTextColor(...o.c); doc.text(o.s, o.x, o.y, {align:o.a==='r'?'right':o.a==='c'?'center':'left'}); }
+    else if(o.t==='line'){ doc.setDrawColor(...o.c); doc.setLineWidth(o.w); doc.line(o.x1, o.y1, o.x2, o.y2); }
+    else if(o.t==='img'){ try{ doc.addImage(o.src, 'PNG', o.x, o.y, o.w, o.h, 'cclogo', 'FAST'); }catch(e){} }
+    else if(o.t==='wm'){ doc.setTextColor(240,234,222); doc.setFont('helvetica','bold'); doc.setFontSize(120); doc.text(o.text, o.x, o.y, {align:'center', angle:20}); doc.setFontSize(15); doc.setTextColor(222,212,190); doc.text(o.sub, o.x, o.y+44, {align:'center', angle:20}); } });
+  doc.setProperties({title:`${pvName(d)} Payslip for the period of ${psPer(d)}`, author:'The Cross Core OPC — Finance', subject:d.docNo||''});
+  return doc;
+}
+async function psPNG(d){
+  const ops = psOps(d, pvMeasure), k = PS_FMT.SCALE, cv = document.createElement('canvas'); cv.width = Math.round(PS_FMT.W*k); cv.height = Math.round(PS_FMT.H*k); const x = cv.getContext('2d');
+  x.fillStyle = '#fff'; x.fillRect(0, 0, cv.width, cv.height); const col = c => `rgb(${c[0]},${c[1]},${c[2]})`;
+  for(const o of ops){
+    if(o.t==='text'){ x.font = `${o.bold?'bold ':''}${o.size*k}px Helvetica, Arial, sans-serif`; x.fillStyle = col(o.c); x.textAlign = o.a==='r'?'right':o.a==='c'?'center':'left'; x.fillText(o.s, o.x*k, o.y*k); }
+    else if(o.t==='line'){ x.strokeStyle = col(o.c); x.lineWidth = o.w*k; x.beginPath(); x.moveTo(o.x1*k, o.y1*k); x.lineTo(o.x2*k, o.y2*k); x.stroke(); }
+    else if(o.t==='img'){ await new Promise(res=>{ const im = new Image(); im.onload = ()=>{ x.drawImage(im, o.x*k, o.y*k, o.w*k, o.h*k); res(); }; im.onerror = res; im.src = o.src; }); }
+    else if(o.t==='wm'){ x.save(); x.translate(o.x*k, o.y*k); x.rotate(-20*Math.PI/180); x.textAlign = 'center'; x.font = `bold ${120*k}px Helvetica, Arial, sans-serif`; x.fillStyle = 'rgb(240,234,222)'; x.fillText(o.text, 0, 0); x.font = `bold ${15*k}px Helvetica, Arial, sans-serif`; x.fillStyle = 'rgb(222,212,190)'; x.fillText(o.sub, 0, 44*k); x.restore(); } }
+  return cv.toDataURL('image/png');
+}
+{ const _p = pvPDF; pvPDF = async function(d){ return d?.layout==='ccps1' ? psPDF(d) : _p.apply(this, arguments); }; }
+{ const _g = pvPNG; pvPNG = async function(d){ return d?.layout==='ccps1' ? psPNG(d) : _g.apply(this, arguments); }; }
+async function psPreview(id){ const box = el('psPrev'); if(!box) return; const d = pvDoc(id); try{ box.innerHTML = `<img src="${await psPNG(d)}" alt="${esc(pvImgAlt(d))}">`; }catch(e){ box.innerHTML = `<div class="hint">Could not draw the payslip: ${esc(e.message)}</div>`; } }
+
+/* ---------- editing (Cha, her own drafts) ---------- */
+const PS_FIELD = {position:'Job position', payout:'Pay-out date', 'ot.hours':'Overtime hours', 'ot.rate':'Overtime rate', 'ot.amount':'Overtime pay', 'incentive.amount':'Incentive', 'incentive.note':'Incentive note',
+  'add.amount':'Add (allowances & others)', 'add.note':'Add note', 'ded.tax':'WTH Tax', 'ded.ca':'Cash Advance', 'ded.sss':'SSS', 'ded.hdmf':'HDMF', 'ded.phic':'Philhealth'};
+const PS_TEXT = ['position','payout','incentive.note','add.note','name','label','nameLabel'];
+function psGet(o, path){ return path.split('.').reduce((a,k)=>a==null?a:a[k], o); }
+function psPut(o, path, v){ const p = path.split('.'); let t = o; p.slice(0,-1).forEach(k=>{ if(t[k]==null) t[k] = /^\d+$/.test(k)?[]:{}; t = t[k]; }); t[p[p.length-1]] = v; }
+function psApply(d, why){
+  const c = d.ccps; d.empRole = c.position || d.empRole; d.period = {...pv2Period(d.period.id), payout:c.payout || pv2Period(d.period.id).payout};
+  d.lines = psLines(c); Object.assign(d, payTotals(d.lines)); d.edits = (d.edits||0) + 1; d.updatedAt = nowISO(); d.updatedBy = PERSON;
+}
+function psSet(id, path, raw){
+  const d = pvDoc(id); if(!psEditable(d)) return toast('This payslip can no longer be edited');
+  const isText = PS_TEXT.includes(path.split('.').pop()); let v = isText ? String(raw).trim() : (raw===''?0:+raw);
+  if(!isText && (isNaN(v) || v < 0)) { toast('Enter a number of 0 or more'); return psOpen(id, 1); }
+  if(!isText) v = Math.round(v*100)/100;
+  if(path==='payout' && !/^\d{4}-\d{2}-\d{2}$/.test(v)){ toast('Choose a pay-out date'); return psOpen(id, 1); }
+  const prev = psGet(d.ccps, path); if(String(prev ?? '') === String(v)) return;
+  psPut(d.ccps, path, v);
+  if(/^ot\.(hours|rate)$/.test(path)) d.ccps.ot.amount = pvR2(psN(d.ccps.ot.hours) * psN(d.ccps.ot.rate));   /* overtime pay follows hours × rate (it can still be typed) */
+  const before = d.net; psApply(d);
+  const lab = PS_FIELD[path] || path.replace(/^clients\.(\d+)\.(\w+)$/, (_, i, f)=>`${d.ccps.clients[i]?.name||'Client'} — ${({name:'client name', fixed:'fixed rate', hours:'hours worked', hourly:'hourly rate'})[f]||f}`).replace(/^otherDed\.(\d+)\.(\w+)$/, (_, i, f)=>`Other deduction ${+i+1} — ${f}`);
+  pvHist(d, 'Edited', `${lab}: ${prev ?? '—'} → ${v}${before!==d.net?` · net ${psFmt(before)} → ${psFmt(d.net)}`:''}`);
+  recordChange(); psOpen(id, 1);
+}
+function psRow(id, kind, i){
+  const d = pvDoc(id); if(!psEditable(d)) return; const c = d.ccps;
+  if(kind==='addClient'){ c.clients.push({name:'', fixed:0, hours:0, hourly:0}); pvHist(d, 'Client line added'); }
+  if(kind==='delClient'){ const [x] = c.clients.splice(i,1); pvHist(d, 'Client line removed', `${x?.name||'—'}`); }
+  if(kind==='addDed'){ (c.otherDed = c.otherDed||[]).push({label:'', amount:0}); pvHist(d, 'Other deduction added'); }
+  if(kind==='delDed'){ const [x] = c.otherDed.splice(i,1); pvHist(d, 'Other deduction removed', `${x?.label||'—'} ${x?.amount||0}`); }
+  psApply(d); recordChange(); psOpen(id, 1);
+}
+function psCanPublish(d){
+  if(!psIsSelf(d)) return 'This payslip is in the regular payroll workflow.';
+  if(d.release) return 'Already published.';
+  if(!psCanManage() || d.emp!==PERSON) return 'Only Cha publishes her own self-managed payslips.';
+  if(![PV_ST.DRAFT, PV_ST.RET].includes(d.status)) return 'Only a draft can be published.';
+  if(!(d.gross > 0)) return 'There are no earnings on this payslip.';
+  if(d.net < 0) return 'Net pay is negative — check the deductions.';
+  if(!psReviewed(d)) return d.selfReview ? 'The payslip changed after your review — review it again.' : 'Review and verify the payslip first.';
+  const dup = PAYV2.find(x=>x.emp===d.emp && x.id!==d.id && x.period.id===d.period.id && x.release && !x.supersededBy && x.id!==d.correctionOf);
+  if(dup) return `A payslip for ${psPer(d)} is already published — make a correction of it instead.`;
+  return '';
+}
+function psReview(id){
+  const d = pvDoc(id); if(!psEditable(d)) return; if(!el('psChk')?.checked) return toast('Tick the box to confirm you reviewed the payslip');
+  if(!(d.gross > 0)) return toast('There are no earnings on this payslip');
+  d.selfReview = {by:PERSON, at:nowISO(), edits:d.edits||0, net:d.net}; pvHist(d, 'Reviewed and verified', `net ${psFmt(d.net)}`); recordChange(); psOpen(id, 1); toast('Marked as reviewed — still a draft until you publish it');
+}
+function psPublishClick(id){
+  const d = pvDoc(id), why = psCanPublish(d); if(why) return toast(why);
+  confirmModal(`Publish your payslip for ${psPer(d)}?`, `<p>It moves from <b>Draft</b> to <b>Published</b> and appears at once in <b>My Payslips</b> (and Accounting → My Payslips & Payment History), where you can view and download it. It is filed in your HR 201 record.</p>
+    <div class="list-row" style="font-size:13px"><span style="flex:1">Total earnings</span><b>${pvMoney(d.gross,d)}</b></div><div class="list-row" style="font-size:13px"><span style="flex:1">Deductions</span><b>−${pvMoney(d.deductions,d)}</b></div><div class="list-row" style="font-size:14px"><span style="flex:1">Net pay</span><b>${pvMoney(d.net,d)}</b></div>
+    <p class="hint" style="margin-top:8px">A published payslip can't be edited — a change is made as a correction, and the original stays on file. ${esc(pname(pvCeo()))} and ${esc(pname(pvCoo()))} are notified.</p>`, 'Publish', async()=>{
+    try{ await psPublish(id); closeModal(); psRefresh(); toast('Published — it is now in My Payslips'); }catch(e){ closeModal(); toast(psErr(e)); } }, {primary:true});
+}
+const psErr = e => { const m = String(e?.message||e); return /cc_pay_self_publish|could not find the function|schema cache/i.test(m) ? 'The database update for self-managed payslips has not been run yet — run update-nov14-cha-payslips.sql in Supabase, then refresh.' : m; };
+async function psPublish(id){
+  const d = pvDoc(id), why = psCanPublish(d); if(why) throw new Error(why);
+  if(pvLive()){ await lvSettle(); const {data, error} = await BACKEND.sb.rpc('cc_pay_self_publish', {p_doc:id}); if(error) throw error; if(!data?.ok) throw new Error(data?.error || 'Publishing failed'); return data; }
+  /* demo mode — the same steps as cc_pay_self_publish */
+  const at = nowISO(); d.version = (d.version||0) + 1; Object.assign(d, payTotals(d.lines));
+  d.approval = {by:PERSON, at, version:d.version, self:true, comment:'Reviewed and published by Finance (self-managed payslip)'}; d.submittedAt = at; d.submittedBy = PERSON;
+  d.status = PV_ST.REL; d.release = {at, by:PERSON, mode:'self-publish', sched:null, version:d.version, message:(d.financeMsg||'').trim()||null};
+  pvHist(d, 'Published to My Payslips', `version ${d.version} · net ${d.net}`);
+  if(!HRFILES.some(f=>f.id==='HF-PS-'+d.id)) HRFILES.push(psFiling(d));
+  if(d.correctionOf){ const o = pvDoc(d.correctionOf); if(o){ o.supersededBy = d.id; o.supersededAt = at; } }
+  NOTIFS2.unshift({id:uid('N'), to:d.emp, type:'payroll', text:`🧾 Your <b>payslip</b> for ${pvPeriodLabel(d.period)} is published and available in <b>My Payslips</b>.`, link:{view:'mypayslips', doc:d.id}, by:'finance-system', at, read:false});
+  notify(uniq([pvCeo(), pvCoo()]).filter(k=>k!==PERSON), 'payroll', `🧾 <b>${esc(pvName(d))}</b> published her self-managed payslip for ${pvPeriodLabel(d.period)} — net ${esc(money(d.net))}.`, {view:'finance', tab:'self'});
+  recordChange(); return {ok:true, at};
+}
+function psDelete(id){
+  const d = pvDoc(id); if(!psEditable(d)) return;
+  confirmModal('Delete this draft?', `<p>The draft for ${esc(psPer(d))} is removed. Published payslips are never affected.</p>`, 'Delete draft', ()=>{ PAYV2 = PAYV2.filter(x=>x.id!==id); recordChange(); closeModal(); psRefresh(); toast('Draft deleted'); });
+}
+function psCorrect(id){
+  const o = pvDoc(id); if(!o?.release || !psCanManage() || o.emp!==PERSON) return;
+  if(PAYV2.some(x=>x.correctionOf===id && !x.release)) return toast('A correction of this payslip is already in progress');
+  const n = PAYV2.filter(x=>x.correctionOf===id).length + 1, nid = `${id}|C${n}`, c = JSON.parse(JSON.stringify(o.ccps || psInputsFor(psRec(o.emp)?.card, o.period.id)));
+  const d = psMakeDoc(o.emp, o.empName, o.dept, o.class, o.period.id, c); Object.assign(d, {id:nid, correctionOf:id, createdAt:nowISO(), createdBy:PERSON, flags:{correction:true},
+    history:[{at:nowISO(), by:PERSON, act:'Correction started', note:`replaces ${o.docNo||id} — the original stays on file`}]});
+  if(!pvLive()) d.docNo = pvDocNo(o.period.id);
+  PAYV2.push(d); recordChange(); psOpen(nid);
+}
+
+/* ---------- generating a payslip ---------- */
+function psNextPid(emp){ const D = psDocsOf(emp).filter(d=>!d.correctionOf); const cur = periodIdFor(manilaDate());
+  if(!D.length) return cur; let p = shiftPeriod(D[0].period.id, 1); return p; }
+function psGenModal(){
+  if(!psCanManage()) return; const emp = PERSON, D = psDocsOf(emp), has = new Set(D.filter(d=>!d.correctionOf).map(d=>d.period.id));
+  const cur = periodIdFor(manilaDate()), opts = []; for(let i=-6; i<=3; i++){ const p = shiftPeriod(cur, i); if(!has.has(p) || !pvDoc(`PD|${p}|${emp}`)?.self) opts.push(p); }
+  const def = psNextPid(emp); const src = D.filter(d=>d.ccps);
+  openModal('Generate a payslip', `<p class="hint" style="margin-top:0">The new payslip is saved as a <b>Draft</b>. Nobody but Finance and the company heads can see it until you publish it.</p>
+    <div class="field"><label>Payroll period</label><select id="psGenP">${opts.map(p=>`<option value="${p}" ${p===def?'selected':''}>${esc(pvPeriodLabel(pv2Period(p)))} · pay-out ${dLong(pv2Period(p).payout)}${pvDoc(`PD|${p}|${emp}`)?' · existing system draft (taken over)':''}</option>`).join('')}</select></div>
+    <div class="field"><label>Start from</label><select id="psGenS"><option value="card">My current rates (rate card) — recommended</option>${src.map(d=>`<option value="${esc(d.id)}">Copy of ${esc(psPer(d))}${d.correctionOf?' (correction)':''} — net ${esc(psFmt(d.net))}</option>`).join('')}</select>
+      <div class="hint">Every rate, earning and deduction can be changed in the draft afterwards.</div></div>
+    <div class="pv-actions"><button class="btn primary" onclick="psGenerate(el('psGenP').value, el('psGenS').value)">Generate draft</button><button class="btn" onclick="closeModal()">Cancel</button></div>`);
+}
+async function psGenerate(pid, src){
+  const emp = PERSON, id = `PD|${pid}|${emp}`, rec = psRec(emp), e = EMPLOYEES.find(x=>x.id===emp);
+  const from = src==='card' ? rec?.card : pvDoc(src)?.ccps; const c = psInputsFor(from || rec?.card, pid);
+  let d = pvDoc(id);
+  if(d && psIsSelf(d)){ toast('A payslip for this period already exists'); return psOpen(id); }
+  if(d && d.release) return toast('A payslip for this period was already released in the regular payroll — open it in Payroll and make a correction.');
+  if(d && [PV_ST.SUB, PV_ST.REV, PV_ST.OK].includes(d.status)){ pvRecall(id); d = pvDoc(id); }
+  const fresh = psMakeDoc(emp, e?.name || pname(emp), e?.dept || '', payClass(emp) || 'employee', pid, c);
+  const note = src==='card' ? 'From the rate card' : `Copied from ${psPer(pvDoc(src))}`;
+  if(d){ const keep = {docNo:d.docNo, createdAt:d.createdAt, history:d.history||[]}; Object.keys(d).forEach(k=>delete d[k]); Object.assign(d, fresh, keep, {takenOver:true});
+    pvHist(d, 'Taken over as a self-managed payslip', `${note} — the automatic draft's lines were replaced`); }
+  else { d = Object.assign(fresh, {createdAt:nowISO(), createdBy:PERSON, history:[{at:nowISO(), by:PERSON, act:'Generated as a draft', note}]}); if(!pvLive()) d.docNo = pvDocNo(pid); PAYV2.push(d); }
+  recordChange(); closeModal(); psRefresh(); psOpen(id); toast('Draft generated');
+}
+
+/* ---------- the rate card ---------- */
+function psCardForm(c, pre, ro){
+  const inp = (path, val, type='number', w='') => ro ? `<b>${type==='number'?esc(psFmt(val)):esc(val||'—')}</b>` : `<input ${type==='number'?'type="number" min="0" step="0.01"':`type="${type}"`} value="${esc(val ?? '')}" style="${w}" onchange="${pre}('${path}',this.value)">`;
+  return `<div class="grid cols-2"><div class="field"><label>Job position</label>${inp('position', c.position, 'text', 'width:100%')}</div>${c.payout!==undefined?`<div class="field"><label>Pay-out date</label>${inp('payout', c.payout, 'date')}</div>`:''}</div>
+    <div class="nav-label" style="padding:6px 0 4px">Regular pay — by client</div>
+    <div class="tbl-wrap"><table class="tbl ps-tbl"><thead><tr><th>Client</th><th>Fixed rate</th><th>Hours worked</th><th>Hourly rate</th><th>Total</th>${ro?'':'<th></th>'}</tr></thead><tbody>
+    ${(c.clients||[]).map((x,i)=>`<tr><td>${inp(`clients.${i}.name`, x.name, 'text', 'width:100%;min-width:150px')}</td><td>${inp(`clients.${i}.fixed`, x.fixed)}</td><td>${inp(`clients.${i}.hours`, x.hours)}</td><td>${inp(`clients.${i}.hourly`, x.hourly)}</td>
+      <td><b>${psFmt(psN(x.fixed)+psN(x.hours)*psN(x.hourly))}</b></td>${ro?'':`<td>${c.clients.length>1?`<button class="btn ghost" style="padding:2px 7px" title="Remove" onclick="${pre}Row('delClient',${i})">✕</button>`:''}</td>`}</tr>`).join('')}</tbody></table></div>
+    ${ro?'':`<button class="btn ghost" style="padding:3px 10px;font-size:12px" onclick="${pre}Row('addClient')">+ Add a client</button>`}
+    <div class="grid cols-2" style="margin-top:10px">
+      <div><div class="nav-label" style="padding:6px 0 4px">Other earnings</div>
+        <div class="ps-kv"><span>Overtime — hours</span>${inp('ot.hours', c.ot?.hours)}</div><div class="ps-kv"><span>Overtime — rate per hour</span>${inp('ot.rate', c.ot?.rate)}</div><div class="ps-kv"><span>Overtime Pay</span>${inp('ot.amount', c.ot?.amount)}</div>
+        <div class="ps-kv"><span>Incentive</span>${inp('incentive.amount', c.incentive?.amount)}</div>${ro&&!c.incentive?.note?'':`<div class="ps-kv"><span class="hint">Incentive note</span>${inp('incentive.note', c.incentive?.note, 'text')}</div>`}
+        <div class="ps-kv"><span>Add (allowances & others)</span>${inp('add.amount', c.add?.amount)}</div>${ro&&!c.add?.note?'':`<div class="ps-kv"><span class="hint">Add note</span>${inp('add.note', c.add?.note, 'text')}</div>`}</div>
+      <div><div class="nav-label" style="padding:6px 0 4px">Deductions</div>
+        ${PS_DED.map(([k,,lab])=>`<div class="ps-kv"><span>${lab}</span>${inp('ded.'+k, c.ded?.[k])}</div>`).join('')}
+        ${(c.otherDed||[]).map((x,i)=>`<div class="ps-kv">${ro?`<span>${esc(x.label||'Other deduction')}</span>`:`<input value="${esc(x.label||'')}" placeholder="Deduction name" onchange="${pre}('otherDed.${i}.label',this.value)" style="flex:1">`}${inp(`otherDed.${i}.amount`, x.amount)}${ro?'':`<button class="btn ghost" style="padding:2px 7px" onclick="${pre}Row('delDed',${i})">✕</button>`}</div>`).join('')}
+        ${ro?'':`<button class="btn ghost" style="padding:3px 10px;font-size:12px" onclick="${pre}Row('addDed')">+ Other deduction</button>`}</div></div>`;
+}
+function psCardModal(){
+  const emp = psEmp(), r = psRec(emp); if(!r) return; const ro = !psCanManage(); PS_CARD = JSON.parse(JSON.stringify(r.card || psBlankCard()));
+  psCardDraw(ro);
+}
+let PS_CARD = null;
+function psCardDraw(ro){
+  const c = PS_CARD, r = psRec(psEmp()), L = psLines(c), t = payTotals(L);
+  openModal('Rates & payroll information', `<p class="hint" style="margin-top:0">New payslips start from these rates. Changing them never changes a published payslip; open drafts can be updated below.</p>
+    ${psCardForm(c, 'psCardSet', ro)}
+    <div class="ps-sum"><span>Per cutoff: earnings <b>${psFmt(t.gross)}</b></span><span>deductions <b>${psFmt(t.deductions)}</b></span><span>net <b>${psFmt(t.net)}</b></span></div>
+    ${ro?'':`<div class="field"><label>Reason for the change <span class="hint">(kept in the rate history)</span></label><input id="psCardWhy" placeholder="e.g. New rate from Dec 1"></div>
+      <label class="hint" style="display:block;margin:6px 0"><input type="checkbox" id="psCardApply" style="width:auto" checked> Also update my open drafts (rates and job position; hours and per-period amounts stay)</label>`}
+    <div class="nav-label" style="padding:10px 0 4px">Rate history</div><div class="timeline" style="max-height:200px;overflow:auto">${[...(r.history||[])].reverse().map(h=>`<div class="ti"><b>${esc(h.act)}</b> · ${esc(h.by==='system'?'System':first(h.by))}<div class="hint">${dtstr(h.at)}</div>${h.note?`<div>${esc(h.note)}</div>`:''}</div>`).join('')}</div>
+    <div class="pv-actions">${ro?'':`<button class="btn primary" onclick="psCardSave()">Save rates</button>`}<button class="btn" onclick="closeModal()">${ro?'Close':'Cancel'}</button></div>`, true);
+}
+function psCardSet(path, raw){ const isText = PS_TEXT.includes(path.split('.').pop()); let v = isText ? String(raw).trim() : (raw===''?0:+raw); if(!isText && (isNaN(v)||v<0)) return toast('Enter a number of 0 or more');
+  psPut(PS_CARD, path, isText ? v : Math.round(v*100)/100); if(/^ot\.(hours|rate)$/.test(path)) PS_CARD.ot.amount = pvR2(psN(PS_CARD.ot.hours)*psN(PS_CARD.ot.rate)); psCardDraw(false); }
+function psCardSetRow(kind, i){ const c = PS_CARD; if(kind==='addClient') c.clients.push({name:'', fixed:0, hours:0, hourly:0}); if(kind==='delClient') c.clients.splice(i,1); if(kind==='addDed') (c.otherDed=c.otherDed||[]).push({label:'', amount:0}); if(kind==='delDed') c.otherDed.splice(i,1); psCardDraw(false); }
+function psCardSave(){
+  const r = psRec(PERSON); if(!r || !psCanManage()) return; const why = el('psCardWhy')?.value.trim() || '';
+  const o = r.card || psBlankCard(), n = PS_CARD, diffs = [];
+  const fx = a => (a.clients||[]).map(x=>`${x.name||'—'} fixed ${psFmt(x.fixed)}${psN(x.hourly)?` + ${psFmt(x.hourly)}/h`:''}`).join('; ');
+  if(fx(o)!==fx(n)) diffs.push(`Regular pay: ${fx(o)} → ${fx(n)}`); if((o.position||'')!==(n.position||'')) diffs.push(`Position: ${o.position||'—'} → ${n.position||'—'}`);
+  PS_DED.forEach(([k,,lab])=>{ if(psN(o.ded?.[k])!==psN(n.ded?.[k])) diffs.push(`${lab}: ${psFmt(o.ded?.[k])} → ${psFmt(n.ded?.[k])}`); });
+  if(psN(o.ot?.rate)!==psN(n.ot?.rate)) diffs.push(`Overtime rate: ${psFmt(o.ot?.rate)} → ${psFmt(n.ot?.rate)}`);
+  if(JSON.stringify(o)===JSON.stringify({...n, effective:o.effective, basis:o.basis})) return closeModal();
+  r.card = {...n, effective:manilaDate(), basis:why || 'Updated by '+first(PERSON)}; (r.history = r.history||[]).push({at:nowISO(), by:PERSON, act:'Rates updated', note:(diffs.join(' · ') || 'Other amounts changed') + (why?` — ${why}`:''), prev:o});
+  let n2 = 0;
+  if(el('psCardApply')?.checked) psDocsOf(PERSON).filter(psEditable).forEach(d=>{ const c = d.ccps; c.position = n.position;
+    n.clients.forEach(x=>{ const t = c.clients.find(y=>y.name===x.name); if(t){ t.fixed = x.fixed; t.hourly = x.hourly; } else c.clients.push({...x, hours:0}); });
+    c.ot.rate = n.ot?.rate||0; if(psN(c.ot.hours)) c.ot.amount = pvR2(psN(c.ot.hours)*psN(c.ot.rate)); psApply(d); pvHist(d, 'Updated from the new rates', diffs.join(' · ')); n2++; });
+  recordChange(); closeModal(); psRefresh(); toast(`Rates saved${n2?` — ${n2} draft${n2>1?'s':''} updated`:''}`);
+}
+
+/* ---------- the editor ---------- */
+function psOpen(id, keep){
+  const d = pvDoc(id); if(!d) return toast('That payslip is not available'); PV_OPEN = id;
+  const ed = psEditable(d), box = el('modal')?.querySelector('.box'), top = keep && box ? box.scrollTop : 0, c = d.ccps;
+  const can = psCanManage() && d.emp===PERSON, why = ed ? psCanPublish(d) : '', rev = psReviewed(d);
+  openModal(`Payslip — ${psPer(d)}`, `
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px">${psBadge(d)}${d.version?`<span class="badge b-draft">version ${d.version}</span>`:''}<span class="hint">${esc(pvName(d))} · ${esc(d.docNo||'number assigned on save')} · pay-out ${dLong(d.period.payout)}</span></div>
+    ${d.imported?`<div class="end-banner" style="margin-bottom:8px">📄 <b>Original payslip</b> imported from <i>${esc(d.imported.file)}</i>. Figures and format preserved; file fingerprint SHA-256 <code style="font-size:10.5px">${esc(d.imported.sha256.slice(0,16))}…</code></div>`:''}
+    ${d.correctionOf?`<div class="end-banner urgent" style="margin-bottom:8px">✏️ <b>Correction</b> of ${esc(pvDoc(d.correctionOf)?.docNo||d.correctionOf)} — once published it replaces it in My Payslips; the original stays on file.</div>`:''}
+    ${d.supersededBy?`<div class="end-banner urgent" style="margin-bottom:8px">Replaced by a correction: <a href="#" onclick="event.preventDefault();psOpen('${d.supersededBy}')">${esc(pvDoc(d.supersededBy)?.docNo||'open')}</a>.</div>`:''}
+    ${d.release?`<div class="end-banner" style="margin-bottom:8px">✅ Published ${esc(dtstr(d.release.at))} — visible in My Payslips. ${d.pay?.status==='Paid'?`Paid ${dLong(d.pay.at)}${d.pay.imported?' (pay-out date on the original)':''}.`:'Payment not yet marked.'}</div>`:''}
+    ${!d.release&&!can?`<div class="hint" style="margin-bottom:8px">Draft — only ${esc(first(d.emp))} edits and publishes it. It is not visible in her My Payslips yet.</div>`:''}
+    ${c ? (ed ? psCardForm(c, `psSetD`, false).replace(/psSetDRow\('/g, `psRow('${d.id}','`).replace(/psSetD\('/g, `psSet('${d.id}','`) : '') : '<div class="hint">This record was prepared in the regular payroll workflow — open it in Pre-Generated Payroll.</div>'}
+    <div class="ps-sum"><span>Total earnings <b>${pvMoney(d.gross+(d.reimb||0),d)}</b></span><span>Less: deductions <b>${pvMoney(d.deductions,d)}</b></span><span>Total net pay <b style="font-size:16px">${pvMoney(d.net,d)}</b></span></div>
+    ${ed?`<div class="field"><label>Internal remarks <span class="hint">(not printed)</span></label><textarea rows="2" onchange="pvDoc('${d.id}').remarks=this.value;recordChange()">${esc(d.remarks||'')}</textarea></div>
+      <div class="card" style="margin:10px 0;border-left:4px solid ${rev?'var(--ok)':'var(--warn)'}"><div class="card-b">
+        ${rev?`<b>✅ Reviewed and verified</b> <span class="hint">${esc(dtstr(d.selfReview.at))} · net ${esc(psFmt(d.selfReview.net))}. Any change clears the review.</span>`
+          :`<label style="display:flex;gap:8px;align-items:flex-start;font-size:13px"><input type="checkbox" id="psChk" style="width:auto;margin-top:3px"> <span>I reviewed the rates, hours, earnings, deductions and totals of this payslip and they are correct.${d.selfReview?' <b>It changed after the last review.</b>':''}</span></label>
+          <button class="btn" style="margin-top:6px" onclick="psReview('${d.id}')">Mark as reviewed</button>`}</div></div>`:''}
+    <details class="pv-add" ${ed?'':'open'} ontoggle="if(this.open)psPreview('${d.id}')"><summary>👁 ${d.release?'The payslip':'Preview (DRAFT watermark until published)'}</summary><div class="pvd-img" id="psPrev" style="margin-top:8px"><div class="hint" style="padding:20px;text-align:center">Preparing the payslip…</div></div></details>
+    <div class="nav-label" style="padding:12px 0 4px">History</div>
+    <div class="timeline" style="max-height:220px;overflow:auto">${[...(d.history||[])].reverse().map(h=>`<div class="ti"><b>${esc(h.act)}</b> · ${esc(h.by==='system'?'System':first(h.by))}<div class="hint">${dtstr(h.at)}</div>${h.note?`<div>${esc(h.note)}</div>`:''}</div>`).join('')}</div>
+    <div class="pv-actions">
+      ${ed?`<button class="btn" onclick="recordChange();toast('Draft saved')">💾 Save draft</button><button class="btn primary" ${why?`title="${esc(why)}"`:''} onclick="psPublishClick('${d.id}')">Publish to My Payslips</button>`:''}
+      <button class="btn" onclick="pvDownload('${d.id}')">⬇ PDF</button>${d.release?`<button class="btn" onclick="pvDownloadImg('${d.id}')">🖼 Image</button><button class="btn" onclick="pvPrint('${d.id}')">🖨 Print</button>`:''}
+      ${can&&d.release&&!d.supersededBy?`<button class="btn" onclick="psCorrect('${d.id}')">Create correction</button>`:''}${can&&d.release&&d.pay?.status!=='Paid'?`<button class="btn" onclick="pvMarkPaid('${d.id}')">Mark as paid…</button>`:''}
+      ${ed?`<button class="btn ghost" onclick="psDelete('${d.id}')">Delete draft</button>`:''}
+    </div>${ed&&why?`<div class="hint" style="text-align:right">${esc(why)}</div>`:''}`, true);
+  if(!ed) setTimeout(()=>psPreview(id), 30);
+  if(box && keep) el('modal').querySelector('.box').scrollTop = top;
+}
+
+/* ---------- CHA · Payslip Management (Finance tab + its own page) ---------- */
+const PSU = {f:'all'};
+function psMgmtHTML(){
+  if(!psCanView()) return '<div class="empty">Payslip Management is available to Cha (Finance) and the company heads.</div>';
+  const emp = psEmp(), r = psRec(emp), can = psCanManage(), ex = pvIsExec() && !can;
+  if(!r) return `<div class="card"><div class="card-b empty">${pvLive()?'Self-managed payslips are not set up yet — run <code>update-nov14-cha-payslips.sql</code> once in Supabase (SQL Editor), then refresh.':'Setting up…'}</div></div>`;
+  const D = psDocsOf(emp), pub = D.filter(d=>d.release), drafts = D.filter(d=>!d.release && d.self), latest = pub.find(d=>!d.supersededBy);
+  const cur = periodIdFor(manilaDate()), curDoc = D.find(d=>d.period.id===cur && !d.correctionOf), nxt = psNextPid(emp);
+  const since = shiftPeriod(cur, -6);
+  let F = D; if(PSU.f==='3m') F = D.filter(d=>d.period.id>=since); if(PSU.f==='pub') F = pub; if(PSU.f==='draft') F = D.filter(d=>!d.release);
+  const old = typeof PAYSLIPS!=='undefined' ? PAYSLIPS.filter(s=>s.emp===emp && s.generated) : [];
+  const row = d => `<tr style="cursor:pointer" onclick="psOpen('${d.id}')"><td><b>${esc(psPer(d))}</b><div class="hint">${d.period.cut===1?'1st cutoff':'2nd cutoff'}${d.correctionOf?' · correction':''}${d.supersededBy?' · replaced':''}</div></td><td>${dLong(d.period.payout)}</td>
+    <td>${pvMoney(d.gross+(d.reimb||0),d)}</td><td>${d.deductions?'−'+pvMoney(d.deductions,d):'—'}</td><td><b>${pvMoney(d.net,d)}</b></td><td>${psBadge(d)}${d.release&&pvViewed(d)?'<div class="hint">viewed</div>':''}</td>
+    <td class="hint">${d.imported?'Original (imported)':d.self?'Payslip Management':'Regular payroll'}</td>
+    <td style="white-space:nowrap" onclick="event.stopPropagation()"><button class="btn" style="padding:4px 9px;font-size:12px" onclick="psOpen('${d.id}')">${psEditable(d)?'Edit':'Open'}</button> <button class="btn ghost" style="padding:4px 9px;font-size:12px" onclick="pvDownload('${d.id}')">PDF</button></td></tr>`;
+  const groups = []; [...new Set(F.map(d=>d.period.id.slice(0,7)))].forEach(ym=>{ groups.push(`<tr class="pv-gh"><td colspan="8">${AC_MONTHS[+ym.slice(5,7)-1]} ${ym.slice(0,4)}</td></tr>${F.filter(d=>d.period.id.startsWith(ym)).map(row).join('')}`); });
+  const card = r.card || psBlankCard(), cl = payTotals(psLines(card));
+  return `${ex?`<div class="card" style="margin-bottom:12px"><div class="card-b" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><div style="flex:1"><b>Self-managed payroll for ${esc(pname(emp))}: ${r.enabled!==false?'ON':'OFF'}</b><div class="hint">${r.enabled!==false?`${esc(first(emp))} prepares, reviews and publishes her own payslips; you are notified of each publish.`:'Her payslips follow the regular CEO-approved payroll.'} View-only for you.</div></div>
+      <button class="btn" onclick="psToggle()">${r.enabled!==false?'Switch off':'Switch on'}</button></div></div>`:''}
+    ${!can&&!ex?`<div class="hint" style="margin-bottom:10px">View-only — ${esc(first(emp))} manages these payslips.</div>`:''}
+    <div class="grid cols-4" style="margin-bottom:14px">${pvKpi('Latest published', latest?pvMoney(latest.net,latest):'—', latest?esc(psPer(latest)):'none yet')}${pvKpi('Drafts', drafts.length, drafts.length?'not visible in My Payslips':'nothing pending', drafts.length?'var(--warn)':'')}
+      ${pvKpi('Published', pub.filter(d=>!d.supersededBy).length, 'in My Payslips')}${pvKpi('Current rates', psFmt(cl.gross), 'earnings per cutoff · net '+psFmt(cl.net))}</div>
+    <div class="card" style="margin-bottom:14px"><div class="card-b" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap"><div style="flex:1;min-width:240px"><div class="hint" style="text-transform:uppercase;letter-spacing:.1em;font-size:10.5px">Current payroll period</div>
+        <b style="font-size:15px">${esc(pvPeriodLabel(pv2Period(cur)))}</b> <span class="hint">cutoff ${dLong(pv2Period(cur).cutoff)} · pay-out ${dLong(pv2Period(cur).payout)}</span>
+        <div style="margin-top:4px">${curDoc?psBadge(curDoc)+` <span class="hint">net ${esc(pvMoney(curDoc.net,curDoc))}</span>`:'<span class="badge b-new">Not generated yet</span>'}</div></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">${curDoc?`<button class="btn primary" onclick="psOpen('${curDoc.id}')">${psEditable(curDoc)?'Edit & review':'Open'}</button>`:''}${can?`<button class="btn ${curDoc?'':'primary'}" onclick="psGenModal()">+ Generate payslip${!curDoc?'':` (${esc(pvPeriodLabel(pv2Period(nxt)))})`}</button>`:''}<button class="btn" onclick="psCardModal()">${can?'Edit rates':'View rates'}</button></div></div></div>
+    ${drafts.length?`<div class="card" style="margin-bottom:14px;border-left:4px solid var(--warn)"><div class="card-h"><h3>Drafts <span class="badge b-draft">${drafts.length}</span></h3><span class="sub">saved, not published — edit, review, then publish</span></div><div class="card-b" style="padding-top:4px">
+      ${drafts.map(d=>`<div class="list-row" style="font-size:13px"><b style="min-width:150px">${esc(psPer(d))}</b><span style="flex:1">${psBadge(d)} <span class="hint">net ${esc(pvMoney(d.net,d))} · last change ${esc(dtstr(d.updatedAt||d.createdAt))}</span></span><button class="btn" style="padding:4px 10px;font-size:12px" onclick="psOpen('${d.id}')">${psEditable(d)?'Edit & review':'Open'}</button></div>`).join('')}</div></div>`:''}
+    <div class="card"><div class="card-h"><h3>Payslip history</h3><span class="sub">${D.length} payslip${D.length===1?'':'s'} · ${esc(pname(emp))}</span>
+      <span style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap">${[['all','All'],['3m','Last 3 months'],['pub','Published'],['draft','Drafts']].map(([k,l])=>`<button class="btn ${PSU.f===k?'primary':'ghost'}" style="padding:4px 10px;font-size:12px" onclick="PSU.f='${k}';psRefresh()">${l}</button>`).join('')}</span></div>
+      <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Pay period</th><th>Pay-out</th><th>Total earnings</th><th>Deductions</th><th>Net pay</th><th>Status</th><th>Source</th><th></th></tr></thead><tbody>
+      ${groups.join('') || '<tr><td colspan="8" class="empty">No payslips match.</td></tr>'}
+      ${old.length&&PSU.f==='all'?`<tr class="pv-gh"><td colspan="8">Earlier payroll system</td></tr>${old.map(s=>`<tr><td>${esc(periodLabel(s.period))}</td><td>—</td><td colspan="2"></td><td>${money(s.final,s.cur)}</td><td>${esc(s.delivery?.status||'')}</td><td class="hint">Earlier system</td><td><button class="btn ghost" style="padding:4px 9px;font-size:12px" onclick="downloadSlipPDF('${s.id}')">PDF</button></td></tr>`).join('')}`:''}</tbody></table></div></div>`;
+}
+function psToggle(){
+  const r = psRec(psEmp()); if(!r || !pvIsExec()) return toast('Only the CEO or COO switches self-managed payroll on or off');
+  const on = r.enabled === false;
+  confirmModal(`${on?'Switch on':'Switch off'} self-managed payroll for ${pname(r.id)}?`, `<p>${on?`${esc(first(r.id))} prepares, reviews and publishes her own payslips again (you are notified of each publish).`:`Her future payslips go back to the regular payroll: generated at the cutoff and approved by the CEO / COO. Published payslips stay as they are.`}</p>`, on?'Switch on':'Switch off', ()=>{
+    r.enabled = on; r.enabledBy = PERSON; r.enabledAt = nowISO(); (r.history = r.history||[]).push({at:nowISO(), by:PERSON, act:on?'Self-managed payroll switched on':'Self-managed payroll switched off'});
+    notify([r.id], 'payroll', on?'🧾 You can again prepare and publish your own payslips in <b>Payslip Management</b>.':'🧾 Your payslips now follow the regular CEO-approved payroll.', {view:'finance', tab:'payroll'});
+    recordChange(); closeModal(); psRefresh(); });
+}
+const psRefresh = () => { if(CURRENT==='paymgmt') RENDER.paymgmt(); else if(CURRENT==='finance') pvRefresh(); else if(CURRENT==='mypayslips') RENDER.mypayslips(); };
+
+/* ---------- My Payslips (employee side: published only, view & download) ---------- */
+const PSM = {y:'', r:''};
+function psMyHTML(){
+  const L = PAYV2.filter(d=>d.emp===PERSON && d.release).sort((a,b)=>b.period.id.localeCompare(a.period.id) || b.release.at.localeCompare(a.release.at));
+  const cur = L.find(d=>!d.supersededBy), since = shiftPeriod(periodIdFor(manilaDate()), -6), years = [...new Set(L.map(d=>d.period.start.slice(0,4)))];
+  let F = L.filter(d=>(!PSM.y || d.period.start.startsWith(PSM.y)) && (!PSM.r || d.period.id>=since));
+  const hero = cur ? `<div class="card ac-hero" style="margin-bottom:14px"><div class="card-b"><div class="hint" style="text-transform:uppercase;letter-spacing:.1em;font-size:10.5px">Current payslip</div>
+      <div style="display:flex;gap:16px;align-items:flex-end;flex-wrap:wrap"><div style="flex:1;min-width:200px"><div style="font-family:Sora,sans-serif;font-size:26px;font-weight:700">${pvMoney(cur.net,cur)}</div>
+      <div class="hint">${esc(psPer(cur))} · pay-out ${dLong(cur.period.payout)} · published ${esc(dtstr(cur.release.at))}</div></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" onclick="pvView('${cur.id}')">View</button><button class="btn" onclick="pvDownload('${cur.id}')">⬇ Download PDF</button></div></div></div></div>`
+    : `<div class="card" style="margin-bottom:14px"><div class="card-b empty">No published payslips yet.</div></div>`;
+  const row = d => `<tr><td><b>${esc(psPer(d))}</b><div class="hint">${d.period.cut===1?'1st cutoff':'2nd cutoff'}${d.correctionOf?' · ✏️ corrected':''}${d.supersededBy?' · replaced by a correction':''}</div></td><td>${dLong(d.period.payout)}</td><td>${pvMoney(d.gross+(d.reimb||0),d)}</td><td>${d.deductions?'−'+pvMoney(d.deductions,d):'—'}</td><td><b>${pvMoney(d.net,d)}</b></td>
+    <td><span class="badge ${d.pay?.status==='Paid'?'b-approved':'b-scheduled'}">${d.pay?.status==='Paid'?'Paid '+dShort(d.pay.at):'Payment pending'}</span></td>
+    <td style="white-space:nowrap"><button class="btn" style="padding:4px 9px;font-size:12px" onclick="pvView('${d.id}')">View</button> <button class="btn ghost" style="padding:4px 9px;font-size:12px" onclick="pvDownload('${d.id}')">PDF</button></td></tr>`;
+  const groups = []; [...new Set(F.map(d=>d.period.id.slice(0,7)))].forEach(ym=>groups.push(`<tr class="pv-gh"><td colspan="7">${AC_MONTHS[+ym.slice(5,7)-1]} ${ym.slice(0,4)}</td></tr>${F.filter(d=>d.period.id.startsWith(ym)).map(row).join('')}`));
+  return `${hero}<div class="card"><div class="card-h"><h3>Payslip history</h3><span class="sub">${L.length} payslip${L.length===1?'':'s'} · by payroll period</span>
+    <span style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap"><button class="btn ${PSM.r?'primary':'ghost'}" style="padding:4px 10px;font-size:12px" onclick="PSM.r=PSM.r?'':'3m';RENDER.mypayslips()">Last 3 months</button>
+    <select onchange="PSM.y=this.value;RENDER.mypayslips()" style="padding:5px 8px"><option value="">All years</option>${years.map(y=>`<option ${PSM.y===y?'selected':''}>${y}</option>`).join('')}</select></span></div>
+    <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Pay period</th><th>Pay-out date</th><th>Total earnings</th><th>Deductions</th><th>Net pay</th><th>Payment</th><th></th></tr></thead><tbody>${groups.join('') || '<tr><td colspan="7" class="empty">Nothing matches.</td></tr>'}</tbody></table></div></div>`;
+}
+
+/* ---------- pages, menu, Finance tab, links ---------- */
+(function(){
+  const main = document.querySelector('main.main, main') || document.querySelector('.content'), foot = el('footNote');
+  ['mypayslips','paymgmt'].forEach(id => { if(el('v-'+id)) return; const d = document.createElement('div'); d.id = 'v-'+id; d.className = 'view'; (foot ? foot.parentNode : main).insertBefore(d, foot||null); });
+  const at = id => NAV.findIndex(n=>n.id===id);
+  if(at('mypayslips')<0) NAV.splice(at('accounting')+1, 0, {id:'mypayslips', name:'My Payslips', roles:ALLR, ico:I.wallet});
+  if(at('paymgmt')<0) NAV.splice(at('finance')+1, 0, {id:'paymgmt', name:'Payslip Management', roles:ALLR, ico:I.bars});
+  const st = document.createElement('style'); st.textContent = `.ps-tbl input{width:110px;padding:5px 7px}.ps-tbl td{vertical-align:middle}.ps-kv{display:flex;gap:8px;align-items:center;justify-content:space-between;padding:3px 0;font-size:13px}.ps-kv input[type=number]{width:120px;text-align:right;padding:5px 7px}.ps-kv input[type=text]{width:170px;padding:5px 7px}
+.ps-sum{display:flex;gap:18px;flex-wrap:wrap;justify-content:flex-end;align-items:baseline;margin:12px 0 4px;padding:12px 14px;border-radius:12px;background:var(--panel-2);border:1px solid var(--line);font-size:13px}
+@media(max-width:700px){.ps-kv input[type=text]{width:130px}.ps-sum{justify-content:flex-start}}`; document.head.appendChild(st);
+})();
+{ const _n = navAllowed; navAllowed = function(n){ if(n?.id==='mypayslips' || n?.id==='paymgmt') return !!PEOPLE[PERSON] && psSelfOn(PERSON); return _n.apply(this, arguments); }; }
+RENDER.mypayslips = () => { el('v-mypayslips').innerHTML = `<div class="page-head"><div><h2>My Payslips</h2><p>Your published payslips, organized by payroll period — view or download any of them as a PDF. Drafts never appear here; a payslip shows up once it is published.</p></div></div>${psMyHTML()}`; };
+RENDER.paymgmt = () => { el('v-paymgmt').innerHTML = `<div class="page-head"><div><h2>Payslip Management</h2><p>Generate, edit, review and publish your payslips. Drafts stay private (Finance and the company heads); published payslips appear in <a href="#" onclick="event.preventDefault();go('mypayslips')">My Payslips</a>.</p></div></div><div id="psBody">${psMgmtHTML()}</div>`; };
+{ const _b = pvTabBody; pvTabBody = function(){ if(FIN.tab==='self') return psMgmtHTML(); return _b.apply(this, arguments); }; }
+{ const _rf = RENDER.finance; RENDER.finance = function(){ const want = FIN.tab; _rf.apply(this, arguments);
+    if(!(psCanView() && PAYSELF.length)) return; const row = el('v-finance')?.querySelector('.fin-tabs'); if(!row || row.querySelector('[data-ps]')) return;
+    const nm = psCanManage() ? 'CHA · My payslips' : `${first(psEmp())}'s self-managed payslips`, nd = psDocsOf(psEmp()).filter(d=>!d.release && d.self).length;
+    row.insertAdjacentHTML('afterbegin', `<button class="tab ${want==='self'?'on':''}" data-ps="1" onclick="FIN.tab='self';RENDER.finance()">${esc(nm)}${nd?` <span class="badge b-draft">${nd}</span>`:''}</button>`);
+    if(want==='self'){ FIN.tab = 'self'; row.querySelectorAll('.tab').forEach(t=>t.classList.toggle('on', !!t.dataset.ps)); const b = el('finBody'); if(b) b.innerHTML = psMgmtHTML(); } }; }
+{ const _fl = followLink; followLink = function(link){ if(link && (link.view==='mypayslips' || link.view==='paymgmt')){ closeOverlays(); go(link.view); if(link.doc && pvDoc(link.doc)) setTimeout(()=>link.view==='mypayslips'?pvView(link.doc):psOpen(link.doc), 90); return; } return _fl.apply(this, arguments); }; }
 
 /* <<< OCT24 MODULES <<< */
 </script>

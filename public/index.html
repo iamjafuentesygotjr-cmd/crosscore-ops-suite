@@ -20923,7 +20923,7 @@ async function cooPostFromModal(){ const ch = CHATS.find(c=>c.id===el('paPostC')
    The footer shows which build is running ("Build 2026-10-07 · 1"), and every open portal checks every few minutes
    (and whenever it comes back to the foreground) whether a newer build has been published. If so it shows
    "New version available — Update now" instead of quietly running old code. */
-const BUILD_ID = '2026-11-17 · 2';
+const BUILD_ID = '2026-11-18 · 1';
 function verStamp(){ const f = el('footNote'); if(f && !f.dataset.v){ f.dataset.v = 1; f.textContent = `Cross Core Ops Suite v8 · Build ${BUILD_ID}`; } }
 async function verCheck(){
   if(!/^https?:/.test(location.protocol)) return;
@@ -44230,12 +44230,12 @@ function relStudioApplicants(){ if(!(typeof CC_STUDIO!=='undefined' && CC_STUDIO
    • A profile that was already saved for Ziba is upgraded once: the tone, rules and samples below replace the old
      wording, while examples the team approved, "not aligned" feedback and uploaded files are kept. The previous wording is
      kept in the profile history. */
-const ZIBA_VOICE_REV = 'ziba-2026-11-17b';
+const ZIBA_VOICE_REV = 'ziba-2026-11-18';
 VC_SEED.zib = {
-  tone:['Warm','Genuine','Caring','Charming','Enthusiastic','Direct'],
+  tone:['Warm','Witty','Genuine','Charming','Enthusiastic','Direct'],
   personality:'Ziba Alizadeh, CIR ACIR CSC CSP — President & CEO (Payvand Solutions Group). Workforce strategist, executive search professional, leadership consultant and keynote speaker. Relationship-first: grateful for every connection, celebrates other people generously, funny and charming but always direct and helpful. Credible CEO, never stiff.',
   style:'Thank or react to the person first (often by name) → one warm, specific line about them, the moment or the post → an easy close about staying in touch, the time shared or what comes next. Natural, spoken sentences; sometimes a playful aside. Short and personal — reads like she typed it on her phone right after the event.',
-  length:{min:12, max:40, sent:'1–3 short sentences'},
+  length:{min:12, max:28, sent:'1–2 short sentences — 28 words maximum (usually 15–28)'},
   formality:'Friendly and conversational, professional but personable — never corporate, scripted or over-polished',
   openings:['[Name] Thank you so much.','[Name] I am glad…','[Name] LOL!!!!','So glad…','Same here!!!','Congratulations, [Name]!','Thank you, [Name]!','(often starts with the person’s name, then straight into the thought)'],
   endings:['Look forward to keeping in touch.','So glad I had the chance to spend some time with you.','It was my privilege…','A short warm wish or congratulations'],
@@ -44247,7 +44247,7 @@ VC_SEED.zib = {
     criticism:'Stays gracious and calm: thanks them for the perspective, answers the point directly and kindly, never defensive or sarcastic.',
     opinion:'Says what she thinks clearly and kindly — direct to the point.',
     disagree:'Kind and respectful, adds her view without arguing.'},
-  humor:'Charming and playful when the moment invites it (LOL!!!!, a playful line like starting a new trend) — not in every reply',
+  humor:'Witty and funny when the moment invites it — a quick playful line (LOL!!!!, “I’m starting a new #Communication trend”), never forced and not in every reply',
   emoji:'Rare — her samples use none; words and exclamation marks carry the warmth',
   punctuation:'Exclamation marks for real excitement, sometimes stacked (!!! or !!!!) on congratulations and laughter; plain sentences otherwise; occasional relevant hashtag only when playful (e.g. #Communication); no semicolons or corporate bullets',
   instructions:[
@@ -44255,6 +44255,7 @@ VC_SEED.zib = {
     'Use the person’s first name naturally — often at the start, the way she does — but not mechanically in every single draft.',
     'Lead with gratitude and appreciation; make the person feel seen and valued.',
     'Match the energy: celebrations get big congratulations and “!!!!”; thoughtful posts get a warm, direct, helpful line.',
+    'Short and punchy: 28 words maximum. One warm, specific thought — not a paragraph.',
     'Keep enthusiasm natural — stacked exclamation marks or LOL only when the moment fits, not in every reply.',
     'Relationship-focused: meaningful connection, encouragement, staying in touch. Never pitch or sell in a comment.',
     'Vary openings and wording — check the recent drafts so no two replies read like a template.',
@@ -44270,7 +44271,7 @@ VC_SEED.zib = {
     {text:'LOL!!!! Congratulations!!!! So glad!!!! Amazing!!!!', reason:'Overdone — enthusiasm with nothing personal or specific', src:'Tone guide'}],
   sop:'Ziba Alizadeh — LinkedIn comments & replies tone of voice. WARM, CARING, COMPASSIONATE, CHARMING, DIRECT TO THE POINT; funny and charming but also direct and helpful. '
     + 'Warm and genuine (personal, sincere, appreciative) · friendly and conversational (natural, approachable, never robotic) · enthusiastic and expressive (occasional exclamation marks, “LOL!!!!”, “So glad!”) · professional but personable (credible CEO, warm and authentic) · relationship-focused (gratitude, connection, encouragement, appreciation) · natural and human (no generic AI phrases, no repetitive wording, no polished corporate language). '
-    + 'Keep comments short, adapt to the post or conversation, use the person’s name naturally, vary every draft, do not exaggerate the enthusiasm in every reply. '
+    + 'Keep every comment and reply to 28 words maximum (1–2 short sentences), adapt to the post or conversation, use the person’s name naturally, vary every draft, do not exaggerate the enthusiasm in every reply. '
     + 'Final check: would Ziba type this herself? Is it warm, specific to this person and post, and short? Drafts are reviewed before posting.',
   rev:ZIBA_VOICE_REV
 };
@@ -44289,21 +44290,79 @@ function zibaVoiceUpgrade(){
   r.rev = ZIBA_VOICE_REV; r.updatedAt = nowISO(); r.updatedBy = PERSON; recordChange(); return true; }
 { const _vs = vcSeed; vcSeed = function(){ const out = _vs.apply(this, arguments); try{ zibaVoiceUpgrade(); }catch(e){ console.warn('Ziba voice upgrade', e); } return out; }; }
 
+/* ===== t40_marcuslen.js — Marcus: short comments (28 words max) and clients commenting on each other's posts (Nov 18 2026) =====
+   • Every LinkedIn comment and reply Marcus drafts, for every client, is at most 28 words (a client whose profile is
+     shorter keeps their own shorter length).    A client whose profile is shorter (e.g. Anjeanette) keeps their own shorter typical length. The limit is part of the voice instructions, the voice check flags anything
+     longer, and a draft that still comes back too long is tightened once by the AI (same voice) before it is shown —
+     if the AI is unavailable, it is cut at the last full sentence that fits.
+   • When the post (or the comment being replied to) is by another CrossCore client, Marcus recognises them and writes
+     as a peer in the commenting client's own voice — natural, warm, specific, never a pitch, never mentioning CrossCore
+     or that both are clients. The Studio shows who the post is by, and lets you draft the same post for another client
+     you manage in one click. */
+const MX_MAX_WORDS = 28;
+const mxLimit = cid => MX_MAX_WORDS;   /* the same ceiling for every client; shorter profiles keep their own typical length */
+
+/* 1. the rule in the voice block Marcus and the voice check read */
+{ const _vp = vcPrompt; vcPrompt = function(cid){ const t = _vp.apply(this, arguments); if(!t) return t; const n = mxLimit(cid);
+    return t + `\nLENGTH RULE (overrides any longer length above): every comment or reply is at most ${n} words — count them. One or two short sentences. Cut filler, never the warmth or the specific point. Longer approved examples show the voice, not the length.`; }; }
+
+/* 2. the local check: anything over the limit fails */
+{ const _lc = vcLocalCheck; vcLocalCheck = function(cid, text, ctx){ let out = _lc.apply(this, arguments); const w = vcWords(text), n = mxLimit(cid);
+    if(w > n){ out = out.filter(i=>!/^Too long/.test(i)); out.unshift(`Too long (${w} words — maximum ${n})`); } return out; }; }
+
+/* 3. a cut that keeps whole sentences */
+function mxFit(text, n){ const t = String(text||'').trim(); if(vcWords(t) <= n) return t;
+  const parts = t.match(/[^.!?]+[.!?]+["”’)]*\s*|[^.!?]+$/g) || [t]; let out = '';
+  for(const p of parts){ const next = (out + p).trim(); if(vcWords(next) > n) break; out = next + ' '; }
+  out = out.trim(); if(out && vcWords(out) >= Math.min(8, n)) return out;
+  return t.split(/\s+/).slice(0, n).join(' ').replace(/[,;:—–-]+$/, '') + '…'; }
+async function mxShorten(cid, text, ctx){ const c = client(cid), n = mxLimit(cid);
+  try{ const r = await (typeof aiChat==='function' ? aiChat(`You tighten a LinkedIn ${ctx.comment?'reply':'comment'} written AS ${c.name}. Keep ${c.name}'s exact voice, warmth, humor, name use and the one specific point. Output only the new text.`,
+      `${coraTrim(vcPrompt(cid), 2200)}\n\nDRAFT (${vcWords(text)} words):\n${text}\n\nRewrite it in at most ${n} words (aim for ${Math.max(10, n-6)}–${n}). Same meaning, same voice, natural — no quotes, no labels.`) : null);
+    const s = r?.text ? mxpClean(r.text) : ''; if(s && vcWords(s) <= n) return s; }catch(e){}
+  return mxFit(text, n); }
+{ const _md = mxpDraft; mxpDraft = async function(cid, ctx, fb, onText){ const c2 = {...ctx, note:[ctx.note, mxPeerNote(cid, ctx)].filter(Boolean).join(' · ')};
+    const d = await _md.call(this, cid, c2, fb, onText); if(d?.text && vcWords(d.text) > mxLimit(cid)){ d.text = await mxShorten(cid, d.text, c2); d.tightened = true; } return d; }; }
+if(typeof vcGenerate==='function'){ const _vg = vcGenerate; vcGenerate = async function(cid, ctx){ const c2 = {...ctx, note:[ctx.note, mxPeerNote(cid, ctx)].filter(Boolean).join(' · ')};
+    const r = await _vg.call(this, cid, c2); if(r?.text && vcWords(r.text) > mxLimit(cid)){ r.text = await mxShorten(cid, r.text, c2); } return r; }; }
+
+/* 4. clients commenting on each other's posts */
+function mxPeerOf(cid, ctx){ const hay = [ctx.who||'', String(ctx.post||'').slice(0, 400), String(ctx.author||'')].join('\n').toLowerCase(); if(!hay.trim()) return null;
+  return (typeof CLIENTS!=='undefined' ? CLIENTS : []).filter(c=>c.id!==cid && !(typeof isEnded==='function' && isEnded(c))).find(c=>{
+    const names = [c.name, ...(String(c.aka||'').split(/,\s*/))].map(x=>String(x||'').split('·')[0].trim().toLowerCase()).filter(x=>x.length>3 && x.includes(' '));
+    if(names.some(nm=>hay.includes(nm))) return true;
+    try{ return c.match && (ctx.who || ctx.author) && new RegExp('\\b(' + c.match + ')\\b', 'i').test(ctx.who || ctx.author); }catch(e){ return false; } }) || null; }
+function mxPeerNote(cid, ctx){ const p = mxPeerOf(cid, ctx); if(!p) return ''; const me = client(cid);
+  return `This post${ctx.comment?' / comment':''} is by ${String(p.name).split('·')[0].trim()}, a peer in ${me?.name ? String(me.name).split('·')[0].trim() + '’s' : 'the client’s'} network. Comment naturally as a peer who genuinely follows their work — warm, specific to what they said, in this client's own voice only. Never pitch, never mention CrossCore, agencies, or that you work with the same people.`; }
+function mxPeerBar(){ const cid = MXS?.cid; if(!cid || CURRENT!=='marcus') return; const box = el('vsPost')?.closest('.vs-field'); if(!box) return;
+  let bar = el('mxPeerBar'); const p = mxPeerOf(cid, {post:el('vsPost')?.value||MXS.post, who:el('vsWho')?.value||MXS.who});
+  if(!p){ bar?.remove(); return; }
+  const others = (typeof marcusClients==='function' ? marcusClients() : []).filter(c=>c.id!==cid && c.id!==p.id && typeof vcCanUse==='function' && vcCanUse(c.id)).slice(0, 6);
+  const html = `🤝 Post by <b>${esc(String(p.name).split('·')[0].trim())}</b> (a client) — ${esc(first(cname(cid)))} comments as a peer, in ${esc(first(cname(cid)))}’s own voice.${others.length?` <span class="hint">Also draft it for:</span> ${others.map(c=>`<button class="btn" style="padding:2px 8px;font-size:12px" onclick="mxPeerSwitch('${c.id}')">${esc(first(c.name))}</button>`).join(' ')}`:''}`;
+  if(!bar){ bar = document.createElement('div'); bar.id = 'mxPeerBar'; bar.className = 'hint'; bar.style.cssText = 'margin-top:6px;padding:6px 10px;border-radius:10px;background:rgba(233,161,51,.12);display:flex;flex-wrap:wrap;gap:6px;align-items:center'; box.appendChild(bar); }
+  if(bar.innerHTML!==html) bar.innerHTML = html; }
+function mxPeerSwitch(id){ const post = el('vsPost')?.value || MXS.post, who = el('vsWho')?.value || MXS.who; MXS.cid = id; MXS.out = null; MXS.post = post; MXS.who = who; RENDER.marcus(); setTimeout(()=>{ if(el('vsPost')) el('vsPost').value = post; mxPeerBar(); }, 30); }
+{ const _rm = RENDER.marcus; RENDER.marcus = function(){ const r = _rm.apply(this, arguments); try{ mxPeerBar(); }catch(e){} return r; }; }
+document.addEventListener('input', e=>{ if(['vsPost','vsWho'].includes(e.target?.id)){ clearTimeout(mxPeerBar.t); mxPeerBar.t = setTimeout(()=>{ try{ mxPeerBar(); }catch(x){} }, 250); } }, true);
+/* the word count shown on a draft reads “… / 28” */
+{ const _vo = vsOutHTML; vsOutHTML = function(o){ let h = _vo.apply(this, arguments); if(!o || o.offline || !o.cid) return h; const n = mxLimit(o.cid);
+    return h.replace(/(<span class="hint">)(\d+) words · /, (m, a, w)=>`${a}${w} / ${n} words · `); }; }
+
 /* ===== t99_release_notes.js — Release notes and walkthroughs shipped with each build (read by What's New, t38) =====
    Write one entry per user-facing change, in plain English, when the code is written. The draft only keeps an entry
    when the code of its modules really changed against the previous saved build. Internal entries are never shown to users. */
 window.OPS_RELEASE = (window.OPS_RELEASE||[]).concat([
-  {build:'2026-11-17 · 2', headline:"What's New: every system update in one place", summary:'A new What\'s New page collects every Ops Suite update with screenshots and a short walkthrough video, so you always know what changed and what to do.',
+  {build:'2026-11-18 · 1', headline:"What's New: every system update in one place", summary:'A new What\'s New page collects every Ops Suite update with screenshots and a short walkthrough video, so you always know what changed and what to do.',
    actions:['Open What\'s New from the menu and click "Got it" on each update addressed to you.']},
-  {build:'2026-11-17 · 2', id:'whatsnew-page', type:'feature', title:"What's New page and update announcements", modules:['t38_releases.js'],
+  {build:'2026-11-18 · 1', id:'whatsnew-page', type:'feature', title:"What's New page and update announcements", modules:['t38_releases.js'],
    text:'Every Ops Suite update now comes with a short announcement: what is new, what improved, what was fixed, who is affected and what you need to do. Updates appear in real time and stay in your What\'s New library.',
    portals:['All portals'], depts:['All departments'], audience:{groups:['all']}, tour:'whatsnew',
    steps:['Open What\'s New from the menu.', 'Open an update to read it, view the screenshots and watch the walkthrough.', 'Click "Got it" when you have read it.']},
-  {build:'2026-11-17 · 2', id:'ziba-voice', type:'improvement', title:'Marcus writes Ziba Alizadeh’s LinkedIn comments and replies in her own voice', modules:['t39_zibavoice.js'],
-   text:'Ziba’s voice profile in Marcus now follows her real sample replies: warm, genuine, enthusiastic and direct, using the person’s name naturally and staying short. Drafts are still reviewed before posting.',
+  {build:'2026-11-18 · 1', id:'ziba-voice', type:'improvement', title:'Marcus writes Ziba Alizadeh’s LinkedIn comments and replies in her own voice', modules:['t39_zibavoice.js','t40_marcuslen.js'],
+   text:'Ziba’s voice profile in Marcus now follows her real sample replies: warm, genuine, enthusiastic and direct, using the person’s name naturally. Every comment and reply for every client is now 28 words maximum, and clients can comment naturally on each other’s posts. Drafts are still reviewed before posting.',
    portals:['VA portals'], depts:['Lead Generation'], audience:{people:['tricia','christian','teresa','kristia']},
    steps:['Open Ask Marcus and choose Ziba Alizadeh.', 'Paste the post (and the comment, for a reply) and generate a draft.', 'Review, adjust if needed, then post it yourself — nothing is posted automatically.']},
-  {build:'2026-11-17 · 2', id:'release-studio', type:'feature', internal:true, title:'Release Studio: automatic screenshots, AI-narrated walkthrough videos and targeted announcements (JA and Yam)', modules:['t38b_studio.js','t37_codebank.js'],
+  {build:'2026-11-18 · 1', id:'release-studio', type:'feature', internal:true, title:'Release Studio: automatic screenshots, AI-narrated walkthrough videos and targeted announcements (JA and Yam)', modules:['t38b_studio.js','t37_codebank.js'],
    text:'Drafts are prepared from verified code changes when a build is saved in the Update Bank. Screenshots and the walkthrough video are generated from the portal on demo data. Set up the AI voice in What\'s New → Voice settings.'}
 ]);
 window.OPS_TOURS = Object.assign(window.OPS_TOURS||{}, {

@@ -3960,11 +3960,14 @@ const CCIDB = {
   async get(k){ try{ const db = await this.open(); return await new Promise(res=>{ const q = db.transaction('kv').objectStore('kv').get(k); q.onsuccess = ()=>res(q.result||null); q.onerror = ()=>res(null); }); }catch(e){ return null; } },
   async set(k, v){ try{ const db = await this.open(); await new Promise(res=>{ const t = db.transaction('kv','readwrite'); t.objectStore('kv').put(v, k); t.oncomplete = res; t.onerror = res; t.onabort = res; }); }catch(e){} },
 };
-const LIVE = !!(CC_CONFIG.SUPABASE_URL && CC_CONFIG.SUPABASE_ANON_KEY);
+/* Release Studio (Nov 17 · 2): the portal opened inside the What's New studio frame runs on demo data only — never the live database */
+const CC_STUDIO = (()=>{ try{ return window.parent!==window && new URLSearchParams(location.search).get('studio')==='1' && window.parent.location.origin===location.origin; }catch(e){ return false; } })();
+if(CC_STUDIO){ try{ localStorage.removeItem('cc-v8-studio'); }catch(e){} document.documentElement.classList.add('cc-studio'); }
+const LIVE = !CC_STUDIO && !!(CC_CONFIG.SUPABASE_URL && CC_CONFIG.SUPABASE_ANON_KEY);
 
 const DemoBackend = {
-  mode:'demo', key:'cc-v8-db', online:true,
-  bc: ('BroadcastChannel' in window) ? new BroadcastChannel('cc-v8') : null,
+  mode:'demo', key:(typeof CC_STUDIO!=='undefined' && CC_STUDIO) ? 'cc-v8-studio' : 'cc-v8-db', online:true,
+  bc: ('BroadcastChannel' in window && !(typeof CC_STUDIO!=='undefined' && CC_STUDIO)) ? new BroadcastChannel('cc-v8') : null,
   read(){ try{ return JSON.parse(localStorage.getItem(this.key)||'null'); }catch(e){ return null; } },
   async loadAll(){ const db=this.read(); if(!db || !db.employees || !Object.keys(db.employees).length) return null;   /* no / partial copy (e.g. cleared mid-save) → start from the starter data */ const rows=[]; Object.entries(db).forEach(([c,m])=>Object.entries(m).forEach(([id,data])=>rows.push({collection:c,id,data}))); return rows; },
   async write(ups, dels){
@@ -20920,7 +20923,7 @@ async function cooPostFromModal(){ const ch = CHATS.find(c=>c.id===el('paPostC')
    The footer shows which build is running ("Build 2026-10-07 · 1"), and every open portal checks every few minutes
    (and whenever it comes back to the foreground) whether a newer build has been published. If so it shows
    "New version available — Update now" instead of quietly running old code. */
-const BUILD_ID = '2026-11-17 · 1';
+const BUILD_ID = '2026-11-17 · 2';
 function verStamp(){ const f = el('footNote'); if(f && !f.dataset.v){ f.dataset.v = 1; f.textContent = `Cross Core Ops Suite v8 · Build ${BUILD_ID}`; } }
 async function verCheck(){
   if(!/^https?:/.test(location.protocol)) return;
@@ -43475,10 +43478,10 @@ function rmWatch(){ if(!rmCan()) return; const now = rmSnap(); if(!RM.snap){ RM.
 
 /* ---------- the floating panel ---------- */
 function rmCss(){ if(el('rmcss')) return; const s = document.createElement('style'); s.id = 'rmcss'; s.textContent = `
-#rmLaunch{position:fixed;right:0;top:42%;z-index:900;writing-mode:vertical-rl;transform:rotate(180deg);border:0;border-radius:0 12px 12px 0;padding:14px 9px;background:var(--ink,#17110a);color:#fff;font:600 12.5px Inter,system-ui,sans-serif;letter-spacing:.04em;cursor:pointer;box-shadow:0 8px 24px rgba(0,0,0,.18)}
+#rmLaunch{position:fixed;right:0;top:42%;z-index:64;writing-mode:vertical-rl;transform:rotate(180deg);border:0;border-radius:0 12px 12px 0;padding:14px 9px;background:var(--ink,#17110a);color:#fff;font:600 12.5px Inter,system-ui,sans-serif;letter-spacing:.04em;cursor:pointer;box-shadow:0 8px 24px rgba(0,0,0,.18)}
 #rmLaunch b{display:inline-block;writing-mode:horizontal-tb;transform:rotate(180deg);min-width:18px;margin-top:6px;padding:1px 5px;border-radius:9px;background:#e9a133;color:#1c140b;font-size:11px}
 #rmLaunch:focus-visible,#rmPanel button:focus-visible,#rmPanel select:focus-visible,#rmPanel input:focus-visible{outline:2px solid #e9a133;outline-offset:2px}
-#rmPanel{position:fixed;z-index:950;width:min(460px,calc(100vw - 24px));height:min(76vh,720px);display:flex;flex-direction:column;background:var(--card,#fff);color:var(--ink,#1c140b);border:1px solid var(--line,#e6ded2);border-radius:16px;box-shadow:0 24px 60px rgba(0,0,0,.22);overflow:hidden;font-size:13px}
+#rmPanel{position:fixed;z-index:66;width:min(460px,calc(100vw - 24px));height:min(76vh,720px);display:flex;flex-direction:column;background:var(--card,#fff);color:var(--ink,#1c140b);border:1px solid var(--line,#e6ded2);border-radius:16px;box-shadow:0 24px 60px rgba(0,0,0,.22);overflow:hidden;font-size:13px}
 #rmPanel.min{height:auto}#rmPanel.min .rm-body,#rmPanel.min .rm-tabs,#rmPanel.min .rm-fl{display:none}
 #rmPanel .rm-h{display:flex;align-items:center;gap:8px;padding:10px 12px;background:var(--ink,#17110a);color:#fff;cursor:grab;user-select:none;touch-action:none}
 #rmPanel .rm-h.drag{cursor:grabbing}#rmPanel .rm-h b{flex:1;font-size:14px}#rmPanel .rm-h button{border:0;background:rgba(255,255,255,.12);color:#fff;border-radius:8px;width:28px;height:28px;cursor:pointer;font-size:13px}
@@ -43500,7 +43503,7 @@ function rmCss(){ if(el('rmcss')) return; const s = document.createElement('styl
 #rmPanel .rm-ed .b button{border:0;border-radius:8px;padding:6px 12px;font:600 12px Inter,system-ui,sans-serif;cursor:pointer}#rmPanel .rm-ed .b .p{background:#e9a133;color:#1c140b}#rmPanel .rm-ed .b .g{background:var(--line,#eee);color:inherit}
 #rmPanel h5{margin:12px 0 4px;font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted,#6b5a48)}#rmPanel .rm-li{display:flex;gap:8px;align-items:flex-start;padding:6px 0;border-top:1px solid var(--line,#f0ebe3);cursor:pointer}
 #rmPanel .rm-li .w{min-width:62px;font-size:11px;color:var(--muted,#6b5a48);font-variant-numeric:tabular-nums}#rmPanel .rm-empty{color:var(--muted,#6b5a48);padding:10px 2px}
-#rmToast{position:fixed;z-index:960;right:18px;bottom:88px;max-width:320px;background:var(--ink,#17110a);color:#fff;border-radius:12px;padding:10px 12px;font-size:12.5px;box-shadow:0 12px 30px rgba(0,0,0,.25);cursor:pointer}
+#rmToast{position:fixed;z-index:68;right:18px;bottom:88px;max-width:320px;background:var(--ink,#17110a);color:#fff;border-radius:12px;padding:10px 12px;font-size:12.5px;box-shadow:0 12px 30px rgba(0,0,0,.25);cursor:pointer}
 @media (max-width:700px){#rmPanel{left:8px!important;right:8px;top:auto!important;bottom:8px;width:auto;height:72vh}#rmPanel .rm-h{cursor:default}#rmLaunch{top:auto;bottom:140px}}`; document.head.appendChild(s); }
 function rmLauncher(){ rmCss(); let b = el('rmLaunch'); const ok = rmCan();
   if(!ok){ b?.remove(); el('rmPanel')?.remove(); RM.open = false; return; }
@@ -43717,7 +43720,7 @@ async function ubCapture(manual){ if(!ubCan() || UB.busy) return; UB.busy = true
     if(claim?.claimed){ try{ await UBAPI.fail(claim.id, msg); }catch(e2){} }
     toast('⚠ Automatic backup failed: ' + msg); console.warn('code bank', e); }
   finally{ UB.busy = false; setTimeout(ubRefresh, UBAPI.live() ? 900 : 50); } }
-function ubAuto(){ if(!ubCan() || UB.busy || (typeof SYNC!=='undefined' && SYNC.ready===false)) return; const r = CODEBANK.find(x=>x.build===BUILD_ID);
+function ubAuto(){ if((typeof CC_STUDIO!=="undefined" && CC_STUDIO) || !ubCan() || UB.busy || (typeof SYNC!=='undefined' && SYNC.ready===false)) return; const r = CODEBANK.find(x=>x.build===BUILD_ID);
   if(r && (r.status==='ok' || (r.status==='pending' && Date.now() - new Date(r.claimedAt) < 6e5))) return;
   const k = BUILD_ID + '|' + (r?.status||'none') + '|' + (r?.tries||0); if(UB.tried[k]) return; UB.tried[k] = 1; ubCapture(false); }
 setInterval(()=>{ try{ ubAuto(); }catch(e){} }, 45000);
@@ -43791,6 +43794,460 @@ function ubRefresh(){ if(CURRENT==='support' && TK.tab==='codebank') RENDER.supp
     return r; }; }
 { const _fl = followLink; followLink = function(link){ if(link?.view==='support' && link.tab==='codebank'){ TK.tab = 'codebank'; } return _fl.apply(this, arguments); }; }
 { const _ore = onRemoteEvent; onRemoteEvent = function(ev){ _ore.apply(this, arguments); if(ev?.coll==='codebank'){ clearTimeout(UB.t); UB.t = setTimeout(ubRefresh, 300); } }; }
+
+/* ===== t38_releases.js — What's New: automatic release announcements, update library, targeted delivery (Nov 17 2026 · 2) =====
+   Builds on the Internal Update Bank (t37). For every build JA or Yam publishes:
+   1. When the build is saved in the bank, a "What's New" draft is prepared automatically from VERIFIED changes only:
+      the release notes that ship inside the build (z_release_notes.js — written with the code, per build) are kept
+      only for modules whose code really changed against the previous saved version; changed modules without notes
+      are listed for review (internal until JA / Yam publish them). Nothing is announced from assumptions.
+   2. Items are grouped as New Feature / Feature Improvement / Bug Fix, with portals / departments affected, steps and
+      required actions. Category and recipients are suggested automatically and can be changed before publishing.
+   3. Highlighted screenshots and an MP4 walkthrough with AI voice-over are made by the Release Studio (t38b) from the
+      real portal running on demo data. A video is attached only after it was generated AND verified.
+   4. JA / Yam edit, regenerate, preview and approve; publishing delivers the announcement only to the selected
+      recipients (database audience + private media bucket), notifies them in real time, opens a What's New window once,
+      and records who viewed / acknowledged it. One announcement per build — published ones are never overwritten.
+   Admins: JA and Yam (System Ops Support → 📣 What's New). Everyone else: "What's New" page with their own updates. */
+
+let RELEASES = [], RELACKS = [];
+const REL_ADMINS = ['ja','yam'];
+COLL.releases = {get:()=>RELEASES, set:v=>RELEASES=v, aud:r=>r && r.status==='published' ? uniq([...REL_ADMINS, ...(r.recipients||[])]) : REL_ADMINS};
+COLL.relacks = {get:()=>RELACKS, set:v=>RELACKS=v, aud:a=>uniq([a.person, ...REL_ADMINS])};
+window.OPS_RELEASE = window.OPS_RELEASE || [];   /* release notes, declared per build (z_release_notes.js) */
+window.OPS_TOURS = window.OPS_TOURS || {};       /* screenshot / walkthrough steps per release item */
+const relAdmin = () => REL_ADMINS.includes(PERSON) && !isApplicant() && !(typeof CC_STUDIO!=='undefined' && CC_STUDIO);
+const REL_CATS = {global:'Global Update', department:'Department Update', portal:'Portal Update', individual:'Individual Update', feature:'New Feature', improvement:'Feature Improvement', fix:'Bug Fix', critical:'Critical Update'};
+const REL_CAT_CLS = {global:'b-scheduled', department:'b-draft', portal:'b-draft', individual:'b-draft', feature:'b-approved', improvement:'b-pending', fix:'b-missed', critical:'b-missed'};
+const REL_TYPES = [['feature','New feature','✨'],['improvement','Improvement','⚡'],['fix','Bug fix','🛠']];
+const REL = {sel:null, q:'', cat:'all', from:'', to:'', blobs:{}, urls:{}, busy:'', popupDone:{}, t:0};
+const relId = b => 'REL-' + String(b||'').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+const relOf = id => RELEASES.find(r=>r.id===id);
+const relAck = (rid, k=PERSON) => RELACKS.find(a=>a.id===rid+'|'+k);
+const relMine = () => RELEASES.filter(r=>r.status==='published' && (r.recipients||[]).includes(PERSON)).sort((a, b)=>(b.publishedAt||'').localeCompare(a.publishedAt||''));
+const relVisible = () => relAdmin() ? RELEASES.slice().sort((a, b)=>(b.publishedAt||b.createdAt||'').localeCompare(a.publishedAt||a.createdAt||'')) : relMine();
+
+/* ---------- recipients ---------- */
+const REL_GROUPS = [['all','All Ops Suite users'],['portal:va','All VA portals'],['hr','HR team'],['deptheads','Department heads'],['core','Core team'],['execs','CEO and COO']];
+function relPeopleAll(){ return activePeople().filter(k=>PEOPLE[k] && !['client','applicant'].includes(PEOPLE[k].role) && !(typeof isAssistantKey==='function' && isAssistantKey(k))); }
+function relPortalOf(k){ const e = (typeof EMPLOYEES!=='undefined' ? EMPLOYEES : []).find(x=>x.id===k); if(e) return portalOf(e); const p = PEOPLE[k]; return p?.portal || ({ceo:'ceo', coo:'coo', creative:'creative', hr:'hr', manager:'pm'}[p?.role]) || 'va'; }
+function relDeptOf(k){ try{ return typeof idmDeptOf==='function' ? idmDeptOf(k) : 'Operations'; }catch(e){ return 'Operations'; } }
+function relDepts(){ return uniq([...(typeof IDM_DEPT_HEADS!=='undefined' ? Object.keys(IDM_DEPT_HEADS) : []), ...relPeopleAll().map(relDeptOf)]).filter(Boolean).sort(); }
+function relPortals(){ return Object.keys(PORTAL_LABEL); }
+function relResolve(aud){ const out = new Set(), add = k => { if(k && PEOPLE[k]) out.add(k); }, all = relPeopleAll();
+  (aud?.groups||[]).forEach(g=>{
+    if(g==='all') all.forEach(add);
+    else if(g.startsWith('portal:')) all.filter(k=>relPortalOf(k)===g.slice(7)).forEach(add);
+    else if(g.startsWith('dept:')) all.filter(k=>relDeptOf(k)===g.slice(5)).forEach(add);
+    else if(g==='hr') HR_KEYS().forEach(add);
+    else if(g==='deptheads') (typeof idmAllHeads==='function' ? idmAllHeads() : []).forEach(add);
+    else if(g==='core') (typeof S==='function' ? (S().coreTeam||[]) : []).forEach(add);
+    else if(g==='execs') [pvCeo(), pvCoo()].forEach(add); });
+  (aud?.people||[]).forEach(add); return [...out].filter(k=>all.includes(k) || REL_ADMINS.includes(k)); }
+function relGroupLabel(g){ if(g.startsWith('portal:')) return PORTAL_LABEL[g.slice(7)] || g.slice(7); if(g.startsWith('dept:')) return g.slice(5) + ' department'; return (REL_GROUPS.find(x=>x[0]===g)||[0, g])[1]; }
+function relAudText(r){ const a = r.audience||{}; const parts = [...(a.groups||[]).map(relGroupLabel), ...(a.people||[]).map(pname)]; return parts.join(', ') || '—'; }
+function relAutoCats(r){ const c = new Set(), g = r.audience?.groups||[];
+  if(g.includes('all')) c.add('global'); if(g.some(x=>x.startsWith('dept:') || ['hr','deptheads','core','execs'].includes(x))) c.add('department'); if(g.some(x=>x.startsWith('portal:'))) c.add('portal');
+  if(!g.length && (r.audience?.people||[]).length) c.add('individual');
+  (r.items||[]).filter(i=>!i.internal).forEach(i=>c.add(i.type)); if((r.items||[]).some(i=>i.critical && !i.internal) || (r.actions||[]).some(a=>a.critical)) c.add('critical');
+  return Object.keys(REL_CATS).filter(k=>c.has(k)); }
+const relCats = r => r.catsManual ? (r.cats||[]) : relAutoCats(r);
+
+/* ---------- 1. the draft, from verified changes ---------- */
+function relRunningModules(){ const src = [...document.scripts].map(s=>s.textContent).find(t=>t && t.includes('OCT24' + ' MODULES')); return src ? ubModules(src).mods : []; }
+function relHeader(text){ const m = /^\/\* =====\s*[\w.]+\s*—\s*([^\n]*?)\s*(?:=====)?\s*\n([\s\S]*?)\*\//.exec(text||''); if(!m) return null;
+  const title = m[1].replace(/\(Nov[^)]*\)|\([A-Z][a-z]{2} \d+ 20\d\d[^)]*\)/g, '').replace(/=+$/, '').trim(); const body = m[2].replace(/^\s+/gm, '').replace(/\s+/g, ' ').trim();
+  return {title, text:body.split(/(?<=\.)\s/).slice(0, 2).join(' ')}; }
+async function relDraft(manual){
+  if(!relAdmin()) return; const id = relId(BUILD_ID), ex = relOf(id);
+  if(ex?.status==='published'){ if(manual) toast('This build was already announced — published announcements are never overwritten'); return ex; }
+  const ok = (typeof ubList==='function' ? ubList() : []).filter(r=>r.status==='ok'), cur = ok.find(r=>r.build===BUILD_ID), prev = ok.filter(r=>r.build!==BUILD_ID && (r.seq||0) < (cur?.seq||1e9)).sort((a, b)=>(b.seq||0)-(a.seq||0))[0];
+  if(!cur){ if(manual) toast('Back up this build first (System Code Updates) — the release notes are checked against the saved code'); return null; }
+  const pm = Object.fromEntries((prev?.modules||[]).map(m=>[m.name, m.sha256])), changed = new Set((cur.modules||[]).filter(m=>pm[m.name]!==m.sha256).map(m=>m.name));
+  const notes = (window.OPS_RELEASE||[]).filter(n=>n.build===BUILD_ID);
+  const items = [], skipped = [], covered = new Set();
+  notes.filter(n=>n.title).forEach(n=>{ const mods = n.modules||[]; const verified = !prev || mods.some(m=>changed.has(m)); mods.forEach(m=>covered.add(m));
+    if(!verified){ skipped.push({title:n.title, reason:`no code change found in ${mods.join(', ')||'its modules'} since ${prev.version}`}); return; }
+    items.push({id:n.id || uid('IT'), type:n.type||'improvement', title:n.title, text:n.text||'', portals:n.portals||[], depts:n.depts||[], steps:n.steps||[], internal:!!n.internal, critical:!!n.critical, tour:n.tour||null, modules:mods, audience:n.audience||null, verified:true}); });
+  const run = Object.fromEntries(relRunningModules().map(m=>[m.name, m.text]));
+  [...changed].filter(m=>!covered.has(m) && !/^t99_release_notes|^_prelude|portal core/.test(m)).forEach(m=>{ const h = relHeader(run[m]);
+    items.push({id:uid('IT'), type:prev && pm[m] ? 'improvement' : 'feature', title:h?.title || m, text:h?.text || 'Code changed — add a description before announcing.', portals:[], depts:[], steps:[], internal:true, auto:true, modules:[m], verified:true}); });
+  const pub = items.filter(i=>!i.internal), aud = {groups:uniq(pub.flatMap(i=>i.audience?.groups||[])), people:uniq(pub.flatMap(i=>i.audience?.people||[]))};
+  if(!aud.groups.length && !aud.people.length) aud.groups = ['all'];
+  const t = nowISO(), head = notes.find(n=>n.headline) || {};
+  const r = {...(ex||{}), id, build:BUILD_ID, version:cur.version, prevVersion:prev?.version||null, status:'draft', createdAt:ex?.createdAt||t, updatedAt:t, by:ex?.by||PERSON,
+    title:ex?.edited ? ex.title : (head.headline || `What's new in Ops Suite — ${dShort(manilaDate())}`), summary:ex?.edited ? ex.summary : (head.summary || pub.map(i=>i.title).join(' · ')),
+    items:ex?.edited ? ex.items : items, skipped, actions:ex?.edited ? ex.actions : uniq(notes.flatMap(n=>n.actions||[])).map(a=>typeof a==='string' ? {text:a} : a),
+    audience:ex?.edited ? ex.audience : aud, changed:[...changed], media:ex?.media||{shots:[], video:null}, contact:'System Ops Support — Report a problem in the portal (JA, Yam, Chan) · 10 AM – 12 midnight PH time',
+    history:[...(ex?.history||[]), {at:t, by:PERSON, act:ex ? 'draft regenerated' : 'draft prepared automatically'}]};
+  r.recipients = relResolve(r.audience); upsertRel(r);
+  if(!ex){ const msg = `📣 <b>What's New draft ready</b> for build ${esc(BUILD_ID)} (${esc(cur.version)}): ${items.filter(i=>!i.internal).length} change${items.filter(i=>!i.internal).length===1?'':'s'} verified${skipped.length?`, ${skipped.length} note(s) held back`:''}. Review, add screenshots and the walkthrough video, then publish.`;
+    REL_ADMINS.filter(k=>PEOPLE[k]).forEach(k=>notify([k], 'system', msg, {view:'support', tab:'releases', rel:id})); }
+  if(manual) toast('What\'s New draft updated from the saved build'); return r; }
+function upsertRel(r){ const i = RELEASES.findIndex(x=>x.id===r.id); if(i>=0) RELEASES[i] = r; else RELEASES.push(r); recordChange(); }
+function relAuto(){ if(!relAdmin() || (typeof SYNC!=='undefined' && SYNC.ready===false)) return; if(relOf(relId(BUILD_ID))) return;
+  if(!(typeof ubList==='function' && ubList().some(r=>r.build===BUILD_ID && r.status==='ok'))) return; relDraft(false); }
+setInterval(()=>{ try{ relAuto(); }catch(e){} }, 30000);
+
+/* ---------- 6. the announcement message ---------- */
+function relMessage(r, html){ const pub = (r.items||[]).filter(i=>!i.internal), by = t => pub.filter(i=>i.type===t);
+  const date = r.publishedAt ? dstr(r.publishedAt) : dstr(nowISO());
+  const L = [`📣 ${r.title}`, `${date} · Build ${r.build}${r.version?` (${r.version})`:''}`, `For: ${relAudText(r)}`, '', r.summary || ''];
+  REL_TYPES.forEach(([t, l, ic])=>{ const I = by(t); if(!I.length) return; L.push('', `${ic} ${l}${I.length>1?'s':''}`); I.forEach(i=>{ L.push(`• ${i.title}${i.text?' — '+i.text:''}${(i.portals||[]).length?` (${i.portals.map(p=>PORTAL_LABEL[p]||p).join(', ')})`:''}`); }); });
+  const steps = pub.flatMap(i=>(i.steps||[]).map(s=>({i, s}))); if(steps.length){ L.push('', '🧭 How to use it'); steps.forEach((x, n)=>L.push(`${n+1}. ${x.s}`)); }
+  if((r.actions||[]).length){ L.push('', '📌 Action required'); r.actions.forEach(a=>L.push(`• ${a.text}${a.critical?' (important)':''}`)); }
+  if(r.media?.shots?.length) L.push('', `🖼 ${r.media.shots.length} screenshot${r.media.shots.length>1?'s':''} attached`); if(r.media?.video?.verified) L.push(`🎬 Walkthrough video attached (${Math.round(r.media.video.duration||0)} s)`);
+  L.push('', `Questions? ${r.contact || 'System Ops Support'}`);
+  const txt = L.join('\n'); return html ? esc(txt).replace(/\n/g, '<br>') : txt; }
+
+/* ---------- admin: System Ops Support → 📣 What's New ---------- */
+function relAdminHTML(){ if(!relAdmin()) return '<div class="empty">Release announcements are managed by JA and Yam.</div>';
+  const L = relVisible(), cur = relOf(relId(BUILD_ID)); if(!REL.sel && L[0]) REL.sel = L[0].id; const r = relOf(REL.sel);
+  const st = x => x.status==='published' ? '<span class="badge b-approved">Published</span>' : '<span class="badge b-pending">Draft</span>';
+  return `<div class="card" style="margin-bottom:14px"><div class="card-b" style="display:flex;gap:14px;align-items:center;flex-wrap:wrap"><div style="font-size:30px">📣</div>
+      <div style="flex:1;min-width:240px"><b>What's New & System Updates</b> <span class="hint">· release announcements · JA & Yam</span><div class="hint">Running build <b>${esc(BUILD_ID)}</b> — ${cur ? (cur.status==='published' ? `announced ${esc(dstr(cur.publishedAt))}` : 'draft ready for review') : 'no draft yet (prepared automatically once the build is saved in the Update Bank)'}.</div>${REL.busy?`<div class="hint" style="margin-top:4px"><span class="spin"></span> ${esc(REL.busy)}</div>`:''}</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">${!cur || cur.status!=='published' ? `<button class="btn" onclick="relDraft(true).then(()=>relRefresh())">${cur?'↻ Regenerate from the build':'Prepare draft now'}</button>` : ''}<button class="btn ghost" onclick="relTtsSettings()">🎙 Voice settings</button></div></div></div>
+    <div style="display:grid;grid-template-columns:minmax(220px,300px) 1fr;gap:14px" class="rel-grid">
+      <div class="card"><div class="card-h"><h3>Announcements</h3></div><div class="card-b" style="padding:6px">${L.map(x=>`<div class="list-row" style="cursor:pointer;${x.id===REL.sel?'background:var(--brand-50,#fff4e2);border-radius:8px':''}" onclick="REL.sel='${x.id}';relRefresh()"><div style="flex:1"><b>${esc(x.title)}</b><div class="hint">${esc(x.build)} · ${esc(x.version||'')}</div></div>${st(x)}</div>`).join('') || '<div class="hint" style="padding:8px">None yet.</div>'}</div></div>
+      <div>${r ? relEditorHTML(r) : '<div class="empty">Select an announcement.</div>'}</div></div>
+    <style>@media (max-width:900px){.rel-grid{grid-template-columns:1fr!important}} .rel-it{border:1px solid var(--line,#eee);border-radius:10px;padding:10px;margin-bottom:8px} .rel-it.int{opacity:.6} .rel-shots{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px} .rel-shots figure{margin:0} .rel-shots img{width:100%;border-radius:8px;border:1px solid var(--line,#ddd);cursor:zoom-in} .rel-shots figcaption{font-size:12px;color:var(--muted,#6b5a48);margin-top:4px}</style>`; }
+function relEditorHTML(r){ const pub = r.status==='published', dis = pub ? 'disabled' : '', cats = relCats(r), a = r.audience||{groups:[], people:[]};
+  const ack = (r.recipients||[]).filter(k=>relAck(r.id, k)?.ackAt).length, seen = (r.recipients||[]).filter(k=>relAck(r.id, k)?.viewedAt).length;
+  return `<div class="card" style="margin-bottom:12px"><div class="card-h"><h3>${pub?'Published':'Review & approve'}</h3><span class="hint">${esc(r.build)} · ${esc(r.version||'')}${r.prevVersion?` · compared with ${esc(r.prevVersion)}`:''}</span></div><div class="card-b">
+      ${pub ? `<div class="hint" style="margin-bottom:10px">Published ${esc(dtstr(r.publishedAt))} by ${esc(pname(r.publishedBy))} to ${(r.recipients||[]).length} people · <b>${seen}</b> viewed · <b>${ack}</b> acknowledged <button class="btn ghost" onclick="relStats('${r.id}')">Who?</button></div>` : ''}
+      <div class="field"><label>Title</label><input id="relTitle" value="${esc(r.title)}" ${dis} oninput="relEdit('${r.id}','title',this.value)"></div>
+      <div class="field"><label>Summary</label><textarea id="relSum" rows="2" ${dis} oninput="relEdit('${r.id}','summary',this.value)">${esc(r.summary||'')}</textarea></div>
+      <h4 style="margin:12px 0 6px">Changes in this build <span class="hint">· verified against the saved code</span></h4>
+      ${(r.items||[]).map((i, n)=>`<div class="rel-it ${i.internal?'int':''}"><div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><select ${dis} onchange="relItem('${r.id}',${n},'type',this.value)">${REL_TYPES.map(([k, l, ic])=>`<option value="${k}" ${i.type===k?'selected':''}>${ic} ${l}</option>`).join('')}</select>
+          <input style="flex:1;min-width:200px" value="${esc(i.title)}" ${dis} oninput="relItem('${r.id}',${n},'title',this.value)">
+          <label class="hint"><input type="checkbox" ${i.internal?'':'checked'} ${dis} onchange="relItem('${r.id}',${n},'internal',!this.checked)"> announce</label><label class="hint"><input type="checkbox" ${i.critical?'checked':''} ${dis} onchange="relItem('${r.id}',${n},'critical',this.checked)"> critical</label></div>
+        <textarea rows="2" style="width:100%;margin-top:6px" ${dis} oninput="relItem('${r.id}',${n},'text',this.value)">${esc(i.text||'')}</textarea>
+        <div class="hint">${i.auto?'⚠ Found in the code without release notes — describe it before announcing · ':''}${(i.modules||[]).map(esc).join(', ')}${i.tour?` · 🎬 walkthrough: ${(OPS_TOURS[i.tour]?.steps||[]).length} steps`:''}</div></div>`).join('') || '<div class="hint">No verified changes.</div>'}
+      ${(r.skipped||[]).length ? `<div class="hint" style="margin:6px 0">Held back (not verified): ${r.skipped.map(s=>`<b>${esc(s.title)}</b> — ${esc(s.reason)}`).join('; ')}</div>` : ''}
+      <div class="field" style="margin-top:10px"><label>Required actions (one per line; start with ! for important)</label><textarea rows="2" ${dis} oninput="relEdit('${r.id}','actions',this.value.split('\\n').map(s=>s.trim()).filter(Boolean).map(s=>({text:s.replace(/^!\\s*/,''), critical:/^!/.test(s)})))">${esc((r.actions||[]).map(x=>(x.critical?'! ':'')+x.text).join('\n'))}</textarea></div>
+      <h4 style="margin:12px 0 6px">Recipients <span class="hint">· ${(r.recipients||[]).length} people</span></h4>
+      <div class="rec-pick">${REL_GROUPS.map(([k, l])=>`<label><input type="checkbox" class="relG" value="${k}" ${(a.groups||[]).includes(k)?'checked':''} ${dis} onchange="relAud('${r.id}')"> ${esc(l)}</label>`).join('')}</div>
+      <div class="rec-pick" style="margin-top:6px"><span class="hint" style="width:100%">Departments</span>${relDepts().map(d=>`<label><input type="checkbox" class="relG" value="dept:${esc(d)}" ${(a.groups||[]).includes('dept:'+d)?'checked':''} ${dis} onchange="relAud('${r.id}')"> ${esc(d)}</label>`).join('')}</div>
+      <div class="rec-pick" style="margin-top:6px"><span class="hint" style="width:100%">Portals</span>${relPortals().filter(p=>p!=='va').map(p=>`<label><input type="checkbox" class="relG" value="portal:${p}" ${(a.groups||[]).includes('portal:'+p)?'checked':''} ${dis} onchange="relAud('${r.id}')"> ${esc(PORTAL_LABEL[p])}</label>`).join('')}</div>
+      <details style="margin-top:6px"><summary class="hint">Specific people (${(a.people||[]).length})</summary><input placeholder="Search…" oninput="document.querySelectorAll('#relPpl label').forEach(l=>l.style.display=l.textContent.toLowerCase().includes(this.value.toLowerCase())?'':'none')" style="margin:6px 0">
+        <div class="rec-pick" id="relPpl" style="max-height:200px;overflow:auto">${relPeopleAll().sort((x, y)=>pname(x).localeCompare(pname(y))).map(k=>`<label><input type="checkbox" class="relP" value="${k}" ${(a.people||[]).includes(k)?'checked':''} ${dis} onchange="relAud('${r.id}')"> ${esc(pname(k))}</label>`).join('')}</div></details>
+      <h4 style="margin:12px 0 6px">Category <span class="hint">· ${r.catsManual?'set manually':'automatic'}</span></h4>
+      <div class="rec-pick">${Object.entries(REL_CATS).map(([k, l])=>`<label><input type="checkbox" class="relC" value="${k}" ${cats.includes(k)?'checked':''} ${dis} onchange="relCatSet('${r.id}')"> ${esc(l)}</label>`).join('')}${r.catsManual && !pub ? `<button class="btn ghost" onclick="relEdit('${r.id}','catsManual',false);relRefresh()">Back to automatic</button>` : ''}</div></div></div>
+    <div class="card" style="margin-bottom:12px"><div class="card-h"><h3>Screenshots & walkthrough video</h3><span class="hint">made from the real portal on demo data</span></div><div class="card-b">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">${!pub?`<button class="btn" ${REL.busy?'disabled':''} onclick="relMakeShots('${r.id}')">🖼 ${r.media?.shots?.length?'Regenerate':'Generate'} highlighted screenshots</button><button class="btn" ${REL.busy?'disabled':''} onclick="relMakeVideo('${r.id}')">🎬 ${r.media?.video?'Regenerate':'Generate'} AI walkthrough video (MP4)</button>`:''}</div>
+      ${relMediaHTML(r)}</div></div>
+    <div class="card"><div class="card-h"><h3>Announcement preview</h3><button class="btn ghost" onclick="relCopy('${r.id}')">Copy text</button></div><div class="card-b"><div style="white-space:normal;line-height:1.55;font-size:13.5px">${relMessage(r, true)}</div>
+      ${!pub ? `<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px;flex-wrap:wrap"><button class="btn" onclick="relPreview('${r.id}')">👁 Preview as a recipient</button><button class="btn primary" id="relPublish" onclick="relPublish('${r.id}')">Approve & publish to ${(r.recipients||[]).length} people</button></div>` : ''}</div></div>`; }
+function relMediaHTML(r){ const sh = r.media?.shots||[], v = r.media?.video;
+  return `${sh.length ? `<div class="rel-shots">${sh.map((s, n)=>`<figure>${s.before?`<div class="hint">Before → after</div>`:''}<img data-relimg="${r.id}|${n}" alt="${esc(s.title)}" onclick="relShotView('${r.id}',${n})"><figcaption><b>${n+1}. ${esc(s.title)}</b><br>${esc(s.desc||'')}</figcaption></figure>`).join('')}</div>` : '<div class="hint">No screenshots yet.</div>'}
+    <div style="margin-top:12px">${v ? (v.verified ? `<video controls preload="metadata" style="width:100%;max-width:720px;border-radius:10px;background:#000" data-relvid="${r.id}"></video><div class="hint">🎬 ${esc(v.file)} · ${Math.round(v.duration||0)} s · ${(v.size/1048576).toFixed(1)} MB · ${esc(v.mime||'')}${v.voice?` · AI voice: ${esc(v.voice)}`:' · no voice-over (set up the AI voice)'} · verified ${esc(dtstr(v.verifiedAt))} <button class="btn ghost" onclick="relDownload('${r.id}','video')">⬇ MP4</button></div>` : '<div class="hint">⚠ The last video did not pass verification and is not attached.</div>') : '<div class="hint">No walkthrough video yet.</div>'}</div>`; }
+function relEdit(id, k, v){ const r = relOf(id); if(!r || r.status==='published' || !relAdmin()) return; r[k] = v; if(['title','summary','actions'].includes(k)) r.edited = true; r.updatedAt = nowISO(); clearTimeout(REL.et); REL.et = setTimeout(()=>{ recordChange(); }, 400); }
+function relItem(id, n, k, v){ const r = relOf(id); if(!r || r.status==='published') return; r.items[n][k] = v; r.edited = true; r.updatedAt = nowISO(); clearTimeout(REL.et); REL.et = setTimeout(()=>{ recordChange(); if(['type','internal','critical'].includes(k)) relRefresh(); }, 300); }
+function relAud(id){ const r = relOf(id); if(!r || r.status==='published') return; r.audience = {groups:[...document.querySelectorAll('.relG:checked')].map(x=>x.value), people:[...document.querySelectorAll('.relP:checked')].map(x=>x.value)};
+  r.recipients = relResolve(r.audience); r.edited = true; recordChange(); relRefresh(); }
+function relCatSet(id){ const r = relOf(id); if(!r || r.status==='published') return; r.cats = [...document.querySelectorAll('.relC:checked')].map(x=>x.value); r.catsManual = true; recordChange(); relRefresh(); }
+function relCopy(id){ const t = relMessage(relOf(id)); navigator.clipboard?.writeText(t).then(()=>toast('Copied'), ()=>toast('Copy failed — select the text instead')); }
+function relStats(id){ const r = relOf(id); openModal(`Who saw “${r.title}”`, `<table class="tbl"><thead><tr><th>Recipient</th><th>Viewed</th><th>Acknowledged</th></tr></thead><tbody>${(r.recipients||[]).slice().sort((a, b)=>pname(a).localeCompare(pname(b))).map(k=>{ const x = relAck(r.id, k); return `<tr><td>${esc(pname(k))}</td><td>${x?.viewedAt?esc(dtstr(x.viewedAt)):'—'}</td><td>${x?.ackAt?'✅ '+esc(dtstr(x.ackAt)):'—'}</td></tr>`; }).join('')}</tbody></table>`, true); }
+async function relPublish(id){ const r = relOf(id); if(!r || r.status==='published' || !relAdmin()) return;
+  r.recipients = relResolve(r.audience); if(!r.recipients.length) return toast('Choose at least one recipient');
+  if(!(r.items||[]).some(i=>!i.internal)) return toast('Nothing to announce — tick “announce” on at least one verified change');
+  if((r.items||[]).some(i=>!i.internal && i.auto && /add a description/.test(i.text))) return toast('Describe the changes found in the code before announcing them');
+  const noVid = !r.media?.video?.verified; const b = el('relPublish');
+  if(b && !b.dataset.sure && noVid){ b.dataset.sure = '1'; b.textContent = 'No verified video yet — click again to publish without it'; return; }
+  const t = nowISO(); Object.assign(r, {status:'published', publishedAt:t, publishedBy:PERSON, cats:relCats(r), catsManual:true, history:[...(r.history||[]), {at:t, by:PERSON, act:`published to ${r.recipients.length} people`}]});
+  recordChange();
+  const txt = `📣 <b>${esc(r.title)}</b> — ${esc(r.summary||'')}${r.media?.video?.verified?' 🎬 Walkthrough video included.':''}`;
+  r.recipients.filter(k=>k!==PERSON).forEach(k=>notify([k], 'system', txt, {view:'whatsnew', rel:r.id}));
+  toast(`Published to ${r.recipients.length} people`); relRefresh(); }
+function relRefresh(){ if(CURRENT==='support' && TK.tab==='releases') RENDER.support(); if(CURRENT==='whatsnew') RENDER.whatsnew(); relHydrate(); }
+
+/* ---------- media files (private bucket "release-media": only the announcement's recipients and JA / Yam) ---------- */
+const RELAPI = {
+  live(){ return typeof BACKEND!=='undefined' && BACKEND?.mode==='live' && !!BACKEND.sb; },
+  async put(path, blob, type){ if(!this.live()){ REL.blobs[path] = blob; return; } const {error} = await BACKEND.sb.storage.from('release-media').upload(path, blob, {contentType:type, upsert:false}); if(error) throw new Error('Upload failed: ' + error.message); },
+  async get(path){ if(!this.live()){ const b = REL.blobs[path]; if(!b) throw new Error('This file is kept only in the live database'); return b; } const {data, error} = await BACKEND.sb.storage.from('release-media').download(path); if(error) throw new Error(error.message); return data; },
+};
+async function relUrl(path){ if(REL.urls[path]) return REL.urls[path]; const b = await RELAPI.get(path); return REL.urls[path] = URL.createObjectURL(b); }
+function relHydrate(){ document.querySelectorAll('img[data-relimg]').forEach(async im=>{ if(im.dataset.done) return; im.dataset.done = 1; const [id, n] = im.dataset.relimg.split('|'); const s = relOf(id)?.media?.shots?.[+n]; if(s) try{ im.src = await relUrl(s.path); }catch(e){ im.alt = '⚠ ' + e.message; } });
+  document.querySelectorAll('video[data-relvid]').forEach(async v=>{ if(v.dataset.done) return; v.dataset.done = 1; const x = relOf(v.dataset.relvid)?.media?.video; if(x?.verified) try{ v.src = await relUrl(x.path); }catch(e){} }); }
+async function relDownload(id, what, n){ const r = relOf(id); const m = what==='video' ? r?.media?.video : r?.media?.shots?.[n]; if(!m) return;
+  try{ const b = await RELAPI.get(m.path); const u = URL.createObjectURL(b), a = document.createElement('a'); a.href = u; a.download = m.file || m.path.split('/').pop(); document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(u), 4000); }catch(e){ toast('⚠ ' + e.message); } }
+async function relShotView(id, n){ const r = relOf(id), s = r?.media?.shots?.[n]; if(!s) return; let before = '';
+  if(s.before) try{ before = `<div style="flex:1;min-width:280px"><div class="hint">Before (${esc(s.before.version||'')})</div><img src="${await relUrl(s.before.path)}" style="width:100%;border-radius:8px"></div>`; }catch(e){}
+  openModal(`${n+1}. ${s.title}`, `<div style="display:flex;gap:12px;flex-wrap:wrap">${before}<div style="flex:1;min-width:280px">${before?'<div class="hint">After</div>':''}<img src="${await relUrl(s.path)}" style="width:100%;border-radius:8px"></div></div><p class="hint">${esc(s.desc||'')}</p><button class="btn" onclick="relDownload('${id}','shot',${n})">⬇ Download PNG</button>`, true); }
+
+/* ---------- 8. What's New page (everyone: only their own updates; JA / Yam: the whole library) ---------- */
+{ const at = NAV.findIndex(n=>n.id==='support'); if(!NAV.some(n=>n.id==='whatsnew')) NAV.splice(at>=0 ? at : NAV.length, 0, {id:'whatsnew', name:"What's New", roles:typeof ALLR!=='undefined' ? ALLR : ['hr','ceo','coo','creative','manager','staff'], ico:'M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4-6.2-4.6-6.2 4.6 2.4-7.4L2 9.4h7.6z'}); }
+if(!el('v-whatsnew')){ const v = document.createElement('div'); v.id = 'v-whatsnew'; v.className = 'view'; (el('v-support')||document.querySelector('.content .view'))?.before(v); }
+{ const _na = navAllowed; navAllowed = function(n){ if(n?.id==='whatsnew') return !!PEOPLE[PERSON] && !isApplicant() && ROLE!=='client'; return _na.apply(this, arguments); }; }
+RENDER.whatsnew = () => { const v = el('v-whatsnew'); if(!v) return; const adm = relAdmin(); const q = REL.q.trim().toLowerCase();
+  let L = relVisible().filter(r=>adm || r.status==='published');
+  L = L.filter(r=>(!q || (r.title+' '+r.summary+' '+r.build+' '+(r.version||'')+' '+(r.items||[]).map(i=>i.title+' '+i.text).join(' ')+' '+relAudText(r)).toLowerCase().includes(q))
+    && (REL.cat==='all' || relCats(r).includes(REL.cat)) && (!REL.from || (r.publishedAt||r.createdAt||'').slice(0,10) >= REL.from) && (!REL.to || (r.publishedAt||r.createdAt||'').slice(0,10) <= REL.to));
+  v.innerHTML = `<div class="page-head"><div><h2>What's New</h2><p>${adm ? 'Every Ops Suite release — drafts and published announcements. Manage them in System Ops Support → 📣 What\'s New.' : 'Updates to Ops Suite that apply to you — release notes, screenshots and walkthrough videos.'}</p></div>${adm?`<button class="btn" onclick="TK.tab='releases';go('support')">📣 Manage</button>`:''}</div>
+    <div class="card" style="margin-bottom:12px"><div class="card-b" style="display:flex;gap:8px;flex-wrap:wrap;align-items:end"><input id="relQ" placeholder="Search title, version, department…" value="${esc(REL.q)}" oninput="REL.q=this.value;clearTimeout(REL.qt);REL.qt=setTimeout(()=>{RENDER.whatsnew();const i=el('relQ');i&&(i.focus(),i.setSelectionRange(i.value.length,i.value.length))},250)" style="flex:1;min-width:200px">
+      <select onchange="REL.cat=this.value;RENDER.whatsnew()"><option value="all">All categories</option>${Object.entries(REL_CATS).map(([k, l])=>`<option value="${k}" ${REL.cat===k?'selected':''}>${l}</option>`).join('')}</select>
+      <label class="hint">From <input type="date" value="${esc(REL.from)}" onchange="REL.from=this.value;RENDER.whatsnew()"></label><label class="hint">To <input type="date" value="${esc(REL.to)}" onchange="REL.to=this.value;RENDER.whatsnew()"></label></div></div>
+    ${L.map(r=>{ const a = relAck(r.id); return `<div class="card" style="margin-bottom:10px;cursor:pointer" onclick="relOpen('${r.id}')"><div class="card-b" style="display:flex;gap:14px;align-items:center;flex-wrap:wrap">
+      <div style="font-size:26px">${r.media?.video?.verified?'🎬':'📣'}</div><div style="flex:1;min-width:220px"><b>${esc(r.title)}</b>${r.status!=='published'?' <span class="badge b-pending">Draft</span>':''}${!adm && !a?.ackAt?' <span class="badge b-scheduled">New</span>':''}<div class="hint">${esc(dstr(r.publishedAt||r.createdAt))} · build ${esc(r.build)} · ${esc(r.version||'')} · ${relCats(r).map(c=>REL_CATS[c]).join(' · ')}</div><div class="hint">${esc(r.summary||'')}</div></div>
+      ${adm && r.status==='published' ? `<span class="hint">${(r.recipients||[]).filter(k=>relAck(r.id, k)?.ackAt).length}/${(r.recipients||[]).length} acknowledged</span>` : a?.ackAt ? '<span class="badge b-approved">✓ Acknowledged</span>' : ''}</div></div>`; }).join('') || '<div class="empty">No updates yet.</div>'}`; };
+function relOpen(id, auto){ const r = relOf(id); if(!r) return; const pub = (r.items||[]).filter(i=>!i.internal), adm = relAdmin();
+  if(r.status==='published' && (r.recipients||[]).includes(PERSON)) relMark(id, 'viewedAt');
+  const sec = REL_TYPES.map(([t, l, ic])=>{ const I = pub.filter(i=>i.type===t); return I.length ? `<h4 style="margin:14px 0 6px">${ic} ${l}${I.length>1?'s':''}</h4>${I.map(i=>`<div style="margin:0 0 8px"><b>${esc(i.title)}</b>${i.critical?' <span class="badge b-missed">Important</span>':''}<div style="line-height:1.5">${esc(i.text||'')}</div></div>`).join('')}` : ''; }).join('');
+  const steps = pub.flatMap(i=>i.steps||[]), a = relAck(id);
+  openModal(`${r.title}`, `<div class="hint" style="margin-bottom:8px">${esc(dstr(r.publishedAt||r.createdAt))} · build ${esc(r.build)} · ${esc(r.version||'')} · ${relCats(r).map(c=>`<span class="badge ${REL_CAT_CLS[c]}">${REL_CATS[c]}</span>`).join(' ')}</div>
+    <p style="font-size:15px;line-height:1.55">${esc(r.summary||'')}</p>
+    ${r.media?.video?.verified ? `<video controls preload="metadata" style="width:100%;border-radius:12px;background:#000;margin:6px 0" data-relvid="${r.id}"></video>` : ''}
+    ${sec}${steps.length?`<h4 style="margin:14px 0 6px">🧭 How to use it</h4><ol style="margin:0 0 0 18px;line-height:1.6">${steps.map(s=>`<li>${esc(s)}</li>`).join('')}</ol>`:''}
+    ${(r.actions||[]).length?`<h4 style="margin:14px 0 6px">📌 Action required</h4>${r.actions.map(x=>`<div>• ${esc(x.text)}${x.critical?' <span class="badge b-missed">Important</span>':''}</div>`).join('')}`:''}
+    ${r.media?.shots?.length?`<h4 style="margin:14px 0 6px">🖼 Screenshots</h4><div class="rel-shots" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px">${r.media.shots.map((s, n)=>`<figure style="margin:0"><img data-relimg="${r.id}|${n}" alt="${esc(s.title)}" style="width:100%;border-radius:8px;border:1px solid var(--line,#ddd);cursor:zoom-in" onclick="relShotView('${r.id}',${n})"><figcaption class="hint">${n+1}. ${esc(s.title)}</figcaption></figure>`).join('')}</div>`:''}
+    <p class="hint" style="margin-top:14px">Questions? ${esc(r.contact||'System Ops Support')}</p>
+    ${r.status==='published' && (r.recipients||[]).includes(PERSON) ? `<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:8px">${a?.ackAt?`<span class="badge b-approved">✓ Acknowledged ${esc(dtstr(a.ackAt))}</span>`:`<button class="btn primary" id="relAckBtn" onclick="relMark('${r.id}','ackAt');closeModal();toast('Thanks — acknowledged')">Got it</button>`}</div>` : ''}
+    ${adm && r.status==='published' ? `<div class="hint" style="margin-top:8px">Delivered to ${(r.recipients||[]).length} people: ${esc(relAudText(r))}</div>` : ''}`, true);
+  setTimeout(relHydrate, 30); }
+function relPreview(id){ relOpen(id); }
+function relMark(id, field){ const k = PERSON, rid = id+'|'+k; let a = RELACKS.find(x=>x.id===rid); if(a?.[field]) return;
+  if(!a){ a = {id:rid, rel:id, person:k}; RELACKS.push(a); } a[field] = nowISO(); if(field==='ackAt' && !a.viewedAt) a.viewedAt = a.ackAt; recordChange(); if(CURRENT==='whatsnew') setTimeout(()=>RENDER.whatsnew(), 50); }
+/* the newest unseen announcement opens once */
+function relPopup(){ if(isApplicant() || ROLE==='client' || (typeof CC_STUDIO!=='undefined' && CC_STUDIO) || el('modal')?.classList.contains('open')) return;
+  const r = relMine().find(x=>!relAck(x.id)?.viewedAt && !REL.popupDone[x.id]); if(!r) return; REL.popupDone[r.id] = 1; relOpen(r.id, true); }
+setInterval(()=>{ try{ relPopup(); }catch(e){} }, 20000);
+{ const _fl = followLink; followLink = function(link){ if(link?.view==='whatsnew' && link.rel){ go('whatsnew'); setTimeout(()=>relOpen(link.rel), 120); return; } if(link?.view==='support' && link.tab==='releases'){ TK.tab = 'releases'; if(link.rel) REL.sel = link.rel; } return _fl.apply(this, arguments); }; }
+{ const _ore = onRemoteEvent; onRemoteEvent = function(ev){ _ore.apply(this, arguments); if(['releases','relacks'].includes(ev?.coll)){ clearTimeout(REL.t); REL.t = setTimeout(()=>{ if(!el('modal')?.classList.contains('open')) relRefresh(); relPopup(); }, 500); } }; }
+
+/* ---------- System Ops Support tab ---------- */
+{ const _rs = RENDER.support; RENDER.support = function(){ const mine = TK.tab==='releases'; if(mine && !relAdmin()) TK.tab = 'mine'; if(TK.tab==='releases') TK.tab = 'how';
+    const r = _rs.apply(this, arguments); if(mine && relAdmin()) TK.tab = 'releases';
+    try{ const v = el('v-support'), tabs = v?.querySelector('.tabs'); if(tabs && relAdmin()){
+        if(!tabs.querySelector('[data-reltab]')) tabs.insertAdjacentHTML('beforeend', `<button class="tab ${TK.tab==='releases'?'on':''}" data-reltab="1" onclick="TK.tab='releases';RENDER.support()">📣 What's New</button>`);
+        if(TK.tab==='releases'){ tabs.querySelectorAll('.tab').forEach(b=>b.classList.toggle('on', !!b.dataset.reltab)); let n = tabs.nextElementSibling; while(n){ const x = n.nextElementSibling; n.remove(); n = x; } tabs.insertAdjacentHTML('afterend', `<div id="relPage">${relAdminHTML()}</div>`); setTimeout(relHydrate, 30); } } }catch(e){ console.warn('releases page', e); }
+    return r; }; }
+/* a new backup in the Update Bank prepares the draft right away */
+{ const _ore2 = onRemoteEvent; onRemoteEvent = function(ev){ _ore2.apply(this, arguments); if(ev?.coll==='codebank') setTimeout(()=>{ try{ relAuto(); }catch(e){} }, 1200); }; }
+
+/* ===== t38b_studio.js — Release Studio: highlighted screenshots and the AI-narrated MP4 walkthrough (Nov 17 2026 · 2) =====
+   • The real portal of this build is opened in a hidden studio frame (index.html?studio=1) that runs on DEMO data only —
+     never the live database, so no real applicant, employee or client data can appear in screenshots or videos.
+   • Each announced change carries a walkthrough (OPS_TOURS, shipped with the code): who is signed in, what is opened,
+     which element is highlighted, and what the narrator says. The studio performs every step on the real interface and
+     captures it (html-to-image, 1.5× for stills); stills get a spotlight, an outline, a numbered marker, an arrow and a
+     callout; the previous announcement's still of the same step is kept as "before" when one exists.
+   • The video is drawn frame by frame at 1920×1080 from those captures: branded intro, smooth zoom to each highlighted
+     control, an animated cursor and click, a pulsing highlight, captions, cross-fades and an outro. The voice-over is
+     generated per step by the AI voice (cc-admin "ai_tts": OpenAI, Gemini or ElevenLabs key set by JA / Yam) and each
+     step lasts as long as its narration, so voice, cursor and highlights stay in sync. Recorded with MediaRecorder as
+     MP4 (H.264 / AAC) where the browser supports it (Chrome, Edge, Safari); otherwise WebM, clearly labelled.
+   • The file is verified before it is attached: it must load, be 1920×1080, have the expected length, and (with a voice
+     configured) contain an audio track. A video that fails is not attached. */
+
+const RSTUDIO = {fr:null, ready:false};
+const relSleep = ms => new Promise(r=>setTimeout(r, ms));
+async function relStudio(){ if(RSTUDIO.fr && RSTUDIO.ready && RSTUDIO.fr.isConnected) return RSTUDIO.fr;
+  RSTUDIO.fr?.remove(); const fr = document.createElement('iframe'); fr.id = 'relStudioFrame'; fr.setAttribute('aria-hidden', 'true'); fr.tabIndex = -1;
+  fr.style.cssText = 'position:fixed;left:-20000px;top:0;width:1600px;height:900px;border:0;opacity:1;pointer-events:none;z-index:-1';
+  fr.src = 'index.html?studio=1&t=' + Date.now(); document.body.appendChild(fr); RSTUDIO.fr = fr; RSTUDIO.ready = false;
+  for(let i=0;i<120;i++){ await relSleep(250); try{ const w = fr.contentWindow; if(w && w.document.readyState==='complete' && w.eval("typeof CC_STUDIO!=='undefined' && CC_STUDIO && typeof PEOPLE!=='undefined' && Object.keys(PEOPLE).length>0 && typeof setPerson==='function' && typeof BACKEND!=='undefined' && !!BACKEND && typeof relStudioSeed==='function'")){ RSTUDIO.ready = true; break; } }catch(e){} }
+  if(!RSTUDIO.ready) throw new Error('The studio frame did not start (demo portal)'); await relSleep(600); return fr; }
+function relStudioClose(){ RSTUDIO.fr?.remove(); RSTUDIO.fr = null; RSTUDIO.ready = false; }
+async function relStep(fr, st){ const w = fr.contentWindow;
+  if(st.as){ w.eval(`(function(){ const l=document.getElementById('login'); if(l) l.style.display='none'; setPerson(${JSON.stringify(st.as)}); try{ buildNav(); }catch(e){} })()`); await relSleep(350); }
+  w.eval(`(function(){ document.getElementById('annGate')?.remove(); document.querySelectorAll('.ann-gate,.urgent-gate,#pushInvite,.live-toast,#toast').forEach(x=>x.remove()); try{ closeModal(); }catch(e){} })()`);
+  if(st.setup) w.eval(`(function(){ ${st.setup} })()`); if(st.run) w.eval(`(function(){ ${st.run} })()`);
+  await relSleep(st.wait || 900);
+  w.eval(`(function(){ document.querySelectorAll('#pushInvite,.live-toast,#toast,.ann-gate,.urgent-gate,#recPopStack,#msgToasts,#jpPop,#activePop,#cbToast').forEach(x=>x.remove()); })()`);
+  const els = (st.focus ? [].concat(st.focus) : []).map(sel=>w.document.querySelector(sel)).filter(Boolean);
+  const rects = els.map(e=>{ const b = e.getBoundingClientRect(); return {x:b.left, y:b.top, w:b.width, h:b.height}; }).filter(b=>b.w>2 && b.h>2 && b.x < 1600 && b.y < 900);
+  const fc = await relCapture(w), canvas = document.createElement('canvas'); canvas.width = fc.width; canvas.height = fc.height; canvas.getContext('2d').drawImage(fc, 0, 0);   /* copied out: the studio frame is closed afterwards */
+  return {canvas, rects, missing:(st.focus ? [].concat(st.focus).length : 0) - rects.length}; }
+/* the portal's web fonts, embedded once as data so the stills use the real typefaces (Latin subset only) */
+let REL_FONTCSS = null;
+function relFontCSS(w){ if(REL_FONTCSS) return REL_FONTCSS; REL_FONTCSS = (async()=>{ try{
+    const hrefs = [...w.document.querySelectorAll('link[rel="stylesheet"][href*="fonts.googleapis.com"]')].map(l=>l.href); let out = '';
+    for(const h of hrefs){ const css = await (await fetch(h)).text(); const blocks = css.split(/(?=\/\* [\w-]+ \*\/)/).filter(b=>/^\/\* latin \*\//.test(b));
+      for(const b of blocks){ const m = /url\((https:[^)]+)\)/.exec(b); if(!m) continue; const blob = await (await fetch(m[1])).blob();
+        const data = await new Promise(r=>{ const fr = new FileReader(); fr.onload = () => r(fr.result); fr.readAsDataURL(blob); }); out += b.replace(m[1], data) + '\n'; } }
+    return out; }catch(e){ console.warn('fonts not embedded', e); return ''; } })(); return REL_FONTCSS; }
+async function relCapture(w){ const fontEmbedCSS = await relFontCSS(w); const opts = {fontEmbedCSS, width:1600, height:900, canvasWidth:2400, canvasHeight:1350, pixelRatio:1, skipAutoScale:true, cacheBust:false, backgroundColor:w.getComputedStyle(w.document.body).backgroundColor || '#f6f1e9',
+    filter:n=>!(n.id==='pushInvite' || n.tagName==='IFRAME' || (n.classList && n.classList.contains('live-toast')))};
+  try{ if(!w.htmlToImage) await w.loadScript('https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/dist/html-to-image.js'); return await w.htmlToImage.toCanvas(w.document.documentElement, opts); }
+  catch(e){ console.warn('html-to-image failed, using html2canvas', e);
+    if(!w.html2canvas) await w.loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
+    return await w.html2canvas(w.document.documentElement, {width:1600, height:900, windowWidth:1600, windowHeight:900, scale:1.5, useCORS:true, logging:false}); } }
+
+/* ---------- 2. highlighted stills ---------- */
+function relRR(x, X, Y, W, H, R, keep){ if(!keep) x.beginPath(); x.moveTo(X+R, Y); x.arcTo(X+W, Y, X+W, Y+H, R); x.arcTo(X+W, Y+H, X, Y+H, R); x.arcTo(X, Y+H, X, Y, R); x.arcTo(X, Y, X+W, Y, R); x.closePath(); }
+function relWrap(x, t, maxW){ const out = []; let line = ''; String(t||'').split(/\s+/).forEach(w=>{ const tt = line ? line+' '+w : w; if(x.measureText(tt).width > maxW && line){ out.push(line); line = w; } else line = tt; }); if(line) out.push(line); return out; }
+function relAnnotate(src, rects, label, n){ const S = src.width/1600, c = document.createElement('canvas'); c.width = src.width; c.height = src.height; const x = c.getContext('2d'); x.drawImage(src, 0, 0);
+  const R = rects.map(r=>({x:r.x*S - 10*S, y:r.y*S - 10*S, w:r.w*S + 20*S, h:r.h*S + 20*S}));
+  if(R.length){ x.save(); x.fillStyle = 'rgba(15,10,6,.48)'; x.beginPath(); x.rect(0, 0, c.width, c.height); R.forEach(r=>{ relRR(x, r.x, r.y, r.w, r.h, 14*S, true); }); x.fill('evenodd'); x.restore();
+    R.forEach(r=>{ x.save(); x.shadowColor = 'rgba(233,161,51,.7)'; x.shadowBlur = 22*S; x.strokeStyle = '#e9a133'; x.lineWidth = 5*S; relRR(x, r.x, r.y, r.w, r.h, 14*S); x.stroke(); x.restore(); });
+    const r = R[0]; const bx = Math.max(16*S, Math.min(r.x - 18*S, c.width - 60*S)), by = Math.max(16*S, r.y - 22*S);
+    x.fillStyle = '#e9a133'; x.beginPath(); x.arc(bx, by, 22*S, 0, 7); x.fill(); x.fillStyle = '#1c140b'; x.font = `700 ${22*S}px Inter,Arial,sans-serif`; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(String(n), bx, by+1);
+    if(label){ x.font = `600 ${20*S}px Inter,Arial,sans-serif`; x.textAlign = 'left'; const lines = relWrap(x, label, 420*S).slice(0, 4), bw = Math.max(...lines.map(l=>x.measureText(l).width)) + 36*S, bh = lines.length*28*S + 26*S;
+      const right = r.x + r.w + 40*S + bw < c.width, cx = right ? r.x + r.w + 40*S : Math.max(16*S, r.x - bw - 40*S), cy = Math.min(Math.max(16*S, r.y + r.h/2 - bh/2), c.height - bh - 16*S);
+      x.strokeStyle = '#e9a133'; x.lineWidth = 4*S; x.beginPath(); const ax = right ? r.x + r.w + 4*S : r.x - 4*S, ay = r.y + r.h/2, tx = right ? cx : cx + bw; x.moveTo(ax, ay); x.quadraticCurveTo((ax+tx)/2, ay - 30*S, tx, cy + bh/2); x.stroke();
+      x.fillStyle = '#e9a133'; x.beginPath(); x.arc(ax, ay, 7*S, 0, 7); x.fill();
+      x.save(); x.shadowColor = 'rgba(0,0,0,.35)'; x.shadowBlur = 24*S; x.fillStyle = '#17110a'; relRR(x, cx, cy, bw, bh, 14*S); x.fill(); x.restore();
+      x.fillStyle = '#fff7ea'; lines.forEach((l, i)=>x.fillText(l, cx + 18*S, cy + 26*S + i*28*S)); } }
+  return c; }
+const relBlob = (c, type, q) => new Promise((res, rej)=>c.toBlob(b=>b ? res(b) : rej(new Error('Could not encode the image')), type||'image/png', q));
+function relTourOf(r){ return (r.items||[]).filter(i=>!i.internal && i.tour && OPS_TOURS[i.tour]).flatMap(i=>OPS_TOURS[i.tour].steps.map(s=>({...s, item:i.id, itemTitle:i.title}))); }
+async function relCaptureAll(r, prog){ const steps = relTourOf(r); if(!steps.length) throw new Error('No walkthrough steps for the announced changes — add a tour to the release notes'); relStudioClose(); const fr = await relStudio(), out = [];   /* a fresh demo portal every time */
+  for(let i=0;i<steps.length;i++){ prog?.(`Capturing step ${i+1} of ${steps.length}: ${steps[i].title}`); const s = await relStep(fr, steps[i]); out.push({...steps[i], ...s}); }
+  relStudioClose(); return out; }
+async function relMakeShots(id){ const r = relOf(id); if(!r || r.status==='published' || REL.busy) return; const prog = m => { REL.busy = m; relRefresh(); };
+  try{ prog('Opening the studio (demo data)…'); const caps = await relCaptureAll(r, prog); const prevShots = RELEASES.filter(x=>x.id!==r.id && x.status==='published').sort((a, b)=>(b.publishedAt||'').localeCompare(a.publishedAt||'')).flatMap(x=>(x.media?.shots||[]).map(s=>({...s, version:x.version})));
+    const shots = []; for(let i=0;i<caps.length;i++){ const s = caps[i]; prog(`Annotating ${i+1} of ${caps.length}…`); const c = relAnnotate(s.canvas, s.rects, s.callout || s.say, i+1); const blob = await relBlob(c, 'image/png');
+      const path = `${r.id}/shot-${Date.now()}-${i+1}.png`; await RELAPI.put(path, blob, 'image/png'); const before = prevShots.find(p=>p.step===s.id);
+      shots.push({step:s.id, title:s.title, desc:s.say, path, file:`${r.build.replace(/[^\w]+/g,'-')}-${i+1}-${s.id}.png`, w:c.width, h:c.height, warn:s.missing?`${s.missing} highlight target(s) not found`:'', before:before?{path:before.path, version:before.version}:null}); }
+    r.media = {...(r.media||{}), shots}; r.history = [...(r.history||[]), {at:nowISO(), by:PERSON, act:`${shots.length} screenshots generated`}]; upsertRel(r); toast(`${shots.length} highlighted screenshots ready`); }
+  catch(e){ REL.lastError = String(e?.stack||e); toast('⚠ Screenshots failed: ' + (e.message||e)); console.warn(e); }
+  finally{ REL.busy = ''; relRefresh(); } }
+
+/* ---------- 3. AI voice ---------- */
+async function relTts(text){ if(window.__TTS_STUB) return window.__TTS_STUB(text);
+  if(!(typeof BACKEND!=='undefined' && BACKEND?.mode==='live')) return null;
+  const {data, error} = await BACKEND.sb.functions.invoke('cc-admin', {body:{action:'ai_tts', text:String(text).slice(0, 3500)}});
+  if(error || !data?.ok) { if(data?.configured===false) return null; throw new Error(data?.error || error?.message || 'AI voice failed'); }
+  if(!data.configured) return null; return {b64:data.b64, mime:data.mime, voice:data.voice}; }
+async function relTtsSettings(){ let st = {configured:false};
+  try{ if(BACKEND?.mode==='live'){ const {data} = await BACKEND.sb.functions.invoke('cc-admin', {body:{action:'tts_status'}}); st = data || st; } }catch(e){}
+  openModal('AI voice for walkthrough videos', `<div class="hint" style="margin-bottom:10px">Status: ${st.configured?`<b style="color:var(--ok,#1d8a52)">set up</b> · ${esc(st.provider||'')} · voice ${esc(st.voice||'default')}`:'<b>not set up</b> — videos are made with captions only until a voice is configured.'} The key is stored on the server (Supabase), never in the portal.</div>
+    <div class="field"><label>Provider</label><select id="ttsProv"><option value="openai" ${st.provider==='openai'?'selected':''}>OpenAI (gpt-4o-mini-tts)</option><option value="gemini" ${st.provider==='gemini'?'selected':''}>Google Gemini TTS</option><option value="elevenlabs" ${st.provider==='elevenlabs'?'selected':''}>ElevenLabs</option></select></div>
+    <div class="field"><label>API key <span class="hint">(leave empty to keep the saved one${st.provider?'':'; if Cora already uses an OpenAI or Gemini key, that key is used'})</span></label><input id="ttsKey" type="password" autocomplete="off" placeholder="paste the key here — it is sent once to the server"></div>
+    <div class="field"><label>Voice</label><input id="ttsVoice" value="${esc(st.voice||'')}" placeholder="OpenAI: coral, sage, verse · Gemini: Kore, Puck · ElevenLabs: voice ID"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end"><button class="btn" onclick="closeModal()">Cancel</button><button class="btn primary" onclick="relTtsSave()">Save</button></div>`); }
+async function relTtsSave(){ try{ const {data, error} = await BACKEND.sb.functions.invoke('cc-admin', {body:{action:'tts_config', provider:el('ttsProv').value, key:el('ttsKey').value || undefined, voice:el('ttsVoice').value.trim()}});
+    if(error || !data?.ok) throw new Error(data?.error || error?.message || 'Could not save'); closeModal(); toast('AI voice saved'); }catch(e){ toast('⚠ ' + (e.message||e) + (BACKEND?.mode!=='live'?' (needs the live database)':'')); } }
+
+/* ---------- 3. the walkthrough video ---------- */
+function relMime(){ const L = ['video/mp4;codecs=avc1.640028,mp4a.40.2','video/mp4;codecs=avc1.42E01E,mp4a.40.2','video/mp4','video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm'];
+  return L.find(m=>window.MediaRecorder && MediaRecorder.isTypeSupported(m)) || ''; }
+const relEase = k => k<.5 ? 4*k*k*k : 1 - Math.pow(-2*k+2, 3)/2;
+async function relMakeVideo(id){ const r = relOf(id); if(!r || r.status==='published' || REL.busy) return; const prog = m => { REL.busy = m; relRefresh(); };
+  const mime = relMime(); if(!mime) return toast('This browser cannot record video — use Chrome or Edge');
+  let ov = null;
+  try{ prog('Opening the studio (demo data)…'); const caps = await relCaptureAll(r, prog);
+    const segs = [{kind:'intro', say:`What's new in Ops Suite. ${r.title}.`}, ...caps.map((c, i)=>({kind:'step', i, of:caps.length, cap:c, say:c.say})), {kind:'outro', say:`That's everything in this update. If you have questions, message System Ops Support.`}];
+    let voice = null; for(let i=0;i<segs.length;i++){ prog(`AI voice-over ${i+1} of ${segs.length}…`); const a = await relTts(segs[i].say); if(a){ segs[i].audio = a; voice = a.voice || 'AI voice'; } }
+    const AC = new (window.AudioContext || window.webkitAudioContext)(); await AC.resume?.(); const dest = AC.createMediaStreamDestination();
+    for(const s of segs){ if(s.audio){ const bin = Uint8Array.from(atob(s.audio.b64), ch=>ch.charCodeAt(0)); s.buf = await AC.decodeAudioData(bin.buffer.slice(0)); } s.dur = Math.max(s.kind==='step' ? 5.2 : 3.6, (s.buf?.duration||0) + 0.9); }
+    let t = 0.4; segs.forEach(s=>{ s.t0 = t; t += s.dur; }); const total = t + 0.5;
+    const cv = document.createElement('canvas'); cv.width = 1920; cv.height = 1080; const x = cv.getContext('2d');
+    ov = document.createElement('div'); ov.style.cssText = 'position:fixed;inset:0;z-index:99;background:rgba(10,7,4,.86);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:#fff;font:600 14px Inter,sans-serif';
+    cv.style.cssText = 'width:min(80vw,960px);aspect-ratio:16/9;border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,.5)'; ov.appendChild(cv); const info = document.createElement('div'); ov.appendChild(info); document.body.appendChild(ov);
+    const vt = cv.captureStream(30).getVideoTracks()[0], stream = new MediaStream([vt, ...(voice ? dest.stream.getAudioTracks() : [])]);
+    const rec = new MediaRecorder(stream, {mimeType:mime, videoBitsPerSecond:9e6, audioBitsPerSecond:160000}), chunks = []; rec.ondataavailable = e=>{ if(e.data.size) chunks.push(e.data); };
+    const done = new Promise(res=>rec.onstop = res); const start = AC.currentTime + 0.25;
+    segs.forEach(s=>{ if(s.buf){ const src = AC.createBufferSource(); src.buffer = s.buf; src.connect(dest); src.start(start + s.t0 + 0.35); } });
+    rec.start(250); let raf = 0, last = -1;
+    await new Promise(resolve=>{ const tick = () => { const now = AC.currentTime - start; if(now >= total){ resolve(); return; } if(now >= 0 && Math.abs(now - last) > 1/60){ last = now; relFrame(x, segs, now, r); info.textContent = `Recording the walkthrough… ${Math.floor(now)} / ${Math.ceil(total)} s — keep this tab open`; } raf = requestAnimationFrame(tick); };
+      raf = requestAnimationFrame(tick); const iv = setInterval(()=>{ if(document.hidden){ const now = AC.currentTime - start; relFrame(x, segs, Math.max(0, now), r); if(now >= total){ clearInterval(iv); resolve(); } } else if(AC.currentTime - start >= total){ clearInterval(iv); resolve(); } }, 33); });
+    cancelAnimationFrame(raf); rec.stop(); await done; vt.stop(); AC.close();
+    const type = mime.split(';')[0], blob = new Blob(chunks, {type}); prog('Verifying the video…');
+    const vf = await relVerify(blob, total, !!voice); if(!vf.ok) throw new Error('Video verification failed: ' + vf.why);
+    const ext = type==='video/mp4' ? 'mp4' : 'webm', file = `OpsSuite_WhatsNew_${r.version||''}_${manilaDate()}.${ext}`.replace(/__/, '_'), path = `${r.id}/walkthrough-${Date.now()}.${ext}`;
+    prog('Uploading the video…'); await RELAPI.put(path, blob, type);
+    r.media = {...(r.media||{}), video:{path, file, size:blob.size, mime:type, duration:vf.duration, w:1920, h:1080, voice:voice||null, steps:caps.length, verified:true, verifiedAt:nowISO(), mp4:type==='video/mp4'}};
+    r.history = [...(r.history||[]), {at:nowISO(), by:PERSON, act:`walkthrough video generated and verified (${Math.round(vf.duration)} s, ${ext.toUpperCase()}${voice?', AI voice':', no voice'})`}]; upsertRel(r);
+    toast(`🎬 Walkthrough video ready (${ext.toUpperCase()}${voice?'':' — no voice-over: set up the AI voice'})`); }
+  catch(e){ REL.lastError = String(e?.stack||e); toast('⚠ Video failed: ' + (e.message||e)); console.warn(e); }
+  finally{ ov?.remove(); REL.busy = ''; relRefresh(); } }
+async function relVerify(blob, expect, needAudio){ if(blob.size < 50*1024) return {ok:false, why:'the file is too small'};
+  const v = document.createElement('video'); v.muted = true; v.preload = 'auto'; const u = URL.createObjectURL(blob); v.src = u;
+  try{ await new Promise((res, rej)=>{ v.onloadeddata = res; v.onerror = ()=>rej(new Error('the file does not play')); setTimeout(()=>rej(new Error('the file did not load')), 15000); });
+    let d = v.duration; if(!isFinite(d)){ v.currentTime = 1e6; await new Promise(res=>{ v.ontimeupdate = res; setTimeout(res, 3000); }); d = v.duration; }
+    if(v.videoWidth!==1920 || v.videoHeight!==1080) return {ok:false, why:`size ${v.videoWidth}×${v.videoHeight}`};
+    if(isFinite(d) && Math.abs(d - expect) > Math.max(3, expect*0.2)) return {ok:false, why:`length ${d.toFixed(1)} s, expected ${expect.toFixed(1)} s`};
+    const audio = v.mozHasAudio || (v.webkitAudioDecodedByteCount > 0) || (v.audioTracks && v.audioTracks.length > 0) || !needAudio;
+    return {ok:true, duration:isFinite(d) ? d : expect, audio}; }
+  finally{ URL.revokeObjectURL(u); } }
+/* one frame of the walkthrough */
+function relFrame(x, segs, t, r){ const W = 1920, H = 1080; x.save(); x.fillStyle = '#0f0b08'; x.fillRect(0, 0, W, H);
+  const s = segs.find(z=>t >= z.t0 && t < z.t0 + z.dur) || (t < segs[0].t0 ? segs[0] : segs[segs.length-1]), k = Math.min(1, Math.max(0, (t - s.t0)/s.dur));
+  if(s.kind==='intro' || s.kind==='outro') relCard(x, s, k, r);
+  else { const prev = segs[segs.indexOf(s)-1]; relShot(x, s, k, prev?.kind==='step' ? prev : null); }
+  /* brand: a pill on the title cards, a quiet corner mark over the screens */
+  x.textAlign = 'left'; x.textBaseline = 'middle';
+  if(s.kind!=='step'){ x.globalAlpha = .9; x.fillStyle = 'rgba(15,11,8,.62)'; relRR(x, 28, 26, 330, 46, 23); x.fill(); x.fillStyle = '#e9a133'; x.beginPath(); x.arc(54, 49, 8, 0, 7); x.fill();
+    x.fillStyle = '#fff7ea'; x.font = '600 20px Inter,Arial,sans-serif'; x.fillText("Cross Core Ops Suite · What's New", 72, 50); }
+  else { x.globalAlpha = .78; x.fillStyle = 'rgba(15,11,8,.7)'; relRR(x, 1920 - 262, 1080 - 40, 240, 28, 14); x.fill(); x.fillStyle = '#e9a133'; x.beginPath(); x.arc(1920 - 246, 1080 - 26, 5, 0, 7); x.fill();
+    x.fillStyle = '#fff7ea'; x.font = '600 14px Inter,Arial,sans-serif'; x.fillText("Cross Core Ops Suite · What's New", 1920 - 234, 1080 - 25); }
+  x.restore(); }
+function relCard(x, s, k, r){ const W = 1920, H = 1080, g = x.createLinearGradient(0, 0, W, H); g.addColorStop(0, '#17110a'); g.addColorStop(1, '#3a2510'); x.fillStyle = g; x.fillRect(0, 0, W, H);
+  const a = Math.min(1, k*4, (1-k)*5); x.globalAlpha = a; const rise = (1 - relEase(Math.min(1, k*2.2)))*40;
+  x.fillStyle = '#e9a133'; x.fillRect(160, 420 + rise, 140, 7); x.textAlign = 'left'; x.textBaseline = 'alphabetic';
+  if(s.kind==='intro'){ x.font = '700 30px Inter,Arial,sans-serif'; x.fillText(`WHAT'S NEW · BUILD ${String(r.build).toUpperCase()}${r.version?' · '+r.version.toUpperCase():''}`, 160, 390 + rise);
+    x.fillStyle = '#fff7ea'; x.font = '700 76px Sora,Inter,Arial,sans-serif'; relWrap(x, r.title, 1500).slice(0, 2).forEach((l, i)=>x.fillText(l, 160, 520 + rise + i*92));
+    x.fillStyle = '#d8c8b0'; x.font = '400 32px Inter,Arial,sans-serif'; relWrap(x, r.summary||'', 1500).slice(0, 2).forEach((l, i)=>x.fillText(l, 160, 720 + rise + i*46)); }
+  else { x.fillStyle = '#fff7ea'; x.font = '700 80px Sora,Inter,Arial,sans-serif'; x.fillText("You're all set", 160, 540 + rise); x.fillStyle = '#d8c8b0'; x.font = '400 34px Inter,Arial,sans-serif';
+    x.fillText('Questions? Message System Ops Support from any page.', 160, 620 + rise); x.fillText(`Build ${r.build}${r.version?' · '+r.version:''}`, 160, 680 + rise); }
+  x.globalAlpha = 1; }
+function relCam(s, k){ const c = s.cap, R = c.rects[0]; if(!R) return {z:1, cx:800, cy:450};
+  const zt = Math.max(1, Math.min(1.75, Math.min(1600/(R.w*2.6), 900/(R.h*3.2)))), zk = relEase(Math.min(1, Math.max(0, (k - .08)/.42)));
+  const z = 1 + (zt - 1)*zk, tx = R.x + R.w/2, ty = R.y + R.h/2; const hw = 800/z, hh = 450/z;
+  return {z, cx:Math.min(Math.max(800 + (tx - 800)*zk, hw), 1600 - hw), cy:Math.min(Math.max(450 + (ty - 450)*zk, hh), 900 - hh)}; }
+function relDrawCap(x, s, k){ const cam = relCam(s, k), img = s.cap.canvas, sx = img.width/1600, f = 1920/1600*cam.z;
+  const vx = cam.cx - 800/cam.z, vy = cam.cy - 450/cam.z; x.drawImage(img, vx*sx, vy*sx, 1600/cam.z*sx, 900/cam.z*sx, 0, 0, 1920, 1080); return {f, vx, vy}; }
+function relShot(x, s, k, prev){ const v = relDrawCap(x, s, k);
+  if(prev && k < .12){ x.globalAlpha = 1 - k/.12; relDrawCap(x, prev, 1); x.globalAlpha = 1; }
+  const map = (px, py) => [(px - v.vx)*v.f, (py - v.vy)*v.f]; const R = s.cap.rects[0];
+  if(R){ const [ax, ay] = map(R.x - 8, R.y - 8), bw = (R.w + 16)*v.f, bh = (R.h + 16)*v.f, hk = Math.min(1, Math.max(0, (k - .45)/.12));
+    if(hk > 0){ x.save(); x.fillStyle = `rgba(10,7,4,${.42*hk})`; x.beginPath(); x.rect(0, 0, 1920, 1080); relRR(x, ax, ay, bw, bh, 14, true); x.fill('evenodd');
+      const pulse = .5 + .5*Math.sin(k*s.dur*5); x.shadowColor = 'rgba(233,161,51,.85)'; x.shadowBlur = 18 + pulse*14; x.strokeStyle = '#e9a133'; x.lineWidth = 5; relRR(x, ax, ay, bw, bh, 14); x.stroke(); x.restore(); }
+    /* cursor: glides to the control, clicks */
+    const ck = relEase(Math.min(1, Math.max(0, (k - .18)/.3))), from = prev?.cap?.rects?.[0] ? map(prev.cap.rects[0].x + prev.cap.rects[0].w/2, prev.cap.rects[0].y + prev.cap.rects[0].h/2) : [1500, 960];
+    const to = [ax + bw/2, ay + bh/2], cx = from[0] + (to[0] - from[0])*ck, cy = from[1] + (to[1] - from[1])*ck - Math.sin(ck*Math.PI)*60;
+    const clk = Math.min(1, Math.max(0, (k - .48)/.14)); if(clk > 0 && clk < 1){ x.strokeStyle = `rgba(233,161,51,${1-clk})`; x.lineWidth = 4; x.beginPath(); x.arc(to[0], to[1], 14 + clk*46, 0, 7); x.stroke(); }
+    relCursor(x, cx, cy, clk > 0 && clk < .3); }
+  /* caption */
+  const ca = Math.min(1, Math.max(0, (k - .05)/.1), (1 - k)/.08); let low = false; if(R){ const [, my] = map(R.x + R.w/2, R.y + R.h/2); low = my > 600; } x.save(); x.globalAlpha = ca; x.font = '500 30px Inter,Arial,sans-serif'; const lines = relWrap(x, s.cap.say||'', 1380).slice(0, 2), bh = 92 + lines.length*40, top = low ? 100 : 1080 - bh - 46;
+  x.fillStyle = 'rgba(15,11,8,.86)'; relRR(x, 200, top, 1520, bh, 20); x.fill(); x.fillStyle = '#e9a133'; x.font = '700 20px Inter,Arial,sans-serif'; x.textAlign = 'left'; x.textBaseline = 'alphabetic';
+  x.fillText(`STEP ${s.i+1} OF ${s.of || '—'}  ·  ${String(s.cap.itemTitle||'').toUpperCase()}`.slice(0, 120), 236, top + 38); x.fillStyle = '#fff7ea'; x.font = '700 32px Inter,Arial,sans-serif'; x.fillText(s.cap.title||'', 236, top + 80);
+  x.font = '400 28px Inter,Arial,sans-serif'; x.fillStyle = '#e8dccb'; lines.forEach((l, i)=>x.fillText(l, 236, top + 120 + i*38)); x.restore(); }
+function relCursor(x, X, Y, down){ x.save(); x.translate(X, Y); const s = down ? .9 : 1; x.scale(s*1.5, s*1.5); x.shadowColor = 'rgba(0,0,0,.45)'; x.shadowBlur = 8; x.shadowOffsetY = 2;
+  x.beginPath(); x.moveTo(0, 0); x.lineTo(0, 22); x.lineTo(6, 17); x.lineTo(10, 26); x.lineTo(14, 24); x.lineTo(10, 15); x.lineTo(17, 15); x.closePath(); x.fillStyle = '#fff'; x.fill(); x.shadowColor = 'transparent'; x.lineWidth = 1.6; x.strokeStyle = '#111'; x.stroke(); x.restore(); }
+
+/* the studio never runs background automation or pop-ups */
+if(typeof CC_STUDIO!=='undefined' && CC_STUDIO){ try{ const st=document.createElement('style'); st.textContent='.cc-studio #pushInvite,.cc-studio .ann-gate,.cc-studio .urgent-gate,.cc-studio #demoBanner,.cc-studio .live-toast,.cc-studio #toast,.cc-studio #rmLaunch,.cc-studio #recPopStack,.cc-studio .rec-pop,.cc-studio #msgToasts,.cc-studio .msg-toast,.cc-studio .bd-pop,.cc-studio #jpPop,.cc-studio .jp-pop,.cc-studio #activePop,.cc-studio .toast-wrap,.cc-studio #cbToast{display:none!important} .cc-studio *,.cc-studio *::before,.cc-studio *::after{animation-duration:0s!important;animation-delay:0s!important;transition:none!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;caret-color:transparent!important}'; document.head.appendChild(st); }catch(e){} }
+/* studio-only sample content, so walkthroughs show a realistic screen (demo data, never saved anywhere real) */
+function relStudioSeed(){ if(!(typeof CC_STUDIO!=='undefined' && CC_STUDIO)) return null; const id = 'REL-STUDIO-SAMPLE'; if(relOf(id)) return id;
+  const notes = (window.OPS_RELEASE||[]).filter(n=>n.build===BUILD_ID && !n.internal), head = (window.OPS_RELEASE||[]).find(n=>n.build===BUILD_ID && n.headline) || {}, t = nowISO();
+  const r = {id, build:BUILD_ID, version:'v1.0.x', status:'published', publishedAt:t, createdAt:t, updatedAt:t, by:'ja', title:head.headline || "What's new in Ops Suite", summary:head.summary || notes.map(n=>n.title).join(' · '),
+    items:notes.map(n=>({id:n.id, type:n.type, title:n.title, text:n.text, portals:n.portals||[], depts:n.depts||[], steps:n.steps||[], verified:true})), actions:(head.actions||[]).map(a=>({text:a})),
+    audience:{groups:['all'], people:[]}, media:{shots:[], video:null}, contact:'System Ops Support — Report a problem in the portal', history:[]};
+  r.recipients = relResolve(r.audience); RELEASES.unshift(r); return id; }
+function relStudioApplicants(){ if(!(typeof CC_STUDIO!=='undefined' && CC_STUDIO) || typeof APPLICANTS==='undefined') return; if(APPLICANTS.filter(a=>a.status==='active').length >= 4) return;
+  const d = k => new Date(Date.now() - k*864e5).toISOString();
+  [['st-1','Sample Applicant A','web','application',1],['st-2','Sample Applicant B','aivideo','initial',2],['st-3','Sample Applicant C','web','final',5],['st-4','Sample Applicant D','aivideo','training',8]].forEach(([id, name, track, stage, k])=>{
+    if(APPLICANTS.some(a=>a.id===id)) return; APPLICANTS.unshift({id, name, position:REC_TRACKS[track]||track, track, stage, status:'active', at:d(k), updatedAt:d(k), history:[{at:d(k), by:'luane', stage, status:'active', act:'Added'}], files:[]}); });
+  try{ addApplicantPeople(); }catch(e){} }
+
+/* ===== t99_release_notes.js — Release notes and walkthroughs shipped with each build (read by What's New, t38) =====
+   Write one entry per user-facing change, in plain English, when the code is written. The draft only keeps an entry
+   when the code of its modules really changed against the previous saved build. Internal entries are never shown to users. */
+window.OPS_RELEASE = (window.OPS_RELEASE||[]).concat([
+  {build:'2026-11-17 · 2', headline:"What's New: every system update in one place", summary:'A new What\'s New page collects every Ops Suite update with screenshots and a short walkthrough video, so you always know what changed and what to do.',
+   actions:['Open What\'s New from the menu and click "Got it" on each update addressed to you.']},
+  {build:'2026-11-17 · 2', id:'whatsnew-page', type:'feature', title:"What's New page and update announcements", modules:['t38_releases.js'],
+   text:'Every Ops Suite update now comes with a short announcement: what is new, what improved, what was fixed, who is affected and what you need to do. Updates appear in real time and stay in your What\'s New library.',
+   portals:['All portals'], depts:['All departments'], audience:{groups:['all']}, tour:'whatsnew',
+   steps:['Open What\'s New from the menu.', 'Open an update to read it, view the screenshots and watch the walkthrough.', 'Click "Got it" when you have read it.']},
+  {build:'2026-11-17 · 2', id:'release-studio', type:'feature', internal:true, title:'Release Studio: automatic screenshots, AI-narrated walkthrough videos and targeted announcements (JA and Yam)', modules:['t38b_studio.js','t37_codebank.js'],
+   text:'Drafts are prepared from verified code changes when a build is saved in the Update Bank. Screenshots and the walkthrough video are generated from the portal on demo data. Set up the AI voice in What\'s New → Voice settings.'}
+]);
+window.OPS_TOURS = Object.assign(window.OPS_TOURS||{}, {
+  whatsnew:{steps:[
+    {id:'wn-menu', as:'luane', setup:"relStudioSeed()", run:"go('dashboard')", focus:".nav-item[onclick=\"go('whatsnew')\"]", title:"Find What's New in the menu",
+     say:"Every system update now has its own page. Open What's New from the menu on the left."},
+    {id:'wn-list', run:"REL.q='';REL.cat='all';go('whatsnew')", focus:"#v-whatsnew .card[onclick^=\"relOpen\"]", title:'Your updates, newest first',
+     say:'Your updates are listed here, newest first. Search by title, version or department, or filter by category and date.'},
+    {id:'wn-search', run:"go('whatsnew')", focus:'#relQ', title:'Search and filter',
+     say:'Use search and the filters to find an older update quickly. You only see the updates addressed to you.'},
+    {id:'wn-open', run:"relOpen(relStudioSeed())", focus:'#relAckBtn', wait:1100, title:'Read it, then click Got it',
+     say:'Open an update to read the summary, view screenshots and watch the walkthrough. Click Got it so the team knows you have seen it.'}
+  ]}
+});
 
 /* <<< OCT24 MODULES <<< */
 </script>

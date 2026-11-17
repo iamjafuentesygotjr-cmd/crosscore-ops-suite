@@ -44230,7 +44230,7 @@ function relStudioApplicants(){ if(!(typeof CC_STUDIO!=='undefined' && CC_STUDIO
    • A profile that was already saved for Ziba is upgraded once: the tone, rules and samples below replace the old
      wording, while examples the team approved, "not aligned" feedback and uploaded files are kept. The previous wording is
      kept in the profile history. */
-const ZIBA_VOICE_REV = 'ziba-2026-11-17';
+const ZIBA_VOICE_REV = 'ziba-2026-11-17b';
 VC_SEED.zib = {
   tone:['Warm','Genuine','Caring','Charming','Enthusiastic','Direct'],
   personality:'Ziba Alizadeh, CIR ACIR CSC CSP — President & CEO (Payvand Solutions Group). Workforce strategist, executive search professional, leadership consultant and keynote speaker. Relationship-first: grateful for every connection, celebrates other people generously, funny and charming but always direct and helpful. Credible CEO, never stiff.',
@@ -44240,12 +44240,11 @@ VC_SEED.zib = {
   openings:['[Name] Thank you so much.','[Name] I am glad…','[Name] LOL!!!!','So glad…','Same here!!!','Congratulations, [Name]!','Thank you, [Name]!','(often starts with the person’s name, then straight into the thought)'],
   endings:['Look forward to keeping in touch.','So glad I had the chance to spend some time with you.','It was my privilege…','A short warm wish or congratulations'],
   phrases:['Thank you so much','Same here!!!','So glad','I am thankful for our paths crossing','look forward to keeping in touch','You’re truly an inspiration','it was my privilege','I feel the same way, [Name]','LOL!!!!'],
-  avoid:['Great insights','Thanks for sharing','This really highlights','In today’s rapidly evolving','Couldn’t agree more','Powerful reminder','Game changer','This resonates','Leverage','Synergy','Spot on','Absolutely!','Hard selling or pitching Payvand services in a comment','Booking links or Ziba’s personal email in comments','Using LOL or !!!! in every reply','Several emojis'],
+  avoid:['Great insights','Thanks for sharing','This really highlights','In today’s rapidly evolving','Couldn’t agree more','Powerful reminder','Game changer','This resonates','Leverage','Synergy','Spot on','Absolutely!','Scripts','Copy-paste conversations','Hard selling or pitching Payvand services in a comment','Booking links or Ziba’s personal email in comments','Using LOL or !!!! in every reply','Several emojis'],
   how:{agree:'Says she feels the same, uses their name, then adds a warm personal line.',
-    compliment:'Thanks them warmly (“Thank you so much”), returns the kindness (“Same here!!!”) and celebrates them back.',
-    congratulate:'Big, genuine congratulations with exclamation marks, naming the achievement (e.g. Hall of Fame).',
+    compliment:'Thanks them warmly (“Thank you so much”), returns the kindness (“Same here!!!”) and celebrates them back — big, genuine congratulations when there is an achievement (e.g. “Hall of Fame!!!!”).',
     question:'Answers directly and helpfully in plain words, then stays warm.',
-    humor:'Light and playful when the other person is playful (“LOL!!!! I’m starting a new trend…”), never forced.',
+    criticism:'Stays gracious and calm: thanks them for the perspective, answers the point directly and kindly, never defensive or sarcastic.',
     opinion:'Says what she thinks clearly and kindly — direct to the point.',
     disagree:'Kind and respectful, adds her view without arguing.'},
   humor:'Charming and playful when the moment invites it (LOL!!!!, a playful line like starting a new trend) — not in every reply',
@@ -44282,6 +44281,8 @@ function zibaVoiceUpgrade(){
   const keep = ['tone','personality','style','length','formality','openings','endings','phrases','avoid','how','humor','emoji','punctuation','instructions','sop'];
   r.history = [...(r.history||[]), {at:nowISO(), by:PERSON, act:'Tone of voice updated from Ziba’s sample replies', previous:Object.fromEntries(keep.map(k=>[k, r[k]]))}].slice(-10);
   keep.forEach(k=>{ r[k] = JSON.parse(JSON.stringify(S[k])); });
+  /* these are now the PM-curated wording: a later SOP re-read adds to the lists but never replaces them */
+  const src = {...(r.src||{})}; VSOP_FIELDS.forEach(([k])=>{ src[k] = 'pm'; }); r.src = src;
   const norm = t => String(t||'').toLowerCase().replace(/\s+/g, ' ').trim();
   const ex = r.examples||[]; S.examples.forEach((e, i)=>{ if(!ex.some(x=>norm(x.text)===norm(e.text))) ex.unshift({id:'zib-s'+i, ...e}); }); r.examples = ex;
   const rj = r.rejected||[]; S.rejected.forEach((e, i)=>{ if(!rj.some(x=>norm(x.text)===norm(e.text))) rj.push({id:'zib-r'+i, ...e}); }); r.rejected = rj;

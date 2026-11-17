@@ -20920,7 +20920,7 @@ async function cooPostFromModal(){ const ch = CHATS.find(c=>c.id===el('paPostC')
    The footer shows which build is running ("Build 2026-10-07 · 1"), and every open portal checks every few minutes
    (and whenever it comes back to the foreground) whether a newer build has been published. If so it shows
    "New version available — Update now" instead of quietly running old code. */
-const BUILD_ID = '2026-11-15 · 1';
+const BUILD_ID = '2026-11-17 · 1';
 function verStamp(){ const f = el('footNote'); if(f && !f.dataset.v){ f.dataset.v = 1; f.textContent = `Cross Core Ops Suite v8 · Build ${BUILD_ID}`; } }
 async function verCheck(){
   if(!/^https?:/.test(location.protocol)) return;
@@ -23991,6 +23991,7 @@ function recPipelineHTML(){
   const q = RCV.q.trim().toLowerCase();
   let L = recApps(); if(RCV.f==='archived') L = L.filter(a=>a.archived || a.removed); else { L = L.filter(recVisible); if(RCV.f==='open') L = L.filter(recOpen); else if(RCV.f!=='all') L = L.filter(a=>a.status===RCV.f || (RCV.f==='hired' && a.stage==='employee')); }
   if(q) L = L.filter(a=>(a.name+' '+a.position+' '+(a.account?.username||'')).toLowerCase().includes(q));
+  if(RCV.cat && RCV.cat!=='all') L = L.filter(a=>a.track===RCV.cat);   /* category filter (Nov 17) */
   const cols = RCV.f==='open' ? REC_STAGES : [['all','All']];
   return `<div class="rec-filter"><input placeholder="Search name, position or username" value="${esc(RCV.q)}" oninput="RCV.q=this.value;clearTimeout(RCV.t);RCV.t=setTimeout(()=>{RENDER.recruit();const i=document.querySelector('.rec-filter input');i&&(i.focus(),i.setSelectionRange(i.value.length,i.value.length))},250)">
     ${[['open','In progress'],['pending','Pending'],['reassessment','Reassessment'],['rejected','Rejected'],['withdrawn','Withdrawn'],['hired','Hired'],['all','All'],['archived','Archived & removed']].map(([k,l])=>`<button class="btn ${RCV.f===k?'primary':'ghost'}" onclick="RCV.f='${k}';RENDER.recruit()">${l}</button>`).join('')}</div>
@@ -43395,6 +43396,401 @@ const QA_CSS = `.qa-rep-h{display:flex;gap:12px;align-items:center;margin-bottom
 .qa-iv{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px}.qa-iv label{display:flex;gap:6px;align-items:center;cursor:pointer}.qa-iv input{width:auto}.qa-ov{display:flex;gap:6px;margin-top:6px}.qa-ov select{width:80px}.qa-ov input{flex:1;padding:4px 7px}
 .qa-ins{margin:0 0 4px 18px;font-size:13px;display:grid;gap:3px}.rec-col.qa-drop{outline:2px dashed var(--brand-2);outline-offset:-4px}.rec-card[draggable=true]{cursor:grab}.fd-card{margin-bottom:12px}
 @media(max-width:900px){.qa-kpis{grid-template-columns:repeat(3,1fr)}}@media(max-width:600px){.qa-kpis{grid-template-columns:repeat(2,1fr)}.qa-kp{grid-template-columns:1fr}}`; document.head.appendChild(st); })();
+
+/* ===== t36_recmon.js — Recruitment categories (Web Designer, AI Video Editor) and the floating Applicant Monitor (Nov 17 2026) =====
+   • Categories: "Web design" is now "Web Designer" (same category, existing applicants keep it — the 3D simulation still
+     applies) and "AI Video Editor" is new. Both appear in Add applicant, the Recruitment board filter, training
+     materials, new-hire group chats and the monitor. HR (and the company heads) can add more categories and name the
+     department heads of each one (Recruitment categories, ⚙ in the monitor). Norman is never added (no approvals).
+   • Applicant Monitor: a floating, draggable, collapsible panel for HR, the company heads and department heads, on every
+     page. Applicants grouped by category; monitor stages New Applicant → Screening → Interview → Assessment →
+     For Approval → Hired / Rejected; upcoming interviews, pending assessments, follow-ups; search and filters (name,
+     category, application date, stage); update stage / status in place; live activity and notifications.
+   • HR has full access. A department head sees only the applicants of their categories and can move their stage and
+     status (with a note in the history); closing (reject / withdraw) and hiring stay with HR and the company heads —
+     enforced by the database too (supabase/update-nov17-recmon-codebank.sql). */
+
+Object.assign(REC_TRACKS, {web:'Web Designer', aivideo:'AI Video Editor'});
+let RECCAT = [];
+COLL.reccat = {get:()=>RECCAT, set:v=>RECCAT=v, aud:()=>uniq([...HR_KEYS(), ...HEADS, ...rmAllDeptHeads()])};
+const RM_DEPT_DEFAULT = {leadgen:'Growth', content:'Content', graphic:'Creative Studio', web:'Creative Studio', aivideo:'Creative Studio'};
+const RM_GROUPS = [['new','New Applicant','#6b7280'],['screen','Screening','#2f6fd6'],['interview','Interview','#7a4fd0'],['assess','Assessment','#d98a1c'],['approval','For Approval','#c96a3a'],['hired','Hired','#1d8a52'],['rejected','Rejected','#b42318']];
+const RM_GL = Object.fromEntries(RM_GROUPS.map(g=>[g[0], g]));
+const RM_STATUSES = [['active','In progress'],['pending','Pending'],['reassessment','Reassessment'],['rejected','Rejected'],['withdrawn','Withdrawn']];
+const RM = {open:false, min:false, tab:'board', q:'', cat:'all', grp:'all', from:'', to:'', edit:null, feed:[], unseen:0, snap:null, fold:{}, t:0};
+
+function rmCfg(){ return RECCAT.find(x=>x.id==='main') || {id:'main', cats:{}, heads:null, hidden:[]}; }
+function rmApplyCats(){ const c = rmCfg(); Object.entries(c.cats||{}).forEach(([k, l])=>{ if(l) REC_TRACKS[k] = l; }); }
+const rmCats = () => Object.keys(REC_TRACKS).filter(k=>!(rmCfg().hidden||[]).includes(k));
+function rmHeadsFor(track){ const c = rmCfg(); let L;
+  if(c.heads && Array.isArray(c.heads[track])) L = c.heads[track];
+  else { const d = RM_DEPT_DEFAULT[track]; L = d && typeof idmCfg==='function' ? ((idmCfg().deptHeads||{})[d] || []) : []; }
+  return uniq(L).filter(k=>k && PEOPLE[k] && !approvalOff(k) && !HR_KEYS().includes(k) && !HEADS.includes(k) && PEOPLE[k].role!=='applicant'); }
+function rmAllDeptHeads(){ try{ return uniq(Object.keys(REC_TRACKS).flatMap(rmHeadsFor)); }catch(e){ return []; } }
+/* access */
+const rmFull = () => !isApplicant() && recCan();
+const rmMyCats = () => rmFull() ? Object.keys(REC_TRACKS) : Object.keys(REC_TRACKS).filter(k=>rmHeadsFor(k).includes(PERSON));
+const rmCan = () => !!PEOPLE[PERSON] && !isApplicant() && ROLE!=='client' && (rmFull() || rmMyCats().length > 0);
+const rmCanEdit = a => !!a && (rmFull() ? !approvalOff(PERSON) : rmMyCats().includes(a.track)) && a.stage!=='employee';
+const rmCanClose = () => rmFull() && !approvalOff(PERSON);
+const rmApps = () => APPLICANTS.filter(a=>recVisible(a) && (rmFull() || rmMyCats().includes(a.track)));
+/* applicants are shared with the department heads of their category */
+{ const _a = COLL.applicants.aud; COLL.applicants.aud = a => uniq([..._a(a), ...rmHeadsFor(a.track)]); }
+function rmSyncDeptHeads(){ let n = 0; APPLICANTS.forEach(a=>{ const h = rmHeadsFor(a.track); if(JSON.stringify(a.deptHeads||[])!==JSON.stringify(h)){ a.deptHeads = h; n++; } }); if(n) recordChange(); return n; }
+
+/* monitor stage of an applicant */
+function rmGroup(a){
+  if(['rejected','withdrawn'].includes(a.status) || a.final?.decision==='rejected') return 'rejected';
+  if(a.stage==='employee' || a.stage==='onboarding' || a.final?.decision==='approved') return 'hired';
+  try{ if((typeof qaAwaitingDecision==='function' && qaAwaitingDecision(a)) || (typeof simStateKey==='function' && simStateKey(a.id)==='passed') || a.stage==='awaiting') return 'approval'; }catch(e){}
+  if(['orientation','training','assessment'].includes(a.stage)) return 'assess';
+  if(a.stage==='final') return 'interview'; if(a.stage==='initial') return 'screen'; return 'new'; }
+const rmBadge = g => { const x = RM_GL[g] || RM_GL.new; return `<span class="rm-g" style="--c:${x[2]}">${esc(x[1])}</span>`; };
+const rmDays = a => { const t = a.stageMovedAt || (a.history||[]).filter(h=>h.stage===a.stage)[0]?.at || a.at; const d = t ? Math.floor((Date.now() - new Date(t))/864e5) : 0; return isNaN(d) ? 0 : d; };
+function rmMatch(a){ const q = RM.q.trim().toLowerCase();
+  if(q && !(a.name+' '+(a.position||'')+' '+(REC_TRACKS[a.track]||'')+' '+(a.account?.username||'')).toLowerCase().includes(q)) return false;
+  if(RM.cat!=='all' && a.track!==RM.cat) return false; if(RM.grp!=='all' && rmGroup(a)!==RM.grp) return false;
+  const d = String(a.at||'').slice(0, 10); if(RM.from && d < RM.from) return false; if(RM.to && d > RM.to) return false; return true; }
+
+/* ---------- status changes: notify HR and the category's department heads ---------- */
+{ const _t = recTouch; recTouch = function(a, act, patch={}, note=''){ const b = {stage:a.stage, status:a.status}; const r = _t.apply(this, arguments);
+    try{ if(a && (a.stage!==b.stage || a.status!==b.status)){ a.deptHeads = rmHeadsFor(a.track); rmNotifyChange(a, b); } }catch(e){ console.warn('monitor notify', e); }
+    return r; }; }
+function rmLabel(st){ return `${REC_STAGE[st.stage]||st.stage||'—'} · ${REC_STATUS?.[st.status] || st.status || '—'}`; }
+function rmNotifyChange(a, b){ const to = uniq([...HR_KEYS(), ...rmHeadsFor(a.track)]).filter(k=>k!==PERSON && PEOPLE[k]);
+  if(to.length) notify(to, 'hr', `🔄 <b>${esc(a.name)}</b> (${esc(REC_TRACKS[a.track]||'Applicant')}) — ${esc(rmLabel(b))} → <b>${esc(rmLabel(a))}</b> · by ${esc(first(PERSON))}`, {view:'rmon', app:a.id}); }
+{ const _fl = followLink; followLink = function(link){ if(link?.view==='rmon'){ rmOpen(link.app); return; } return _fl.apply(this, arguments); }; }
+
+/* ---------- live: watch every applicant change that reaches this device ---------- */
+function rmSnap(){ const o = {}; APPLICANTS.forEach(a=>o[a.id] = (a.stage||'')+'|'+(a.status||'')); return o; }
+function rmWatch(){ if(!rmCan()) return; const now = rmSnap(); if(!RM.snap){ RM.snap = now; return; }
+  const vis = new Set(rmApps().map(a=>a.id)); let n = 0;
+  Object.entries(now).forEach(([id, v])=>{ const was = RM.snap[id]; if(was===v || !vis.has(id)) return; const a = recApp(id); const [s0, st0] = (was||'|').split('|');
+    RM.feed.unshift({at:nowISO(), id, name:a.name, cat:a.track, from:was ? {stage:s0, status:st0} : null, to:{stage:a.stage, status:a.status}, by:a.updatedBy||'', isNew:!was}); n++; });
+  RM.snap = now; RM.feed = RM.feed.slice(0, 60);
+  if(n){ if(!RM.open || RM.min || RM.tab!=='feed') RM.unseen += n; rmLauncher(); if(RM.open) rmRender(); } }
+{ const _ore = onRemoteEvent; onRemoteEvent = function(ev){ _ore.apply(this, arguments);
+    if(ev?.coll==='applicants' || ev?.coll==='reccat'){ if(ev.coll==='reccat') rmApplyCats(); clearTimeout(RM.t); RM.t = setTimeout(()=>{ rmWatch(); rmLauncher(); if(RM.open && !RM.edit) rmRender(); }, 400); } }; }
+{ const _rc = recordChange; recordChange = function(){ const r = _rc.apply(this, arguments); clearTimeout(RM.t2); RM.t2 = setTimeout(()=>{ try{ rmWatch(); }catch(e){} }, 300); return r; }; }
+
+/* ---------- the floating panel ---------- */
+function rmCss(){ if(el('rmcss')) return; const s = document.createElement('style'); s.id = 'rmcss'; s.textContent = `
+#rmLaunch{position:fixed;right:0;top:42%;z-index:900;writing-mode:vertical-rl;transform:rotate(180deg);border:0;border-radius:0 12px 12px 0;padding:14px 9px;background:var(--ink,#17110a);color:#fff;font:600 12.5px Inter,system-ui,sans-serif;letter-spacing:.04em;cursor:pointer;box-shadow:0 8px 24px rgba(0,0,0,.18)}
+#rmLaunch b{display:inline-block;writing-mode:horizontal-tb;transform:rotate(180deg);min-width:18px;margin-top:6px;padding:1px 5px;border-radius:9px;background:#e9a133;color:#1c140b;font-size:11px}
+#rmLaunch:focus-visible,#rmPanel button:focus-visible,#rmPanel select:focus-visible,#rmPanel input:focus-visible{outline:2px solid #e9a133;outline-offset:2px}
+#rmPanel{position:fixed;z-index:950;width:min(460px,calc(100vw - 24px));height:min(76vh,720px);display:flex;flex-direction:column;background:var(--card,#fff);color:var(--ink,#1c140b);border:1px solid var(--line,#e6ded2);border-radius:16px;box-shadow:0 24px 60px rgba(0,0,0,.22);overflow:hidden;font-size:13px}
+#rmPanel.min{height:auto}#rmPanel.min .rm-body,#rmPanel.min .rm-tabs,#rmPanel.min .rm-fl{display:none}
+#rmPanel .rm-h{display:flex;align-items:center;gap:8px;padding:10px 12px;background:var(--ink,#17110a);color:#fff;cursor:grab;user-select:none;touch-action:none}
+#rmPanel .rm-h.drag{cursor:grabbing}#rmPanel .rm-h b{flex:1;font-size:14px}#rmPanel .rm-h button{border:0;background:rgba(255,255,255,.12);color:#fff;border-radius:8px;width:28px;height:28px;cursor:pointer;font-size:13px}
+#rmPanel .rm-live{display:inline-flex;align-items:center;gap:5px;font-size:11px;color:#bfe8cf;font-weight:600}#rmPanel .rm-live i{width:7px;height:7px;border-radius:50%;background:#2fbf75;box-shadow:0 0 0 3px rgba(47,191,117,.25)}
+#rmPanel .rm-tabs{display:flex;gap:4px;padding:8px 10px 0;border-bottom:1px solid var(--line,#eee)}#rmPanel .rm-tabs button{border:0;background:none;padding:7px 10px;border-bottom:2px solid transparent;font:600 12.5px Inter,system-ui,sans-serif;color:var(--muted,#6b5a48);cursor:pointer}
+#rmPanel .rm-tabs button.on{color:var(--ink,#1c140b);border-color:#e9a133}#rmPanel .rm-tabs small{background:#e9a133;color:#1c140b;border-radius:9px;padding:0 6px;margin-left:4px;font-size:10.5px}
+#rmPanel .rm-fl{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:8px 10px;border-bottom:1px solid var(--line,#eee)}#rmPanel .rm-fl input,#rmPanel .rm-fl select{width:100%;min-width:0;padding:6px 8px;border:1px solid var(--line,#ddd);border-radius:8px;font:inherit;background:var(--bg,#fff);color:inherit}
+#rmPanel .rm-fl .q{grid-column:1/-1}#rmPanel .rm-fl label{display:flex;flex-direction:column;gap:2px;font-size:10.5px;color:var(--muted,#6b5a48)}
+#rmPanel .rm-body{flex:1;overflow:auto;padding:8px 10px 12px}
+#rmPanel .rm-sum{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:8px}#rmPanel .rm-sum button{border:1px solid var(--line,#e6ded2);background:var(--bg,#faf7f2);border-radius:9px;padding:4px 7px;font:600 11px Inter,system-ui,sans-serif;cursor:pointer;color:inherit}
+#rmPanel .rm-sum button.on{outline:2px solid #e9a133}#rmPanel .rm-sum b{font-size:13px;margin-right:3px}
+#rmPanel .rm-cat{margin-top:8px}#rmPanel .rm-cat>button{width:100%;display:flex;justify-content:space-between;border:0;background:none;padding:6px 2px;font:700 12px Inter,system-ui,sans-serif;letter-spacing:.04em;text-transform:uppercase;color:var(--muted,#6b5a48);cursor:pointer}
+#rmPanel .rm-row{border:1px solid var(--line,#eee);border-radius:10px;padding:8px 9px;margin-top:6px;background:var(--bg,#fff)}#rmPanel .rm-row .t{display:flex;gap:6px;align-items:center}#rmPanel .rm-row .t b{flex:1;font-size:13px}
+#rmPanel .rm-row .m{color:var(--muted,#6b5a48);font-size:11.5px;margin-top:3px}#rmPanel .rm-row .a{display:flex;gap:6px;margin-top:6px;flex-wrap:wrap}
+#rmPanel .rm-row .a button{border:1px solid var(--line,#ddd);background:none;border-radius:7px;padding:3px 9px;font:600 11.5px Inter,system-ui,sans-serif;cursor:pointer;color:inherit}
+#rmPanel .rm-g{display:inline-block;padding:1px 7px;border-radius:9px;font-size:10.5px;font-weight:700;color:var(--c);background:color-mix(in srgb,var(--c) 14%,transparent);white-space:nowrap}
+#rmPanel .rm-ed{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px}#rmPanel .rm-ed select,#rmPanel .rm-ed input{padding:6px;border:1px solid var(--line,#ddd);border-radius:8px;font:inherit;background:var(--bg,#fff);color:inherit;min-width:0}
+#rmPanel .rm-ed .n{grid-column:1/-1}#rmPanel .rm-ed .b{grid-column:1/-1;display:flex;gap:6px;justify-content:flex-end}
+#rmPanel .rm-ed .b button{border:0;border-radius:8px;padding:6px 12px;font:600 12px Inter,system-ui,sans-serif;cursor:pointer}#rmPanel .rm-ed .b .p{background:#e9a133;color:#1c140b}#rmPanel .rm-ed .b .g{background:var(--line,#eee);color:inherit}
+#rmPanel h5{margin:12px 0 4px;font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted,#6b5a48)}#rmPanel .rm-li{display:flex;gap:8px;align-items:flex-start;padding:6px 0;border-top:1px solid var(--line,#f0ebe3);cursor:pointer}
+#rmPanel .rm-li .w{min-width:62px;font-size:11px;color:var(--muted,#6b5a48);font-variant-numeric:tabular-nums}#rmPanel .rm-empty{color:var(--muted,#6b5a48);padding:10px 2px}
+#rmToast{position:fixed;z-index:960;right:18px;bottom:88px;max-width:320px;background:var(--ink,#17110a);color:#fff;border-radius:12px;padding:10px 12px;font-size:12.5px;box-shadow:0 12px 30px rgba(0,0,0,.25);cursor:pointer}
+@media (max-width:700px){#rmPanel{left:8px!important;right:8px;top:auto!important;bottom:8px;width:auto;height:72vh}#rmPanel .rm-h{cursor:default}#rmLaunch{top:auto;bottom:140px}}`; document.head.appendChild(s); }
+function rmLauncher(){ rmCss(); let b = el('rmLaunch'); const ok = rmCan();
+  if(!ok){ b?.remove(); el('rmPanel')?.remove(); RM.open = false; return; }
+  if(!b){ b = document.createElement('button'); b.id = 'rmLaunch'; b.type = 'button'; b.onclick = () => RM.open ? rmClose() : rmOpen(); document.body.appendChild(b); }
+  const n = RM.unseen; b.setAttribute('aria-expanded', RM.open ? 'true' : 'false'); b.setAttribute('aria-label', `Applicant Monitor${n?`, ${n} new update${n>1?'s':''}`:''}`); b.hidden = RM.open && !RM.min;
+  b.innerHTML = `👥 Applicants${n?`<b>${n>99?'99+':n}</b>`:''}`; }
+function rmOpen(app){ if(!rmCan()) return toast('The Applicant Monitor is for HR, the company heads and department heads'); rmCss(); RM.open = true; RM.min = false;
+  if(app){ const a = recApp(app); if(a){ RM.q = a.name; RM.cat = 'all'; RM.grp = 'all'; RM.from = RM.to = ''; RM.tab = 'board'; RM.fold = {}; } }
+  if(RM.tab==='feed') RM.unseen = 0; rmRender(); rmLauncher(); setTimeout(()=>el('rmPanel')?.querySelector('.rm-h button')?.focus({preventScroll:true}), 30); }
+function rmClose(){ RM.open = false; RM.edit = null; el('rmPanel')?.remove(); rmLauncher(); el('rmLaunch')?.focus({preventScroll:true}); }
+function rmPos(p){ let pos = null; try{ pos = JSON.parse(localStorage.getItem('rm.pos')||'null'); }catch(e){}
+  const w = p.offsetWidth || 460, h = p.offsetHeight || 600; let x = pos?.x ?? (innerWidth - w - 24), y = pos?.y ?? Math.max(70, innerHeight - h - 90);
+  x = Math.min(Math.max(8, x), innerWidth - w - 8); y = Math.min(Math.max(8, y), innerHeight - 48); p.style.left = x + 'px'; p.style.top = y + 'px'; }
+function rmDrag(e){ const p = el('rmPanel'); if(!p || e.target.closest('button') || innerWidth <= 700) return; const h = e.currentTarget; h.classList.add('drag'); h.setPointerCapture?.(e.pointerId);
+  const sx = e.clientX - p.offsetLeft, sy = e.clientY - p.offsetTop;
+  const mv = ev => { const x = Math.min(Math.max(8, ev.clientX - sx), innerWidth - p.offsetWidth - 8), y = Math.min(Math.max(8, ev.clientY - sy), innerHeight - 48); p.style.left = x + 'px'; p.style.top = y + 'px'; };
+  const up = () => { h.classList.remove('drag'); h.removeEventListener('pointermove', mv); h.removeEventListener('pointerup', up); try{ localStorage.setItem('rm.pos', JSON.stringify({x:p.offsetLeft, y:p.offsetTop})); }catch(e){} };
+  h.addEventListener('pointermove', mv); h.addEventListener('pointerup', up); }
+function rmRender(){ if(!RM.open) return; rmCss(); rmApplyCats(); let p = el('rmPanel'); const fresh = !p;
+  if(fresh){ p = document.createElement('div'); p.id = 'rmPanel'; p.setAttribute('role', 'dialog'); p.setAttribute('aria-label', 'Applicant Monitor'); document.body.appendChild(p);
+    p.addEventListener('keydown', e=>{ if(e.key==='Escape'){ if(RM.edit){ RM.edit = null; rmRender(); } else rmClose(); } }); }
+  const L = rmApps(), F = L.filter(rmMatch), cats = rmFull() ? rmCats() : rmMyCats();
+  const keepFocus = document.activeElement && p.contains(document.activeElement) ? document.activeElement.id : null;
+  p.classList.toggle('min', RM.min);
+  const tabs = [['board','Board'],['agenda','Agenda'],['feed','Activity']];
+  p.innerHTML = `<div class="rm-h" id="rmHead"><b>👥 Applicant Monitor</b><span class="rm-live"><i></i>Live</span><span style="font-size:11px;opacity:.75">${L.length}</span>
+      ${rmFull() && ROLE!=='client' && !approvalOff(PERSON) ? '<button type="button" title="Recruitment categories & department heads" aria-label="Recruitment categories" onclick="rmSettings()">⚙</button>' : ''}
+      <button type="button" title="${RM.min?'Expand':'Collapse'}" aria-label="${RM.min?'Expand':'Collapse'}" onclick="RM.min=!RM.min;rmRender();rmLauncher()">${RM.min?'▢':'—'}</button><button type="button" title="Close" aria-label="Close the Applicant Monitor" onclick="rmClose()">✕</button></div>
+    <div class="rm-tabs" role="tablist">${tabs.map(([k, l])=>`<button type="button" role="tab" aria-selected="${RM.tab===k}" class="${RM.tab===k?'on':''}" onclick="RM.tab='${k}';${k==='feed'?'RM.unseen=0;rmLauncher();':''}rmRender()">${l}${k==='feed'&&RM.unseen?`<small>${RM.unseen}</small>`:''}</button>`).join('')}</div>
+    <div class="rm-fl"><input class="q" id="rmQ" type="search" placeholder="Search name, position or category" aria-label="Search applicants" value="${esc(RM.q)}" oninput="RM.q=this.value;clearTimeout(RM.qt);RM.qt=setTimeout(rmRender,200)">
+      <label>Category<select id="rmCat" onchange="RM.cat=this.value;rmRender()"><option value="all">All categories</option>${cats.map(k=>`<option value="${k}" ${RM.cat===k?'selected':''}>${esc(REC_TRACKS[k])}</option>`).join('')}</select></label>
+      <label>Stage<select id="rmGrp" onchange="RM.grp=this.value;rmRender()"><option value="all">All stages</option>${RM_GROUPS.map(([k, l])=>`<option value="${k}" ${RM.grp===k?'selected':''}>${l}</option>`).join('')}</select></label>
+      <label>Applied from<input id="rmFrom" type="date" value="${esc(RM.from)}" onchange="RM.from=this.value;rmRender()"></label><label>Applied to<input id="rmTo" type="date" value="${esc(RM.to)}" onchange="RM.to=this.value;rmRender()"></label></div>
+    <div class="rm-body" id="rmBody">${RM.tab==='board' ? rmBoardHTML(L, F, cats) : RM.tab==='agenda' ? rmAgendaHTML(F) : rmFeedHTML(F)}</div>`;
+  el('rmHead').addEventListener('pointerdown', rmDrag); if(fresh) rmPos(p);
+  if(keepFocus && el(keepFocus)){ const i = el(keepFocus); i.focus({preventScroll:true}); if(i.setSelectionRange && i.type==='search') i.setSelectionRange(i.value.length, i.value.length); } }
+function rmBoardHTML(L, F, cats){
+  const sum = RM_GROUPS.map(([k, l, c])=>`<button type="button" class="${RM.grp===k?'on':''}" style="color:${c}" onclick="RM.grp=RM.grp==='${k}'?'all':'${k}';rmRender()"><b>${L.filter(a=>rmGroup(a)===k && (RM.cat==='all'||a.track===RM.cat)).length}</b>${l}</button>`).join('');
+  const groups = cats.filter(k=>RM.cat==='all' || RM.cat===k).map(k=>{ const A = F.filter(a=>a.track===k).sort((a, b)=>RM_GROUPS.findIndex(g=>g[0]===rmGroup(a)) - RM_GROUPS.findIndex(g=>g[0]===rmGroup(b)) || (b.updatedAt||'').localeCompare(a.updatedAt||''));
+      if(!A.length && (RM.q || RM.grp!=='all' || RM.from || RM.to)) return ''; const fold = RM.fold[k];
+      return `<div class="rm-cat"><button type="button" aria-expanded="${!fold}" onclick="RM.fold['${k}']=!RM.fold['${k}'];rmRender()"><span>${fold?'▸':'▾'} ${esc(REC_TRACKS[k])}</span><span>${A.length}</span></button>${fold ? '' : A.map(rmRowHTML).join('') || '<div class="rm-empty">No applicants in this category.</div>'}</div>`; }).join('');
+  const other = F.filter(a=>!cats.includes(a.track)); /* applicants in a hidden or unknown category */
+  return `<div class="rm-sum" aria-label="Applicants by stage">${sum}</div>${groups}${other.length ? `<div class="rm-cat"><button type="button"><span>Other</span><span>${other.length}</span></button>${other.map(rmRowHTML).join('')}</div>` : ''}${!F.length?'<div class="rm-empty">No applicants match these filters.</div>':''}`; }
+function rmRowHTML(a){ const g = rmGroup(a), ed = RM.edit===a.id, d = rmDays(a);
+  return `<div class="rm-row" data-app="${a.id}"><div class="t"><b>${esc(a.name)}</b>${rmBadge(g)}</div>
+    <div class="m">${esc(a.position||REC_TRACKS[a.track]||'')} · ${esc(REC_STAGE[a.stage]||a.stage)} · ${esc(REC_STATUS?.[a.status]||a.status)} · ${d} day${d===1?'':'s'} in stage · applied ${esc(dShort(String(a.at||'').slice(0,10))||'—')}</div>
+    ${a.next ? `<div class="m">→ ${esc(a.next)}</div>` : ''}
+    ${ed ? rmEditHTML(a) : `<div class="a">${rmCanEdit(a)?`<button type="button" onclick="RM.edit='${a.id}';rmRender()">Update status</button>`:''}<button type="button" onclick="rmView('${a.id}')">${rmFull()?'Open record':'Details'}</button></div>`}</div>`; }
+function rmEditHTML(a){ const close = rmCanClose();
+  return `<div class="rm-ed"><label class="hint">Stage<select id="rmEdS">${REC_STAGES.map(([k, l])=>`<option value="${k}" ${a.stage===k?'selected':''}>${l}</option>`).join('')}</select></label>
+    <label class="hint">Status<select id="rmEdT">${RM_STATUSES.filter(([k])=>close || !['rejected','withdrawn'].includes(k) || a.status===k).map(([k, l])=>`<option value="${k}" ${a.status===k?'selected':''}>${l}</option>`).join('')}</select></label>
+    <input class="n" id="rmEdN" placeholder="Note for the history (optional)" aria-label="Note">
+    <div class="hint n">${close ? 'Hiring goes through the CEO / COO final decision. A rejection letter is sent from the applicant record.' : 'You can move the stage and status. Rejecting, withdrawing and hiring stay with HR and the company heads.'}</div>
+    <div class="b"><button type="button" class="g" onclick="RM.edit=null;rmRender()">Cancel</button><button type="button" class="p" id="rmEdSave" onclick="rmSave('${a.id}')">Save</button></div></div>`; }
+function rmSave(id){ const a = recApp(id); if(!rmCanEdit(a)) return toast('You can’t update this applicant');
+  const stage = el('rmEdS')?.value, status = el('rmEdT')?.value, note = (el('rmEdN')?.value || '').trim();
+  if(['rejected','withdrawn'].includes(status) && status!==a.status && !rmCanClose()) return toast('Only HR and the company heads can close an application');
+  const patch = {}; if(stage && stage!==a.stage) patch.stage = stage; if(status && status!==a.status) patch.status = status;
+  if(!Object.keys(patch).length){ RM.edit = null; rmRender(); return; }
+  recTouch(a, `Updated from the Applicant Monitor: ${rmLabel(a)} → ${rmLabel({stage:patch.stage||a.stage, status:patch.status||a.status})}`, patch, note);
+  recordChange(); RM.edit = null; RM.snap = rmSnap(); toast(`${a.name.split(' ')[0]}: ${rmLabel(a)}`); rmRender(); if(CURRENT==='recruit') try{ RENDER.recruit(); }catch(e){} }
+function rmView(id){ if(rmFull() && typeof recView==='function'){ if(CURRENT!=='recruit') go('recruit'); setTimeout(()=>recView(id), 60); return; }
+  const a = recApp(id); if(!a) return;
+  openModal(`${a.name} — ${REC_TRACKS[a.track]||'Applicant'}`, `<div class="hint" style="margin-bottom:8px">${esc(a.position||'')} · applied ${esc(dstr(a.at))} · ${rmBadge(rmGroup(a))} · ${esc(REC_STAGE[a.stage]||'')} · ${esc(REC_STATUS?.[a.status]||a.status)}</div>
+    ${a.next?`<p><b>Next step:</b> ${esc(a.next)}</p>`:''}<h4 style="margin:10px 0 6px">History</h4>
+    ${(a.history||[]).slice().reverse().slice(0, 30).map(h=>`<div class="hint" style="padding:4px 0;border-top:1px solid var(--line,#eee)">${esc(dtstr(h.at))} · ${esc(pname(h.by)||'')} — ${esc(h.act||'')}${h.note?` <i>“${esc(h.note)}”</i>`:''}</div>`).join('') || '<div class="hint">No history yet.</div>'}
+    <p class="hint" style="margin-top:10px">Department heads see the recruitment progress of their categories. CVs, contact details and letters stay with HR.</p>`); }
+function rmAgendaHTML(F){ const ids = new Set(F.map(a=>a.id)), now = Date.now();
+  const meets = (typeof MEETINGS!=='undefined' ? MEETINGS : []).filter(m=>m.rec && m.status!=='cancelled' && new Date(m.end||m.start) > new Date() && (m.rec.apps||[]).some(x=>ids.has(x))).sort((a, b)=>a.start.localeCompare(b.start)).slice(0, 12);
+  const finals = (typeof RECFINAL!=='undefined' ? RECFINAL : []).filter(f=>ids.has(f.app) && !['cancelled','released'].includes(f.status));
+  const pend = F.filter(a=>{ if(!recOpen(a) || ['hired','rejected','approval'].includes(rmGroup(a))) return false;
+    try{ const x = typeof recAssessCur==='function' ? recAssessCur(a.id) : null; const q = typeof qaStatus==='function' ? qaStatus(a.id) : null; const s = typeof simStateKey==='function' && typeof simNeeded==='function' && simNeeded(a) ? simStateKey(a.id) : null;
+      return (x && !x.finalized && ['assigned','submitted'].includes(x.status)) || (q && !q.final) || (a.stage==='assessment' && ['not_started','in_progress','failed'].includes(s)) || (s && ['in_progress','failed'].includes(s)); }catch(e){ return false; } });
+  const appr = F.filter(a=>rmGroup(a)==='approval');
+  const fu = F.filter(a=>recOpen(a) && rmGroup(a)!=='hired' && (now - new Date(a.updatedAt||a.at)) > 3*864e5).sort((a, b)=>(a.updatedAt||a.at||'').localeCompare(b.updatedAt||b.at||''));
+  const li = (a, w, t) => `<div class="rm-li" role="button" tabindex="0" onclick="rmView('${a.id}')" onkeydown="if(event.key==='Enter')rmView('${a.id}')"><span class="w">${w}</span><span style="flex:1"><b>${esc(a.name)}</b> <span class="hint">${esc(REC_TRACKS[a.track]||'')}</span><br><span class="hint">${t}</span></span></div>`;
+  return `<h5>Upcoming interviews & sessions</h5>${meets.map(m=>`<div class="rm-li"><span class="w">${esc(new Date(m.start).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit',timeZone:'Asia/Manila'}))}</span><span style="flex:1"><b>${esc(m.title)}</b><br><span class="hint">${(m.rec.apps||[]).filter(x=>ids.has(x)).map(x=>esc(recApp(x)?.name||x)).join(', ')}</span></span></div>`).join('') || '<div class="rm-empty">Nothing scheduled.</div>'}
+    ${finals.length?`<h5>Final interviews waiting for confirmation</h5>${finals.map(f=>{ const a = recApp(f.app); return a ? li(a, 'final', esc(f.status||'pending')) : ''; }).join('')}`:''}
+    <h5>Pending assessments</h5>${pend.map(a=>li(a, rmDays(a)+'d', esc(REC_STAGE[a.stage]||'')+' · waiting for the applicant or grading')).join('') || '<div class="rm-empty">None.</div>'}
+    <h5>For approval</h5>${appr.map(a=>li(a, rmDays(a)+'d', 'Ready for the CEO / COO final decision or approval')).join('') || '<div class="rm-empty">None.</div>'}
+    <h5>Needs a follow-up (no update for 3+ days)</h5>${fu.map(a=>li(a, Math.floor((now - new Date(a.updatedAt||a.at))/864e5)+'d', esc(a.next||'Check the next step'))).join('') || '<div class="rm-empty">Everyone is moving.</div>'}`; }
+function rmFeedHTML(F){ const ids = new Set(F.map(a=>a.id));
+  const live = RM.feed.filter(x=>ids.has(x.id)).map(x=>`<div class="rm-li" onclick="rmView('${x.id}')"><span class="w">${esc(ago(x.at))}</span><span style="flex:1"><b>${esc(x.name)}</b> ${x.isNew?'<span class="hint">new applicant</span>':''}<br><span class="hint">${x.from?esc(rmLabel(x.from))+' → ':''}<b>${esc(rmLabel(x.to))}</b>${x.by?' · '+esc(first(x.by)):''}</span></span></div>`).join('');
+  const hist = F.flatMap(a=>(a.history||[]).map(h=>({a, h}))).sort((x, y)=>(y.h.at||'').localeCompare(x.h.at||'')).slice(0, 40)
+    .map(({a, h})=>`<div class="rm-li" onclick="rmView('${a.id}')"><span class="w">${esc(ago(h.at))}</span><span style="flex:1"><b>${esc(a.name)}</b> <span class="hint">${esc(REC_TRACKS[a.track]||'')}</span><br><span class="hint">${esc(h.act||'')}${h.by?' · '+esc(first(h.by)):''}</span></span></div>`).join('');
+  return `${live?`<h5>Live — since you opened the portal</h5>${live}`:''}<h5>Recent history</h5>${hist || '<div class="rm-empty">No activity yet.</div>'}`; }
+
+/* ---------- categories & department heads (HR, company heads) ---------- */
+function rmSettings(){ if(!rmFull() || approvalOff(PERSON)) return; const c = rmCfg();
+  const staff = activePeople().filter(k=>PEOPLE[k] && PEOPLE[k].role!=='applicant' && PEOPLE[k].role!=='client' && !approvalOff(k) && !HR_KEYS().includes(k) && !HEADS.includes(k)).sort((a, b)=>pname(a).localeCompare(pname(b)));
+  openModal('Recruitment categories & department heads', `<div class="hint" style="margin-bottom:10px">Categories appear in Add applicant, the Recruitment board filter, training materials and the Applicant Monitor. Department heads see the applicants of their categories and can move their stage and status. HR and the company heads always see everything.</div>
+    ${Object.keys(REC_TRACKS).map(k=>{ const hs = rmHeadsFor(k), custom = !['content','leadgen','web','other','graphic','aivideo'].includes(k), hid = (c.hidden||[]).includes(k);
+      return `<div class="card" style="margin-bottom:8px"><div class="card-b"><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><b style="flex:1">${esc(REC_TRACKS[k])}</b><span class="hint">${APPLICANTS.filter(a=>a.track===k && recVisible(a)).length} applicants</span>
+        ${custom?`<label class="hint"><input type="checkbox" class="rmHide" value="${k}" ${hid?'checked':''}> hide</label>`:''}</div>
+        <div class="rec-pick" style="margin-top:6px">${staff.map(p=>`<label><input type="checkbox" class="rmHd" data-cat="${k}" value="${p}" ${hs.includes(p)?'checked':''}> ${esc(pname(p))}</label>`).join('') || '<span class="hint">No eligible department heads.</span>'}</div></div></div>`; }).join('')}
+    <div class="field"><label>Add a category</label><input id="rmNew" placeholder="e.g. Customer Support Specialist"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end"><button class="btn" onclick="closeModal()">Cancel</button><button class="btn primary" onclick="rmSettingsSave()">Save</button></div>`, true); }
+function rmSettingsSave(){ if(!rmFull()) return; let c = RECCAT.find(x=>x.id==='main'); if(!c){ c = {id:'main', cats:{}, heads:{}, hidden:[], at:nowISO(), by:PERSON}; RECCAT.push(c); }
+  c.heads = c.heads || {}; Object.keys(REC_TRACKS).forEach(k=>c.heads[k] = [...document.querySelectorAll(`.rmHd[data-cat="${k}"]:checked`)].map(x=>x.value));
+  c.hidden = [...document.querySelectorAll('.rmHide:checked')].map(x=>x.value);
+  const nw = (el('rmNew')?.value || '').trim(); if(nw){ const key = nw.toLowerCase().replace(/[^a-z0-9]+/g, '').slice(0, 24) || uid('cat'); if(REC_TRACKS[key]) return toast('That category already exists'); c.cats = {...(c.cats||{}), [key]:nw}; c.heads[key] = []; }
+  c.updatedAt = nowISO(); c.updatedBy = PERSON; rmApplyCats(); const n = rmSyncDeptHeads(); recordChange(); closeModal(); toast(`Recruitment categories saved${n?` · ${n} applicant record${n>1?'s':''} shared with the new department heads`:''}`); rmRender(); }
+
+/* ---------- Recruitment board: category filter ---------- */
+{ const _rr = RENDER.recruit; RENDER.recruit = function(){ const r = _rr.apply(this, arguments);
+    try{ const f = document.querySelector('#v-recruit .rec-filter'); if(f && !el('recCatSel')){ f.querySelector('input')?.insertAdjacentHTML('afterend', `<select id="recCatSel" aria-label="Category" onchange="RCV.cat=this.value;RENDER.recruit()" style="max-width:210px"><option value="all">All categories</option>${rmCats().map(k=>`<option value="${k}" ${RCV.cat===k?'selected':''}>${esc(REC_TRACKS[k])}</option>`).join('')}</select>`); } }catch(e){}
+    return r; }; }
+
+/* ---------- boot ---------- */
+{ const _bn = buildNav; buildNav = function(){ const r = _bn.apply(this, arguments);
+    try{ rmApplyCats(); if(RM.who!==PERSON){ /* a different person signed in on this device: start clean */ el('rmPanel')?.remove(); Object.assign(RM, {who:PERSON, open:false, min:false, tab:'board', q:'', cat:'all', grp:'all', from:'', to:'', edit:null, feed:[], unseen:0, fold:{}}); RM.snap = null; }
+      rmWatch(); rmLauncher(); if(RM.open) rmRender(); }catch(e){} return r; }; }
+setTimeout(()=>{ try{ rmApplyCats(); rmLauncher(); }catch(e){} }, 1500);
+
+/* ===== t37_codebank.js — System Ops Support → System Code Updates & Downloads (Internal Update Bank) (Nov 17 2026) =====
+   Only Yam and JA. Every published build of the Ops Suite is backed up automatically:
+   • When Yam or JA opens the portal on a build that is not in the bank yet, their device claims the backup on the server
+     (one device only), fetches the files that are actually deployed (index.html, sw.js, manifest.json, icons — never
+     config.js, which holds the connection keys), checks that the server returned the same build that is running,
+     splits the portal into its source modules, removes anything that looks like a secret key, and packs it all into
+     OpsSuite_Update_v1.0.N_YYYY-MM-DD.zip with a MANIFEST (SHA-256 of every file) and restore instructions.
+   • The ZIP goes to the private storage bucket "ops-code" (Yam and JA only), under its own path — nothing is ever
+     overwritten or deleted. The server marks the backup saved only when the file is really there, and notifies Yam
+     and JA. Any failure is recorded as failed, shown here and sent to both of them; it is retried automatically.
+   • Download latest / any previous version (checksum verified), update history, version comparison by module,
+     restore (verified package + the exact index.html to upload, logged and announced), and attaching the full release
+     package (with the SQL files) to a version. Server side: supabase/update-nov17-recmon-codebank.sql. */
+
+let CODEBANK = [];
+COLL.codebank = {get:()=>CODEBANK, set:v=>CODEBANK=v, aud:()=>['ja','yam']};
+const UB_KEYS = ['ja','yam'];
+const ubCan = () => UB_KEYS.includes(PERSON) && !isApplicant();
+const UB = {busy:false, msg:'', sel:null, cmp:[null, null], tried:{}, blobs:{}, err:''};
+const ubList = () => CODEBANK.filter(r=>r && r.id).sort((a, b)=>(b.seq||0) - (a.seq||0));
+const ubLatest = () => ubList().find(r=>r.status==='ok');
+const ubSlug = b => String(b||'').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+const ubFmt = n => n>=1048576 ? (n/1048576).toFixed(1)+' MB' : n>=1024 ? Math.round(n/1024)+' KB' : (n||0)+' B';
+async function ubSha(buf){ const h = await crypto.subtle.digest('SHA-256', buf instanceof ArrayBuffer ? buf : new TextEncoder().encode(buf)); return [...new Uint8Array(h)].map(b=>b.toString(16).padStart(2, '0')).join(''); }
+async function ubZipLib(){ if(!window.JSZip) await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js'); if(!window.JSZip) throw new Error('The ZIP tool could not load — check the connection'); return window.JSZip; }
+
+/* ---------- server calls (live) and the demo stand-in ---------- */
+const UBAPI = {
+  live(){ return typeof BACKEND!=='undefined' && BACKEND?.mode==='live' && !!BACKEND.sb; },
+  async rpc(fn, args){ const {data, error} = await BACKEND.sb.rpc(fn, args||{}); if(error) throw new Error(error.message||'Request failed'); return data; },
+  claim(build){ return this.live() ? this.rpc('cc_codebank_claim', {p_build:build}) : ubDemo.claim(build); },
+  done(id, meta){ return this.live() ? this.rpc('cc_codebank_done', {p_id:id, p_meta:meta}) : ubDemo.done(id, meta); },
+  fail(id, err){ return this.live() ? this.rpc('cc_codebank_fail', {p_id:id, p_error:err}) : ubDemo.fail(id, err); },
+  log(id, act, meta){ return this.live() ? this.rpc('cc_codebank_log', {p_id:id, p_act:act, p_meta:meta||{}}) : ubDemo.log(id, act, meta||{}); },
+  async upload(path, blob){ if(!this.live()){ if(UB.blobs[path]) throw new Error('A file with this name already exists — nothing was overwritten'); UB.blobs[path] = blob; return; }
+    const {error} = await BACKEND.sb.storage.from('ops-code').upload(path, blob, {contentType:'application/zip', upsert:false, cacheControl:'3600'}); if(error) throw new Error('Upload failed: ' + error.message); },
+  async download(path){ if(!this.live()){ const b = UB.blobs[path]; if(!b) throw new Error('This file is only kept for the live database (demo mode keeps files until the page is closed)'); return b; }
+    const {data, error} = await BACKEND.sb.storage.from('ops-code').download(path); if(error) throw new Error('Download failed: ' + error.message); return data; },
+};
+const ubDemo = {
+  put(r){ const i = CODEBANK.findIndex(x=>x.id===r.id); if(i>=0) CODEBANK[i] = r; else CODEBANK.push(r); recordChange(); },
+  note(text){ UB_KEYS.forEach(k=>{ if(PEOPLE[k]) NOTIFS2.unshift({id:uid('N'), to:k, type:'system', text, link:{view:'support', tab:'codebank'}, by:'system', at:nowISO(), read:false}); }); },
+  claim(build){ const id = 'UB-' + ubSlug(build), r = CODEBANK.find(x=>x.id===id), t = nowISO();
+    if(r){ if(r.status==='ok' || (r.status==='pending' && Date.now() - new Date(r.claimedAt) < 6e5)) return {claimed:false, id, status:r.status, version:r.version};
+      this.put({...r, status:'pending', claimedBy:PERSON, claimedAt:t, tries:(r.tries||1)+1}); return {claimed:true, id, slug:r.slug, version:r.version, seq:r.seq}; }
+    const seq = CODEBANK.reduce((m, x)=>Math.max(m, x.seq||0), 0) + 1, version = 'v1.0.' + seq;
+    this.put({id, build, slug:ubSlug(build), seq, version, status:'pending', claimedBy:PERSON, claimedAt:t, publishedBy:PERSON, tries:1, log:[{at:t, by:PERSON, act:'backup started'}]}); return {claimed:true, id, slug:ubSlug(build), version, seq}; },
+  done(id, meta){ const r = CODEBANK.find(x=>x.id===id); if(!r) throw new Error('Unknown backup'); if(!UB.blobs[meta.path]) throw new Error('The ZIP file was not found in storage — the backup is not marked as saved');
+    const t = nowISO(); const {id:_i, build:_b, slug:_s, seq:_q, version:_v, status:_st, log:_l, ...m} = meta; this.put({...r, ...m, status:'ok', savedBy:PERSON, savedAt:t, error:null, log:[...(r.log||[]), {at:t, by:PERSON, act:'backup saved'}]});
+    this.note(`📦 New system backup <b>${r.version}</b> (build ${esc(r.build)}) is saved in the Internal Update Bank — ${esc(meta.file||'')}.`); return CODEBANK.find(x=>x.id===id); },
+  fail(id, err){ const r = CODEBANK.find(x=>x.id===id); if(!r || r.status==='ok') return r; const t = nowISO(); this.put({...r, status:'failed', error:String(err).slice(0, 500), failedAt:t, log:[...(r.log||[]), {at:t, by:PERSON, act:'backup FAILED', note:String(err).slice(0, 300)}]});
+    this.note(`⚠️ The automatic backup of build <b>${esc(r.build)}</b> FAILED: ${esc(String(err).slice(0, 200))} — open System Ops Support → System Code Updates to retry.`); return r; },
+  log(id, act, meta){ const r = CODEBANK.find(x=>x.id===id); if(!r) throw new Error('Unknown backup'); const t = nowISO(), n = {...r};
+    if(act==='attach') n.attachments = [...(r.attachments||[]), {...meta, by:PERSON, at:t}]; if(act==='note') n.note = meta.note||''; if(act==='published-by') n.publishedBy = meta.who;
+    n.log = [...(r.log||[]), {at:t, by:PERSON, act, note:meta.name||meta.note||meta.who||''}]; this.put(n);
+    if(act==='restore') UB_KEYS.filter(k=>k!==PERSON && PEOPLE[k]).forEach(k=>NOTIFS2.unshift({id:uid('N'), to:k, type:'system', text:`♻️ ${esc(pname(PERSON))} prepared a restore of <b>${r.version}</b> (build ${esc(r.build)}).`, link:{view:'support', tab:'codebank'}, by:'system', at:t, read:false}));
+    return n; },
+};
+
+/* ---------- packaging the running build ---------- */
+const UB_SECRET = [/sk-(?:live|proj|ant|test)?-?[A-Za-z0-9_-]{20,}/g, /eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}/g, /AIza[0-9A-Za-z_-]{35}/g, /gh[pousr]_[A-Za-z0-9]{36,}/g, /xox[baprs]-[A-Za-z0-9-]{10,}/g, /service_role[^'"\s]{0,4}['"][^'"]{20,}['"]/g];
+function ubRedact(txt){ let n = 0; UB_SECRET.forEach(re=>{ txt = txt.replace(re, m=>{ n++; return '[REDACTED]'; }); }); return [txt, n]; }
+function ubModules(html){ const B = '/* >>> OCT24' + ' MODULES', E = '/* <<< OCT24' + ' MODULES <<< */';   /* split so this line is never mistaken for the markers */ const i = html.indexOf(B), j = html.indexOf(E); if(i<0 || j<0) return {base:html, mods:[]};
+  const block = html.slice(html.indexOf('\n', i) + 1, j), base = html.slice(0, i) + html.slice(j + E.length);
+  const parts = block.split(/(?=^\/\* ===== (?:t|x)[0-9a-z_]+\.js)/m), mods = [];
+  parts.forEach((p, k)=>{ const m = /^\/\* ===== ((?:t|x)[0-9a-z_]+\.js)/.exec(p); mods.push({name:m ? m[1] : (k ? `part-${k}.js` : '_prelude.js'), text:p}); });
+  return {base, mods}; }
+async function ubFetchText(u){ const r = await fetch(u + (u.includes('?')?'&':'?') + 'cb=' + Date.now(), {cache:'no-store', credentials:'same-origin'}); if(!r.ok) throw new Error(`${u}: HTTP ${r.status}`); return r.text(); }
+async function ubPackage(build, version){
+  let html = null; for(const u of ['index.html', './']){ try{ const t = await ubFetchText(u); if(/BUILD_ID\s*=/.test(t)){ html = t; break; } }catch(e){} }
+  if(!html) throw new Error('The deployed index.html could not be read from the server');
+  const m = /const BUILD_ID = '([^']+)'/.exec(html); if(!m || m[1]!==build) throw new Error(`The server returned build ${m?m[1]:'(unknown)'} but this portal is running ${build} — reload the page and try again`);
+  const JSZip = await ubZipLib(), date = manilaDate(), name = `OpsSuite_Update_${version}_${date}.zip`, root = name.replace(/\.zip$/, '') + '/';
+  const zip = new JSZip(), files = []; let red = 0;
+  const addText = async (path, txt) => { const [clean, n] = ubRedact(txt); red += n; zip.file(root + path, clean); files.push({path, size:new Blob([clean]).size, sha256:await ubSha(clean), redacted:n||undefined}); return clean; };
+  const cleanHtml = await addText('public/index.html', html);
+  for(const f of ['sw.js','manifest.json']){ try{ await addText('public/' + f, await ubFetchText(f)); }catch(e){} }
+  for(const f of ['icon-192.png','icon-512.png']){ try{ const r = await fetch(f, {cache:'no-store'}); if(r.ok){ const b = await r.arrayBuffer(); zip.file(root + 'public/' + f, b); files.push({path:'public/' + f, size:b.byteLength, sha256:await ubSha(b)}); } }catch(e){} }
+  const {base, mods} = ubModules(cleanHtml), modules = [];
+  for(const x of mods){ zip.file(root + 'modules-source/' + x.name, x.text); const sha = await ubSha(x.text); modules.push({name:x.name, size:new Blob([x.text]).size, lines:x.text.split('\n').length, sha256:sha}); }
+  modules.unshift({name:'index.html (portal core)', size:new Blob([base]).size, lines:base.split('\n').length, sha256:await ubSha(base)});
+  const manifest = {product:'Cross Core Ops Suite', version, build, date, capturedAt:nowISO(), capturedBy:pname(PERSON), source:location.origin, files, modules, redactions:red,
+    excluded:['public/config.js (connection keys — written by Vercel from its environment variables)', 'Supabase SQL files and Edge Functions (not part of the website — attach the release package to this version)', 'Applicant and employee data (the database is not part of the code)']};
+  zip.file(root + 'MANIFEST.json', JSON.stringify(manifest, null, 2));
+  zip.file(root + 'README.txt', `Cross Core Ops Suite — ${version} (build ${build}), saved ${date} by the System Ops Internal Update Bank.\n\nRESTORE THIS VERSION\n1. GitHub → the Ops Suite repository → public → Add file → Upload files → upload public/index.html from this ZIP → Commit changes.\n2. Wait until Vercel shows "Ready", then hard refresh the portal (Ctrl+Shift+R). The footer shows build ${build}.\n3. If this version needs database changes, use the release package attached to it in System Ops Support → System Code Updates.\n\nmodules-source/ holds the same code split into its modules (for review and comparison).\nMANIFEST.json lists every file with its SHA-256 checksum. ${red ? red + ' value(s) that looked like secret keys were replaced with [REDACTED].' : 'No secret keys were found.'}\nNot included: ${manifest.excluded.join('; ')}.\n`);
+  const blob = await zip.generateAsync({type:'blob', compression:'DEFLATE', compressionOptions:{level:6}}), buf = await blob.arrayBuffer();
+  return {blob, name, size:buf.byteLength, sha256:await ubSha(buf), files, modules, redactions:red}; }
+
+/* ---------- automatic backup ---------- */
+async function ubCapture(manual){ if(!ubCan() || UB.busy) return; UB.busy = true; UB.err = ''; UB.msg = 'Checking…'; ubRefresh(); let claim = null;
+  try{ claim = await UBAPI.claim(BUILD_ID);
+    if(!claim.claimed){ UB.msg = claim.status==='ok' ? `Build ${BUILD_ID} is already saved as ${claim.version}.` : 'Another device is saving this build right now.'; if(manual) toast(UB.msg); return; }
+    UB.msg = `Packing ${claim.version}…`; ubRefresh();
+    const pkg = await ubPackage(BUILD_ID, claim.version), path = `bank/${claim.slug || ubSlug(BUILD_ID)}/${pkg.name}`;
+    UB.msg = `Uploading ${pkg.name} (${ubFmt(pkg.size)})…`; ubRefresh();
+    await UBAPI.upload(path, pkg.blob); if(!UBAPI.live()) UB.last = pkg.blob;
+    await UBAPI.done(claim.id, {path, file:pkg.name, size:pkg.size, sha256:pkg.sha256, files:pkg.files, modules:pkg.modules, redactions:pkg.redactions, origin:location.origin});
+    UB.msg = `${claim.version} saved — ${pkg.name}`; toast(`📦 System backup ${claim.version} saved`);
+  }catch(e){ const msg = String(e?.message||e); UB.err = msg; UB.msg = '';
+    if(claim?.claimed){ try{ await UBAPI.fail(claim.id, msg); }catch(e2){} }
+    toast('⚠ Automatic backup failed: ' + msg); console.warn('code bank', e); }
+  finally{ UB.busy = false; setTimeout(ubRefresh, UBAPI.live() ? 900 : 50); } }
+function ubAuto(){ if(!ubCan() || UB.busy || (typeof SYNC!=='undefined' && SYNC.ready===false)) return; const r = CODEBANK.find(x=>x.build===BUILD_ID);
+  if(r && (r.status==='ok' || (r.status==='pending' && Date.now() - new Date(r.claimedAt) < 6e5))) return;
+  const k = BUILD_ID + '|' + (r?.status||'none') + '|' + (r?.tries||0); if(UB.tried[k]) return; UB.tried[k] = 1; ubCapture(false); }
+setInterval(()=>{ try{ ubAuto(); }catch(e){} }, 45000);
+setTimeout(()=>{ try{ ubAuto(); }catch(e){} }, 15000);
+
+/* ---------- downloads, restore, attachments ---------- */
+function ubSave(blob, name){ const u = URL.createObjectURL(blob), a = document.createElement('a'); a.href = u; a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(u), 4000); }
+async function ubGet(r, att){ const path = att ? att.path : r.path, want = att ? att.sha256 : r.sha256; const blob = await UBAPI.download(path); const sha = await ubSha(await blob.arrayBuffer());
+  if(want && sha!==want) throw new Error('Checksum mismatch — this file is not the one that was saved. It was not downloaded.'); return blob; }
+async function ubDownload(id, ai){ const r = CODEBANK.find(x=>x.id===id); if(!r || r.status!=='ok') return; const att = ai!=null ? (r.attachments||[])[ai] : null;
+  try{ toast('Downloading and verifying…'); const blob = await ubGet(r, att); ubSave(blob, att ? att.name : r.file); UBAPI.log(id, 'download', {name:att ? att.name : r.file}).catch(()=>{}); toast(`✓ ${att ? att.name : r.file} — checksum verified`); }
+  catch(e){ toast('⚠ ' + (e.message||e)); } }
+async function ubRestore(id){ const r = CODEBANK.find(x=>x.id===id); if(!r || r.status!=='ok') return;
+  openModal(`Restore ${r.version} (build ${r.build})`, `<div class="hint" style="margin-bottom:10px">This prepares the exact files of ${esc(r.version)} — verified against the checksum saved on ${esc(dtstr(r.savedAt))}. The portal can't push to GitHub by itself, so the last step is yours:</div>
+    <ol style="line-height:1.7;margin:0 0 12px 18px"><li>Click <b>Verify & download</b>: you get <b>index.html</b> (from this version) and the full ZIP.</li><li>GitHub → Ops Suite repository → <b>public</b> → Add file → Upload files → upload <b>index.html</b> → Commit changes.</li><li>When Vercel shows “Ready”, hard refresh (Ctrl+Shift+R). The footer shows <b>${esc(r.build)}</b>.</li>${(r.attachments||[]).length?'<li>If database changes are needed, open the attached release package.</li>':''}</ol>
+    <div class="hint" style="margin-bottom:12px">The restore is recorded in this version’s history and ${UB_KEYS.filter(k=>k!==PERSON).map(k=>esc(first(k))).join(' and ')} is notified. Newer versions stay in the bank.</div>
+    <div style="display:flex;gap:8px;justify-content:flex-end"><button class="btn" onclick="closeModal()">Cancel</button><button class="btn primary" id="ubRestoreGo" onclick="ubRestoreGo('${id}')">Verify & download</button></div>`); }
+async function ubRestoreGo(id){ const r = CODEBANK.find(x=>x.id===id); const b = el('ubRestoreGo'); if(b){ b.disabled = true; b.textContent = 'Verifying…'; }
+  try{ const blob = await ubGet(r); const JSZip = await ubZipLib(); const z = await JSZip.loadAsync(blob); const f = Object.values(z.files).find(x=>/\/public\/index\.html$/.test(x.name)); if(!f) throw new Error('index.html is missing from this package');
+    const html = await f.async('string'); if(!html.includes(`const BUILD_ID = '${r.build}'`)) throw new Error('The packaged index.html is not build ' + r.build);
+    ubSave(new Blob([html], {type:'text/html'}), 'index.html'); setTimeout(()=>ubSave(blob, r.file), 600);
+    await UBAPI.log(id, 'restore', {name:r.file}); closeModal(); toast(`♻️ ${r.version} ready to restore — upload index.html to GitHub`); setTimeout(ubRefresh, 800); }
+  catch(e){ toast('⚠ ' + (e.message||e)); if(b){ b.disabled = false; b.textContent = 'Verify & download'; } } }
+async function ubAttach(id, input){ const r = CODEBANK.find(x=>x.id===id); const f = input.files?.[0]; input.value = ''; if(!r || !f) return;
+  if(!/\.zip$/i.test(f.name)) return toast('Attach a .zip release package'); if(f.size > 100*1048576) return toast('The package is larger than 100 MB');
+  try{ toast('Uploading the release package…'); const buf = await f.arrayBuffer(); const safe = f.name.replace(/[^\w.\-]+/g, '_'); const path = `bank/${r.slug}/release/${Date.now()}-${safe}`;
+    await UBAPI.upload(path, new Blob([buf], {type:'application/zip'})); await UBAPI.log(id, 'attach', {path, name:f.name, size:buf.byteLength, sha256:await ubSha(buf)}); toast('Release package attached'); setTimeout(ubRefresh, 700); }
+  catch(e){ toast('⚠ ' + (e.message||e)); } }
+async function ubPublishedBy(id, who){ try{ await UBAPI.log(id, 'published-by', {who}); setTimeout(ubRefresh, 600); }catch(e){ toast('⚠ ' + e.message); } }
+async function ubNote(id){ const v = el('ubNoteIn')?.value || ''; try{ await UBAPI.log(id, 'note', {note:v}); toast('Saved'); setTimeout(()=>ubDetail(id), 600); }catch(e){ toast('⚠ ' + e.message); } }
+
+/* ---------- comparison ---------- */
+function ubCompare(aId, bId){ const A = CODEBANK.find(x=>x.id===aId), B = CODEBANK.find(x=>x.id===bId); if(!A || !B) return '';
+  const ma = Object.fromEntries((A.modules||[]).map(m=>[m.name, m])), mb = Object.fromEntries((B.modules||[]).map(m=>[m.name, m]));
+  const names = uniq([...Object.keys(ma), ...Object.keys(mb)]); const rows = names.map(n=>{ const x = ma[n], y = mb[n]; const st = !x ? 'added' : !y ? 'removed' : x.sha256===y.sha256 ? 'same' : 'changed'; return {n, x, y, st}; });
+  const c = k => rows.filter(r=>r.st===k).length; const cls = {added:'b-approved', removed:'b-missed', changed:'b-pending', same:'b-draft'};
+  return `<div class="hint" style="margin:8px 0">${esc(A.version)} (${esc(A.build)}) → ${esc(B.version)} (${esc(B.build)}): <b>${c('changed')}</b> changed · <b>${c('added')}</b> added · <b>${c('removed')}</b> removed · ${c('same')} unchanged</div>
+    <div style="overflow-x:auto"><table class="tbl"><thead><tr><th>Module / file</th><th>Change</th><th>Lines</th><th>Size</th></tr></thead><tbody>${rows.filter(r=>r.st!=='same').concat(rows.filter(r=>r.st==='same')).map(r=>`<tr${r.st==='same'?' style="opacity:.55"':''}><td>${esc(r.n)}</td><td><span class="badge ${cls[r.st]}">${r.st}</span></td><td>${r.x?.lines??'—'} → ${r.y?.lines??'—'}</td><td>${r.x?ubFmt(r.x.size):'—'} → ${r.y?ubFmt(r.y.size):'—'}</td></tr>`).join('')}</tbody></table></div>`; }
+
+/* ---------- the page: System Ops Support → System Code Updates ---------- */
+function ubHTML(){ if(!ubCan()) return '<div class="empty">The Internal Update Bank is for Yam and JA.</div>';
+  const L = ubList(), latest = ubLatest(), cur = L.find(r=>r.build===BUILD_ID), ok = L.filter(r=>r.status==='ok');
+  if(!UB.cmp[0] && ok[1]) UB.cmp = [ok[1].id, ok[0].id];
+  const st = r => r.status==='ok' ? '<span class="badge b-approved">Saved</span>' : r.status==='failed' ? '<span class="badge b-missed">Failed</span>' : '<span class="badge b-pending">Saving…</span>';
+  return `<div class="card" style="margin-bottom:14px"><div class="card-b" style="display:flex;gap:14px;align-items:center;flex-wrap:wrap"><div style="font-size:30px">📦</div>
+      <div style="flex:1;min-width:240px"><b>System Code Updates & Downloads</b> <span class="hint">· Internal Update Bank · Yam & JA only</span>
+        <div class="hint">Running now: build <b>${esc(BUILD_ID)}</b> — ${cur ? (cur.status==='ok' ? `saved as <b>${esc(cur.version)}</b>` : cur.status==='failed' ? `<b style="color:var(--bad,#b42318)">backup failed</b> (${esc(cur.error||'')})` : 'saving…') : 'not saved yet'}.
+        Every new build is backed up automatically the first time Yam or JA opens it.</div>
+        ${UB.busy||UB.msg ? `<div class="hint" id="ubMsg" style="margin-top:4px">${UB.busy?'<span class="spin"></span> ':''}${esc(UB.msg)}</div>` : ''}${UB.err ? `<div class="hint" style="margin-top:4px;color:var(--bad,#b42318)">⚠ ${esc(UB.err)}</div>` : ''}</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">${latest?`<button class="btn primary" onclick="ubDownload('${latest.id}')">⬇ Download latest ZIP</button>`:''}${!cur || cur.status==='failed' ? `<button class="btn" ${UB.busy?'disabled':''} onclick="ubCapture(true)">${cur?'Retry backup':'Back up this build now'}</button>` : ''}</div></div></div>
+    <div class="card" style="margin-bottom:14px"><div class="card-h"><h3>Versions & update history</h3><span class="hint">${ok.length} saved · nothing is ever overwritten or deleted</span></div><div class="card-b" style="overflow-x:auto">
+      ${L.length ? `<table class="tbl"><thead><tr><th>Version</th><th>Build</th><th>Saved</th><th>Published by</th><th>Package</th><th>Modules</th><th>Status</th><th></th></tr></thead><tbody>${L.map(r=>`<tr data-cb="${r.id}"><td><b>${esc(r.version)}</b>${r.build===BUILD_ID?' <span class="badge b-scheduled">running</span>':''}</td><td>${esc(r.build)}</td><td>${esc(dtstr(r.savedAt||r.failedAt||r.claimedAt))}</td><td>${esc(pname(r.publishedBy||r.claimedBy))}</td>
+        <td>${r.file?`${esc(r.file)}<div class="hint">${ubFmt(r.size)} · sha256 ${esc((r.sha256||'').slice(0, 12))}…</div>`:'—'}</td><td>${(r.modules||[]).length||'—'}</td><td>${st(r)}${r.status==='failed'?`<div class="hint" style="max-width:220px">${esc(r.error||'')}</div>`:''}</td>
+        <td style="white-space:nowrap">${r.status==='ok'?`<button class="btn ghost" onclick="ubDownload('${r.id}')">⬇ ZIP</button><button class="btn ghost" onclick="ubRestore('${r.id}')">Restore</button>`:''}<button class="btn ghost" onclick="ubDetail('${r.id}')">Details</button></td></tr>`).join('')}</tbody></table>` : '<div class="empty">No backups yet — the first one is made automatically.</div>'}</div></div>
+    ${ok.length>1 ? `<div class="card"><div class="card-h"><h3>Compare versions</h3><span style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"><select id="ubA" onchange="UB.cmp[0]=this.value;ubRefresh()">${ok.map(r=>`<option value="${r.id}" ${UB.cmp[0]===r.id?'selected':''}>${esc(r.version)} · ${esc(r.build)}</option>`).join('')}</select> → <select id="ubB" onchange="UB.cmp[1]=this.value;ubRefresh()">${ok.map(r=>`<option value="${r.id}" ${UB.cmp[1]===r.id?'selected':''}>${esc(r.version)} · ${esc(r.build)}</option>`).join('')}</select></span></div><div class="card-b">${ubCompare(UB.cmp[0], UB.cmp[1])}</div></div>` : ''}`; }
+function ubDetail(id){ const r = CODEBANK.find(x=>x.id===id); if(!r) return;
+  openModal(`${r.version} · build ${r.build}`, `<div class="hint" style="margin-bottom:10px">${r.status==='ok'?`Saved ${esc(dtstr(r.savedAt))} by ${esc(pname(r.savedBy))} · ${esc(r.file)} · ${ubFmt(r.size)}<br>SHA-256 <code style="font-size:11px;word-break:break-all">${esc(r.sha256||'')}</code>`:esc(r.status)}${r.redactions?`<br>${r.redactions} value(s) that looked like secret keys were replaced with [REDACTED].`:''}</div>
+    <div class="field"><label>Published by</label><select onchange="ubPublishedBy('${id}', this.value)">${UB_KEYS.map(k=>`<option value="${k}" ${(r.publishedBy||r.claimedBy)===k?'selected':''}>${esc(pname(k))}</option>`).join('')}</select></div>
+    <div class="field"><label>What changed in this version (note)</label><textarea id="ubNoteIn" rows="3">${esc(r.note||'')}</textarea><button class="btn" style="margin-top:6px" onclick="ubNote('${id}')">Save note</button></div>
+    ${r.status==='ok'?`<h4 style="margin:10px 0 6px">Release packages</h4>${(r.attachments||[]).map((a, i)=>`<div class="list-row"><div style="flex:1"><b>${esc(a.name)}</b><div class="hint">${ubFmt(a.size)} · ${esc(pname(a.by))} · ${esc(dtstr(a.at))}</div></div><button class="btn ghost" onclick="ubDownload('${id}', ${i})">⬇</button></div>`).join('') || '<div class="hint">None yet. Attach the full release ZIP (with the SQL files) so this version can be rebuilt completely.</div>'}
+      <label class="btn" style="margin-top:6px;display:inline-block;cursor:pointer">+ Attach release package (.zip)<input type="file" accept=".zip" hidden onchange="ubAttach('${id}', this)"></label>`:''}
+    <h4 style="margin:12px 0 6px">Files in the package</h4>${(r.files||[]).map(f=>`<div class="hint">• ${esc(f.path)} · ${ubFmt(f.size)}${f.redacted?` · ${f.redacted} redacted`:''}</div>`).join('') || '<div class="hint">—</div>'}
+    <details style="margin-top:8px"><summary>${(r.modules||[]).length} modules</summary>${(r.modules||[]).map(m=>`<div class="hint">• ${esc(m.name)} · ${m.lines} lines</div>`).join('')}</details>
+    <h4 style="margin:12px 0 6px">History</h4>${(r.log||[]).slice().reverse().map(l=>`<div class="hint">• ${esc(dtstr(l.at))} — ${esc(pname(l.by))}: ${esc(l.act)}${l.note?' · '+esc(l.note):''}</div>`).join('')}`, true); }
+function ubRefresh(){ if(CURRENT==='support' && TK.tab==='codebank') RENDER.support(); }
+{ const _rs = RENDER.support; RENDER.support = function(){ const mine = TK.tab==='codebank'; if(mine && !ubCan()) TK.tab = 'mine'; if(TK.tab==='codebank') TK.tab = 'how';
+    const r = _rs.apply(this, arguments); if(mine && ubCan()) TK.tab = 'codebank';
+    try{ const v = el('v-support'), tabs = v?.querySelector('.tabs'); if(tabs && ubCan()){
+        if(!tabs.querySelector('[data-cbtab]')) tabs.insertAdjacentHTML('beforeend', `<button class="tab ${TK.tab==='codebank'?'on':''}" data-cbtab="1" onclick="TK.tab='codebank';RENDER.support()">📦 System Code Updates</button>`);
+        if(TK.tab==='codebank'){ tabs.querySelectorAll('.tab').forEach(b=>b.classList.toggle('on', !!b.dataset.cbtab)); let n = tabs.nextElementSibling; while(n){ const x = n.nextElementSibling; n.remove(); n = x; } tabs.insertAdjacentHTML('afterend', `<div id="ubPage">${ubHTML()}</div>`); } } }catch(e){ console.warn('code bank page', e); }
+    return r; }; }
+{ const _fl = followLink; followLink = function(link){ if(link?.view==='support' && link.tab==='codebank'){ TK.tab = 'codebank'; } return _fl.apply(this, arguments); }; }
+{ const _ore = onRemoteEvent; onRemoteEvent = function(ev){ _ore.apply(this, arguments); if(ev?.coll==='codebank'){ clearTimeout(UB.t); UB.t = setTimeout(ubRefresh, 300); } }; }
 
 /* <<< OCT24 MODULES <<< */
 </script>

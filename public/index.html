@@ -14402,12 +14402,12 @@ function msgCore(m, prev, o={}){
 msgBlock = function(m, prev){ return msgCore(m, prev); };
 { const _sig = msgSig; msgSig = (m, prev) => { const R = m.thread ? [] : threadReplies(m.id); return _sig(m, prev) + '|' + R.length + '|' + (R.length ? R[R.length-1].at + R.map(r=>r.by).join(',') : '') + '|' + (typeof avatarSig==='function' ? avatarSig(m.by) : ''); }; }
 messagesHTML = function(c){
-  const M = mainMsgs(c.id).slice(-200);
+  const M = typeof chatWinList==='function' ? chatWinList(c.id) : mainMsgs(c.id).slice(-200);   /* v1.0.5: window grows when older messages are loaded (t42) */
   return M.map((m,i)=>`<div class="mwrap" id="mw-${m.id}" data-sig="${esc(msgSig(m,M[i-1]))}">${msgBlock(m,M[i-1])}</div>`).join('') || '<div class="empty" id="chatEmpty">No messages yet — say hello 👋</div>';
 };
 updateMessages = function(c){
   const sc = el('chatScroll'); if(!sc) return;
-  const M = mainMsgs(c.id).slice(-200);
+  const M = typeof chatWinList==='function' ? chatWinList(c.id) : mainMsgs(c.id).slice(-200);   /* v1.0.5: window grows when older messages are loaded (t42) */
   if(!M.length){ if(!el('chatEmpty')) sc.innerHTML = messagesHTML(c); return; }
   el('chatEmpty')?.remove();
   const want = new Set(M.map(m=>'mw-'+m.id));
@@ -20923,7 +20923,7 @@ async function cooPostFromModal(){ const ch = CHATS.find(c=>c.id===el('paPostC')
    The footer shows which build is running ("Build 2026-10-07 · 1"), and every open portal checks every few minutes
    (and whenever it comes back to the foreground) whether a newer build has been published. If so it shows
    "New version available — Update now" instead of quietly running old code. */
-const BUILD_ID = '2026-11-18 · 2';
+const BUILD_ID = '2026-11-18 · 3';
 function verStamp(){ const f = el('footNote'); if(f && !f.dataset.v){ f.dataset.v = 1; f.textContent = `Cross Core Ops Suite v8 · Build ${BUILD_ID}`; } }
 async function verCheck(){
   if(!/^https?:/.test(location.protocol)) return;
@@ -44608,6 +44608,704 @@ function wspSave(){ const h = +el('wspReset').value; wsSet({resetH:WS_RESET_OPTS
 .wsp-it{display:flex;align-items:center;gap:6px;padding:5px 8px;border:1px solid var(--line);border-radius:9px;margin-bottom:4px;font-size:13px}.wsp-it span{flex:1}.wsp-it .btn{padding:2px 8px}
 .wsp-add{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}.wsp-add select{flex:1;min-width:180px}
 @media(prefers-reduced-motion:reduce){#nav .ng-chev{transition:none}}`; document.head.appendChild(st); })();
+/* ===== t42_msgux.js — Messages & sidebar redesign (v1.0.5 · Nov 18 2026) =====
+   Scoped extensions only: every change below wraps the final version of an existing function (the pattern the rest
+   of the portal uses) and falls back to that version if anything goes wrong. No data model or database change —
+   the two new per-person preferences (Important-group order / hidden groups) live in the existing synced `prefs`
+   record next to `pins`, `unpins` and `mute`; collapse state and drafts live on the device (localStorage).
+
+   • Sidebar: pinned conversations are no longer listed under Messages (Messages keeps its unread badge).
+   • Conversation list: compact rows; "Important groups" (team groups — All VAs and the company groups — plus any
+     group you pin; reorder or remove them in Manage), "My pinned" (pinned private, client and client-portal chats),
+     then "All conversations" newest first and Ended contracts last. Filters stay. Search finds conversations,
+     people and words in loaded messages (click a message to jump to it).
+   • Header: voice, video and info icons + a ⋯ menu that holds the existing actions (mute, pin, members, client
+     workspace, edit group …) — only the actions the person already had. Info panel: Members, Shared files, Details.
+   • Messages: calm background, lighter bubbles, compact date separators, a "New messages" divider, "Jump to latest",
+     older messages load when you scroll to the top (from memory first, then from the server, read-only).
+   • Composer: a formatting row (B, I, S, List, More) and an input row (attach menu with screenshot / screen
+     recording, emoji, voice, message, send). Enter sends, Shift+Enter adds a line (touch screens: the Send button).
+     Each conversation keeps its unsent draft on this device. */
+
+const MX = {info:null, tab:'members', loading:{}, done:{}, err:{}, keepWin:false, newN:0, dt:null};
+const CHAT_WIN = {};
+const MX_WIN = 100, MX_STEP = 100;
+const MXI = {
+  phone:'<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.8 19.8 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.12 4.18 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/>',
+  video:'<path d="m22 8-6 4 6 4V8Z"/><rect width="14" height="12" x="2" y="6" rx="2"/>',
+  info:'<circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>',
+  more:'<circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/>',
+  clip:'<path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/>',
+  smile:'<circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><path d="M9 9h.01"/><path d="M15 9h.01"/>',
+  mic:'<path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><path d="M12 19v3"/>',
+  send:'<path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/>',
+  down:'<path d="m6 9 6 6 6-6"/>', up:'<path d="m18 15-6-6-6 6"/>', arrowDown:'<path d="M12 5v14"/><path d="m19 12-7 7-7-7"/>',
+  pin:'<path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/>',
+  star:'<path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01z"/>',
+  bell:'<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>',
+  bellOff:'<path d="M8.7 3A6 6 0 0 1 18 8a21.3 21.3 0 0 0 .6 5"/><path d="M17 17H3s3-2 3-9a4.67 4.67 0 0 1 .3-1.7"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/><path d="m2 2 20 20"/>',
+  users:'<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+  file:'<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/>',
+  image:'<rect width="18" height="18" x="3" y="3" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.09-3.09a2 2 0 0 0-2.82 0L6 21"/>',
+  film:'<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M7 3v18"/><path d="M17 3v18"/><path d="M3 7.5h4"/><path d="M3 12h18"/><path d="M3 16.5h4"/><path d="M17 7.5h4"/><path d="M17 16.5h4"/>',
+  brief:'<rect width="20" height="14" x="2" y="7" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>',
+  scissors:'<circle cx="6" cy="6" r="3"/><path d="M8.12 8.12 12 12"/><path d="M20 4 8.12 15.88"/><circle cx="6" cy="18" r="3"/><path d="M14.8 14.8 20 20"/>',
+  screen:'<rect width="20" height="14" x="2" y="3" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/><circle cx="12" cy="10" r="2.2"/>',
+  upload:'<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m17 8-5-5-5 5"/><path d="M12 3v12"/>',
+  pencil:'<path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>',
+  list:'<path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M3 6h.01"/><path d="M3 12h.01"/><path d="M3 18h.01"/>',
+  at:'<circle cx="12" cy="12" r="4"/><path d="M16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-4 8"/>',
+  eraser:'<path d="M4 7V4h16v3"/><path d="M5 20h6"/><path d="M13 4 8 20"/><path d="m15 15 5 5"/><path d="m20 15-5 5"/>',
+  keys:'<rect width="20" height="16" x="2" y="4" rx="2"/><path d="M6 8h.01"/><path d="M10 8h.01"/><path d="M14 8h.01"/><path d="M18 8h.01"/><path d="M7 16h10"/>',
+  x:'<path d="M18 6 6 18"/><path d="m6 6 12 12"/>', msg:'<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',
+  sliders:'<path d="M20 7h-9"/><path d="M14 17H5"/><circle cx="17" cy="17" r="3"/><circle cx="7" cy="7" r="3"/>',
+  ext:'<path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>'
+};
+const mxIco = (k, s=16) => `<svg class="msx-ico" width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${MXI[k]||''}</svg>`;
+const mxCoarse = () => { try{ return matchMedia('(pointer: coarse)').matches; }catch(e){ return false; } };
+const mxLog = (where, id, e) => { try{ if(typeof chatSafeLog==='function') chatSafeLog('mx '+where, id||'', e); else console.warn('[messages]', where, e); }catch(_){} };
+
+/* ---------- per-person device state (collapsed sections) and drafts ---------- */
+const mxKey = s => 'cc-'+s+'-'+(PERSON||'anon');
+function mxUI(){ try{ return JSON.parse(localStorage.getItem(mxKey('mx'))||'{}') || {}; }catch(e){ return {}; } }
+function mxUISet(k, v){ const o = mxUI(); o[k] = v; try{ localStorage.setItem(mxKey('mx'), JSON.stringify(o)); }catch(e){} }
+function mxDraftAll(){ try{ return JSON.parse(localStorage.getItem(mxKey('mxd'))||'{}') || {}; }catch(e){ return {}; } }
+function mxDraft(id){ const d = mxDraftAll()[id]; return d && d.t && Date.now() - (d.at||0) < 14*864e5 ? d.t : ''; }
+function mxDraftSet(id, t){ if(!id) return; const D = mxDraftAll(); t = String(t||'').slice(0, 8000);
+  if(t.trim()) D[id] = {t, at:Date.now()}; else delete D[id];
+  const keys = Object.keys(D).sort((a,b)=>(D[b].at||0)-(D[a].at||0)); keys.slice(40).forEach(k=>delete D[k]);
+  try{ localStorage.setItem(mxKey('mxd'), JSON.stringify(D)); }catch(e){} }
+
+/* ================= SIDEBAR: no pinned conversations under Messages ================= */
+pinnedNavHTML = function(){ return ''; };
+
+/* ================= IMPORTANT GROUPS / PINS ================= */
+const mxTeamGroup = c => !!c && (c.kind==='group' || (!c.kind && !c.client));
+function mxHidden(){ const p = PREFS.find(x=>x.id===PERSON) || {}; return new Set([...(Array.isArray(p.impHide)?p.impHide:[]), ...(Array.isArray(p.unpins)?p.unpins:[])]); }
+function mxIsImp(c, pins, hid){ if(!mxTeamGroup(c) || c.archived) return false; pins = pins || myPins(); hid = hid || mxHidden();
+  if(pins.includes(c.id)) return true; return !hid.has(c.id) && (!!c.custom || isAllVa(c.id)); }
+function mxImpList(lastAt){
+  const mine = myChats(), pins = myPins(), hid = mxHidden(); const p = PREFS.find(x=>x.id===PERSON) || {};
+  const ord = Array.isArray(p.impOrder) ? p.impOrder : []; const rank = id => { const i = ord.indexOf(id); return i<0 ? 1e6 : i; };
+  lastAt = lastAt || (c => mxLastAt(c));
+  return mine.filter(c=>mxIsImp(c, pins, hid)).sort((a,b)=> rank(a.id)-rank(b.id) || (isAllVa(b.id)?1:0)-(isAllVa(a.id)?1:0) || String(lastAt(b)).localeCompare(String(lastAt(a))));
+}
+function mxLastAt(c){ let at = ''; for(const m of MESSAGES){ if(m.chat===c.id && !m.thread && (m.at||'') > at) at = m.at; } return at || (c.at instanceof Date ? c.at.toISOString() : c.at) || ''; }
+togglePin = function(id){
+  const p = myPrefs(); const on = !myPins().includes(id); const base = Array.isArray(p.pins) ? p.pins : defaultPins();
+  if(on){ p.pins = [...base.filter(x=>x!==id), id]; p.unpins = (p.unpins||[]).filter(x=>x!==id); if(Array.isArray(p.impHide)) p.impHide = p.impHide.filter(x=>x!==id); }
+  else { p.pins = base.filter(x=>x!==id); if(isAllVa(id)) p.unpins = [...new Set([...(p.unpins||[]), id])]; }
+  recordChange(); buildNav(); if(CURRENT==='chat') RENDER.chat();
+  const g = mxTeamGroup(CHATS.find(x=>x.id===id));
+  toast(on ? (g ? 'Added to Important groups' : 'Pinned to the top of Messages') : 'Unpinned');
+};
+function mxImpToggle(id){
+  const c = CHATS.find(x=>x.id===id); if(!c) return; const p = myPrefs(); const on = !mxIsImp(c); const base = Array.isArray(p.pins) ? p.pins : defaultPins();
+  if(on){ p.pins = [...base.filter(x=>x!==id), id]; p.unpins = (p.unpins||[]).filter(x=>x!==id); p.impHide = (p.impHide||[]).filter(x=>x!==id); }
+  else { p.pins = base.filter(x=>x!==id); if(isAllVa(id)) p.unpins = [...new Set([...(p.unpins||[]), id])]; p.impHide = [...new Set([...(p.impHide||[]), id])]; }
+  recordChange(); buildNav(); if(CURRENT==='chat') RENDER.chat();
+  if(el('mxImpBody')) el('mxImpBody').innerHTML = mxImpManageHTML();
+  toast(on ? 'Added to Important groups' : 'Removed from Important groups — it is still in All conversations');
+}
+function mxImpMove(id, d){
+  const L = mxImpList().map(c=>c.id); const i = L.indexOf(id), j = i + d; if(i<0 || j<0 || j>=L.length) return;
+  [L[i], L[j]] = [L[j], L[i]]; myPrefs().impOrder = L; recordChange();
+  if(el('mxImpBody')) el('mxImpBody').innerHTML = mxImpManageHTML(); mpRedrawList();
+}
+function mxImpManageHTML(){
+  const L = mxImpList(); const others = myChats().filter(c=>mxTeamGroup(c) && !c.archived && !L.includes(c));
+  const row = (c, i) => `<div class="list-row msx-imp-row">${chatAvatar(c)}<div style="flex:1;min-width:0"><b>${esc(chatTitle(c))}</b><div class="hint">${(c.members||[]).length} members</div></div>
+    <button class="icon-btn" title="Move up" aria-label="Move ${esc(chatTitle(c))} up" ${i===0?'disabled':''} onclick="mxImpMove('${c.id}',-1)">${mxIco('up')}</button>
+    <button class="icon-btn" title="Move down" aria-label="Move ${esc(chatTitle(c))} down" ${i===L.length-1?'disabled':''} onclick="mxImpMove('${c.id}',1)">${mxIco('down')}</button>
+    <button class="btn ghost" onclick="mxImpToggle('${c.id}')">Remove</button></div>`;
+  return `<p class="hint" style="margin:0 0 10px">Important groups stay at the top of your Messages list in this order. This only changes your own list.</p>
+    ${L.length ? L.map(row).join('') : '<div class="empty">No important groups yet.</div>'}
+    ${others.length ? `<div class="msx-sec-t" style="margin:14px 0 6px">Other team groups</div>${others.map(c=>`<div class="list-row msx-imp-row">${chatAvatar(c)}<div style="flex:1;min-width:0"><b>${esc(chatTitle(c))}</b><div class="hint">${(c.members||[]).length} members</div></div><button class="btn" onclick="mxImpToggle('${c.id}')">Add</button></div>`).join('')}` : ''}`;
+}
+function mxImpManage(){ openModal('Important groups', `<div id="mxImpBody">${mxImpManageHTML()}</div>`); }
+
+/* ================= THE CONVERSATION LIST ================= */
+function mxSec(k){ const ui = mxUI(); mxUISet(k+'Closed', !ui[k+'Closed']); mpRedrawList(); }
+function mxImpAll(){ mxUISet('impAll', !mxUI().impAll); mpRedrawList(); }
+function mxRow(c, lastMsg){
+  const h = mpItem(c, lastMsg); if(CHAT_OPEN===c.id) return h;
+  const d = mxDraft(c.id); if(!d) return h;
+  const t = document.createElement('template'); t.innerHTML = h; const pv = t.content.querySelector('.pv');
+  if(pv) pv.innerHTML = `<span class="msx-draft">Draft:</span> ${esc(d.replace(/\s+/g,' ').slice(0,80))}`;
+  return t.innerHTML;
+}
+function mxSecHead(k, label, n, unread, open, extra=''){
+  return `<div class="msx-sec" data-sec="${k}"><button type="button" class="msx-sec-t" aria-expanded="${open}" onclick="mxSec('${k}')"><span class="msx-chev ${open?'':'shut'}">${mxIco('down',14)}</span>${label}<span class="msx-sec-c">${n}</span>${!open && unread ? `<b class="msx-sec-u" aria-label="${unread} unread">${unread>99?'99+':unread}</b>` : ''}</button>${extra}</div>`;
+}
+function mxListHTML(){
+  const mine = myChats(); const f = MP.filter; const ui = mxUI();
+  const lastMsg = {}; for(const m of MESSAGES){ if(m.thread) continue; const l = lastMsg[m.chat]; if(!l || (m.at||'') >= (l.at||'')) lastMsg[m.chat] = m; }
+  const lastAt = c => lastMsg[c.id]?.at || (c.at instanceof Date ? c.at.toISOString() : c.at) || '';
+  const newest = (a,b) => String(lastAt(b)).localeCompare(String(lastAt(a)));
+  const IMP = mxImpList(lastAt); const impIds = new Set(IMP.map(c=>c.id));
+  const PIN = myPins().map(id=>mine.find(c=>c.id===id)).filter(c=>c && !c.archived && !impIds.has(c.id));
+  const used = new Set([...impIds, ...PIN.map(c=>c.id)]);
+  const ALL = mine.filter(c=>!used.has(c.id) && !c.archived && mpMatch(c, f)).sort(newest);
+  const ARCH = mine.filter(c=>c.archived && (f==='all' || f==='clients'));
+  const un = L => L.reduce((n,c)=>n+unreadIn(c.id), 0);
+  const chips = `<div class="mp-chips msx-chips" role="tablist" aria-label="Filter conversations">${MP_FILTERS.map(([k,l])=>{ const n = k==='unread' ? mine.filter(c=>!c.archived && unreadIn(c.id)).length : 0;
+    return `<button class="mp-chip ${f===k?'on':''}" role="tab" aria-selected="${f===k}" onclick="chatFilter('${k}')">${l}${n?` <b>${n}</b>`:''}</button>`; }).join('')}</div>`;
+  let h = chips;
+  const IMPf = IMP.filter(c=>mpMatch(c, f));
+  if(IMPf.length){ const open = !ui.impClosed; const lim = ui.impAll ? IMPf.length : 5;
+    h += mxSecHead('imp', 'Important groups', IMPf.length, un(IMPf), open, `<button type="button" class="msx-sec-a" onclick="mxImpManage()" title="Reorder or remove important groups">Manage</button>`);
+    if(open){ h += `<div class="msx-grp" data-sec="imp">${IMPf.slice(0, lim).map(c=>mxRow(c, lastMsg)).join('')}</div>`;
+      if(IMPf.length > 5) h += `<button type="button" class="msx-moreg" onclick="mxImpAll()">${ui.impAll ? 'Show less' : `+${IMPf.length-5} more`}</button>`; } }
+  const PINf = PIN.filter(c=>mpMatch(c, f));
+  if(PINf.length){ const open = !ui.pinClosed; h += mxSecHead('pin', 'My pinned', PINf.length, un(PINf), open);
+    if(open) h += `<div class="msx-grp" data-sec="pin">${PINf.map(c=>mxRow(c, lastMsg)).join('')}</div>`; }
+  const lab = f==='unread' ? 'Unread' : f==='dm' ? 'Direct messages' : f==='groups' ? 'Groups' : f==='clients' ? 'Clients' : 'All conversations';
+  if(ALL.length){ const open = !ui.allClosed; h += mxSecHead('all', lab, ALL.length, un(ALL), open);
+    if(open) h += `<div class="msx-grp" data-sec="all">${ALL.map(c=>mxRow(c, lastMsg)).join('')}</div>`; }
+  else if(f!=='all' && !IMPf.length && !PINf.length) h += `<div class="empty mp-empty">${f==='unread' ? 'You’re all caught up.' : 'Nothing here yet.'}</div>`;
+  if(ARCH.length){ const open = !ui.archClosed; h += mxSecHead('arch', 'Ended contracts', ARCH.length, 0, open);
+    if(open) h += `<div class="msx-grp" data-sec="arch">${ARCH.map(c=>mxRow(c, lastMsg).replace('</div></div>', `</div><div class="pv msx-ended">${esc(endedChatTag(c))}</div></div>`)).join('')}</div>`; }
+  if(!mine.length) h += '<div class="empty">No conversations yet.</div>';
+  return h;
+}
+
+/* search: conversations, people and words in loaded messages */
+function mxMark(text, q){ const s = String(text||''); const i = s.toLowerCase().indexOf(q); if(i<0) return esc(s.slice(0, 90));
+  const a = Math.max(0, i-36), b = Math.min(s.length, i+q.length+54);
+  return (a?'…':'') + esc(s.slice(a, i)) + '<mark>' + esc(s.slice(i, i+q.length)) + '</mark>' + esc(s.slice(i+q.length, b)) + (b<s.length?'…':''); }
+function mxSearchHTML(raw){
+  const q = raw.toLowerCase(); const mine = myChats(); const ids = new Set(mine.map(c=>c.id));
+  const lastMsg = {}; for(const m of MESSAGES){ if(m.thread || !ids.has(m.chat)) continue; const l = lastMsg[m.chat]; if(!l || (m.at||'') >= (l.at||'')) lastMsg[m.chat] = m; }
+  const conv = mine.filter(c=>chatTitle(c).toLowerCase().includes(q) || (c.kind!=='dm' && (c.members||[]).some(k=>k!==PERSON && PEOPLE[k] && pname(k).toLowerCase().includes(q))))
+    .sort((a,b)=> (chatTitle(b).toLowerCase().includes(q)?1:0)-(chatTitle(a).toLowerCase().includes(q)?1:0) || String(lastMsg[b.id]?.at||'').localeCompare(String(lastMsg[a.id]?.at||''))).slice(0, 20);
+  const dmWith = new Set(mine.filter(c=>c.kind==='dm').map(c=>(c.members||[]).find(k=>k!==PERSON)));
+  let people = []; try{ people = activePeople().filter(k=>k!==PERSON && !dmWith.has(k) && pname(k).toLowerCase().includes(q)).slice(0, 8); }catch(e){}
+  const hits = []; for(let i=MESSAGES.length-1; i>=0 && hits.length<40; i--){ const m = MESSAGES[i];
+    if(!ids.has(m.chat) || m.deleted || m.sys || m.kind || !m.text) continue; if(m.thread && typeof inThread==='function' && !inThread(m)) continue;
+    if(m.text.toLowerCase().includes(q)) hits.push(m); }
+  let h = '';
+  if(conv.length) h += `<div class="msx-sec"><span class="msx-sec-t msx-static">Conversations<span class="msx-sec-c">${conv.length}</span></span></div><div class="msx-grp">${conv.map(c=>mxRow(c, lastMsg)).join('')}</div>`;
+  if(people.length) h += `<div class="msx-sec"><span class="msx-sec-t msx-static">People<span class="msx-sec-c">${people.length}</span></span></div><div class="msx-grp">${people.map(k=>`<button class="chat-item msx-person" onclick="startDM('${k}')" title="Start a private message">${av(P(k))}<div style="min-width:0;flex:1"><div class="nm"><span class="mp-nm">${esc(pname(k))}</span>${typeof tsInline==='function'?tsInline(k):''}</div><div class="pv">${esc(P(k).sub||'')}</div></div><span class="msx-go">${mxIco('msg',15)}</span></button>`).join('')}</div>`;
+  if(hits.length) h += `<div class="msx-sec"><span class="msx-sec-t msx-static">Messages<span class="msx-sec-c">${hits.length}${hits.length>=40?'+':''}</span></span></div><div class="msx-grp">${hits.map(m=>{ const c = CHATS.find(x=>x.id===m.chat);
+      return `<button class="chat-item msx-hit" onclick="mxJump('${m.chat}','${m.id}')" title="Open this message">${av(P(m.by))}<div style="min-width:0;flex:1"><div class="nm"><span class="mp-nm">${esc(m.by===PERSON?'You':pname(m.by))}</span><span class="msx-in"> · ${esc(c?chatTitle(c):'')}</span><span class="mp-when">${esc(mpWhen(m.at))}</span></div><div class="pv msx-snip">${m.thread?'↪ ':''}${mxMark(m.text, q)}</div></div></button>`; }).join('')}</div>`;
+  if(!h) h = `<div class="empty chat-noresult">Nothing matches “${esc(raw)}”.<div class="hint">Message search covers the messages loaded on this device.</div></div>`;
+  else h += `<div class="msx-foot hint">Message search covers the messages loaded on this device.</div>`;
+  return h;
+}
+{ const _prev = chatListHTML; chatListHTML = function(){
+    try{ const q = (CHAT_Q||'').trim(); const h = q ? mxSearchHTML(q) : mxListHTML(); MP.un = MP.unNext; MP.unNext = {}; return chatSearchHTML() + h; }
+    catch(e){ mxLog('list', '', e); return _prev.apply(this, arguments); } }; }
+{ const _cs = chatSearchHTML; chatSearchHTML = function(){ return _cs.apply(this, arguments).replace('placeholder="Search conversations"', 'placeholder="Search people, groups, messages" aria-label="Search people, groups and messages"'); }; }
+
+/* jump to a message (search results, notifications): make sure it is inside the loaded window first */
+function mxEnsure(m){ if(!m) return; const root = m.thread ? (MESSAGES.find(x=>x.id===m.thread) || m) : m; const L = chatWinList(m.chat);
+  if(L.length && (root.at||'') < (L[0].at||'')) CHAT_WIN[m.chat] = {from: root.at}; }
+function mxJump(chat, id){ const m = MESSAGES.find(x=>x.id===id); if(!m) return toast('That message is no longer available');
+  mxEnsure(m); MX.keepWin = true; followLink({view:'chat', arg:chat, msg:id}); }
+if(typeof flashMsg==='function'){ const _fm = flashMsg; flashMsg = function(id){ const r = _fm.apply(this, arguments); if(r) return r;
+    try{ const m = MESSAGES.find(x=>x.id===id); const sc = el('chatScroll'); const c = m && CHATS.find(x=>x.id===m.chat);
+      if(!m || !c || !sc || sc.dataset.chat!==m.chat || m.thread) return r;
+      mxEnsure(m); updateMessages(c); mxTop(); return _fm.apply(this, arguments); }catch(e){ mxLog('jump', id, e); return r; } }; }
+
+/* ================= HEADER: icons, ⋯ menu, info ================= */
+const mxAttr = s => String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;');
+const mxTxt = b => (b.textContent||'').replace(/^[^\p{L}\p{N}]+/u, '').replace(/\s*→\s*$/,'').trim();
+function mxHead(h, c){
+  const box = document.createElement('div'); box.innerHTML = h;
+  const back = box.querySelector('.chat-back'); back?.remove();
+  const all = [...box.querySelectorAll('button')].filter(b=>b!==back);
+  const keep = [], menu = [];
+  let voice = null, video = null;
+  all.forEach(b=>{ const on = b.getAttribute('onclick')||'';
+    if(/bxCall\([^)]*'audio'/.test(on)) voice = b;
+    else if(/startCall\(/.test(on)) video = b;
+    else if(/joinCall\(|openMeet\(/.test(on)) keep.push(b);
+    else menu.push(b); b.remove(); });
+  const acts = [...box.children].find(n=>n.tagName==='SPAN' && !n.querySelector('h3')); if(acts) acts.remove();
+  const ib = (b, ico, lab) => { b.className = 'icon-btn msx-hbtn'; b.setAttribute('aria-label', lab); if(!b.title) b.title = lab; b.innerHTML = mxIco(ico, 18); return b.outerHTML; };
+  let out = '';
+  keep.forEach(b=>{ b.classList.add('msx-live'); out += b.outerHTML; });
+  if(voice) out += ib(voice, 'phone', 'Voice call');
+  if(video) out += ib(video, 'video', 'Video call');
+  out += `<button class="icon-btn msx-hbtn ${MX.info===c.id?'on':''}" onclick="mxInfoOpen('${c.id}')" title="Conversation info" aria-label="Conversation info" aria-pressed="${MX.info===c.id}">${mxIco('info',18)}</button>`;
+  out += `<button class="icon-btn msx-hbtn" onclick="mxMore(this)" title="More" aria-label="More actions" aria-haspopup="menu">${mxIco('more',18)}</button>`;
+  /* the ⋯ menu: the existing actions, relabelled; team groups use Important instead of Pin */
+  const item = (on, ico, lab, title='') => `<button type="button" role="menuitem" onclick="${mxAttr(on)}" ${title?`title="${esc(title)}"`:''}>${mxIco(ico)}<span>${esc(lab)}</span></button>`;
+  let items = '';
+  menu.forEach(b=>{ const on = b.getAttribute('onclick')||''; const t = mxTxt(b);
+    if(/chatMute\(/.test(on)) items += item(on, chatMuted(c.id)?'bell':'bellOff', chatMuted(c.id)?'Unmute':'Mute', b.title);
+    else if(/togglePin\(/.test(on)) items += mxTeamGroup(c) ? item(`mxImpToggle('${c.id}')`, 'star', mxIsImp(c)?'Remove from Important groups':'Add to Important groups') : item(on, 'pin', myPins().includes(c.id)?'Unpin conversation':'Pin conversation');
+    else if(/chatMembersModal\(/.test(on)) items += item(`mxInfoOpen('${c.id}','members')`, 'users', 'Members');
+    else if(/openClient\(/.test(on)) items += item(on, 'brief', 'Client workspace');
+    else if(/groupModal\(/.test(on)) items += item(on, 'pencil', t || 'Edit group');
+    else items += item(on, 'ext', t || 'Action', b.title); });
+  if(c.kind!=='dm' && typeof gaCan==='function' && gaCan(c)) items += item(`gaModal('${c.id}')`, 'image', 'Change group photo');
+  if(c.custom && canManageGroups()) items += item(`groupModal('${c.id}')`, 'pencil', 'Edit group name & members');
+  items += item(`mxInfoOpen('${c.id}','files')`, 'file', 'Shared files');
+  if(typeof pushSettings==='function') items += item('pushSettings()', 'sliders', 'Notification settings');
+  return (back ? back.outerHTML : '') + `<div class="msx-hmain" role="button" tabindex="0" onclick="if(!event.target.closest('.ga-edit'))mxInfoOpen('${c.id}')" onkeydown="if(event.key==='Enter')mxInfoOpen('${c.id}')" title="Conversation info">${box.innerHTML}</div>`
+    + `<span class="msx-hacts">${out}</span><template class="msx-menu-tpl">${items}</template>`;
+}
+{ const _ch = chatHeadHTML; chatHeadHTML = function(c){ const h = _ch.apply(this, arguments); if(!c) return h; try{ return mxHead(h, c); }catch(e){ mxLog('header', c?.id, e); return h; } }; }
+
+/* popover menus (header ⋯, attach, formatting More) */
+function mxPopClose(){ const p = el('mxPop'); if(p){ p._btn?.setAttribute('aria-expanded','false'); p.remove(); } }
+function mxPop(btn, html, label){
+  const was = el('mxPop'); const same = was && was._btn===btn; mxPopClose(); if(same) return;
+  const p = document.createElement('div'); p.id = 'mxPop'; p.className = 'msx-pop'; p.setAttribute('role','menu'); p.setAttribute('aria-label', label||'Menu'); p.innerHTML = html; p._btn = btn;
+  document.body.appendChild(p); btn.setAttribute('aria-expanded','true');
+  const r = btn.getBoundingClientRect(), w = p.offsetWidth, hh = p.offsetHeight;
+  let left = Math.min(innerWidth - w - 8, Math.max(8, r.right - w)); let top = r.bottom + 6; if(top + hh > innerHeight - 8) top = Math.max(8, r.top - hh - 6);
+  if(btn.dataset.mxAlign==='left') left = Math.min(innerWidth - w - 8, Math.max(8, r.left));
+  p.style.left = left+'px'; p.style.top = top+'px';
+  p.addEventListener('click', e=>{ if(e.target.closest('button')) setTimeout(mxPopClose, 0); });
+  p.querySelector('button')?.focus({preventScroll:true});
+}
+function mxMore(btn){ const t = btn.closest('#chatHead')?.querySelector('template.msx-menu-tpl'); if(t) mxPop(btn, t.innerHTML, 'Conversation actions'); }
+document.addEventListener('mousedown', e=>{ const p = el('mxPop'); if(p && !p.contains(e.target) && !p._btn?.contains(e.target)) mxPopClose(); }, true);
+document.addEventListener('keydown', e=>{
+  const p = el('mxPop');
+  if(e.key==='Escape'){ if(p){ e.preventDefault(); const b = p._btn; mxPopClose(); b?.focus(); return; } if(MX.info && CURRENT==='chat' && !document.querySelector('.modal.open')){ mxInfoClose(); } return; }
+  if(p && (e.key==='ArrowDown' || e.key==='ArrowUp')){ const B = [...p.querySelectorAll('button')]; const i = B.indexOf(document.activeElement); e.preventDefault(); B[(i + (e.key==='ArrowDown'?1:-1) + B.length) % B.length]?.focus(); }
+});
+window.addEventListener('resize', mxPopClose); document.addEventListener('scroll', e=>{ if(el('mxPop') && !el('mxPop').contains(e.target)) mxPopClose(); }, true);
+
+/* info panel: Members · Shared files · Details */
+function mxInfoOpen(id, tab){ id = id || CHAT_OPEN; if(!id) return;
+  if(MX.info===id && !tab){ mxInfoClose(); return; }
+  if(id!==CHAT_OPEN){ CHAT_OPEN = id; RENDER.chat(true); }
+  MX.info = id; if(tab) MX.tab = tab; if(typeof closeThread==='function' && typeof THREAD_OPEN!=='undefined' && THREAD_OPEN) closeThread();
+  mxInfoDraw(); document.querySelectorAll('#chatHead .msx-hbtn[aria-pressed]').forEach(b=>{ b.classList.add('on'); b.setAttribute('aria-pressed','true'); }); }
+function mxInfoClose(){ MX.info = null; el('mxInfo')?.remove(); document.querySelectorAll('#chatHead .msx-hbtn[aria-pressed]').forEach(b=>{ b.classList.remove('on'); b.setAttribute('aria-pressed','false'); }); }
+function mxTab(t){ MX.tab = t; mxInfoDraw(); }
+function mxFiles(c){ const out = [];
+  MESSAGES.forEach(m=>{ if(m.chat!==c.id || m.deleted || !(m.files||[]).length) return; if(m.thread && typeof inThread==='function' && !inThread(m)) return;
+    m.files.forEach(f=>{ if(f && !f.uploading) out.push({f, m}); }); });
+  return out.sort((a,b)=>String(b.m.at||'').localeCompare(String(a.m.at||''))); }
+function mxInfoHTML(c){
+  const mem = (typeof tsSorted==='function' ? tsSorted(c.members||[]) : (c.members||[])).filter(k=>PEOPLE[k] || k===PERSON);
+  const F = mxFiles(c); let act = []; try{ act = activePeople(); }catch(e){}
+  const kind = c.kind==='dm' ? 'Private conversation' : c.kind==='client' ? 'Client group' : c.kind==='clientline' ? 'Client portal chat' : 'Team group';
+  const tabs = [['members', `Members <span>${mem.length}</span>`], ['files', `Files <span>${F.length}</span>`], ['details', 'Details']];
+  let body = '';
+  if(MX.tab==='files'){
+    const data = f => esc(JSON.stringify({name:f.name, type:f.type, size:f.size, path:f.path, data:f.data, url:f.url}));
+    body = F.length ? F.map(({f, m})=>{ const ico = isImg(f) ? 'image' : isVid(f) ? 'film' : 'file';
+      return `<div class="msx-file"><span class="msx-fico">${mxIco(ico,18)}</span><button type="button" class="msx-fname" data-f='${data(f)}' onclick="openFileRef(this)" title="Open ${esc(f.name||'file')}"><b>${esc(f.name||'File')}</b><span class="hint">${esc(m.by===PERSON?'You':first(m.by))} · ${esc(mpWhen(m.at))}${f.size?' · '+fsize(f.size):''}</span></button><button type="button" class="icon-btn msx-fjump" title="Show in conversation" aria-label="Show ${esc(f.name||'file')} in the conversation" onclick="mxJump('${c.id}','${m.id}')">${mxIco('msg',15)}</button></div>`; }).join('')
+      : '<div class="empty">No files shared in this conversation yet.<div class="hint">Photos, videos, screenshots and documents sent here appear in this list.</div></div>';
+  } else if(MX.tab==='details'){
+    const row = (k, v) => `<div class="msx-drow"><span>${k}</span><b>${v}</b></div>`;
+    const created = c.at ? (c.at instanceof Date ? c.at.toISOString() : c.at) : '';
+    body = `<div class="msx-dcard">${chatAvatar(c)}<div style="min-width:0"><b class="msx-dname">${esc(chatTitle(c))}</b><div class="hint">${kind}</div></div></div>`
+      + row('Type', kind) + row('Members', mem.length) + (created ? row('Created', esc(dstr(created))) : '') + (c.archived ? row('Contract', `<span style="color:var(--bad)">${esc(endedChatTag(c)||'Ended')}</span>`) : '')
+      + row('Notifications', chatMuted(c.id) ? 'Muted' : 'On')
+      + `<div class="msx-dacts">`
+      + `<button class="btn" onclick="chatMute('${c.id}')">${mxIco(chatMuted(c.id)?'bell':'bellOff')} ${chatMuted(c.id)?'Unmute':'Mute'}</button>`
+      + (c.archived ? '' : mxTeamGroup(c) ? `<button class="btn" onclick="mxImpToggle('${c.id}')">${mxIco('star')} ${mxIsImp(c)?'Remove from Important':'Add to Important'}</button>` : `<button class="btn" onclick="togglePin('${c.id}')">${mxIco('pin')} ${myPins().includes(c.id)?'Unpin':'Pin'}</button>`)
+      + (c.kind==='client' && c.client ? `<button class="btn" onclick="openClient('${c.client}')">${mxIco('brief')} Client workspace</button>` : '')
+      + (c.kind!=='dm' && typeof gaCan==='function' && gaCan(c) ? `<button class="btn" onclick="gaModal('${c.id}')">${mxIco('image')} Group photo</button>` : '')
+      + (c.custom && canManageGroups() ? `<button class="btn" onclick="groupModal('${c.id}')">${mxIco('pencil')} Edit group</button>` : '')
+      + (typeof pushSettings==='function' ? `<button class="btn" onclick="pushSettings()">${mxIco('sliders')} Notification settings</button>` : '')
+      + `</div>`;
+  } else {
+    body = mem.map(k=>`<div class="msx-mem">${av(P(k))}<div style="min-width:0;flex:1"><b>${esc(k===PERSON?pname(k)+' (you)':pname(k))}</b>${typeof tsInline==='function'?tsInline(k):''}<div class="hint">${esc(P(k).sub||'')}${c.kind==='client'&&typeof client==='function'&&client(c.client)?.resp?.[k]?' · '+esc(client(c.client).resp[k]):''}</div></div>${k!==PERSON && act.includes(k) && c.kind!=='dm' ? `<button type="button" class="icon-btn" title="Message ${esc(first(k))}" aria-label="Message ${esc(pname(k))}" onclick="startDM('${k}')">${mxIco('msg',15)}</button>` : ''}</div>`).join('')
+      + `<button class="btn msx-wide" onclick="chatMembersModal('${c.id}')">${mxIco('users')} ${c.custom && canManageGroups() ? 'Manage members' : 'Open member list'}</button>`;
+  }
+  return `<div class="msx-ihead"><b>Conversation info</b><button class="icon-btn" onclick="mxInfoClose()" title="Close" aria-label="Close conversation info">${mxIco('x',16)}</button></div>
+    <div class="msx-tabs" role="tablist">${tabs.map(([k,l])=>`<button type="button" role="tab" aria-selected="${MX.tab===k}" class="${MX.tab===k?'on':''}" onclick="mxTab('${k}')">${l}</button>`).join('')}</div>
+    <div class="msx-ibody">${body}</div>`;
+}
+function mxInfoDraw(){
+  const pane = el('chatPane'); const c = CHATS.find(x=>x.id===MX.info);
+  if(!pane || !c || c.id!==CHAT_OPEN || !el('chatScroll')){ el('mxInfo')?.remove(); if(!c || c.id!==CHAT_OPEN) MX.info = null; return; }
+  let a = el('mxInfo'); const st = a?.querySelector('.msx-ibody')?.scrollTop || 0;
+  if(!a){ a = document.createElement('aside'); a.id = 'mxInfo'; a.className = 'msx-info'; a.setAttribute('aria-label','Conversation info'); pane.appendChild(a); }
+  a.innerHTML = mxInfoHTML(c); const b = a.querySelector('.msx-ibody'); if(b) b.scrollTop = st;
+}
+if(typeof openThread==='function'){ const _ot = openThread; openThread = function(){ if(MX.info) mxInfoClose(); return _ot.apply(this, arguments); }; }
+
+/* ================= MESSAGE WINDOW: older messages on scroll-up ================= */
+function chatWinList(id){
+  const M = mainMsgs(id); const w = CHAT_WIN[id];
+  if(w && w.from){ let i = M.findIndex(m=>(m.at||'') >= w.from); if(i<0) i = M.length; return M.slice(Math.min(i, Math.max(0, M.length - MX_WIN))); }
+  return M.slice(-MX_WIN);
+}
+async function mxFetchOlder(id, before){
+  const q = () => BACKEND.sb.from('cc_records').select('collection,id,data,updated_at').eq('collection','messages').eq('scope', id).lt('data->>at', before);
+  let r = await q().order('data->>at', {ascending:false}).limit(MX_STEP);
+  if(r.error) r = await q().order('updated_at', {ascending:false}).limit(MX_STEP);
+  return r.error ? null : (r.data || []);
+}
+function mxGrow(c, fromAt){
+  const sc = el('chatScroll'); if(!sc || sc.dataset.chat!==c.id) return;
+  /* keep the first visible message exactly where it is on screen */
+  const top = sc.getBoundingClientRect().top; const a = [...sc.querySelectorAll('.mwrap')].find(n=>n.getBoundingClientRect().bottom > top + 1);
+  const pin = n => (n?.querySelector('.msg') || n)?.getBoundingClientRect().top;
+  const id = a?.id, off = a ? pin(a) - top : 0, h0 = sc.scrollHeight, t0 = sc.scrollTop;
+  CHAT_WIN[c.id] = {from: fromAt}; sc.dataset.stick = '0';
+  updateMessages(c); mxTop();
+  const b = id && el(id); if(b) sc.scrollTop += (pin(b) - top) - off; else sc.scrollTop = sc.scrollHeight - h0 + t0;
+}
+async function mxOlder(){
+  const sc = el('chatScroll'); const id = sc?.dataset.chat; const c = id && CHATS.find(x=>x.id===id); if(!c || MX.loading[id]) return;
+  const M = mainMsgs(id), L = chatWinList(id);
+  if(M.length > L.length){ const i = Math.max(0, M.length - L.length - MX_STEP); mxGrow(c, M[i].at); return; }
+  if(BACKEND?.mode!=='live' || !BACKEND.sb || MX.done[id]){ MX.done[id] = true; mxTop(); return; }
+  MX.loading[id] = true; MX.err[id] = false; mxTop();
+  try{
+    let oldest = ''; MESSAGES.forEach(m=>{ if(m.chat===id && m.at && (!oldest || m.at < oldest)) oldest = m.at; });
+    const rows = oldest ? await mxFetchOlder(id, oldest) : [];
+    if(rows===null){ MX.err[id] = true; }
+    else if(!rows.length){ MX.done[id] = true; }
+    else { const fresh = rows.filter(r=>!MESSAGES.some(m=>String(m.id)===String(r.id)));
+      SYNC.mergeBulk('messages', rows.map(x=>({collection:x.collection, id:x.id, data:x.data, updated_at:x.updated_at})));
+      if(rows.length < MX_STEP) MX.done[id] = true;
+      const M2 = mainMsgs(id), L2 = chatWinList(id);
+      if(fresh.length && M2.length > L2.length){ const i = Math.max(0, M2.length - L2.length - MX_STEP); MX.loading[id] = false; mxGrow(c, M2[i].at); } }
+  }catch(e){ MX.err[id] = true; mxLog('older', id, e); }
+  finally{ MX.loading[id] = false; mxTop(); }
+}
+function mxTop(){
+  const sc = el('chatScroll'); if(!sc) return; const id = sc.dataset.chat;
+  let t = el('mxTop'); if(!sc.querySelector('.mwrap')){ t?.remove(); return; }
+  if(!t){ t = document.createElement('div'); t.id = 'mxTop'; t.className = 'msx-top'; }
+  if(sc.firstElementChild!==t) sc.insertBefore(t, sc.firstElementChild);
+  const more = mainMsgs(id).length > chatWinList(id).length || (BACKEND?.mode==='live' && !MX.done[id]);
+  const st = MX.loading[id] ? 'loading' : MX.err[id] ? 'err' : more ? 'more' : 'start';
+  if(t.dataset.st===st) return; t.dataset.st = st;
+  t.innerHTML = st==='loading' ? '<span class="msx-spin" aria-hidden="true"></span><span>Loading older messages…</span>'
+    : st==='err' ? `<span>Couldn’t load older messages.</span><button type="button" onclick="MX.err['${esc(id)}']=false;mxOlder()">Try again</button>`
+    : st==='more' ? '<button type="button" onclick="mxOlder()">Load older messages</button>' : '<span>Beginning of the conversation</span>';
+}
+/* "New messages" divider + "Jump to latest" */
+function mxMarkUnread(id, lr){
+  const sc = el('chatScroll'); if(!sc || sc.dataset.chat!==id) return null;
+  sc.querySelectorAll('.mwrap.msx-first-unread').forEach(n=>n.classList.remove('msx-first-unread'));
+  const m = chatWinList(id).find(x=>x.by!==PERSON && (x.at||'') > (lr||'') && !x.sys && x.kind!=='call');
+  const n = m && el('mw-'+m.id); if(n) n.classList.add('msx-first-unread'); return n;
+}
+function mxJumpBtn(){
+  const sc = el('chatScroll'), pane = el('chatPane'); if(!sc || !pane) return;
+  let b = el('mxJump'); if(!b){ b = document.createElement('button'); b.type = 'button'; b.id = 'mxJump'; b.className = 'msx-jump'; b.onclick = mxLatest; pane.appendChild(b); }
+  const far = sc.scrollHeight - sc.scrollTop - sc.clientHeight > 260;
+  if(!far) MX.newN = 0;
+  b.innerHTML = mxIco('arrowDown', 15) + `<span>${MX.newN ? MX.newN + ' new' : 'Latest'}</span>`;
+  b.setAttribute('aria-label', MX.newN ? `${MX.newN} new messages — jump to the latest` : 'Jump to the latest message');
+  b.classList.toggle('show', far);
+  if(far){ const pr = pane.getBoundingClientRect(), sr = sc.getBoundingClientRect(); b.style.bottom = Math.max(12, pr.bottom - sr.bottom + 12) + 'px'; }
+}
+function mxLatest(){ const sc = el('chatScroll'); if(!sc) return; MX.newN = 0; sc.scrollTop = sc.scrollHeight; sc.dataset.stick = '1'; mxJumpBtn(); }
+function mxWire(){
+  const sc = el('chatScroll'); if(!sc || sc._mx) return; sc._mx = true;
+  let raf = 0; sc.addEventListener('scroll', ()=>{ if(raf) return; raf = requestAnimationFrame(()=>{ raf = 0;
+    if(sc.scrollTop < 90 && sc.scrollHeight > sc.clientHeight + 20) mxOlder(); mxJumpBtn(); }); }, {passive:true});
+}
+{ const _um = updateMessages; updateMessages = function(c){
+    const sc = el('chatScroll'); const away = sc && sc.dataset.stick==='0'; const last0 = sc ? [...sc.querySelectorAll('.mwrap')].pop()?.id : null;
+    const r = _um.apply(this, arguments);
+    try{ if(c && sc && sc.dataset.chat===c.id){ mxTop();
+        if(away){ const W = [...sc.querySelectorAll('.mwrap')]; const i = W.findIndex(n=>n.id===last0); if(i>=0 && i < W.length-1) MX.newN += W.slice(i+1).filter(n=>!n.querySelector('.msg.mine')).length; }
+        mxJumpBtn(); } }catch(e){ mxLog('update', c?.id, e); }
+    return r; }; }
+
+/* ================= COMPOSER ================= */
+function mxAttach(btn){ const t = btn.closest('.chat-input')?.querySelector('template.msx-attach-tpl'); if(t) mxPop(btn, t.innerHTML, 'Attach'); }
+function mxFmtMore(btn){
+  const g = CHATS.find(x=>x.id===CHAT_OPEN); const it = (on, ico, lab) => `<button type="button" role="menuitem" onmousedown="event.preventDefault()" onclick="${on}">${mxIco(ico)}<span>${lab}</span></button>`;
+  mxPop(btn, (g && g.kind!=='dm' ? it('mxMention()', 'at', 'Mention someone') : '') + it("mxPlain('chatMsg')", 'eraser', 'Remove formatting') + it('mxKeysHelp()', 'keys', 'Keyboard shortcuts'), 'More formatting');
+}
+function mxMention(){ const t = el('chatMsg'); if(!t) return; const p = t.selectionStart, v = t.value; const pre = p && !/\s/.test(v[p-1]) ? ' @' : '@';
+  t.value = v.slice(0, p) + pre + v.slice(t.selectionEnd); t.focus(); t.setSelectionRange(p+pre.length, p+pre.length); if(typeof mentionSuggest==='function') mentionSuggest(); composerGrow(t); }
+function mxPlain(id){ const t = el(id); if(!t) return; const a = t.selectionStart, b = t.selectionEnd; const whole = a===b;
+  const s = whole ? t.value : t.value.slice(a, b); const out = s.replace(/(^|[\s(])([*_~])(?=\S)([^\n]*?\S)\2(?=$|[\s).,!?:;])/g, '$1$3').replace(/^• /gm, '');
+  t.value = whole ? out : t.value.slice(0, a) + out + t.value.slice(b); t.focus(); composerGrow(t); }
+function mxKeysHelp(){ openModal('Keyboard shortcuts', `<div class="msx-keys">${[
+    ['Enter','Send the message'], ['Shift + Enter','New line'], ['Ctrl/⌘ + Enter','Send (also works)'], ['Ctrl/⌘ + B','Bold'], ['Ctrl/⌘ + I','Italic'],
+    ['Ctrl/⌘ + Shift + X','Strikethrough'], ['Ctrl/⌘ + Shift + 8','Bullet list'], ['@','Mention someone (group chats)'], ['Esc','Close a menu or the info panel']
+  ].map(([k,v])=>`<div class="msx-drow"><span>${v}</span><kbd>${k}</kbd></div>`).join('')}</div><p class="hint" style="margin-top:10px">On a phone or tablet, Enter adds a new line — tap Send to send.</p>`); }
+function mxComposer(){
+  const ci = document.querySelector('#v-chat .chat-input:not(.ended-ro)'); const ta = ci?.querySelector('#chatMsg'); if(!ci || !ta || ci.dataset.mx) return;
+  const fb = ci.previousElementSibling?.classList.contains('fmt-bar') ? ci.previousElementSibling : null;
+  ci.dataset.mx = '1'; ci.classList.add('msx-input');
+  const pick = ci.querySelector('[onclick^="chatPick"]'), emo = ci.querySelector('[data-emoji-btn]'), send = ci.querySelector('#chatSend');
+  const it = (on, ico, lab, title) => `<button type="button" role="menuitem" onclick="${mxAttr(on)}" title="${esc(title||lab)}">${mxIco(ico)}<span>${esc(lab)}</span></button>`;
+  let menu = it('chatPick()', 'upload', 'Upload photos, videos or files');
+  let vm = null;
+  if(fb){ fb.classList.add('msx-fmt');
+    [...fb.querySelectorAll('button')].forEach(b=>{ const on = b.getAttribute('onclick')||'';
+      if(/shotStart\(/.test(on)){ menu += it(on, /Mark up/i.test(b.textContent) ? 'pencil' : 'scissors', /Mark up/i.test(b.textContent) ? 'Mark up an image' : 'Screenshot', b.title); b.remove(); }
+      else if(/recStart\(/.test(on)){ menu += it(on, 'screen', 'Record screen', b.title); b.remove(); }
+      else if(b.classList.contains('vm-btn')) vm = b;
+      else if(/fmtBullets\(/.test(on)) b.innerHTML = mxIco('list',15) + '<span>List</span>'; });
+    fb.querySelector('.fmt-sep')?.remove();
+    const hint = fb.querySelector('.fmt-hint');
+    const more = document.createElement('button'); more.type = 'button'; more.className = 'msx-fmore'; more.title = 'More formatting'; more.setAttribute('aria-label','More formatting'); more.setAttribute('aria-haspopup','menu');
+    more.setAttribute('onmousedown','event.preventDefault()'); more.setAttribute('onclick','mxFmtMore(this)'); more.innerHTML = '<span>More</span>' + mxIco('down', 13);
+    fb.insertBefore(more, hint || null);
+    if(hint) hint.textContent = mxCoarse() ? 'Tap Send to send' : 'Enter to send · Shift+Enter for a new line'; }
+  if(pick){ pick.setAttribute('onclick','mxAttach(this)'); pick.dataset.mxAlign = 'left'; pick.title = 'Attach a file, screenshot or screen recording'; pick.setAttribute('aria-label','Attach'); pick.setAttribute('aria-haspopup','menu');
+    pick.className = 'icon-btn msx-cbtn'; pick.innerHTML = mxIco('clip', 18);
+    const tp = document.createElement('template'); tp.className = 'msx-attach-tpl'; tp.innerHTML = menu; ci.appendChild(tp); }
+  if(emo){ emo.classList.add('msx-cbtn'); emo.innerHTML = mxIco('smile', 18); emo.setAttribute('aria-label','Add an emoji'); }
+  if(vm){ vm.className = 'icon-btn msx-cbtn vm-btn'; vm.innerHTML = mxIco('mic', 18); }
+  [pick, emo, vm].filter(Boolean).forEach(b=>ci.insertBefore(b, ta));
+  if(send){ send.innerHTML = mxIco('send', 15) + '<span>Send</span>'; send.setAttribute('aria-label','Send message'); send.title = mxCoarse() ? 'Send' : 'Send (Enter)'; }
+  ta.setAttribute('enterkeyhint', mxCoarse() ? 'enter' : 'send');
+}
+/* Enter sends · Shift+Enter new line · Ctrl/⌘+Enter still sends · Enter on a "• " bullet continues the list · touch screens keep Enter for new lines */
+const mxBullet = t => { const v = t.value, p = t.selectionStart; return /^• /.test(v.slice(v.lastIndexOf('\n', p-1)+1, p)); };
+const mxPlainEnter = e => e.key==='Enter' && !e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey && !e.isComposing && e.keyCode!==229;
+{ const _ck = chatKey; chatKey = function(e){
+    try{ const open = MENTION.list.length && el('mentionBox')?.classList.contains('on');
+      if(!open && mxPlainEnter(e) && !mxCoarse() && !mxBullet(e.target)){ e.preventDefault(); sendChat(); return; } }catch(err){ mxLog('keys', '', err); }
+    return _ck.apply(this, arguments); }; }
+document.addEventListener('keydown', e=>{
+  const t = e.target; if(!t || t.tagName!=='TEXTAREA' || !mxPlainEnter(e) || mxCoarse()) return;
+  if(t.id==='thrMsg'){ if(mxBullet(t)) return; e.preventDefault(); e.stopImmediatePropagation(); sendThreadReply(); }
+  else if(t.classList.contains('msg-edit')){ const ok = t.closest('.bubble')?.querySelector('[data-a="ok"]'); if(ok){ e.preventDefault(); e.stopImmediatePropagation(); ok.click(); } }
+}, true);
+if(typeof threadHTML==='function'){ const _th = threadHTML; threadHTML = function(){ return _th.apply(this, arguments).replace(' Ctrl/⌘+Enter to send', mxCoarse() ? '' : ' Enter to send'); }; }
+if(typeof msgEdit==='function'){ const _me = msgEdit; msgEdit = function(){ const r = _me.apply(this, arguments);
+    const h = document.querySelector('.bubble.editing .msg-edit-acts .hint'); if(h) h.textContent = mxCoarse() ? 'Esc to cancel' : 'Enter to save · Shift+Enter for a new line · Esc to cancel'; return r; }; }
+/* drafts: one per conversation, on this device */
+document.addEventListener('input', e=>{ const t = e.target; if(t?.id!=='chatMsg') return; const id = el('chatScroll')?.dataset.chat; if(!id) return;
+  const v = t.value; clearTimeout(MX.dt); MX.dt = setTimeout(()=>mxDraftSet(id, v), 350); });
+window.addEventListener('pagehide', ()=>{ const t = el('chatMsg'), id = el('chatScroll')?.dataset.chat; if(t && id){ clearTimeout(MX.dt); mxDraftSet(id, t.value); } });
+{ const _sc = sendChat; sendChat = function(){ const id = CHAT_OPEN; clearTimeout(MX.dt); const r = _sc.apply(this, arguments);
+    const done = () => { const t = el('chatMsg'); if(!t || !t.value.trim()) mxDraftSet(id, ''); };
+    if(r && typeof r.then==='function') r.then(done, ()=>{}); else done(); return r; }; }
+
+/* touch screens: tap a message to show its reactions and actions */
+document.addEventListener('click', e=>{ if(!mxCoarse()) return; const b = e.target.closest?.('#chatScroll .bubble, #thrScroll .bubble'); if(!b || e.target.closest('a,button,video,img')) return;
+  const m = b.closest('.msg'); document.querySelectorAll('.msg.msx-tap').forEach(n=>{ if(n!==m) n.classList.remove('msx-tap'); }); m?.classList.toggle('msx-tap'); });
+
+/* ================= RENDER.chat: put it together ================= */
+{ const _rc = RENDER.chat; RENDER.chat = function(){
+    const target = CHAT_OPEN; const sc0 = el('chatScroll'); const fresh = CURRENT==='chat' && target && (!sc0 || sc0.dataset.chat!==target || !el('v-chat')?.contains(sc0));
+    let lr = null, unread = 0;
+    if(fresh){ try{
+        if(!MX.keepWin) delete CHAT_WIN[target]; MX.newN = 0; if(MX.info && MX.info!==target) MX.info = null;
+        lr = chatLastRead(target); unread = unreadIn(target);
+        if(unread && !MX.keepWin){ const M = mainMsgs(target); const i = M.findIndex(m=>m.by!==PERSON && (m.at||'') > lr);
+          if(i>=0 && M.length - i > MX_WIN - 5) CHAT_WIN[target] = {from: M[Math.max(0, i-5, M.length-500)].at}; }
+      }catch(e){ mxLog('open', target, e); } }
+    MX.keepWin = false;
+    const r = _rc.apply(this, arguments);
+    try{
+      if(CURRENT==='chat'){
+        const pane = el('chatPane'); const fbs = pane ? [...pane.querySelectorAll(':scope > .fmt-bar')] : []; fbs.slice(1).forEach(n=>n.remove());   /* never two formatting rows */
+        mxComposer(); mxWire(); mxTop();
+        const ta = el('chatMsg'), id = el('chatScroll')?.dataset.chat;
+        if(ta && id && ta.dataset.mxd!==id){ ta.dataset.mxd = id; if(!ta.value){ const d = mxDraft(id); if(d){ ta.value = d; composerGrow(ta); } } }
+        if(fresh && id===target && unread){ const n = mxMarkUnread(target, lr); const sc = el('chatScroll');
+          if(n && sc && n.offsetTop < sc.scrollHeight - sc.clientHeight - 10){ sc.scrollTop = Math.max(0, n.offsetTop - 56); sc.dataset.stick = '0'; } }
+        if(MX.info) mxInfoDraw();
+        mxJumpBtn();
+      }
+    }catch(e){ mxLog('render', target, e); }
+    return r; }; }
+
+/* ================= STYLE ================= */
+(function(){
+  if(document.getElementById('mxCss')) return;
+  const V = '#v-chat#v-chat';
+  const css = `
+:root{--msx-amber:#E39312;--msx-gold:#F2B440;--msx-ivory:#F7F6F2;--msx-ink:#1A1206;--msx-ink2:#5B554B;--msx-line:#E3DED4;--msx-panel:#FFFFFF;--msx-soft:#FBFAF7;--msx-hover:#F3F0E8;--msx-sel:#FDF3E2;--msx-in:#FFFFFF;--msx-mine:#FCEFD9;--msx-mine-line:#F0D7A8;--msx-ai:#F6F1FF;--msx-ai-line:#DED3F5;--msx-shadow:0 12px 32px -14px rgba(26,18,6,.28)}
+[data-theme="dark"]{--msx-ivory:#151412;--msx-ink:#F3EEE4;--msx-ink2:#A8A091;--msx-line:#34312B;--msx-panel:#1C1B18;--msx-soft:#1F1E1B;--msx-hover:#2A2824;--msx-sel:#33291A;--msx-in:#25231F;--msx-mine:#3A2E1B;--msx-mine-line:#5A4522;--msx-ai:#2A2535;--msx-ai-line:#41395A;--msx-shadow:0 14px 34px -14px rgba(0,0,0,.7)}
+.msx-ico{flex-shrink:0;display:block}
+/* ---------- layout + list ---------- */
+${V} .card:has(> .chat-wrap){background:var(--msx-panel)!important;border:1px solid var(--msx-line)!important;box-shadow:0 1px 2px rgba(26,18,6,.05)!important;border-radius:14px!important;overflow:hidden;-webkit-backdrop-filter:none!important;backdrop-filter:none!important}
+${V} .chat-wrap{grid-template-columns:316px minmax(0,1fr)}
+${V} .chat-list{background:var(--msx-soft)!important;border-right:1px solid var(--msx-line)!important;padding:0 8px 56px!important}
+${V} .chat-search{margin:10px 2px 8px!important;height:34px;border-radius:9px!important;border:1px solid var(--msx-line)!important;background:var(--msx-panel)!important;box-shadow:none!important;color:var(--msx-ink2)}
+${V} .chat-search input{font-size:13px!important;color:var(--msx-ink)!important;border:0!important;background:transparent!important;box-shadow:none!important;outline:none!important;flex:1;min-width:0;width:100%!important;padding-right:4px!important}
+${V} .chat-search:focus-within{border-color:var(--msx-amber)!important;box-shadow:0 0 0 3px rgba(227,147,18,.14)!important}
+${V} .msx-chips{display:flex;gap:4px;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;padding:0 2px 6px;margin:0!important}
+${V} .msx-chips::-webkit-scrollbar{display:none}
+${V} .msx-chips .mp-chip{height:26px!important;padding:0 8px!important;font-size:12px!important;font-weight:500!important;border-radius:7px!important;border:1px solid transparent!important;background:transparent!important;color:var(--msx-ink2)!important;box-shadow:none!important;flex-shrink:0;display:inline-flex;align-items:center;gap:5px}
+${V} .msx-chips .mp-chip:hover{background:var(--msx-hover)!important;color:var(--msx-ink)!important}
+${V} .msx-chips .mp-chip.on{background:var(--msx-panel)!important;border-color:var(--msx-line)!important;color:var(--msx-ink)!important;font-weight:600!important}
+${V} .msx-chips .mp-chip b{background:var(--msx-amber);color:#fff;border-radius:999px;font-size:10.5px;min-width:16px;height:16px;padding:0 4px;display:inline-flex;align-items:center;justify-content:center}
+${V} .msx-sec{display:flex;align-items:center;gap:4px;margin:10px 2px 2px}
+${V} .msx-sec-t{display:flex;align-items:center;gap:6px;flex:1;min-width:0;border:0;background:none;padding:4px 4px;border-radius:6px;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--msx-ink2);cursor:pointer;text-align:left}
+${V} .msx-sec-t.msx-static{cursor:default}
+${V} button.msx-sec-t:hover{color:var(--msx-ink);background:var(--msx-hover)}
+.msx-chev{display:inline-flex;transition:transform .15s}.msx-chev.shut{transform:rotate(-90deg)}
+${V} .msx-sec-c{font-weight:500;letter-spacing:0;color:var(--msx-ink2);opacity:.75}
+${V} .msx-sec-u{margin-left:auto;background:var(--msx-amber);color:#fff;font-size:10.5px;border-radius:999px;min-width:18px;height:18px;padding:0 5px;display:inline-flex;align-items:center;justify-content:center;letter-spacing:0}
+${V} .msx-sec-a{border:0;background:none;font-size:11.5px;color:var(--msx-ink2);padding:3px 6px;border-radius:6px;cursor:pointer}
+${V} .msx-sec-a:hover{background:var(--msx-hover);color:var(--msx-ink)}
+${V} .msx-moreg{border:0;background:none;color:var(--msx-amber);font-size:12px;font-weight:600;padding:4px 10px 6px 52px;cursor:pointer;text-align:left;width:100%}
+${V} .msx-moreg:hover{text-decoration:underline}
+${V} .chat-list .chat-item{padding:7px 8px!important;gap:10px!important;border-radius:9px!important;margin:1px 0!important;border:0!important;background:transparent!important;box-shadow:none!important;transform:none!important;position:relative;min-height:52px}
+${V} .chat-list .chat-item:hover{background:var(--msx-hover)!important}
+${V} .chat-list .chat-item.on{background:var(--msx-sel)!important}
+${V} .chat-list .chat-item.on::before{content:"";position:absolute;left:0;top:10px;bottom:10px;width:3px;border-radius:0 3px 3px 0;background:var(--msx-amber)}
+${V} .chat-list .chat-item .avatar{width:34px!important;height:34px!important;font-size:11.5px!important;flex-shrink:0}
+${V} .chat-list .chat-item .nm{display:flex;align-items:center;gap:6px;min-width:0;font-size:13.5px!important;color:var(--msx-ink)!important;font-weight:500!important;line-height:1.3}
+${V} .chat-list .chat-item .mp-nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+${V} .chat-list .chat-item.unread .nm{font-weight:700!important}
+${V} .chat-list .chat-item .mp-when{margin-left:auto;font-size:11px!important;color:var(--msx-ink2)!important;font-weight:400!important;flex-shrink:0}
+${V} .chat-list .chat-item.unread .mp-when{color:var(--msx-amber)!important;font-weight:600!important}
+${V} .chat-list .chat-item .pv{font-size:12px!important;color:var(--msx-ink2)!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.35;margin-top:1px}
+${V} .chat-list .chat-item .mp-kind{font-size:9.5px!important;letter-spacing:.04em;text-transform:uppercase;border:1px solid var(--msx-line)!important;background:transparent!important;color:var(--msx-ink2)!important;border-radius:4px!important;padding:0 4px!important;margin-right:5px;font-weight:600}
+${V} .chat-list .chat-item .un{background:var(--msx-amber)!important;color:#fff!important;font-size:10.5px!important;min-width:18px;height:18px;border-radius:999px!important;box-shadow:none!important;display:inline-flex;align-items:center;justify-content:center;padding:0 5px!important;flex-shrink:0}
+${V} .chat-list .chat-item .call-dot{font-size:10.5px;color:#1f9d55;font-weight:600;white-space:nowrap}
+${V} .msx-draft{color:var(--msx-amber);font-weight:600;font-size:11px}
+${V} .msx-ended{color:var(--bad)!important}
+${V} .msx-hit .msx-in{color:var(--msx-ink2);font-weight:400;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+${V} .msx-snip{white-space:normal!important;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+${V} .msx-snip mark{background:rgba(242,180,64,.35);color:inherit;border-radius:2px;padding:0 1px}
+${V} .msx-go{color:var(--msx-ink2)}
+${V} .msx-foot{padding:10px 8px;font-size:11.5px}
+/* ---------- header ---------- */
+${V} #chatHead{display:flex!important;flex-wrap:nowrap!important;align-items:center;gap:8px;padding:10px 12px 10px 16px!important;min-height:58px;background:var(--msx-panel)!important;border-bottom:1px solid var(--msx-line)!important;box-shadow:none!important}
+${V} .msx-hmain{flex:1 1 auto;min-width:0;overflow:hidden;border-radius:8px;cursor:pointer;padding:2px 4px;margin-left:-4px}
+${V} .msx-hmain:hover{background:var(--msx-hover)}
+${V} .msx-hmain:focus-visible{outline:2px solid var(--msx-amber);outline-offset:1px}
+${V} .msx-hmain > div{min-width:0}
+${V} #chatHead h3{font-size:15px!important;font-weight:650!important;color:var(--msx-ink)!important;margin:0!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+${V} #chatHead .sub{font-size:12px!important;color:var(--msx-ink2)!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}
+${V} #chatHead .avatar{width:36px!important;height:36px!important}
+${V} .msx-hacts{display:flex!important;align-items:center;gap:2px;flex:0 0 auto!important;width:auto!important;max-width:none!important;margin:0!important;padding:0!important;justify-content:flex-end!important;order:0!important}
+${V} .msx-hbtn{width:34px!important;height:34px!important;border-radius:8px!important;border:1px solid transparent!important;background:transparent!important;color:var(--msx-ink2)!important;box-shadow:none!important;display:inline-flex!important;align-items:center;justify-content:center;padding:0!important}
+${V} .msx-hbtn:hover,${V} .msx-hbtn[aria-expanded="true"],${V} .msx-hbtn.on{background:var(--msx-hover)!important;color:var(--msx-ink)!important}
+${V} .msx-hbtn.on{color:var(--msx-amber)!important}
+${V} .msx-live{height:32px;padding:0 12px!important;font-size:12.5px!important;margin-right:4px;border-radius:8px!important}
+/* ---------- message area ---------- */
+${V} .chat-scroll,${V} .thr-scroll{background:var(--msx-ivory)!important;background-image:none!important}
+${V} .chat-scroll{padding:14px 20px 12px!important;gap:2px!important}
+${V} .chat-scroll > .mwrap{margin-top:8px}
+${V} .chat-scroll > .mwrap:has(> .msg.cont){margin-top:0}
+${V} .mwrap > .hint{display:flex!important;align-items:center;gap:10px;font-size:11px!important;font-weight:600;color:var(--msx-ink2)!important;margin:10px 0 4px!important;text-align:center}
+${V} .mwrap > .hint::before,${V} .mwrap > .hint::after{content:"";flex:1;height:1px;background:var(--msx-line)}
+${V} .msg{gap:10px!important}
+${V} .msg .avatar{width:32px!important;height:32px!important;font-size:11px!important}
+${V} .msg .who{font-size:12.5px!important;font-weight:600!important;color:var(--msx-ink)!important;margin:0 0 3px!important}
+${V} .msg .bubble{background:var(--msx-in)!important;background-image:none!important;border:1px solid var(--msx-line)!important;box-shadow:none!important;color:var(--msx-ink)!important;border-radius:4px 12px 12px 12px!important;padding:8px 12px!important;font-size:14px!important;line-height:1.5!important;-webkit-backdrop-filter:none!important;backdrop-filter:none!important}
+${V} .msg.mine .bubble{background:var(--msx-mine)!important;border-color:var(--msx-mine-line)!important;color:var(--msx-ink)!important;border-radius:12px 4px 12px 12px!important}
+${V} .msg.mine .bubble a{color:inherit!important;text-decoration:underline}
+${V} .msg.ai-msg .bubble{background:var(--msx-ai)!important;border-color:var(--msx-ai-line)!important}
+${V} .ai-chip{font-size:9.5px!important;text-transform:uppercase;letter-spacing:.05em;padding:1px 5px!important;border-radius:4px!important;background:transparent!important;border:1px solid var(--msx-ai-line)!important;color:#6B4FB5!important;font-weight:600}
+[data-theme="dark"] ${V} .ai-chip{color:#B9A6F0!important}
+${V} .msg .when{font-size:11px!important;color:var(--msx-ink2)!important;margin-top:3px!important;gap:2px;display:flex;align-items:center;flex-wrap:wrap}
+${V} .msg .when :is(.react-add,.msg-act,.thr-btn){font-size:11.5px!important;padding:2px 7px!important;border-radius:6px!important;border:1px solid transparent!important;background:transparent!important;color:var(--msx-ink2)!important;box-shadow:none!important;opacity:0;transition:opacity .12s}
+${V} .msg:hover .when :is(.react-add,.msg-act,.thr-btn),${V} .msg:focus-within .when :is(.react-add,.msg-act,.thr-btn),${V} .msg.msx-tap .when :is(.react-add,.msg-act,.thr-btn){opacity:1}
+${V} .msg .when :is(.react-add,.msg-act,.thr-btn):hover{background:var(--msx-panel)!important;border-color:var(--msx-line)!important;color:var(--msx-ink)!important}
+@media (hover:none){${V} .msg .when :is(.react-add,.msg-act,.thr-btn){opacity:.85}}
+${V} .msg.thr-on .bubble{border-color:var(--msx-gold)!important}
+${V} .thr-foot{border:1px solid var(--msx-line)!important;background:var(--msx-panel)!important;border-radius:8px!important;padding:4px 10px!important;font-size:12px!important;box-shadow:none!important;margin-top:4px}
+${V} .msg.sys-msg,${V} .msg.call-msg{justify-content:center}
+${V} .msg.sys-msg > *{font-size:12px!important;color:var(--msx-ink2)!important;background:transparent!important;border:0!important;box-shadow:none!important;text-align:center}
+${V} .call-card{background:var(--msx-panel)!important;border:1px solid var(--msx-line)!important;box-shadow:none!important;border-radius:10px!important;padding:8px 12px!important;max-width:420px}
+${V} .mwrap.msx-first-unread{display:flex;flex-direction:column}
+${V} .mwrap.msx-first-unread > .hint{order:-1}
+${V} .mwrap.msx-first-unread::before{content:"New messages";display:block;font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--msx-amber);margin:6px 0 8px;padding-right:calc(100% - 110px);background:linear-gradient(var(--msx-amber),var(--msx-amber)) right center/calc(100% - 112px) 1px no-repeat;opacity:.95}
+${V} .mwrap.msx-first-unread::after{content:none}
+${V} .msx-top{display:flex;align-items:center;justify-content:center;gap:8px;font-size:12px;color:var(--msx-ink2);padding:6px 0 10px;min-height:32px}
+${V} .msx-top button{border:1px solid var(--msx-line);background:var(--msx-panel);color:var(--msx-ink);font-size:12px;border-radius:999px;padding:4px 12px;cursor:pointer}
+${V} .msx-top button:hover{border-color:var(--msx-amber)}
+.msx-spin{width:13px;height:13px;border-radius:50%;border:2px solid var(--msx-line);border-top-color:var(--msx-amber);animation:mxSpin .8s linear infinite;display:inline-block}
+@keyframes mxSpin{to{transform:rotate(360deg)}}
+${V} .msx-jump{position:absolute;right:20px;z-index:5;display:none;align-items:center;gap:6px;height:32px;padding:0 12px;border-radius:999px;border:1px solid var(--msx-line);background:var(--msx-panel);color:var(--msx-ink);font-size:12px;font-weight:600;box-shadow:var(--msx-shadow);cursor:pointer}
+${V} .msx-jump.show{display:inline-flex}
+${V} .msx-jump:hover{border-color:var(--msx-amber)}
+/* ---------- composer ---------- */
+${V} .fmt-bar.msx-fmt{margin:8px 16px 0!important;padding:3px 6px!important;gap:1px!important;border:1px solid var(--msx-line)!important;border-bottom:0!important;border-radius:12px 12px 0 0!important;background:var(--msx-panel)!important;background-image:none!important;box-shadow:none!important;min-height:32px;align-items:center}
+${V} .fmt-bar.msx-fmt button{height:26px;min-width:28px;padding:0 7px!important;border-radius:6px!important;font-size:12.5px!important;color:var(--msx-ink2)!important;background:transparent!important;border:1px solid transparent!important;box-shadow:none!important;display:inline-flex;align-items:center;justify-content:center;gap:4px;transform:none!important}
+${V} .fmt-bar.msx-fmt button:hover,${V} .fmt-bar.msx-fmt button[aria-expanded="true"]{background:var(--msx-hover)!important;color:var(--msx-ink)!important}
+${V} .fmt-bar.msx-fmt .fmt-hint{margin-left:auto;font-size:11px!important;color:var(--msx-ink2)!important;opacity:.8;white-space:nowrap;padding-right:4px}
+${V} .fmt-bar.msx-fmt + .chat-input.msx-input,${V} .chat-input.msx-input{margin:0 16px 14px!important;padding:6px 6px 6px 6px!important;gap:2px!important;border:1px solid var(--msx-line)!important;border-top-color:var(--msx-line)!important;border-radius:0 0 12px 12px!important;background:var(--msx-panel)!important;background-image:none!important;box-shadow:none!important;align-items:flex-end}
+${V} .chat-pane:not(:has(.fmt-bar)) > .chat-input.msx-input{border-radius:12px!important;margin-top:8px!important}
+${V} .chat-pane:has(#chatMsg:focus) .fmt-bar.msx-fmt,${V} .chat-pane:has(#chatMsg:focus) .chat-input.msx-input{border-color:var(--msx-amber)!important}
+${V} .chat-pane:has(#chatMsg:focus) .chat-input.msx-input{box-shadow:0 6px 18px -12px rgba(227,147,18,.7)!important}
+${V} .chat-input.msx-input > .msx-cbtn,${V} .msx-cbtn{width:36px!important;height:36px!important;min-width:36px;border-radius:8px!important;border:0!important;background:transparent!important;color:var(--msx-ink2)!important;box-shadow:none!important;padding:0!important;display:inline-flex!important;align-items:center;justify-content:center;flex-shrink:0;font-size:0!important}
+${V} .chat-input.msx-input > .msx-cbtn:hover,${V} .chat-input.msx-input > .msx-cbtn[aria-expanded="true"]{background:var(--msx-hover)!important;color:var(--msx-ink)!important}
+${V} .chat-input.msx-input #chatMsg{background:transparent!important;border:0!important;box-shadow:none!important;outline:none!important;font-size:14px!important;line-height:1.45!important;padding:8px 6px!important;min-height:36px;color:var(--msx-ink)!important;resize:none}
+${V} .chat-input.msx-input #chatSend{height:36px!important;padding:0 14px!important;border-radius:8px!important;background:var(--msx-amber)!important;background-image:none!important;border:0!important;color:#fff!important;font-weight:600!important;font-size:13px!important;box-shadow:none!important;display:inline-flex!important;align-items:center;gap:6px;flex-shrink:0}
+${V} .chat-input.msx-input #chatSend:hover{background:#C97F0C!important}
+${V} .chat-input.ended-ro{margin:8px 16px 14px!important;border-radius:12px!important;font-size:12.5px}
+/* ---------- popovers ---------- */
+.msx-pop{position:fixed;z-index:9000;min-width:220px;max-width:min(320px,calc(100vw - 16px));padding:5px;border-radius:11px;background:var(--msx-panel);border:1px solid var(--msx-line);box-shadow:var(--msx-shadow);color:var(--msx-ink);animation:mxPop .12s ease}
+.msx-pop button{display:flex;align-items:center;gap:10px;width:100%;border:0;background:none;color:var(--msx-ink);font-size:13px;text-align:left;padding:8px 10px;border-radius:7px;cursor:pointer}
+.msx-pop button .msx-ico{color:var(--msx-ink2)}
+.msx-pop button:hover,.msx-pop button:focus-visible{background:var(--msx-hover);outline:none}
+@keyframes mxPop{from{opacity:0;transform:translateY(-3px)}}
+@media (prefers-reduced-motion:reduce){.msx-pop{animation:none}.msx-chev{transition:none}}
+/* ---------- info panel ---------- */
+${V} .msx-info{position:absolute;top:0;right:0;bottom:0;width:min(340px,100%);z-index:7;display:flex;flex-direction:column;background:var(--msx-panel);border-left:1px solid var(--msx-line);box-shadow:-16px 0 36px -26px rgba(0,0,0,.35)}
+${V} .msx-info .icon-btn{width:30px!important;height:30px!important;border:0!important;background:transparent!important;box-shadow:none!important;color:var(--msx-ink2)!important;display:inline-flex!important;align-items:center;justify-content:center;padding:0!important;border-radius:7px!important}
+${V} .msx-info .icon-btn:hover{background:var(--msx-hover)!important;color:var(--msx-ink)!important}
+${V} .msx-ihead{display:flex;align-items:center;justify-content:space-between;padding:12px 12px 8px 16px;font-size:14px;color:var(--msx-ink)}
+${V} .msx-tabs{display:flex;gap:2px;padding:0 12px;border-bottom:1px solid var(--msx-line)}
+${V} .msx-tabs button{border:0;background:none;padding:8px 10px;font-size:12.5px;color:var(--msx-ink2);border-bottom:2px solid transparent;margin-bottom:-1px;cursor:pointer;display:inline-flex;gap:5px;align-items:center}
+${V} .msx-tabs button span{font-size:11px;opacity:.75}
+${V} .msx-tabs button.on{color:var(--msx-ink);border-bottom-color:var(--msx-amber);font-weight:600}
+${V} .msx-ibody{flex:1;overflow-y:auto;padding:10px 12px 16px;overscroll-behavior:contain}
+${V} .msx-mem{display:flex;align-items:center;gap:10px;padding:7px 4px;border-radius:8px}
+${V} .msx-mem:hover{background:var(--msx-hover)}
+${V} .msx-mem b{font-size:13px;color:var(--msx-ink)}
+${V} .msx-mem .avatar{width:32px!important;height:32px!important}
+${V} .msx-wide{width:100%;justify-content:center;margin-top:10px;gap:6px}
+${V} .msx-file{display:flex;align-items:center;gap:8px;padding:6px 4px;border-radius:8px}
+${V} .msx-file:hover{background:var(--msx-hover)}
+${V} .msx-fico{width:34px;height:34px;border-radius:8px;background:var(--msx-soft);border:1px solid var(--msx-line);display:inline-flex;align-items:center;justify-content:center;color:var(--msx-ink2);flex-shrink:0}
+${V} .msx-fname{flex:1;min-width:0;border:0;background:none;text-align:left;cursor:pointer;padding:0;color:var(--msx-ink)}
+${V} .msx-fname b{display:block;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+${V} .msx-fname .hint{font-size:11.5px}
+${V} .msx-dcard{display:flex;align-items:center;gap:12px;padding:6px 2px 14px}
+${V} .msx-dname{font-size:15px;color:var(--msx-ink)}
+${V} .msx-dacts{display:flex;flex-wrap:wrap;gap:6px;margin-top:14px}
+${V} .msx-dacts .btn{gap:6px;font-size:12.5px}
+.msx-drow{display:flex;justify-content:space-between;gap:12px;padding:8px 2px;border-bottom:1px solid var(--msx-line);font-size:13px}
+.msx-drow span{color:var(--msx-ink2)}.msx-drow b{font-weight:600;color:var(--msx-ink);text-align:right}
+.msx-keys kbd{font:600 11.5px/1 ui-monospace,SFMono-Regular,Menlo,monospace;background:var(--msx-soft);border:1px solid var(--msx-line);border-radius:5px;padding:4px 6px;color:var(--msx-ink)}
+.msx-imp-row{gap:8px}.msx-imp-row .icon-btn[disabled]{opacity:.35;pointer-events:none}
+/* ---------- thread panel ---------- */
+${V} .thr-pane{background:var(--msx-panel)!important;border-left:1px solid var(--msx-line)!important}
+${V} .thr-input{border-top:1px solid var(--msx-line)!important;background:var(--msx-panel)!important}
+/* ---------- phones ---------- */
+@media (max-width:820px){
+  ${V} .chat-scroll{padding:10px 10px 8px!important}
+  ${V} .fmt-bar.msx-fmt{margin:6px 8px 0!important}
+  ${V} .fmt-bar.msx-fmt .fmt-hint{display:none}
+  ${V} .fmt-bar.msx-fmt + .chat-input.msx-input,${V} .chat-input.msx-input{margin:0 8px 8px!important}
+  ${V} .chat-input.msx-input #chatSend span{display:none}
+  ${V} .chat-input.msx-input #chatSend{padding:0 11px!important}
+  ${V} #chatHead{padding:8px 8px!important;gap:4px}
+  ${V} .msx-hbtn{width:32px!important;height:32px!important}
+  ${V} .msx-info{width:100%}
+}
+@media (max-width:420px){ ${V} .msx-cbtn{width:32px!important;min-width:32px;height:34px!important} }
+/* ---------- message bubbles (pop-out chat heads) ---------- */
+#bubLayer#bubLayer .bub-panel{background:var(--msx-panel)!important;background-image:none!important;border:1px solid var(--msx-line)!important;box-shadow:var(--msx-shadow)!important;-webkit-backdrop-filter:none!important;backdrop-filter:none!important;color:var(--msx-ink)}
+#bubLayer#bubLayer .bp-h{border-bottom:1px solid var(--msx-line)!important;background:var(--msx-panel)!important;background-image:none!important}
+#bubLayer#bubLayer .bp-ttl b{color:var(--msx-ink)!important}#bubLayer#bubLayer .bp-ttl small{color:var(--msx-ink2)!important}
+#bubLayer#bubLayer .bp-msgs{background:var(--msx-ivory)!important;background-image:none!important}
+#bubLayer#bubLayer .bp-b:not(.media){background:var(--msx-in)!important;background-image:none!important;border:1px solid var(--msx-line)!important;box-shadow:none!important;color:var(--msx-ink)!important;border-radius:4px 12px 12px 12px!important}
+#bubLayer#bubLayer .bp-m.mine .bp-b:not(.media){background:var(--msx-mine)!important;border-color:var(--msx-mine-line)!important;border-radius:12px 4px 12px 12px!important}
+#bubLayer#bubLayer .bp-f{border-top:1px solid var(--msx-line)!important;background:var(--msx-panel)!important;background-image:none!important}
+#bubLayer#bubLayer #bubReply{border:1px solid var(--msx-line)!important;border-radius:10px!important;box-shadow:none!important;background:var(--msx-panel)!important;color:var(--msx-ink)!important}
+#bubLayer#bubLayer #bubReply:focus{border-color:var(--msx-amber)!important;box-shadow:0 0 0 3px rgba(227,147,18,.14)!important;outline:none}
+#bubLayer#bubLayer .bp-send{background:var(--msx-amber)!important;color:#fff!important}
+#bubLayer#bubLayer .bp-send:hover{background:#C97F0C!important}
+/* ---------- client portal messages ---------- */
+#v-cchat#v-cchat .cp-chat{background:var(--msx-panel)!important;border:1px solid var(--msx-line)!important;border-radius:14px!important;box-shadow:none!important;overflow:hidden}
+#v-cchat#v-cchat .cp-msgs{background:var(--msx-ivory)!important;background-image:none!important;padding:14px 18px!important}
+#v-cchat#v-cchat .cp-msg{display:block!important;background:var(--msx-in)!important;background-image:none!important;border:1px solid var(--msx-line)!important;box-shadow:none!important;-webkit-backdrop-filter:none!important;backdrop-filter:none!important;border-radius:4px 12px 12px 12px!important;padding:8px 12px!important;color:var(--msx-ink)!important;font-size:14px;line-height:1.5;max-width:min(78%,640px)!important}
+#v-cchat#v-cchat .cp-msg.me{background:var(--msx-mine)!important;border-color:var(--msx-mine-line)!important;border-radius:12px 4px 12px 12px!important}
+#v-cchat#v-cchat .cp-msg > div{background:none!important;border:0!important;box-shadow:none!important;padding:0!important}
+#v-cchat#v-cchat .cp-msg .cp-rx{min-height:0}
+#v-cchat#v-cchat .chat-input > .btn:not(.cp-send){width:36px;height:36px;padding:0!important;border:0!important;background:transparent!important;box-shadow:none!important;color:var(--msx-ink2)!important;justify-content:center}
+#v-cchat#v-cchat .chat-input > .btn:not(.cp-send):hover{background:var(--msx-hover)!important;color:var(--msx-ink)!important}
+#v-cchat#v-cchat .cp-send{background:var(--msx-amber)!important;background-image:none!important;border:0!important;color:#fff!important;box-shadow:none!important;border-radius:8px!important;font-weight:600}
+#v-cchat#v-cchat .cp-msg small{color:var(--msx-ink2)!important;font-size:11.5px}
+#v-cchat#v-cchat .chat-input{background:var(--msx-panel)!important;border-top:1px solid var(--msx-line)!important;align-items:center}
+#v-cchat#v-cchat #cpMsg{border:1px solid var(--msx-line)!important;border-radius:9px!important;background:var(--msx-panel)!important;color:var(--msx-ink)!important;min-height:38px;padding:8px 12px!important;box-shadow:none!important}
+#v-cchat#v-cchat #cpMsg:focus{border-color:var(--msx-amber)!important;box-shadow:0 0 0 3px rgba(227,147,18,.14)!important;outline:none}
+`;
+  const s = document.createElement('style'); s.id = 'mxCss'; s.textContent = css; document.head.appendChild(s);
+})();
 /* ===== t99_release_notes.js — Release notes and walkthroughs shipped with each build (read by What's New, t38) =====
    Write one entry per user-facing change, in plain English, when the code is written. The draft only keeps an entry
    when the code of its modules really changed against the previous saved build. Internal entries are never shown to users. */
@@ -44641,7 +45339,29 @@ window.OPS_RELEASE = (window.OPS_RELEASE||[]).concat([
   {build:'2026-11-18 · 2', id:'workspace-restore', type:'feature', title:'The portal reopens where you left off', modules:['t41_navux.js'],
    text:'After a refresh or when you sign in again, the portal opens the last page you used — and in the Content Planning Hub the same client, tab, planning week and filters — as long as you can still open it. If you have been away longer than your reset time (8 hours unless you change it) you start on the Dashboard and the current week.',
    portals:['All portals'], depts:['All departments'], audience:{groups:['all']},
-   steps:['Work as usual — the portal remembers your last page.', 'Change how long it remembers in "Customize menu & dock" → When I come back.']}
+   steps:['Work as usual — the portal remembers your last page.', 'Change how long it remembers in "Customize menu & dock" → When I come back.']},
+  {build:'2026-11-18 · 3', headline:'A cleaner, faster Messages', summary:'Messages has a calmer look and a tidier list: important team groups at the top, your pinned conversations next, then everything else newest first. Search now finds people and words inside messages, the header has simple call, info and ⋯ buttons, older messages load as you scroll up, and Enter sends.',
+   actions:['Press Enter to send and Shift+Enter for a new line (on a phone, tap Send).', 'Use Manage next to "Important groups" to reorder or remove groups from your list.']},
+  {build:'2026-11-18 · 3', id:'msg-list', type:'improvement', title:'Important groups, My pinned and All conversations', modules:['t42_msgux.js'],
+   text:'The Messages list now starts with your important team groups (All VAs, the company groups and any group you pin), then the private and client conversations you pinned, then all other conversations newest first, with ended contracts at the bottom. Each section can be closed, and Manage lets you reorder or remove important groups for your own list. Pinned conversations are no longer repeated in the left menu — Messages keeps its unread badge.',
+   portals:['All portals'], depts:['All departments'], audience:{groups:['all']},
+   steps:['Open Messages from the menu.', 'Click a section name to open or close it; "+ more" shows every important group.', 'Click Manage to move a group up or down, or remove it from Important.']},
+  {build:'2026-11-18 · 3', id:'msg-search', type:'improvement', title:'Search people, groups and messages', modules:['t42_msgux.js'],
+   text:'The search box in Messages finds conversations by name or member, people you can start a private message with, and words inside the messages loaded on your device. Click a message result to jump straight to it in the conversation.',
+   portals:['All portals'], depts:['All departments'], audience:{groups:['all']},
+   steps:['Type a name or a few words in the Messages search box.', 'Click a conversation, a person or a message in the results.']},
+  {build:'2026-11-18 · 3', id:'msg-head', type:'improvement', title:'Simple conversation header with an info panel', modules:['t42_msgux.js'],
+   text:'The top of a conversation now has voice call, video call and info buttons, plus ⋯ for mute, pin or important, members, the client workspace and the other actions you already had. The info panel shows the members, the files shared in the conversation and its details.',
+   portals:['All portals'], depts:['All departments'], audience:{groups:['all']},
+   steps:['Click ⓘ (or the conversation name) to open the info panel.', 'Switch between Members, Files and Details.', 'Click ⋯ for mute, pin and the other actions.']},
+  {build:'2026-11-18 · 3', id:'msg-compose', type:'improvement', title:'A tidier message box — Enter sends, drafts are kept', modules:['t42_msgux.js'],
+   text:'The message box has a formatting row (bold, italic, strikethrough, list and More) and one input row with attach, emoji, voice and Send. Screenshots and screen recordings are in the attach (📎) menu. Enter sends and Shift+Enter starts a new line; on phones and tablets Enter adds a line and you tap Send. An unsent message stays as a draft in each conversation on your device.',
+   portals:['All portals'], depts:['All departments'], audience:{groups:['all']},
+   steps:['Type your message and press Enter to send (Shift+Enter for a new line).', 'Click 📎 to upload files, take a screenshot or record your screen.', 'Switch conversations — your unsent text is waiting when you come back.']},
+  {build:'2026-11-18 · 3', id:'msg-history', type:'improvement', title:'Older messages load as you scroll up', modules:['t42_msgux.js'],
+   text:'A conversation opens on its latest messages (or on the first one you have not read, marked "New messages"). Scroll to the top to load older messages without losing your place; "Jump to latest" brings you back down and counts new messages that arrived while you were reading.',
+   portals:['All portals'], depts:['All departments'], audience:{groups:['all']},
+   steps:['Scroll up in a conversation to load older messages.', 'Click "Latest" at the bottom right to jump back to the newest message.']}
 ]);
 window.OPS_TOURS = Object.assign(window.OPS_TOURS||{}, {
   whatsnew:{steps:[

@@ -20923,7 +20923,7 @@ async function cooPostFromModal(){ const ch = CHATS.find(c=>c.id===el('paPostC')
    The footer shows which build is running ("Build 2026-10-07 · 1"), and every open portal checks every few minutes
    (and whenever it comes back to the foreground) whether a newer build has been published. If so it shows
    "New version available — Update now" instead of quietly running old code. */
-const BUILD_ID = '2026-11-18 · 1';
+const BUILD_ID = '2026-11-18 · 2';
 function verStamp(){ const f = el('footNote'); if(f && !f.dataset.v){ f.dataset.v = 1; f.textContent = `Cross Core Ops Suite v8 · Build ${BUILD_ID}`; } }
 async function verCheck(){
   if(!/^https?:/.test(location.protocol)) return;
@@ -44348,6 +44348,266 @@ document.addEventListener('input', e=>{ if(['vsPost','vsWho'].includes(e.target?
 { const _vo = vsOutHTML; vsOutHTML = function(o){ let h = _vo.apply(this, arguments); if(!o || o.offline || !o.cid) return h; const n = mxLimit(o.cid);
     return h.replace(/(<span class="hint">)(\d+) words · /, (m, a, w)=>`${a}${w} / ${n} words · `); }; }
 
+/* ===== t41_navux.js — Navigation & workspace (v1.0.4 · Nov 18 2026) =====
+   Builds on what is already here — no routes, ids, permissions or badges change:
+   1. SIDEBAR: the same menu entries (buildNav + every badge added by other modules) are grouped into compact, collapsible
+      sections. Each section remembers whether it is open (per person, on this device). The section of the page you are
+      on always opens. A collapsed section shows the total of its badges. Clients and applicants keep their own menus.
+   2. DOCK: the floating dock (t3_dock) shows the most-used tools — Time Tracker, Content Planning Hub, Content Board,
+      Messages, Calendar, Lead Generation — filtered by what each person may open, plus Notifications and More. Anyone can
+      pin their own shortcuts ("Customize" in More, or ⚙ at the bottom of the menu).
+   3. MESSAGE BUBBLES (k0_bubbles): Minimise keeps the conversation's head on the side (even once read) so it can be
+      reopened with one click; ✕ / Close all / swipe still removes it. Opening the conversation in Messages clears it.
+   4. WORKSPACE: the last page you used (and, in the Content Planning Hub, the client, tab, planning week / month and
+      filters) is restored after a refresh or a new sign-in, if you are still allowed to open it — unless you have been
+      away longer than your reset time (default 8 hours), then you start on the Dashboard and the current week.
+   Storage: ONE key per person on this device, "cc-ws-<person>" (JSON). The bubble key "cc-bub-<person>" gains one field
+   ("k", minimised chats). Nothing is written to the database. */
+
+/* ---------- per-person workspace preferences ---------- */
+const WSP = {k:null, d:{}};
+const wsKey = (k=PERSON) => 'cc-ws-' + (k||'');
+function wsGet(){ if(!PERSON) return {};
+  if(WSP.k!==PERSON){ WSP.k = PERSON; let d = null; try{ d = JSON.parse(localStorage.getItem(wsKey()) || 'null'); }catch(e){ d = null; }
+    WSP.d = (d && typeof d==='object' && !Array.isArray(d)) ? d : {}; }
+  return WSP.d; }
+function wsSet(patch){ if(!PERSON) return; const d = wsGet(); Object.assign(d, patch, {v:1}); try{ localStorage.setItem(wsKey(), JSON.stringify(d)); }catch(e){} }
+const WS_RESET_OPTS = [[1,'1 hour'],[4,'4 hours'],[8,'8 hours'],[24,'1 day'],[0,'Never — always reopen my last page'],[-1,'Always start on the Dashboard']];
+const wsResetH = () => { const v = wsGet().resetH; return WS_RESET_OPTS.some(o=>o[0]===v) ? v : 8; };
+/* true while the person is within their reset window (counted from the last time they were active here) */
+const wsFresh = (seen) => { const h = wsResetH(); if(h===-1) return false; if(!seen || typeof seen!=='number') return false; return h===0 || Date.now() - seen < h*3600e3; };
+const wsEligible = () => !!PEOPLE[PERSON] && !['client','applicant'].includes(ROLE) && !(typeof isApplicant==='function' && isApplicant()) && !(typeof CC_STUDIO!=='undefined' && CC_STUDIO);
+
+/* =================================================================== 1. SIDEBAR GROUPS =================================================================== */
+const NAVG = [
+  {g:'home',    label:'Home',                       ids:['dashboard','chat','announce','schedule','whatsnew','status']},
+  {g:'work',    label:'My Work',                    ids:['attendance','leave','accounting','mypayslips','mydocs','myid','myclients','training','knowledge','support']},
+  {g:'ai',      label:'AI Assistants',              ids:['cora','marcus','pa']},
+  {g:'content', label:'Content & Production',       ids:['cphub','tasks','calendar','planner','core','design','captions','publishing','approvals','creators','marketing']},
+  {g:'clients', label:'Clients',                    ids:['clients','clientaccess','monitor','orgsetup','sop']},
+  {g:'growth',  label:'Lead Generation & Growth',   ids:['leads','prospects','lgdash','lghub','engagement','schedules']},
+  {g:'people',  label:'People & HR',                ids:['recruit','finaldec','recdocs','contracts','hrdocs','hr201','leavehr','idmgmt','employees','evals','vatrack','birthdays','attmon','attreview']},
+  {g:'finance', label:'Finance & Payroll',          ids:['finance','payapproval','paymgmt']},
+  {g:'reports', label:'Reports & Oversight',        ids:['coo','pmreports','team','reports']},
+  {g:'system',  label:'System',                     ids:['settings','devconsole']},
+];
+const NAVG_OTHER = {g:'other', label:'More', ids:[]};          /* anything a later module adds lands here until it is mapped */
+const navgOf = id => (NAVG.find(x=>x.ids.includes(id)) || NAVG_OTHER).g;
+function navgDefaultOpen(g){
+  if(['home','work','content'].includes(g)) return true;
+  if(g==='people') return ROLE==='hr' || (typeof lvIsHr==='function' && lvIsHr());
+  if(g==='finance') return typeof isFinance==='function' && isFinance();
+  if(g==='growth') return ROLE==='employee' && NAV.some(n=>n.id==='leads' && navAllowed(n));
+  return false; }
+const navgIsOpen = g => { if(typeof CC_STUDIO!=='undefined' && CC_STUDIO) return true;   /* Release Studio screenshots: every section open */
+  const s = wsGet().navOpen; return (s && typeof s[g]==='boolean') ? s[g] : navgDefaultOpen(g); };
+const NAVG_CHEV = '<svg class="ng-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>';
+const navIdOf = b => (/go\('([^']+)'\)/.exec(b.getAttribute('onclick')||'') || [])[1] || null;
+function navGroup(){
+  const nav = el('nav'); if(!nav || !PEOPLE[PERSON] || ['client','applicant'].includes(ROLE) || (typeof isApplicant==='function' && isApplicant()) || nav.dataset.grouped==='1') return;
+  const kids = [...nav.children]; if(!kids.some(k=>k.classList.contains('nav-item'))) return;
+  const buckets = new Map(); let last = null;
+  kids.forEach(k=>{
+    if(k.classList.contains('nav-label')){ k.remove(); return; }                         /* the old flat headings are replaced by sections */
+    const sub = k.classList.contains('nav-sub');                                            /* pinned chats stay right under Messages */
+    const g = sub && last ? last : navgOf(navIdOf(k));
+    if(!buckets.has(g)) buckets.set(g, []); buckets.get(g).push(k); if(!sub) last = g; });
+  const order = [...NAVG.map(x=>x.g), 'other'].filter(g=>buckets.has(g));
+  const curG = navgOf(CURRENT);
+  const frag = document.createDocumentFragment();
+  order.forEach(g=>{ const def = NAVG.find(x=>x.g===g) || NAVG_OTHER; const open = navgIsOpen(g) || g===curG;
+    const sec = document.createElement('div'); sec.className = 'nav-grp' + (open?' open':'') + (g===curG && !navgIsOpen(g)?' auto':''); sec.dataset.g = g;
+    sec.innerHTML = `<button type="button" class="nav-grp-h" aria-expanded="${open}" aria-controls="ng-${g}" onclick="navGrpToggle('${g}')"><span class="ng-l">${esc(def.label)}</span><span class="ng-p" hidden></span>${NAVG_CHEV}</button><div class="nav-grp-b" id="ng-${g}" role="group" aria-label="${esc(def.label)}"></div>`;
+    const body = sec.lastElementChild; buckets.get(g).forEach(k=>body.appendChild(k)); frag.appendChild(sec); });
+  nav.innerHTML = ''; nav.appendChild(frag);
+  if(wsEligible()) nav.insertAdjacentHTML('beforeend', `<button type="button" class="nav-prefs" onclick="wsPrefsModal()" title="Menu, dock and workspace settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="${I.gear||I.doc}"/></svg>Customize menu & dock</button>`);
+  nav.dataset.grouped = '1'; navGrpPills(); }
+/* a collapsed section shows the total of the badges inside it */
+function navGrpPills(){ document.querySelectorAll('#nav .nav-grp').forEach(sec=>{ const p = sec.querySelector('.ng-p'); if(!p) return;
+    const n = [...sec.querySelectorAll('.nav-grp-b .pill')].reduce((s, x)=>s + (parseInt(x.textContent, 10) || 0), 0);
+    p.hidden = !n || sec.classList.contains('open'); p.textContent = n>99 ? '99+' : n; }); }
+function navGrpToggle(g){ if(!wsEligible()) return; const sec = document.querySelector(`#nav .nav-grp[data-g="${g}"]`); if(!sec) return;
+  const open = !sec.classList.contains('open'); sec.classList.toggle('open', open); sec.classList.remove('auto');
+  sec.querySelector('.nav-grp-h')?.setAttribute('aria-expanded', String(open));
+  wsSet({navOpen:{...(wsGet().navOpen||{}), [g]:open}}); navGrpPills(); }
+function navGrpAll(open){ const s = {}; [...NAVG.map(x=>x.g), 'other'].forEach(g=>s[g] = open); wsSet({navOpen:s}); buildNav(); }
+{ const _bn = buildNav; buildNav = function(){ const r = _bn.apply(this, arguments); try{ const nav = el('nav'); if(nav) delete nav.dataset.grouped; navGroup(); }catch(e){ console.warn('nav groups', e); } return r; }; }
+{ const _ub = updateBadges; updateBadges = function(){ const r = _ub.apply(this, arguments); try{ navGrpPills(); }catch(e){} return r; }; }
+
+/* =================================================================== 2. DOCK =================================================================== */
+const DKX_DEFAULT = ['dashboard','attendance','cphub','tasks','chat','calendar','leads'];   /* spec order; filtered by permission */
+const DKX_FILL = ['leave','accounting','leavehr','finance','announce','status','clients'];   /* fills the dock for people who can't open some of the above */
+const DKX_MAX = 9, DKX_NARROW = 5;
+const DKX_LABEL = {attendance:'Time Tracker', cphub:'Content Planning Hub', tasks:'Content Board', leads:'Lead Generation'};
+const DKX_BADGE = {
+  leavehr:()=>typeof LEAVE2!=='undefined' ? LEAVE2.filter(r=>r.status===LV_ST.HR).length : 0,
+  finance:()=>typeof PAYV2!=='undefined' ? PAYV2.filter(d=>pvIsCeo()?[PV_ST.SUB,PV_ST.REV].includes(d.status):d.status===PV_ST.RET).length : 0 };
+function dkxSlot(key){
+  const s = DOCK_SLOTS.find(x=>x.key===key);
+  if(s){ if(!s.ids) return s; const n = dkAllowed(s.ids); return n ? {...s, id:n.id, label:DKX_LABEL[n.id] || s.label} : null; }
+  const n = NAV.find(x=>x.id===key); if(!n || !n.id || !navAllowed(n)) return null;
+  return {key, id:n.id, label:DKX_LABEL[n.id] || (n.ai && typeof navAssistantLabel==='function' ? navAssistantLabel(n) : n.name), ico:n.ico || I.doc, badge:DKX_BADGE[key]}; }
+const dkxPinned = () => { const p = wsGet().dock; return Array.isArray(p) && p.length ? p.filter(k=>typeof k==='string') : null; };
+function dkxDefaultKeys(){ const out = DKX_DEFAULT.filter(k=>dkxSlot(k));
+  for(const k of DKX_FILL){ if(out.length >= 7) break; if(!out.includes(k) && dkxSlot(k)) out.push(k); }
+  return out; }
+function dkItems(){
+  const keys = dkxPinned() || dkxDefaultKeys(); const seen = new Set();
+  let items = keys.map(dkxSlot).filter(it=>it && it.key!=='notifs' && !seen.has(it.id) && seen.add(it.id)).slice(0, DKX_MAX);
+  if(dkNarrow()) items = items.slice(0, DKX_NARROW);                                      /* small screens: the rest is in More */
+  const bell = DOCK_SLOTS.find(x=>x.key==='notifs'); return bell ? [...items, bell] : items; }
+function dkMore(){ const used = new Set(dkItems().map(x=>x.id).filter(Boolean)); return NAV.filter(n=>n.id && !used.has(n.id) && navAllowed(n)); }
+{ const _tm = dkToggleMore; dkToggleMore = function(ev){ const r = _tm.apply(this, arguments);
+    try{ const f = el('dkMore')?.querySelector('.dk-pop-f'); if(f && !f.querySelector('.dkx-cust')) f.insertAdjacentHTML('afterbegin', `<button class="dkx-cust" onclick="dkCloseMore();wsPrefsModal('dock')">📌 Customize</button>`); }catch(e){}
+    return r; }; }
+/* the 3D dock skin (t3b) gets short labels and matching icons for the new shortcuts (full names stay in the tooltip) */
+if(typeof DK_SHORT!=='undefined') Object.assign(DK_SHORT, {tasks:'Content Board', attendance:'Time Tracker', cphub:'Planning Hub', leads:'Lead Gen', status:'Team', clients:'Clients'});
+if(typeof DK_ICONS!=='undefined' && typeof DKE!=='undefined'){
+  if(!DK_ICONS.attendance) DK_ICONS.attendance = `<circle ${DKE} cx="12" cy="12.6" r="9.4"/><path ${DKGS} stroke-width="2.4" d="M12 7.4v5.4l3.4 2.2"/><rect ${DKG} x="9.6" y="1.4" width="4.8" height="2.4" rx="1.1"/><path ${DKH} d="M12 4.2a8.4 8.4 0 0 0-8.2 6.6c2.6-1.8 5.4-2.6 8.2-2.6s5.6.8 8.2 2.6A8.4 8.4 0 0 0 12 4.2Z"/>`;
+  if(!DK_ICONS.cphub) DK_ICONS.cphub = `<rect ${DKE} x="2.6" y="3" width="18.8" height="18" rx="3.6"/><rect ${DKG} x="5.4" y="7" width="5.4" height="5" rx="1.2"/><rect ${DKG} x="13.2" y="7" width="5.4" height="5" rx="1.2" opacity=".75"/><rect ${DKG} x="5.4" y="14" width="13.2" height="3.6" rx="1.2" opacity=".9"/><path ${DKH} d="M6.6 3.8h10.8c2 0 3.2 1.2 3.2 3.2v.4H3.4V7c0-2 1.2-3.2 3.2-3.2Z"/>`;
+  if(!DK_ICONS.leads) DK_ICONS.leads = `<circle ${DKE} cx="12" cy="12" r="9.6"/><circle ${DKG} cx="12" cy="12" r="5.6"/><circle ${DKE} cx="12" cy="12" r="2.4"/><path ${DKH} d="M12 3.2a8.8 8.8 0 0 0-8.4 6.2c2.4-1.4 5.3-2.2 8.4-2.2s6 .8 8.4 2.2A8.8 8.8 0 0 0 12 3.2Z"/>`;
+}
+function dkxSave(keys){ wsSet({dock:keys && keys.length ? keys : null}); DK.sig = ''; try{ dkBuild(); }catch(e){} }
+
+/* =================================================================== 3. MESSAGE BUBBLES =================================================================== */
+/* BUB.keep: conversations the person minimised — their head stays (even with nothing unread) until ✕, Close all, or opening
+   the conversation in Messages. Stored in the existing bubble key as "k". */
+if(typeof BUB!=='undefined'){
+  BUB.keep = new Set();
+  { const _l = bubLoad; bubLoad = function(){ const r = _l.apply(this, arguments); BUB.keep = new Set();
+      try{ const o = JSON.parse(localStorage.getItem(bubLS())||'{}'); (Array.isArray(o.k) ? o.k : []).forEach(id=>{ if(typeof id==='string') BUB.keep.add(id); }); }catch(e){} return r; }; }
+  { const _s = bubSave; bubSave = function(){ const r = _s.apply(this, arguments);
+      try{ if(PERSON){ const o = JSON.parse(localStorage.getItem(bubLS())||'{}'); o.k = [...BUB.keep].filter(id=>BUB.items.has(id) || id===BUB.open); localStorage.setItem(bubLS(), JSON.stringify(o)); } }catch(e){} return r; }; }
+  { const _sy = bubSync; bubSync = function(){
+      const before = new Map(BUB.items); const r = _sy.apply(this, arguments);
+      let back = false;
+      BUB.keep.forEach(id=>{ if(BUB.items.has(id)) return; const it = before.get(id); if(!it || !bubChat(id)){ BUB.keep.delete(id); return; }
+        if((BUB.dismissed[id]||'') > (it.at||'')){ BUB.keep.delete(id); return; }           /* closed with ✕ after it was minimised */
+        BUB.items.set(id, it); back = true; });
+      if(back){ bubSave(); bubRender(); } return r; }; }
+  { const _m = bubMinimize; bubMinimize = function(){ if(BUB.open) BUB.keep.add(BUB.open); return _m.apply(this, arguments); }; }
+  { const _d = bubDismiss; bubDismiss = function(id){ BUB.keep.delete(id); return _d.apply(this, arguments); }; }
+  { const _da = bubDismissAll; bubDismissAll = function(){ BUB.keep.clear(); return _da.apply(this, arguments); }; }
+  { const _tm = bubToMessages; bubToMessages = function(id){ if(id){ BUB.keep.delete(id); BUB.items.delete(id); bubSave(); } return _tm.apply(this, arguments); }; }
+  /* a minimised head looks quieter than a new message */
+  { const _r = bubRender; bubRender = function(){ const r = _r.apply(this, arguments);
+      try{ BUB.layer?.querySelectorAll('.bub[data-chat]').forEach(d=>{ const k = BUB.keep.has(d.dataset.chat) && !bubUnread(d.dataset.chat).length; d.classList.toggle('kept', k);
+          const b = d.querySelector('.bub-main'); if(b && k && !/minimised/.test(b.getAttribute('aria-label')||'')) b.setAttribute('aria-label', b.getAttribute('aria-label') + ' (minimised — click to reopen)'); }); }catch(e){}
+      return r; }; }
+}
+
+/* =================================================================== 4. WORKSPACE PERSISTENCE =================================================================== */
+const WS_BOOT = {hash:location.hash||'', restored:new Set(), pending:null, auto:false, fresh:{}};   /* fresh: was the person back within their reset time when they signed in */
+const wsDeepLink = () => /#(cc|setup|liaudit|planner-|cb|cbv)=?/.test(WS_BOOT.hash);
+function wsTouch(){ if(!wsEligible()) return; const L = wsGet().last; if(L && typeof L.id==='string') wsSet({last:{...L, seen:Date.now()}}); }
+/* remember the page (only pages from the main menu, never a client / applicant page) */
+{ const _go = go; go = function(id){ const r = _go.apply(this, arguments);
+    try{ if(!WS_BOOT.auto) WS_BOOT.pending = null;                                        /* the person moved on: no late restore */
+      if(wsEligible() && NAV.some(n=>n.id===CURRENT)) wsSet({last:{id:CURRENT, seen:Date.now()}}); }catch(e){}
+    return r; }; }
+document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='hidden') wsTouch(); });
+addEventListener('pagehide', wsTouch);
+setInterval(()=>{ if(document.visibilityState==='visible') wsTouch(); }, 60000);
+/* on sign-in / refresh: land on the last page (the normal landing logic in setPerson still checks access) */
+{ const _sp = setPerson; setPerson = function(p){
+    let pend = null;
+    try{ if(PEOPLE[p] && !WS_BOOT.restored.has(p) && !wsDeepLink()){
+        WS_BOOT.restored.add(p);
+        const prevP = PERSON, prevR = ROLE; PERSON = p; ROLE = PEOPLE[p].role; WSP.k = null;   /* read this person's own preferences */
+        const L = wsGet().last; const H = wsGet().hub; WS_BOOT.fresh[p] = wsFresh(Math.max(+(L&&L.seen)||0, +(H&&H.seen)||0));
+        const ok = wsEligible() && L && typeof L.id==='string' && L.id!=='dashboard' && wsFresh(L.seen);
+        const n = ok ? NAV.find(x=>x.id===L.id) : null;
+        if(n && navAllowed(n)) CURRENT = L.id;                               /* setPerson's own landing logic opens it (and re-checks access) */
+        else if(n) pend = {id:L.id, until:Date.now()+20000};                 /* not available yet — try again while the data loads */
+        if(!n || !navAllowed(n)){ PERSON = prevP; ROLE = prevR; WSP.k = null; }
+      } }catch(e){ console.warn('workspace restore', e); }
+    const r = _sp.apply(this, arguments);
+    if(pend) WS_BOOT.pending = pend;
+    return r; }; }
+/* the page wasn't available yet (data still loading after sign-in): open it once it is, unless the person moved on */
+setInterval(()=>{ const P = WS_BOOT.pending; if(!P) return; if(Date.now() > P.until){ WS_BOOT.pending = null; return; }
+  try{ const n = NAV.find(x=>x.id===P.id); if(PEOPLE[PERSON] && n && navAllowed(n) && CURRENT==='dashboard' && !el('modal')?.classList.contains('open')){ WS_BOOT.pending = null; WS_BOOT.auto = true; try{ go(P.id); } finally { WS_BOOT.auto = false; } } }catch(e){} }, 700);
+
+/* ---------- Content Planning Hub: client, tab, planning week / month, filters ---------- */
+const WS_HUB_KEYS = {tab:'s', homeViewMode:'s', boardFilter:'s', boardRange:'s', fbFilter:'s', fbClient:'s'};
+const WS_HUB_PERIOD = {homeAnchor:'d', calYear:'y', calMonth:'m'};
+function wsHubSave(st){ if(!st || !wsEligible()) return; const o = {};
+  Object.keys({...WS_HUB_KEYS, ...WS_HUB_PERIOD}).forEach(k=>{ if(st[k]!==undefined && typeof st[k]!=='object') o[k] = st[k]; });
+  const next = {...o, sel:(wsGet().hub||{}).sel, seen:Date.now()};
+  if(JSON.stringify({...next, seen:0})!==JSON.stringify({...(wsGet().hub||{}), seen:0})) wsSet({hub:next}); }
+const wsHubValid = (k, v) => { const t = WS_HUB_KEYS[k] || WS_HUB_PERIOD[k];
+  return t==='s' ? typeof v==='string' && v.length < 60 : t==='d' ? typeof v==='string' && /^\d{4}-\d{2}-\d{2}$/.test(v) && !isNaN(Date.parse(v))
+       : t==='y' ? Number.isInteger(v) && v > 2000 && v < 2100 : t==='m' ? Number.isInteger(v) && v >= 0 && v <= 11 : false; };
+function wsHubApply(w){ const H = wsGet().hub; if(!H || typeof H!=='object') return false; const st = w.__hub?.state; if(!st) return false;
+  const fresh = (PERSON in WS_BOOT.fresh) ? WS_BOOT.fresh[PERSON] : wsFresh(Math.max(+H.seen||0, +(wsGet().last?.seen)||0)); let ch = false;
+  Object.keys(WS_HUB_KEYS).forEach(k=>{ if(wsHubValid(k, H[k]) && st[k]!==H[k]){ st[k] = H[k]; ch = true; } });
+  if(fresh) Object.keys(WS_HUB_PERIOD).forEach(k=>{ if(wsHubValid(k, H[k]) && st[k]!==H[k]){ st[k] = H[k]; ch = true; } });   /* the planning period only within the reset time */
+  return ch; }
+function wsHubAttach(f){ let tries = 0;
+  const t = setInterval(()=>{ tries++; let w = null; try{ w = f.contentWindow; }catch(e){}
+    if(!w || !w.__hub?.state || typeof w.render!=='function'){ if(tries > 60) clearInterval(t); return; }
+    clearInterval(t); if(w.__wsHooked) return; w.__wsHooked = true;
+    try{ if(wsHubApply(w)) w.__hub.render(); }catch(e){ console.warn('hub restore', e); }
+    let st = null; const _r = w.render; w.render = function(){ const r = _r.apply(this, arguments); clearTimeout(st); st = setTimeout(()=>{ try{ wsHubSave(w.__hub.state); }catch(e){} }, 400); return r; };
+  }, 120); }
+if(typeof CPH!=='undefined' && RENDER.cphub){
+  { const _rc = RENDER.cphub; RENDER.cphub = function(){
+      try{ const H = wsGet().hub; if(!CPH.sel && H && typeof H.sel==='string') CPH.sel = H.sel; }catch(e){}   /* this person's client choice (checked by the hub as before) */
+      const r = _rc.apply(this, arguments);
+      try{ const f = CPH.frame; if(f && !f._ws){ f._ws = true; f.addEventListener('load', ()=>wsHubAttach(f)); if(CPH.ready) wsHubAttach(f); } }catch(e){}
+      return r; }; }
+  { const _cs = cphSelect; cphSelect = function(v){ try{ wsSet({hub:{...(wsGet().hub||{}), sel:v}}); }catch(e){} return _cs.apply(this, arguments); }; }
+  /* another person signing in on this device starts from their own choice */
+  { const _sp2 = setPerson; setPerson = function(p){ if(p!==PERSON && typeof CPH!=='undefined'){ CPH.sel = null; } return _sp2.apply(this, arguments); }; }
+}
+
+/* =================================================================== SETTINGS: menu, dock, workspace =================================================================== */
+function wsPrefsModal(tab){
+  if(!wsEligible()) return;
+  const pinned = dkxPinned() || dkxDefaultKeys(); const all = NAV.filter(n=>n.id && navAllowed(n) && dkxSlot(n.id==='schedule'||n.id==='calendar'?'calendar':n.id));
+  const nameOf = k => dkxSlot(k)?.label || k;
+  WSP.edit = pinned.filter(k=>dkxSlot(k));
+  openModal('Menu, dock & workspace', `<div class="wsp">
+    <section><h4>When I come back</h4>
+      <label class="wsp-row">Reopen my last page and planning week, unless I've been away longer than
+        <select id="wspReset">${WS_RESET_OPTS.map(([v,l])=>`<option value="${v}" ${wsResetH()===v?'selected':''}>${l}</option>`).join('')}</select></label>
+      <div class="hint">Saved for you on this device. Pages you can no longer open always start on the Dashboard.</div></section>
+    <section id="wspDock"><h4>Dock shortcuts <span class="hint">(up to ${DKX_MAX}; small screens show the first ${DKX_NARROW})</span></h4>
+      <div id="wspList"></div>
+      <div class="wsp-add"><select id="wspAdd"><option value="">Add a shortcut…</option>${all.map(n=>{ const k = (n.id==='schedule'||n.id==='calendar')?'calendar':n.id; return `<option value="${k}">${esc(nameOf(k))}</option>`; }).filter((v,i,a)=>a.indexOf(v)===i).join('')}</select>
+        <button class="btn" onclick="wspAdd()">Add</button><button class="btn ghost" onclick="WSP.edit=dkxDefaultKeys();wspDraw()">Use the default</button></div></section>
+    <section><h4>Menu sections</h4><div class="wsp-row"><button class="btn" onclick="navGrpAll(true)">Expand all</button><button class="btn" onclick="navGrpAll(false)">Collapse all</button><button class="btn ghost" onclick="wsSet({navOpen:null});buildNav();toast('Menu sections reset')">Reset</button></div></section>
+    <div class="cf-acts"><button class="btn" onclick="closeModal()">Cancel</button><button class="btn primary" onclick="wspSave()">Save</button></div></div>`);
+  wspDraw(); if(tab==='dock') setTimeout(()=>el('wspDock')?.scrollIntoView({block:'start'}), 50); }
+function wspDraw(){ const box = el('wspList'); if(!box) return; const L = WSP.edit || [];
+  box.innerHTML = L.map((k,i)=>`<div class="wsp-it"><span>${esc(dkxSlot(k)?.label || k)}</span><button class="btn ghost" ${i?'':'disabled'} onclick="wspMove(${i},-1)" aria-label="Move up">↑</button><button class="btn ghost" ${i<L.length-1?'':'disabled'} onclick="wspMove(${i},1)" aria-label="Move down">↓</button><button class="btn ghost" onclick="WSP.edit.splice(${i},1);wspDraw()" aria-label="Remove">✕</button></div>`).join('') || '<div class="hint">No shortcuts — the dock will use the default.</div>'; }
+function wspMove(i, d){ const L = WSP.edit; const j = i+d; if(j<0 || j>=L.length) return; [L[i], L[j]] = [L[j], L[i]]; wspDraw(); }
+function wspAdd(){ const k = el('wspAdd')?.value; if(!k) return; if(!WSP.edit.includes(k)){ if(WSP.edit.length >= DKX_MAX) return toast(`Up to ${DKX_MAX} shortcuts`); WSP.edit.push(k); } wspDraw(); }
+function wspSave(){ const h = +el('wspReset').value; wsSet({resetH:WS_RESET_OPTS.some(o=>o[0]===h) ? h : 8});
+  const def = dkxDefaultKeys(); const L = (WSP.edit||[]).filter(k=>dkxSlot(k));
+  dkxSave(JSON.stringify(L)===JSON.stringify(def) ? null : L); closeModal(); toast('Saved'); }
+
+(function(){ const st = document.createElement('style'); st.id = 'navuxCss'; st.textContent = `
+#nav .nav-grp{margin:2px 0 4px}
+#nav .nav-grp-h{display:flex;align-items:center;gap:6px;width:100%;padding:9px 10px 5px;background:none;border:0;cursor:pointer;font-size:10.5px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3);text-align:left;border-radius:8px}
+#nav .nav-grp-h:hover{color:var(--ink)}#nav .nav-grp-h:focus-visible{outline:2px solid #E39312;outline-offset:1px}
+#nav .ng-l{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#nav .ng-chev{width:13px;height:13px;flex:none;transition:transform .18s ease;opacity:.75}
+#nav .nav-grp.open .ng-chev{transform:rotate(90deg)}
+#nav .ng-p{font-size:10px;font-weight:700;letter-spacing:0;background:var(--bad-bg);color:var(--bad);border-radius:99px;padding:1px 7px;text-transform:none}
+#nav .nav-grp-b{display:none;flex-direction:column;gap:1px}
+#nav .nav-grp.open .nav-grp-b{display:flex}
+#nav .nav-prefs{display:flex;align-items:center;gap:8px;width:100%;margin-top:10px;padding:8px 10px;background:none;border:1px dashed var(--line);border-radius:9px;font-size:12px;color:var(--ink-3);cursor:pointer}
+#nav .nav-prefs:hover{color:var(--ink);border-style:solid}#nav .nav-prefs svg{width:15px;height:15px}
+[data-theme="dark"] #nav .nav-grp-h{color:#BFAF9C}
+:root.pm #nav .nav-grp-h{color:#8E9098}:root.pm #nav .nav-grp-h:hover{color:#F1F1F3}:root.pm #nav .nav-prefs{color:#A3A5AC;border-color:rgba(255,255,255,.14)}
+#bubLayer .bub.kept .bub-face{opacity:.85}#bubLayer .bub.kept:not(.newest) .bub-tag{display:none}
+#ccDock .dk-i[data-k="tasks"],#ccDock .dk-i[data-k="calendar"],#ccDock .dk-i[data-k="announce"],#ccDock .dk-i[data-k="leavehr"]{display:flex}   /* the dock picks its own items per screen size */
+.dkx-cust{font-weight:600}
+.wsp section{margin-bottom:16px}.wsp h4{font-size:13px;margin:0 0 8px}.wsp-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:13px}.wsp-row select{width:auto}
+.wsp-it{display:flex;align-items:center;gap:6px;padding:5px 8px;border:1px solid var(--line);border-radius:9px;margin-bottom:4px;font-size:13px}.wsp-it span{flex:1}.wsp-it .btn{padding:2px 8px}
+.wsp-add{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}.wsp-add select{flex:1;min-width:180px}
+@media(prefers-reduced-motion:reduce){#nav .ng-chev{transition:none}}`; document.head.appendChild(st); })();
 /* ===== t99_release_notes.js — Release notes and walkthroughs shipped with each build (read by What's New, t38) =====
    Write one entry per user-facing change, in plain English, when the code is written. The draft only keeps an entry
    when the code of its modules really changed against the previous saved build. Internal entries are never shown to users. */
@@ -44363,7 +44623,25 @@ window.OPS_RELEASE = (window.OPS_RELEASE||[]).concat([
    portals:['VA portals'], depts:['Lead Generation'], audience:{people:['tricia','christian','teresa','kristia']},
    steps:['Open Ask Marcus and choose Ziba Alizadeh.', 'Paste the post (and the comment, for a reply) and generate a draft.', 'Review, adjust if needed, then post it yourself — nothing is posted automatically.']},
   {build:'2026-11-18 · 1', id:'release-studio', type:'feature', internal:true, title:'Release Studio: automatic screenshots, AI-narrated walkthrough videos and targeted announcements (JA and Yam)', modules:['t38b_studio.js','t37_codebank.js'],
-   text:'Drafts are prepared from verified code changes when a build is saved in the Update Bank. Screenshots and the walkthrough video are generated from the portal on demo data. Set up the AI voice in What\'s New → Voice settings.'}
+   text:'Drafts are prepared from verified code changes when a build is saved in the Update Bank. Screenshots and the walkthrough video are generated from the portal on demo data. Set up the AI voice in What\'s New → Voice settings.'},
+  {build:'2026-11-18 · 2', headline:'A tidier menu, a smarter dock, and the portal remembers where you were', summary:'The menu is grouped into sections you can open and close, the dock puts your most-used tools one click away (and you can pin your own), minimised message bubbles stay until you close them, and the portal reopens the page — and the Content Planning Hub week — you were on.',
+   actions:['Open or close menu sections as you like — the portal remembers.', 'Pin your own dock shortcuts: More → Customize (or "Customize menu & dock" at the bottom of the menu).']},
+  {build:'2026-11-18 · 2', id:'nav-groups', type:'improvement', title:'The menu is grouped into sections', modules:['t41_navux.js'],
+   text:'The left menu now has sections — Home, My Work, AI Assistants, Content & Production, Clients, Lead Generation & Growth, People & HR, Finance & Payroll, Reports & Oversight and System. Click a section to open or close it; the portal remembers your choice. The section of the page you are on always opens, and a closed section shows the total of its badges. Every page you could open before is still there.',
+   portals:['All portals'], depts:['All departments'], audience:{groups:['all']},
+   steps:['Click a section name in the menu to open or close it.', 'A number next to a closed section means something inside needs you.', 'Use "Customize menu & dock" at the bottom of the menu to expand or collapse everything at once.']},
+  {build:'2026-11-18 · 2', id:'dock-pins', type:'improvement', title:'The dock shows your most-used tools — and you can pin your own', modules:['t41_navux.js'],
+   text:'The floating dock now opens the Time Tracker, Content Planning Hub, Content Board, Messages, Calendar and Lead Generation (only the ones you can use), plus Notifications and More. Choose your own shortcuts and their order from More → Customize.',
+   portals:['All portals'], depts:['All departments'], audience:{groups:['all']},
+   steps:['Move the pointer to the bottom of the screen (or tap the small bar on a phone) to show the dock.', 'Open More → Customize to add, remove or reorder shortcuts.', 'Click Save — your dock is the same every time you sign in on this device.']},
+  {build:'2026-11-18 · 2', id:'bubble-minimise', type:'improvement', title:'Minimised message bubbles stay until you close them', modules:['t41_navux.js'],
+   text:'Minimising a conversation bubble now keeps it on the side of the screen, even after you have read it, so you can reopen it with one click. ✕ (or Close all) removes it from the screen; the conversation always stays in Messages.',
+   portals:['All portals'], depts:['All departments'], audience:{groups:['all']},
+   steps:['Open a message bubble and click Minimise (–) to tuck it away.', 'Click the bubble again to reopen the conversation.', 'Click ✕ to remove it from the screen — the conversation stays in Messages.']},
+  {build:'2026-11-18 · 2', id:'workspace-restore', type:'feature', title:'The portal reopens where you left off', modules:['t41_navux.js'],
+   text:'After a refresh or when you sign in again, the portal opens the last page you used — and in the Content Planning Hub the same client, tab, planning week and filters — as long as you can still open it. If you have been away longer than your reset time (8 hours unless you change it) you start on the Dashboard and the current week.',
+   portals:['All portals'], depts:['All departments'], audience:{groups:['all']},
+   steps:['Work as usual — the portal remembers your last page.', 'Change how long it remembers in "Customize menu & dock" → When I come back.']}
 ]);
 window.OPS_TOURS = Object.assign(window.OPS_TOURS||{}, {
   whatsnew:{steps:[

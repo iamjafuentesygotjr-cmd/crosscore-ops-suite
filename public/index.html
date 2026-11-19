@@ -4942,7 +4942,7 @@ function execDashboard(){
    Draft → In Progress → For Approval → Revisions Needed → Approved → Completed */
 const assigneeOptions = cid => {
   const c = client(cid);
-  const keys = uniq([...(c?.team||[]), ...pmsOf(cid), ...(S().coreTeam||[]), PERSON]);
+  const keys = uniq([...(c?.team||[]), ...pmsOf(cid), ...(S().coreTeam||[]), ...(typeof vaOwnersExtra==='function' ? vaOwnersExtra() : []), PERSON]);
   return keys.filter(k=>PEOPLE[k]);
 };
 const taskApprovers = t => { const p = pmsOf(t.client); return p.length ? p : ['ja']; };
@@ -20923,7 +20923,7 @@ async function cooPostFromModal(){ const ch = CHATS.find(c=>c.id===el('paPostC')
    The footer shows which build is running ("Build 2026-10-07 · 1"), and every open portal checks every few minutes
    (and whenever it comes back to the foreground) whether a newer build has been published. If so it shows
    "New version available — Update now" instead of quietly running old code. */
-const BUILD_ID = '2026-11-20 · 2';
+const BUILD_ID = '2026-11-20 · 3';
 function verStamp(){ const f = el('footNote'); if(f && !f.dataset.v){ f.dataset.v = 1; f.textContent = `Cross Core Ops Suite v8 · Build ${BUILD_ID}`; } }
 async function verCheck(){
   if(!/^https?:/.test(location.protocol)) return;
@@ -22608,7 +22608,7 @@ function asgKPIs(){ const s = asgSummary();
     <div class="card kpi"><div class="k-label">Ended · last 30 days</div><div class="k-val">${s.recent}</div><div class="hint">removed / reassigned / contract ended</div></div></div>`; }
 RENDER.vatrack = () => {
   const v = el('v-vatrack'); if(!v) return;
-  if(!asgCanManage()){ v.innerHTML = '<div class="empty">VA assignment tracking is available to HR and company heads.</div>'; return; }
+  if(!asgCanManage() && !(typeof vaCan==='function' && vaCan())){ v.innerHTML = '<div class="empty">VA assignment tracking is available to HR and company heads.</div>'; return; }
   const q = ASGV.q.trim().toLowerCase();
   let vas = asgVAs().sort((a,b)=>asgCount(a)-asgCount(b) || pname(a).localeCompare(pname(b)));
   if(ASGV.f==='with') vas = vas.filter(k=>asgCount(k)>0); else if(ASGV.f==='waiting') vas = vas.filter(k=>!asgCount(k)); else if(ASGV.f==='below') vas = vas.filter(k=>asgTarget(k) && asgCount(k)<asgTarget(k));
@@ -43692,12 +43692,12 @@ async function ubPackage(build, version){
   const m = /const BUILD_ID = '([^']+)'/.exec(html); if(!m || m[1]!==build) throw new Error(`The server returned build ${m?m[1]:'(unknown)'} but this portal is running ${build} — reload the page and try again`);
   const JSZip = await ubZipLib(), date = manilaDate(), name = `OpsSuite_Update_${version}_${date}.zip`, root = name.replace(/\.zip$/, '') + '/';
   const zip = new JSZip(), files = []; let red = 0;
-  const addText = async (path, txt) => { const [clean, n] = ubRedact(txt); red += n; zip.file(root + path, clean); files.push({path, size:new Blob([clean]).size, sha256:await ubSha(clean), redacted:n||undefined}); return clean; };
+  const addText = async (path, txt) => { const [clean, n] = ubRedact(txt); red += n; zip.file(root + path, new TextEncoder().encode(clean)); files.push({path, size:new Blob([clean]).size, sha256:await ubSha(clean), redacted:n||undefined}); return clean; };
   const cleanHtml = await addText('public/index.html', html);
   for(const f of ['sw.js','manifest.json']){ try{ await addText('public/' + f, await ubFetchText(f)); }catch(e){} }
   for(const f of ['icon-192.png','icon-512.png']){ try{ const r = await fetch(f, {cache:'no-store'}); if(r.ok){ const b = await r.arrayBuffer(); zip.file(root + 'public/' + f, b); files.push({path:'public/' + f, size:b.byteLength, sha256:await ubSha(b)}); } }catch(e){} }
   const {base, mods} = ubModules(cleanHtml), modules = [];
-  for(const x of mods){ zip.file(root + 'modules-source/' + x.name, x.text); const sha = await ubSha(x.text); modules.push({name:x.name, size:new Blob([x.text]).size, lines:x.text.split('\n').length, sha256:sha}); }
+  for(const x of mods){ zip.file(root + 'modules-source/' + x.name, new TextEncoder().encode(x.text)); const sha = await ubSha(x.text); modules.push({name:x.name, size:new Blob([x.text]).size, lines:x.text.split('\n').length, sha256:sha}); }
   modules.unshift({name:'index.html (portal core)', size:new Blob([base]).size, lines:base.split('\n').length, sha256:await ubSha(base)});
   const manifest = {product:'Cross Core Ops Suite', version, build, date, capturedAt:nowISO(), capturedBy:pname(PERSON), source:location.origin, files, modules, redactions:red,
     excluded:['public/config.js (connection keys — written by Vercel from its environment variables)', 'Supabase SQL files and Edge Functions (not part of the website — attach the release package to this version)', 'Applicant and employee data (the database is not part of the code)']};
@@ -46960,6 +46960,137 @@ window.OPS_TOURS = Object.assign(window.OPS_TOURS||{}, {hrconcerns:{steps:[
   {id:'hc-acts', run:"hcOpen('HC-studio1')", wait:700, focus:'#hcView .hc-acts', title:'Reply, schedule, resolve',
    say:'The COO acknowledges, replies, schedules a meeting with a Google Meet link, and marks it resolved.'}]}});
 (window.OPS_RELEASE||[]).forEach(n=>{ if(n.id==='hr-concerns') n.tour = 'hrconcerns'; });
+/* ===== t48_vaassign.js — VA assignments: Sam, the Marketing Head and PMs assign VAs; Sam in the content Owner list (Nov 20 2026) =====
+   Built on the existing VA Assignments system (83_assign) — one source of truth, nothing duplicated:
+   the client team (client.team + client.resp) decides who works on a client, and each VA-on-client is one assignment
+   record (ASG-<client>-<va>-<n>) with its history. This module only adds who may change it and the buttons to do so.
+   • Owner list on a content item (the reference screenshot): Sam (Michael Sam J. Flores, video editor) is always offered,
+     next to the client's team, PMs and the core team (Settings: S().ownerAlways). Managers also get
+     "＋ Assign a VA to this client…" right in that list.
+   • Who manages assignments: HR, company heads and full-access admins (as before) + Sam + the Marketing Head (all clients)
+     + each PM for the clients they manage (S().vaAssignManagers adds more people). They see VA Assignments and can assign
+     a VA to a client (role / responsibilities / start date, with the VA's current load and target shown), update the role
+     and responsibilities, reassign (move the VA to another client, or put another VA in their place) and remove — with a
+     reason. Every change keeps who, when, the previous and the new value in the assignment history.
+   • Real time: the client team and the assignment record are saved together, so the client's page, My Clients (VA portal),
+     VA Assignments (HR, Marketing Head, PMs, Sam) and the dashboards all update live through the normal sync.
+   • Notifications: the VA (new / changed / reassigned / removed, linking to My Clients), and HR, the client's PMs, the
+     Marketing Head and Sam (linking to VA Assignments) — never the person who made the change. */
+
+const vaMgrs = () => uniq([...(S().vaAssignManagers || ['sam']), S().marketingHead || 'kiara']).filter(k=>PEOPLE[k]);
+const vaFull = () => asgCanManage() || vaMgrs().includes(PERSON);
+const vaCanClient = cid => !!PEOPLE[PERSON] && !isApplicant() && ROLE!=='client' && (vaFull() || pmsOf(cid).includes(PERSON));
+const vaClients = () => CLIENTS.filter(c=>!ASG_INACTIVE(c) && vaCanClient(c.id)).sort((a,b)=>String(a.name).localeCompare(String(b.name)));
+const vaCan = () => !!PEOPLE[PERSON] && !isApplicant() && ROLE!=='client' && (vaFull() || CLIENTS.some(c=>!ASG_INACTIVE(c) && pmsOf(c.id).includes(PERSON)));
+const vaOwnersExtra = () => (S().ownerAlways || ['sam']).filter(k=>PEOPLE[k]);
+/* the assignment records also reach Sam and the Marketing Head */
+{ const _aa = COLL.assignments.aud; COLL.assignments.aud = a => uniq([..._aa(a), ...vaMgrs()]); }
+/* menu: VA Assignments for everyone who may manage assignments */
+{ const _na = navAllowed; navAllowed = function(n){ if(n?.id==='vatrack') return asgCanManage() || vaCan(); return _na.apply(this, arguments); }; }
+
+/* ---------- writing an assignment (client team + assignment record together) ---------- */
+const vaOpen = (cid, va) => ASSIGNS.find(a=>a.client===cid && a.va===va && a.status==='Active');
+function vaTell(a, act, extraTo=[]){ const c = client(a.client);
+  const staff = uniq([...HR_KEYS(), ...pmsOf(a.client), ...vaMgrs(), ...extraTo]).filter(k=>k && k!==PERSON && k!==a.va && PEOPLE[k]);
+  if(staff.length) notify(staff, 'assignment', `👥 ${esc(first(PERSON))}: <b>${esc(pname(a.va))}</b> — ${esc(act)} · ${esc(c?.name||a.clientName)}`, {view:'vatrack', va:a.va}); }
+function vaAdd(cid, va, o={}){ const c = client(cid); if(!c || !PEOPLE[va]) return null; const now = nowISO();
+  c.team = uniq([...(c.team||[]), va]); c.resp = {...(c.resp||{}), [va]:o.role || c.resp?.[va] || emp(PEOPLE[va].empId)?.role || 'VA'};
+  if(o.duties!=null) c.duties = {...(c.duties||{}), [va]:o.duties};
+  c.updatedAt = now;
+  let a = vaOpen(cid, va);
+  if(!a){ a = {id:asgNextId(cid, va), va, vaName:pname(va), client:cid, clientName:c.name, services:[...(c.services||[])], role:c.resp[va], duties:o.duties||'', pms:pmsOf(cid).filter(x=>PEOPLE[x]),
+      start:o.start || manilaDate(), status:'Active', createdAt:now, createdBy:PERSON, history:[{at:now, by:PERSON, act:`Assigned to the client as ${c.resp[va]}${o.why?' — '+o.why:''}`}]}; ASSIGNS.push(a); }
+  return a; }
+function vaEnd(cid, va, kind, reason){ const c = client(cid); const now = nowISO();
+  if(c){ c.team = (c.team||[]).filter(k=>k!==va); if(c.resp){ const r = {...c.resp}; delete r[va]; c.resp = r; } c.updatedAt = now;
+    try{ const lc = (typeof LEADCFG!=='undefined' ? LEADCFG : []).find(x=>x.id===cid); if(lc && (lc.vas||[]).includes(va)) lc.vas = lc.vas.filter(k=>k!==va); }catch(e){} }
+  const a = vaOpen(cid, va); if(a){ Object.assign(a, {status:'Ended', endedAt:now, endKind:kind, reason, endedBy:PERSON, updatedAt:now}); (a.history = a.history||[]).push({at:now, by:PERSON, act:`Ended — ${reason}`}); }
+  return a; }
+
+/* ---------- assign ---------- */
+function vaLoadHTML(va){ if(!va) return ''; const n = asgCount(va), t = asgTarget(va); const L = asgActive(va);
+  return `<div class="va-load"><b>${esc(pname(va))}</b> · ${n} active client${n===1?'':'s'}${t?` · target ${t}`:''} ${t ? asgBar(n, t) : ''}<div class="hint">${L.map(a=>esc(a.clientName)+' ('+esc(a.role||'VA')+')').join(' · ') || 'No active client — available'}</div></div>`; }
+function vaAssignModal(va, cid, back){ if(!vaCan()) return toast('You can’t assign VAs'); const C = vaClients(); if(!C.length) return toast('No client you can assign to');
+  VA.back = back || null; const vas = uniq([...asgVAs(), ...vaOwnersExtra()]).filter(k=>PEOPLE[k]).sort((a,b)=>asgCount(a)-asgCount(b) || pname(a).localeCompare(pname(b)));
+  openModal('Assign a VA', `<div class="grid cols-2"><div class="field"><label>VA *</label><select id="vaV" onchange="el('vaLoad').innerHTML=vaLoadHTML(this.value)"><option value="">Choose a VA…</option>${vas.map(k=>`<option value="${k}" ${k===va?'selected':''}>${esc(pname(k))} — ${asgCount(k)} client${asgCount(k)===1?'':'s'}</option>`).join('')}</select></div>
+      <div class="field"><label>Client / project *</label><select id="vaC">${C.map(c=>`<option value="${c.id}" ${c.id===cid?'selected':''}>${esc(c.name)}</option>`).join('')}</select></div></div>
+    <div id="vaLoad">${vaLoadHTML(va)}</div>
+    <div class="grid cols-2"><div class="field"><label>Role on this client</label><input id="vaR" placeholder="e.g. Video editor, Lead generation VA"></div><div class="field"><label>Start date</label><input id="vaS" type="date" value="${manilaDate()}"></div></div>
+    <div class="field"><label>Responsibilities / tasks</label><textarea id="vaD" rows="3" placeholder="What this VA handles for the client"></textarea></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end"><button class="btn" onclick="${back?'VA.back()':'closeModal()'}">Cancel</button><button class="btn primary" onclick="vaAssignSave()">Assign</button></div>`); }
+const VA = {back:null, f:'all'};
+function vaAssignSave(){ const va = el('vaV').value, cid = el('vaC').value; if(!va) return toast('Choose a VA'); if(!vaCanClient(cid)) return toast('You can’t assign to this client');
+  const c = client(cid); if((c.team||[]).includes(va) && vaOpen(cid, va)) return toast(`${first(va)} is already on ${c.name}`);
+  const a = vaAdd(cid, va, {role:el('vaR').value.trim(), duties:el('vaD').value.trim(), start:el('vaS').value});
+  if(!a) return toast('Could not assign');
+  notify(va, 'assignment', `📌 You were assigned to <b>${esc(c.name)}</b> as ${esc(a.role)}${a.duties?` — ${esc(a.duties.slice(0,120))}`:''}. It now shows in My Clients.`, {view:'myclients'});
+  vaTell(a, `assigned as ${a.role}`); recordChange(); toast(`${first(va)} assigned to ${c.name}`);
+  const b = VA.back; VA.back = null; if(b) b(); else { closeModal(); RENDER[CURRENT]?.(); } }
+
+/* ---------- manage one VA (update · reassign · remove · history) ---------- */
+function vaManage(va){ const L = asgActive(va); const all = ASSIGNS.filter(a=>a.va===va).sort((a,b)=>String(b.updatedAt||b.createdAt).localeCompare(String(a.updatedAt||a.createdAt)));
+  openModal(`Assignments — ${pname(va)}`, `${vaLoadHTML(va)}
+    ${L.map(a=>{ const can = vaCanClient(a.client); return `<div class="va-row"><div style="flex:1"><b>${esc(a.clientName)}</b> <span class="badge b-approved">Active</span><div class="hint">${esc(a.role||'VA')} · since ${esc(a.start?dstr(a.start):'—')} · PM ${esc((a.pms||[]).map(first).join('/')||'—')}</div>${a.duties||client(a.client)?.duties?.[va]?`<div class="hint">${esc(a.duties||client(a.client).duties[va])}</div>`:''}</div>
+      ${can?`<div class="va-acts"><button class="btn ghost" onclick="vaEditModal('${a.id}')">Update</button><button class="btn ghost" onclick="vaMoveModal('${a.id}')">Reassign</button><button class="btn ghost" style="color:var(--bad)" onclick="vaRemoveModal('${a.id}')">Remove</button></div>`:''}</div>`; }).join('') || '<div class="hint" style="margin:8px 0">No active client.</div>'}
+    ${vaCan()?`<button class="btn primary" style="margin:6px 0 12px" onclick="vaAssignModal('${va}', null, ()=>vaManage('${va}'))">＋ Assign to a client</button>`:''}
+    <details open><summary class="hint">History</summary>${all.flatMap(a=>(a.history||[]).map(h=>({...h, c:a.clientName}))).sort((x,y)=>String(y.at).localeCompare(String(x.at))).slice(0, 60).map(h=>`<div class="hint">${esc(dtstr(h.at))} · ${esc(pname(h.by))} — ${esc(h.c)}: ${esc(h.act)}</div>`).join('') || '<div class="hint">No history yet.</div>'}</details>`, true); }
+function vaEditModal(id){ const a = ASSIGNS.find(x=>x.id===id); if(!a) return; const c = client(a.client);
+  openModal(`Update — ${pname(a.va)} on ${a.clientName}`, `<div class="field"><label>Role</label><input id="veR" value="${esc(a.role||'')}"></div><div class="field"><label>Responsibilities / tasks</label><textarea id="veD" rows="3">${esc(a.duties||c?.duties?.[a.va]||'')}</textarea></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end"><button class="btn" onclick="vaManage('${a.va}')">Back</button><button class="btn primary" onclick="vaEditSave('${id}')">Save</button></div>`); }
+function vaEditSave(id){ const a = ASSIGNS.find(x=>x.id===id); const c = client(a?.client); if(!a || !c || !vaCanClient(c.id)) return; const role = el('veR').value.trim() || a.role, duties = el('veD').value.trim();
+  const ch = []; if(role!==a.role) ch.push(`role ${a.role||'—'} → ${role}`); if(duties!==(a.duties||c.duties?.[a.va]||'')) ch.push('responsibilities updated'); if(!ch.length) return vaManage(a.va);
+  c.resp = {...(c.resp||{}), [a.va]:role}; c.duties = {...(c.duties||{}), [a.va]:duties}; c.updatedAt = nowISO();
+  Object.assign(a, {role, duties, updatedAt:nowISO()}); a.history.push({at:nowISO(), by:PERSON, act:`Updated: ${ch.join(' · ')}`, prev:{role:a.role}, next:{role, duties}});
+  notify(a.va, 'assignment', `✏️ Your assignment on <b>${esc(c.name)}</b> was updated: ${esc(ch.join(' · '))}`, {view:'myclients'}); vaTell(a, ch.join(' · '));
+  recordChange(); vaManage(a.va); toast('Updated'); }
+function vaMoveModal(id){ const a = ASSIGNS.find(x=>x.id===id); if(!a) return; const C = vaClients().filter(c=>c.id!==a.client); const vas = asgVAs().filter(k=>k!==a.va && PEOPLE[k]);
+  openModal(`Reassign — ${pname(a.va)} on ${a.clientName}`, `<div class="field"><label><input type="radio" name="vmK" value="move" checked style="width:auto"> Move ${esc(first(a.va))} to another client</label><select id="vmC">${C.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('')}</select></div>
+    <div class="field"><label><input type="radio" name="vmK" value="swap" style="width:auto"> Put another VA on ${esc(a.clientName)} instead</label><select id="vmV">${vas.map(k=>`<option value="${k}">${esc(pname(k))} — ${asgCount(k)} client${asgCount(k)===1?'':'s'}</option>`).join('')}</select></div>
+    <div class="field"><label>Reason</label><input id="vmW" placeholder="e.g. Client needs a video specialist"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end"><button class="btn" onclick="vaManage('${a.va}')">Back</button><button class="btn primary" onclick="vaMoveSave('${id}')">Reassign</button></div>`); }
+function vaMoveSave(id){ const a = ASSIGNS.find(x=>x.id===id); if(!a || !vaCanClient(a.client)) return; const kind = document.querySelector('input[name=vmK]:checked')?.value; const why = el('vmW').value.trim();
+  const from = client(a.client); const role = a.role;
+  if(kind==='move'){ const to = client(el('vmC').value); if(!to) return toast('Choose a client'); if(!vaCanClient(to.id)) return toast('You can’t assign to that client');
+    vaEnd(from.id, a.va, 'reassigned', `Moved to ${to.name}${why?' — '+why:''}`); const n = vaAdd(to.id, a.va, {role, duties:a.duties, why:`moved from ${from.name}`});
+    notify(a.va, 'assignment', `🔁 You were moved from <b>${esc(from.name)}</b> to <b>${esc(to.name)}</b>${why?' — '+esc(why):''}.`, {view:'myclients'}); vaTell(n, `moved from ${from.name}`, pmsOf(from.id)); }
+  else { const nv = el('vmV').value; if(!nv) return toast('Choose a VA'); if((from.team||[]).includes(nv)) return toast(`${first(nv)} is already on ${from.name}`);
+    vaEnd(from.id, a.va, 'reassigned', `Reassigned to ${pname(nv)}${why?' — '+why:''}`); const n = vaAdd(from.id, nv, {role, duties:a.duties, why:`replaces ${pname(a.va)}`});
+    notify(a.va, 'assignment', `🔁 You are no longer on <b>${esc(from.name)}</b> — ${esc(first(nv))} takes over${why?' ('+esc(why)+')':''}.`, {view:'myclients'});
+    notify(nv, 'assignment', `📌 You were assigned to <b>${esc(from.name)}</b> as ${esc(role)}, taking over from ${esc(first(a.va))}.`, {view:'myclients'}); vaTell(n, `takes over from ${pname(a.va)}`); }
+  recordChange(); vaManage(a.va); toast('Reassigned'); }
+function vaRemoveModal(id){ const a = ASSIGNS.find(x=>x.id===id); if(!a) return;
+  openModal(`Remove ${pname(a.va)} from ${a.clientName}`, `<div class="hint" style="margin-bottom:8px">The assignment ends today and stays in the history. ${esc(first(a.va))} is notified.</div><div class="field"><label>Reason *</label><input id="vrW"></div>
+    <div class="field"><label><input type="checkbox" id="vrDone" style="width:auto"> The work is completed (not a removal)</label></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end"><button class="btn" onclick="vaManage('${a.va}')">Back</button><button class="btn primary" style="background:var(--bad);border-color:var(--bad)" onclick="vaRemoveSave('${id}')">Remove</button></div>`); }
+function vaRemoveSave(id){ const a = ASSIGNS.find(x=>x.id===id); if(!a || !vaCanClient(a.client)) return; const why = el('vrW').value.trim(); if(!why) return toast('Write the reason'); const done = el('vrDone').checked;
+  vaEnd(a.client, a.va, done ? 'completed' : 'removed', `${done?'Completed':'Removed from the client team'} — ${why}`);
+  notify(a.va, 'assignment', `${done?'✅ Your assignment on':'➖ You were removed from'} <b>${esc(a.clientName)}</b>${done?' is completed':''} — ${esc(why)}.`, {view:'myclients'}); vaTell(a, done?'assignment completed':'removed — '+why);
+  recordChange(); vaManage(a.va); toast(done ? 'Marked completed' : 'Removed'); }
+
+/* ---------- VA Assignments page: the buttons ---------- */
+{ const _rv = RENDER.vatrack; RENDER.vatrack = function(){ const r = _rv.apply(this, arguments); try{ const v = el('v-vatrack'); if(!v || !vaCan()) return r;
+      const head = v.querySelector('.page-head > div:last-child'); if(head && !head.querySelector('.va-add')) head.insertAdjacentHTML('afterbegin', `<button class="btn primary va-add" onclick="vaAssignModal()">＋ Assign VA</button>`);
+      if(!asgCanManage()){ head?.querySelectorAll('button:not(.va-add)').forEach(b=>{ if(/Default target/.test(b.textContent)) b.remove(); }); const p = v.querySelector('.page-head p'); if(p) p.textContent = vaFull() ? 'Assign, update, reassign and remove VAs on every client — changes show everywhere at once.' : 'Assign, update, reassign and remove VAs on the clients you manage — changes show everywhere at once.'; }
+      v.querySelectorAll('button[onclick^="asgHistory("]').forEach(b=>{ const va = /asgHistory\('([^']+)'\)/.exec(b.getAttribute('onclick'))?.[1]; if(va && !b.previousElementSibling?.classList.contains('va-mng')) b.insertAdjacentHTML('beforebegin', `<button class="btn ghost va-mng" style="padding:4px 10px;font-size:12px" onclick="vaManage('${va}')">Manage</button>`); });
+      if(!asgCanManage()) v.querySelectorAll('button[onclick^="asgTargetModal("],button[onclick^="asgReasonModal("]').forEach(b=>b.remove());
+    }catch(e){ console.warn('va assign', e); } return r; }; }
+{ const _ore = onRemoteEvent; onRemoteEvent = function(ev){ _ore.apply(this, arguments); if(['assignments','clients'].includes(ev?.coll) && ['vatrack','myclients'].includes(CURRENT) && !el('modal')?.classList.contains('open')){ clearTimeout(VA.rt); VA.rt = setTimeout(()=>RENDER[CURRENT]?.(), 400); } }; }
+
+/* ---------- the content item's Owner list: "＋ Assign a VA to this client…" ---------- */
+{ const _ot = openTask; openTask = function(id){ const r = _ot.apply(this, arguments); try{ const t = TASKS.find(x=>x.id===id), s = el('teWho');
+      if(t && s && !s.disabled && t.client && vaCanClient(t.client) && !s.querySelector('option[value="__asg"]')){ s.insertAdjacentHTML('beforeend', '<option value="__asg">＋ Assign a VA to this client…</option>'); const was = s.value;
+        s.addEventListener('change', ()=>{ if(s.value!=='__asg') return; s.value = was; vaAssignModal(null, t.client, ()=>openTask(id)); }); } }catch(e){} return r; }; }
+(function vaCss(){ if(el('vaCss')) return; const st = document.createElement('style'); st.id = 'vaCss'; st.textContent = `.va-load{border:1px solid var(--line);border-radius:12px;padding:8px 11px;margin:4px 0 10px;background:var(--panel-2);display:grid;gap:3px}.va-row{display:flex;gap:10px;align-items:flex-start;border-bottom:1px solid var(--line);padding:9px 0;flex-wrap:wrap}.va-acts{display:flex;gap:6px;flex-wrap:wrap}.va-acts .btn{padding:4px 10px;font-size:12px}`; document.head.appendChild(st); })();
+
+window.OPS_RELEASE = (window.OPS_RELEASE||[]).concat([{build:'2026-11-20 · 3', id:'va-assign', type:'improvement', modules:['t48_vaassign.js'], tour:'vaassign',
+  title:'VA assignments: Sam, the Marketing Head and PMs can assign VAs', audience:{groups:['hr','deptheads','execs'], people:['sam','kiara','tricia','yam']},
+  text:'Sam is now in the Owner list of content items. Sam, the Marketing Head and PMs (for their clients) can assign, update, reassign and remove VAs in VA Assignments — every change shows at once on the client, in My Clients and in VA Assignments, with notifications and a full history.',
+  portals:['HR portal','Marketing Head','Project managers','VA portals'], depts:['HR','Marketing'],
+  steps:['Open VA Assignments → ＋ Assign VA, or Manage on a VA.', 'In a content item, pick Sam as Owner — or “＋ Assign a VA to this client…”.']}]);
+window.OPS_TOURS = Object.assign(window.OPS_TOURS||{}, {vaassign:{steps:[
+  {id:'va-page', as:'tricia', run:"go('vatrack')", wait:900, focus:'#v-vatrack .va-add', title:'Assign a VA', say:'PMs, the Marketing Head and Sam can now assign VAs from VA Assignments.'},
+  {id:'va-modal', run:"vaAssignModal()", wait:700, focus:'#modal #vaV', title:'Pick the VA and the client', say:'Choose the VA, see their current clients and target, then the client, role and responsibilities.'},
+  {id:'va-manage', run:"closeModal(); go('vatrack')", wait:700, focus:'#v-vatrack .va-mng', title:'Update, reassign or remove', say:'Manage shows each VA’s clients — update the role, reassign or remove, with the full history.'}]}});
 /* <<< OCT24 MODULES <<< */
 </script>
 </body>

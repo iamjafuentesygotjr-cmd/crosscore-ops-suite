@@ -20923,7 +20923,7 @@ async function cooPostFromModal(){ const ch = CHATS.find(c=>c.id===el('paPostC')
    The footer shows which build is running ("Build 2026-10-07 · 1"), and every open portal checks every few minutes
    (and whenever it comes back to the foreground) whether a newer build has been published. If so it shows
    "New version available — Update now" instead of quietly running old code. */
-const BUILD_ID = '2026-11-19 · 1';
+const BUILD_ID = '2026-11-19 · 2';
 function verStamp(){ const f = el('footNote'); if(f && !f.dataset.v){ f.dataset.v = 1; f.textContent = `Cross Core Ops Suite v8 · Build ${BUILD_ID}`; } }
 async function verCheck(){
   if(!/^https?:/.test(location.protocol)) return;
@@ -46084,7 +46084,10 @@ window.OPS_TOURS = Object.assign(window.OPS_TOURS||{}, {
   ]}
 });
 
-/* ===== t45_aidm.js — AI agents: personal messages in their own 1-on-1 threads, group chats unchanged (Nov 19 2026) =====
+/* ===== t45_aidm.js — AI Assistant Inbox: direct AI conversations separate from Personal Messages, group chats unchanged (Nov 19 2026 · 2) =====
+   Three places in Messages: Personal Messages (people only) · 🤖 AI Assistant Inbox (one thread per assistant and person)
+   · Group chats (exactly as before, with the assistants that take part in them). The one-time move of the existing
+   history and the database-side routing are in supabase/update-nov19-ai-inbox.sql.
    Only the routing of PERSONAL AI messages changes. Nothing in group chats is touched.
    • Before anything is saved, every NEW message an AI agent (COO AI Assistant, the PM assistants, Cora) sends to one
      person is classified: a personal message (1-on-1 follow-up, reminder, request) that the agent code placed in the
@@ -46111,8 +46114,9 @@ function aiRecipient(m, c){ const mem = c.members||[]; if(mem.length!==2 || mem[
   const g = /^\s*(?:hi|hello|hey)\s+([^!,.\n]+)[!,.]/i.exec(m.text||''); if(g){ const nm = g[1].trim().toLowerCase(); const hit = mem.find(k=>String(first(k)||'').toLowerCase()===nm || String(pname(k)||'').toLowerCase()===nm); if(hit) return hit; }
   const own = aiOwnerOf(m.by); if(own && mem.includes(own)) return mem.find(k=>k!==own);
   return null; }
-function aiEnsureChat(agent, owner, k){ const id = aiChatIdFor(agent, k); let c = CHATS.find(x=>x.id===id);
-  if(!c){ c = {id, kind:'dm', ai:true, agent, owner, name:'', members:[owner, k].sort(), at:nowISO()}; CHATS.push(c); AIDM.chats.add(id); }
+function aiEnsureChat(agent, owner, k, from){ const id = aiChatIdFor(agent, k); let c = CHATS.find(x=>x.id===id);
+  if(!c){ c = {id, kind:'dm', ai:true, agent, owner, name:'', members:[owner, k].sort(), at:nowISO(), from:from?[from]:[]}; CHATS.push(c); AIDM.chats.add(id); }
+  else if(from && !(c.from||[]).includes(from)) c.from = [...(c.from||[]), from];
   return c; }
 /* the classifier + router: runs right before every save, on new messages created on this device only */
 function aiRoute(){
@@ -46126,8 +46130,8 @@ function aiRoute(){
       if(m.thread){ delete m.thread; const tag = '@' + (m.asker ? pname(m.asker) : '') + ' '; if(m.asker && String(m.text||'').startsWith(tag)) m.text = String(m.text).slice(tag.length); }
       continue; }
     if(m.thread || m.replyTo) continue;                                               /* @-answers inside people's own chats stay there */
-    const k = aiRecipient(m, c); if(!k) continue; const owner = (c.members||[]).find(x=>x!==k); if(!owner) continue;
-    const t = aiEnsureChat(m.by, owner, k); const old = m.chat; m.chat = t.id; m.routedFrom = old; n++;
+    const k = aiRecipient(m, c); if(!k || k===aiOwnerOf(m.by)) continue; const owner = (c.members||[]).find(x=>x!==k); if(!owner) continue;   /* a report to the assistant's own owner stays */
+    const old = m.chat; const t = aiEnsureChat(m.by, owner, k, AIDM.chats.has(old) || AIDM.remoteChats.has(old) ? old : null); m.chat = t.id; m.routedFrom = old; n++;
     (typeof NOTIFS2!=='undefined' ? NOTIFS2 : []).forEach(x=>{ if(x.link?.msg===m.id && x.link.arg===old) x.link = {...x.link, arg:t.id}; });
     (typeof PALOG!=='undefined' ? PALOG : []).forEach(x=>{ if(x.msg===m.id && x.chat===old) x.chat = t.id; });
     /* the private chat the agent code created only for this message (never saved, nothing else in it) is not kept */
@@ -46144,7 +46148,7 @@ const aiPeer = c => (c.members||[]).find(k=>k!==c.owner) || (c.members||[]).find
     return PERSON===aiPeer(c) ? nm : `${nm} · ${pname(aiPeer(c))}`; }; }
 { const _ca = chatAvatar; chatAvatar = function(c){ if(aiThread(c)) return av(P(c.agent)); return _ca.apply(this, arguments); }; }
 if(typeof mpItem==='function'){ const _mi = mpItem; mpItem = function(c){ const h = _mi.apply(this, arguments); if(!aiThread(c)) return h;
-    const t = document.createElement('template'); t.innerHTML = h.replace('<div class="pv">', '<div class="pv"><span class="mp-kind">🤖 Personal · AI</span>');
+    const t = document.createElement('template'); t.innerHTML = h.replace('<div class="pv">', '<div class="pv"><span class="mp-kind">🤖 AI assistant</span>');
     t.content.querySelectorAll('.nm > :not(.mp-nm):not(.mp-when)').forEach(x=>x.remove());   /* no online status of a person on an AI thread */
     return t.innerHTML; }; }
 /* "Message" on someone's profile always opens the chat between the two people, never an AI thread */
@@ -46153,36 +46157,63 @@ if(typeof pfFindDM==='function'){ pfFindDM = function(k){ const pair = [PERSON, 
     const last = c => (chatMsgs(c.id).map(m=>m.at).sort().pop() || c.at || '');
     return L.sort((a,b)=>last(b).localeCompare(last(a)) || (a.id===dmId(PERSON,k) ? -1 : 1))[0]; }; }
 
-/* ---------- Messages list: "Personal Messages" section ---------- */
-if(typeof mxListHTML==='function'){ const _ml = mxListHTML; mxListHTML = function(){ const h = _ml.apply(this, arguments);
-  try{ const f = MP.filter; const mine = myChats(); const AI = mine.filter(c=>aiThread(c) && !c.archived); if(!AI.length) return h;
-    const pins = new Set(typeof myPins==='function' ? myPins() : []); const shown = AI.filter(c=>mpMatch(c, f));
-    const t = document.createElement('template'); t.innerHTML = h; const ids = new Set(AI.map(c=>c.id));
-    t.content.querySelectorAll('[data-chat]').forEach(b=>{ if(ids.has(b.getAttribute('data-chat'))) b.remove(); });
-    [['pin', shown.filter(c=>pins.has(c.id))], ['all', shown.filter(c=>!pins.has(c.id))]].forEach(([sec, L])=>{ if(!L.length) return;
-      const hd = t.content.querySelector(`.msx-sec[data-sec="${sec}"]`); if(!hd) return; const cnt = hd.querySelector('.msx-sec-c'); const left = Math.max(0, (+cnt?.textContent||0) - L.length);
-      if(!left){ hd.remove(); t.content.querySelector(`.msx-grp[data-sec="${sec}"]`)?.remove(); return; } if(cnt) cnt.textContent = left;
-      const u = hd.querySelector('.msx-sec-u'); if(u){ const nu = Math.max(0, (+u.textContent||0) - L.reduce((n,c)=>n+unreadIn(c.id), 0)); if(nu) u.textContent = nu; else u.remove(); } });
-    if(shown.length){ const lastMsg = {}; for(const m of MESSAGES){ if(m.thread || !ids.has(m.chat)) continue; const l = lastMsg[m.chat]; if(!l || (m.at||'') >= (l.at||'')) lastMsg[m.chat] = m; }
+/* ---------- Messages list: Personal Messages (people) · 🤖 AI Assistant Inbox · Group chats ---------- */
+if(typeof MP_FILTERS!=='undefined' && !MP_FILTERS.some(f=>f[0]==='ai')){ const i = MP_FILTERS.findIndex(f=>f[0]==='dm'); MP_FILTERS.splice(i>=0 ? i+1 : MP_FILTERS.length, 0, ['ai','🤖 AI Assistants']); }
+/* a private chat that only ever held AI messages (moved to the inbox) stays out of Personal Messages until someone writes in it */
+const aiHiddenDM = c => !!(c && c.kind==='dm' && !c.ai && c.aiOnly && !MESSAGES.some(m=>m.chat===c.id && !aiIsAgent(m.by)));
+const aiInboxMatch = (c, f) => f==='all' || f==='ai' ? true : f==='unread' ? unreadIn(c.id) > 0 : false;
+function aiCanStartJose(){ try{ return typeof JOSE_KEY!=='undefined' && PEOPLE[PERSON] && !['client','applicant'].includes(ROLE) && typeof cooKey==='function' && cooKey() && PERSON!==cooKey()
+    && !CHATS.some(c=>c.id===aiChatIdFor(JOSE_KEY, PERSON)); }catch(e){ return false; } }
+function aiStartJose(){ if(!aiCanStartJose()) return; const c = aiEnsureChat(JOSE_KEY, cooKey(), PERSON, null); recordChange(); CHAT_OPEN = c.id; RENDER.chat(true); }
+if(typeof mxListHTML==='function'){ const _ml = mxListHTML; mxListHTML = function(){ const f = MP.filter;
+  const h = _ml.apply(this, arguments);
+  try{ const mine = myChats(); const AI = mine.filter(c=>aiThread(c) && !c.archived), HID = mine.filter(aiHiddenDM);
+    const out = new Set([...AI, ...HID].map(c=>c.id)); const shown = AI.filter(c=>aiInboxMatch(c, f));
+    if(!out.size && !aiCanStartJose()) return h;
+    const t = document.createElement('template'); t.innerHTML = h;
+    if(f==='ai'){ [...t.content.children].forEach(n=>{ if(!n.classList.contains('msx-chips') && !n.classList.contains('mp-chips')) n.remove(); }); }
+    else {
+      t.content.querySelectorAll('[data-chat]').forEach(b=>{ if(out.has(b.getAttribute('data-chat'))) b.remove(); });
+      const pins = new Set(typeof myPins==='function' ? myPins() : []); const removed = [...AI, ...HID].filter(c=>mpMatch(c, f));
+      [['pin', removed.filter(c=>pins.has(c.id))], ['all', removed.filter(c=>!pins.has(c.id))]].forEach(([sec, L])=>{ if(!L.length) return;
+        const hd = t.content.querySelector(`.msx-sec[data-sec="${sec}"]`); if(!hd) return; const cnt = hd.querySelector('.msx-sec-c'); const left = Math.max(0, (+cnt?.textContent||0) - L.length);
+        if(!left){ hd.remove(); t.content.querySelector(`.msx-grp[data-sec="${sec}"]`)?.remove(); return; } if(cnt) cnt.textContent = left;
+        const u = hd.querySelector('.msx-sec-u'); if(u){ const nu = Math.max(0, (+u.textContent||0) - L.reduce((n,c)=>n+unreadIn(c.id), 0)); if(nu) u.textContent = nu; else u.remove(); } });
+      const allHd = t.content.querySelector('.msx-sec[data-sec="all"] .msx-sec-t'); if(allHd && f==='all') allHd.childNodes.forEach(n=>{ if(n.nodeType===3 && /All conversations/.test(n.textContent)) n.textContent = 'Personal Messages & groups'; });
+    }
+    if(shown.length || (f==='ai' || f==='all') && aiCanStartJose()){
+      const ids = new Set(AI.map(c=>c.id)); const lastMsg = {}; for(const m of MESSAGES){ if(m.thread || !ids.has(m.chat)) continue; const l = lastMsg[m.chat]; if(!l || (m.at||'') >= (l.at||'')) lastMsg[m.chat] = m; }
       const at = c => lastMsg[c.id]?.at || c.at || ''; shown.sort((a,b)=>String(at(b)).localeCompare(String(at(a))));
-      const open = !mxUI().aiClosed; const un = shown.reduce((n,c)=>n+unreadIn(c.id), 0);
-      const sec = mxSecHead('ai', '🤖 Personal Messages', shown.length, un, open) + (open ? `<div class="msx-grp" data-sec="ai">${shown.map(c=>mxRow(c, lastMsg)).join('')}</div>` : '');
+      const open = f==='ai' || !mxUI().aiClosed; const un = shown.reduce((n,c)=>n+unreadIn(c.id), 0);
+      const start = aiCanStartJose() ? `<button type="button" class="msx-moreg" onclick="aiStartJose()">＋ Chat with ${esc(pname(JOSE_KEY))}</button>` : '';
+      const sec = mxSecHead('ai', '🤖 AI Assistant Inbox', shown.length, un, open) + (open ? `<div class="msx-grp" data-sec="ai">${shown.map(c=>mxRow(c, lastMsg)).join('')}${start}</div>` : '');
       const box = document.createElement('template'); box.innerHTML = sec;
       const before = t.content.querySelector('.msx-sec[data-sec="all"]') || t.content.querySelector('.msx-sec[data-sec="arch"]');
       if(before) before.before(box.content); else t.content.appendChild(box.content);
       t.content.querySelector('.mp-empty')?.remove(); }
-    return t.innerHTML; }catch(e){ console.warn('personal messages section', e); return h; } }; }
+    else if(f==='ai') t.content.appendChild(Object.assign(document.createElement('div'), {className:'empty mp-empty', textContent:'No AI assistant conversations yet.'}));
+    return t.innerHTML; }catch(e){ console.warn('AI Assistant Inbox', e); return h; } }; }
+/* unread: messages already read in the private chat they came from stay read */
+{ const _lr = chatLastRead; chatLastRead = function(id){ const a = _lr.apply(this, arguments) || ''; const c = aiThread(CHATS.find(x=>x.id===id)) ? CHATS.find(x=>x.id===id) : null;
+    if(!c || !(c.from||[]).length) return a; return (c.from||[]).reduce((m, f)=>{ const b = _lr.call(this, f) || ''; return b > m ? b : m; }, a); }; }
+/* a notification or link to a message that has moved opens it where it is now */
+{ const _fl = followLink; followLink = function(link){ try{ if(link?.view==='chat' && link.msg){ const m = MESSAGES.find(x=>x.id===link.msg); if(m && m.chat && m.chat!==link.arg) link = {...link, arg:m.chat}; } }catch(e){}
+    return _fl.apply(this, arguments); }; }
+/* the header of an AI thread says what it is */
+{ const _rc = RENDER.chat; RENDER.chat = function(){ const r = _rc.apply(this, arguments); try{ const c = CHATS.find(x=>x.id===CHAT_OPEN);
+      if(aiThread(c)){ const sub = [...document.querySelectorAll('#v-chat .sub')].find(n=>/Private conversation/.test(n.textContent));
+        if(sub) sub.textContent = PERSON===aiPeer(c) ? '🤖 AI Assistant Inbox · your private conversation with this assistant' : `🤖 AI Assistant Inbox · ${pname(aiPeer(c))}’s conversation with this assistant`; } }catch(e){} return r; }; }
 
 /* ---------- replies in the COO AI Assistant thread are answered there, privately, without an @ ---------- */
 if(typeof joseWanted==='function' && typeof JOSE_KEY!=='undefined'){ const _jw = joseWanted; joseWanted = function(m){
     try{ const c = m && CHATS.find(x=>x.id===m.chat); if(aiThread(c) && c.agent===JOSE_KEY && m.by===PERSON && PERSON!==c.owner && !m.sys && m.text && !aiIsAgent(m.by)) return typeof joseChatOk==='function' ? joseChatOk(c) : true; }catch(e){}
     return _jw.apply(this, arguments); }; }
 
-window.OPS_RELEASE = (window.OPS_RELEASE||[]).concat([{build:'2026-11-19 · 1', id:'ai-personal-messages', type:'improvement', modules:['t45_aidm.js'],
-  title:'AI assistants: personal messages now have their own 1-on-1 threads',
-  text:'Follow-ups and reminders the AI assistants send to you personally now arrive in your own thread with that assistant, under “Personal Messages” in Messages — no longer mixed into other chats. Group chats work exactly as before.',
+window.OPS_RELEASE = (window.OPS_RELEASE||[]).concat([{build:'2026-11-19 · 2', id:'ai-assistant-inbox', type:'improvement', modules:['t45_aidm.js'],
+  title:'AI Assistant Inbox: conversations with AI assistants are separate from Personal Messages',
+  text:'Messages has three places now: Personal Messages (people only), the 🤖 AI Assistant Inbox (your own thread with each assistant — earlier follow-ups were moved there with their dates and files) and Group chats, which work exactly as before.',
   portals:['All portals'], depts:['All departments'], audience:{groups:['all']},
-  steps:['Open Messages — AI follow-ups are under “🤖 Personal Messages”.', 'Reply right there; the COO AI Assistant answers in the same thread.']}]);
+  steps:['Open Messages → “🤖 AI Assistants” (or the AI Assistant Inbox section).', 'Reply right there; the COO AI Assistant answers in the same thread.']}]);
 /* <<< OCT24 MODULES <<< */
 </script>
 </body>

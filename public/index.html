@@ -20923,7 +20923,7 @@ async function cooPostFromModal(){ const ch = CHATS.find(c=>c.id===el('paPostC')
    The footer shows which build is running ("Build 2026-10-07 · 1"), and every open portal checks every few minutes
    (and whenever it comes back to the foreground) whether a newer build has been published. If so it shows
    "New version available — Update now" instead of quietly running old code. */
-const BUILD_ID = '2026-11-18 · 6';
+const BUILD_ID = '2026-11-19 · 1';
 function verStamp(){ const f = el('footNote'); if(f && !f.dataset.v){ f.dataset.v = 1; f.textContent = `Cross Core Ops Suite v8 · Build ${BUILD_ID}`; } }
 async function verCheck(){
   if(!/^https?:/.test(location.protocol)) return;
@@ -35574,7 +35574,7 @@ async function jwfTask(raw){ const text = jwfClean(raw); const s = jwfLower(text
 
 /* ---------- the workflows keep going (any COO / head / HR portal; fixed ids → never twice) ---------- */
 const jwfSubmitted = (w, k) => { const t = TASKS.find(x=>x.id===w.tasks?.[k]); if(t && JWF_DONE_ST.includes(t.status)) return {how:`moved the task to ${t.status}`};
-  const cid = dmId(cooKey(), k); const m = MESSAGES.filter(x=>x.chat===cid && x.by===k && String(x.at) > String(w.createdAt) && JWF_SAID_DONE.test(x.text||'')).pop(); return m ? {how:'said it’s submitted', msg:m} : null; };
+  const cid = dmId(cooKey(), k), aic = typeof aiChatIdFor==='function' ? aiChatIdFor('asst:'+COO_ASST, k) : ''; const m = MESSAGES.filter(x=>(x.chat===cid || x.chat===aic) && x.by===k && String(x.at) > String(w.createdAt) && JWF_SAID_DONE.test(x.text||'')).pop(); return m ? {how:'said it’s submitted', msg:m} : null; };
 function jwfTick(){ if(typeof canRunOps!=='function' || !canRunOps()) return; let ch = false; const today = window.__jwfToday || manilaDate(); const h = window.__jwfHour ?? phParts(new Date()).h;
   JOSEWF.filter(w=>w.kind==='task' && w.status==='active').forEach(w=>{
     w.people.forEach(k=>{ if(w.done[k]) return; const s = jwfSubmitted(w, k); if(!s) return;
@@ -44051,10 +44051,10 @@ async function relStudio(){ if(RSTUDIO.fr && RSTUDIO.ready && RSTUDIO.fr.isConne
 function relStudioClose(){ RSTUDIO.fr?.remove(); RSTUDIO.fr = null; RSTUDIO.ready = false; }
 async function relStep(fr, st){ const w = fr.contentWindow;
   if(st.as){ w.eval(`(function(){ const l=document.getElementById('login'); if(l) l.style.display='none'; setPerson(${JSON.stringify(st.as)}); try{ buildNav(); }catch(e){} })()`); await relSleep(350); }
-  w.eval(`(function(){ document.getElementById('annGate')?.remove(); document.querySelectorAll('.ann-gate,.urgent-gate,#pushInvite,.live-toast').forEach(x=>x.remove()); const t=document.getElementById('toast'); if(t) t.style.visibility='hidden'; try{ closeModal(); }catch(e){} })()`);
+  w.eval(`(function(){ document.getElementById('annGate')?.remove(); document.querySelectorAll('.ann-gate,.urgent-gate,#pushInvite,.live-toast,#toast').forEach(x=>x.remove()); try{ closeModal(); }catch(e){} })()`);
   if(st.setup) w.eval(`(function(){ ${st.setup} })()`); if(st.run) w.eval(`(function(){ ${st.run} })()`);
   await relSleep(st.wait || 900);
-  w.eval(`(function(){ document.querySelectorAll('#pushInvite,.live-toast,.ann-gate,.urgent-gate,#recPopStack,#msgToasts,#jpPop,#activePop,#cbToast').forEach(x=>x.remove()); const t=document.getElementById('toast'); if(t) t.style.visibility='hidden'; })()`);
+  w.eval(`(function(){ document.querySelectorAll('#pushInvite,.live-toast,#toast,.ann-gate,.urgent-gate,#recPopStack,#msgToasts,#jpPop,#activePop,#cbToast').forEach(x=>x.remove()); })()`);
   const els = (st.focus ? [].concat(st.focus) : []).map(sel=>w.document.querySelector(sel)).filter(Boolean);
   const rects = els.map(e=>{ const b = e.getBoundingClientRect(); return {x:b.left, y:b.top, w:b.width, h:b.height}; }).filter(b=>b.w>2 && b.h>2 && b.x < 1600 && b.y < 900);
   const fc = await relCapture(w), canvas = document.createElement('canvas'); canvas.width = fc.width; canvas.height = fc.height; canvas.getContext('2d').drawImage(fc, 0, 0);   /* copied out: the studio frame is closed afterwards */
@@ -45402,7 +45402,7 @@ function xWorkspaces(){
 }
 const xWsOf = (id, L=xWorkspaces()) => L.find(w=>w.ok.some(t=>t[0]===id));
 const xOn = () => { try{ return matchMedia('(min-width: 1024px)').matches && !!PEOPLE[PERSON] && el('login')?.style.display==='none'
-  && !['client','applicant'].includes(ROLE) && !(typeof isApplicant==='function' && isApplicant()) && !(typeof CC_STUDIO!=='undefined' && CC_STUDIO && !window.XS_STUDIO_ON); }catch(e){ return false; } };
+  && !['client','applicant'].includes(ROLE) && !(typeof isApplicant==='function' && isApplicant()) && !(typeof CC_STUDIO!=='undefined' && CC_STUDIO); }catch(e){ return false; } };
 const xGet = () => (typeof wsGet==='function' ? wsGet() : {});
 const xSet = p => { try{ if(typeof wsSet==='function') wsSet(p); }catch(e){} };
 const xFavs = () => { const p = PREFS.find(x=>x.id===PERSON); return Array.isArray(p?.navFav) ? p.navFav.filter(k=>typeof k==='string') : null; };
@@ -45494,7 +45494,7 @@ function xPanelHTML(){
   return `<div class="xp-h"><b>${XRAIL_TITLE[r]||'Menu'}</b><button type="button" class="xp-x" onclick="xTogglePanel()" title="Hide the panel" aria-label="Hide the panel">${xIco('left', 16, 2)}</button></div>`
     + (search ? `<div class="xp-s">${xIco('search', 15, 2)}<input id="xQ" value="${esc(XS.q)}" placeholder="${r==='more'?'Search every page':'Search'}" aria-label="Search ${XRAIL_TITLE[r]}" oninput="XS.q=this.value;xPanel(true)"></div>` : '')
     + picker + `<div class="xp-body">${body}</div>`
-    + (typeof wsPrefsModal==='function' && (typeof wsEligible!=='function' || wsEligible() || window.XS_STUDIO_ON) ? `<div class="xp-f"><button type="button" class="xp-cu" onclick="wsPrefsModal()">${xIco('sliders', 15, 1.9)}Customize menu &amp; dock</button></div>` : '');
+    + (typeof wsPrefsModal==='function' && (typeof wsEligible!=='function' || wsEligible()) ? `<div class="xp-f"><button type="button" class="xp-cu" onclick="wsPrefsModal()">${xIco('sliders', 15, 1.9)}Customize menu &amp; dock</button></div>` : '');
 }
 function xPanel(keepFocus){ const p = el('xPanel'); if(!p) return; const f = keepFocus && document.activeElement?.id==='xQ'; const pos = f ? el('xQ').selectionStart : 0;
   const st = p.querySelector('.xp-body')?.scrollTop || 0; p.innerHTML = xPanelHTML(); const b = p.querySelector('.xp-body'); if(b) b.scrollTop = st;
@@ -45622,7 +45622,7 @@ body.x-shell .x-panel{display:flex;flex-direction:column;flex:1;min-height:0;min
 .xp-cl{margin:0 12px 6px}.xp-cl label{display:block;font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--x-ink2);margin:0 0 4px 2px}
 .xp-cl select{width:100%;height:32px;border-radius:9px;border:1px solid var(--x-line);background:var(--x-panel);color:var(--x-ink);font:inherit;font-size:13px;padding:0 8px}
 .xp-cl small{display:block;font-size:11.5px;color:var(--x-help);margin:5px 2px 0}
-.xp-body{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;padding:0 8px 12px;scrollbar-width:thin}
+.xp-body{flex:1;min-height:0;overflow-y:auto;padding:0 8px 12px;scrollbar-width:thin}
 .xp-f{flex-shrink:0;border-top:1px solid var(--x-line);padding:8px 10px}
 .xp-cu{display:flex;align-items:center;gap:8px;width:100%;height:32px;padding:0 10px;border:1px dashed #CFC7BA;border-radius:8px;background:transparent;color:var(--x-body);font:inherit;font-size:12.5px;font-weight:500;cursor:pointer;box-sizing:border-box}.xp-cu:hover{border-color:var(--x-amber);color:var(--x-ink)}.xp-cu:focus-visible{outline:2px solid var(--x-amber);outline-offset:2px}
 .xp-g{margin-top:4px}
@@ -46000,14 +46000,6 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape' && XH.editing && !
 `;
   const s = document.createElement('style'); s.id = 'xHomeCss'; s.textContent = css; document.head.appendChild(s);
 })();
-
-/* Release Studio: a draft prepared before its notes had a walkthrough (or edited by hand) still finds the tour from the
-   release notes of its build, so "Generate highlighted screenshots" works without re-creating the draft. */
-if(typeof relTourOf==='function'){ const _rt = relTourOf; relTourOf = function(r){ let s = []; try{ s = _rt.apply(this, arguments); }catch(e){}
-    if(s.length || !r) return s;
-    try{ const notes = (window.OPS_RELEASE||[]).filter(n=>n.build===r.build && n.tour);
-      const items = (r.items||[]).filter(i=>!i.internal).map(i=>{ if(i.tour && window.OPS_TOURS?.[i.tour]) return i; const n = notes.find(n=>(n.id && n.id===i.id) || n.title===i.title); return n ? {...i, tour:n.tour} : i; });
-      return _rt.call(this, {...r, items}); }catch(e){ return s; } }; }
 /* ===== t99_release_notes.js — Release notes and walkthroughs shipped with each build (read by What's New, t38) =====
    Write one entry per user-facing change, in plain English, when the code is written. The draft only keeps an entry
    when the code of its modules really changed against the previous saved build. Internal entries are never shown to users. */
@@ -46068,15 +46060,15 @@ window.OPS_RELEASE = (window.OPS_RELEASE||[]).concat([
    actions:['Use the rail on the left: Home, Messages, Calendar, Work, People, Finance, More.', 'Click Customize Home to arrange your Home your way.']},
   {build:'2026-11-18 · 6', id:'nav-rail', type:'improvement', title:'A rail and workspaces instead of a long menu', modules:['t43_shell.js'], pages:[],
    text:'On a laptop the menu is now a slim rail with a panel beside it. Related pages are grouped into workspaces that open as tabs — for example Client Work holds content, lead generation and client tools, with a client picker that shows only the tools for that client’s services. Search finds any page or tab, and you can star your favourites. Every page you could open before is still there. Phones keep the slide-in menu.',
-   tour:'navrail106', portals:['All portals'], depts:['All departments'], audience:{groups:['all']},
+   portals:['All portals'], depts:['All departments'], audience:{groups:['all']},
    steps:['Click an icon on the rail to see its workspaces in the panel.', 'Open a workspace; switch pages with the tabs at the top.', 'Use More (or the dock’s More) to search every page.']},
   {build:'2026-11-18 · 6', id:'home', type:'feature', title:'One Home: where you stand, what needs you, what’s coming', modules:['t44_home.js'], pages:['dashboard'],
    text:'Home now starts with four short sections: your time card (Time in, Start / End break, Time out, the client you are working on), what needs your attention (each line opens the original item), what’s coming up, and important updates. Everything the dashboard showed before is still there below — and you can rearrange or hide those sections with Customize Home.',
-   tour:'home106', portals:['All portals'], depts:['All departments'], audience:{groups:['all']},
+   portals:['All portals'], depts:['All departments'], audience:{groups:['all']},
    steps:['Time in from the time card on Home.', 'Click a line under “Needs my attention” to open it.', 'Click Customize Home, drag sections or use ↑ ↓, then Save.']},
   {build:'2026-11-18 · 6', id:'calm-updates', type:'improvement', title:'Calmer updates', modules:['t44_home.js'], pages:[],
    text:'System updates no longer pop up on their own: the newest one waits as a single card on Home, and “See what changed” opens the details in a side panel. Critical updates show one slim banner at the top. Announcements block the screen only when HR or management tick “Require acknowledgement”.',
-   tour:'calm106', portals:['All portals'], depts:['All departments'], audience:{groups:['all']},
+   portals:['All portals'], depts:['All departments'], audience:{groups:['all']},
    steps:['Look for the update card under Important updates on Home.', 'Click See what changed, then Got it.']}
 ]);
 window.OPS_TOURS = Object.assign(window.OPS_TOURS||{}, {
@@ -46092,31 +46084,105 @@ window.OPS_TOURS = Object.assign(window.OPS_TOURS||{}, {
   ]}
 });
 
-/* walkthroughs for build · 6 — the Release Studio switches the new navigation on inside its demo frame (XS_STUDIO_ON) */
-window.OPS_TOURS = Object.assign(window.OPS_TOURS||{}, {
-  navrail106:{steps:[
-    {id:'nr-rail', as:'yam', setup:"window.XS_STUDIO_ON=true;", run:"go('dashboard');XS.rail='work';XS.open=true;xApply()", focus:'#xRail', wait:1200, title:'The rail',
-     say:'The menu is now a slim rail: Home, Messages, Calendar, Work, People, Finance and More. A badge shows when something inside needs you.'},
-    {id:'nr-panel', setup:"window.XS_STUDIO_ON=true;", run:"go('dashboard');XS.rail='work';XS.open=true;xApply()", focus:'#xPanel .xp-body', title:'Workspaces in the panel',
-     say:'Click a rail icon to see its workspaces. Work holds content, lead generation and client tools together, with a client picker at the top.'},
-    {id:'nr-tabs', setup:"window.XS_STUDIO_ON=true;", run:"xOpen('myday')", focus:'#xTabs', wait:1300, title:'Related pages are tabs',
-     say:'Open a workspace and switch between its pages with the tabs at the top. Each workspace remembers the tab you used last.'},
-    {id:'nr-acct', setup:"window.XS_STUDIO_ON=true;", run:"go('dashboard');XS.rail='work';XS.open=true;xApply()", focus:['#xRail .xr-acc','#xRail .xr-so','#xPanel .xp-cu'], title:'Profile, Sign out and Customize',
-     say:'Your profile and Sign out are at the bottom of the rail. Customize menu and dock is at the bottom of the panel.'}
-  ]},
-  home106:{steps:[
-    {id:'hm-time', as:'yam', setup:"window.XS_STUDIO_ON=true;", run:"go('dashboard');xApply()", focus:'.xh-sec[data-sec="status"]', wait:1300, title:'Where I stand',
-     say:'Home starts with your time card. Time in, start and end your break, and Time out right here. It records the same entries as the Time Tracker.'},
-    {id:'hm-attn', setup:"window.XS_STUDIO_ON=true;", run:"go('dashboard')", focus:'.xh-sec[data-sec="attention"]', title:'Needs my attention',
-     say:'Approvals, overdue work and mentions are listed here. Click a line to open the original item.'},
-    {id:'hm-cust', setup:"window.XS_STUDIO_ON=true;", run:"go('dashboard')", focus:'#xHome button[onclick="xhEdit()"]', title:'Customize Home',
-     say:'Click Customize Home to drag sections, move them up or down, or hide the optional ones. Click Save to keep your layout.'}
-  ]},
-  calm106:{steps:[
-    {id:'cu-card', as:'yam', setup:"window.XS_STUDIO_ON=true; try{ relStudioSeed(); }catch(e){}", run:"go('dashboard');xApply(); const f=()=>{ const b=document.querySelector('#xHome .xh-secs'), u=b&&b.querySelector('.xh-sec[data-sec=\"updates\"]'); if(b&&u&&b.children[1]!==u) b.insertBefore(u, b.children[1]||null); scrollTo(0,0); }; f(); [200,500,900,1300].forEach(t=>setTimeout(f,t));", focus:'.xh-sec[data-sec="updates"]', wait:1500, title:'Updates wait on Home',
-     say:'System updates no longer pop up. The newest one waits under Important updates. Click See what changed, then Got it.'}
-  ]}
-});
+/* ===== t45_aidm.js — AI agents: personal messages in their own 1-on-1 threads, group chats unchanged (Nov 19 2026) =====
+   Only the routing of PERSONAL AI messages changes. Nothing in group chats is touched.
+   • Before anything is saved, every NEW message an AI agent (COO AI Assistant, the PM assistants, Cora) sends to one
+     person is classified: a personal message (1-on-1 follow-up, reminder, request) that the agent code placed in the
+     private conversation between the person and the agent's owner (JA, the meeting organizer, the PM) is moved to that
+     person's own thread with that agent: "COO AI Assistant" (one thread per agent and person). The notification, the
+     assistant log and the pop-up open that thread. Messages in group chats, client groups, client portals and
+     threads are never moved — group behaviour, style and history stay exactly as they are.
+   • Messages: a "Personal Messages" section lists these AI threads (with unread counts) separately from people's
+     chats and group chats. The recipient sees the agent as the title; the owner (e.g. JA) sees "COO AI Assistant · Name"
+     so the follow-ups they asked for stay visible to them, just as before — but no longer mixed into human chats.
+   • Replies stay in the thread. In the COO AI Assistant thread the person can simply write (no @ needed) and the
+     assistant answers there, privately; the workflow that waits for "I've submitted it" also reads this thread.
+   • Earlier AI messages stay where they were (history is not rewritten). */
+const AIDM = {seeded:false, known:new Set(), chats:new Set(), remote:new Set(), remoteChats:new Set()};
+const aiChatIdFor = (agent, k) => 'dm-ai-' + String(agent||'').replace(/[^A-Za-z0-9_-]/g, '_') + '--' + k;
+const aiIsAgent = k => /^asst:/.test(String(k||''));
+const aiThread = c => !!(c && c.ai && c.kind==='dm');
+function aiOwnerOf(agent){ const id = String(agent||'').replace(/^asst:/, '');
+  try{ if(typeof COO_ASST!=='undefined' && id===COO_ASST && typeof cooKey==='function') return cooKey(); }catch(e){}
+  try{ const a = (typeof pmAssistants==='function' ? pmAssistants() : []).find(x=>x.id===id); if(a?.pm) return a.pm; }catch(e){}
+  return null; }
+function aiRecipient(m, c){ const mem = c.members||[]; if(mem.length!==2 || mem[0]===mem[1]) return null;
+  const n = (typeof NOTIFS2!=='undefined' ? NOTIFS2 : []).find(x=>x.link?.msg===m.id && mem.includes(x.to)); if(n) return n.to;
+  const g = /^\s*(?:hi|hello|hey)\s+([^!,.\n]+)[!,.]/i.exec(m.text||''); if(g){ const nm = g[1].trim().toLowerCase(); const hit = mem.find(k=>String(first(k)||'').toLowerCase()===nm || String(pname(k)||'').toLowerCase()===nm); if(hit) return hit; }
+  const own = aiOwnerOf(m.by); if(own && mem.includes(own)) return mem.find(k=>k!==own);
+  return null; }
+function aiEnsureChat(agent, owner, k){ const id = aiChatIdFor(agent, k); let c = CHATS.find(x=>x.id===id);
+  if(!c){ c = {id, kind:'dm', ai:true, agent, owner, name:'', members:[owner, k].sort(), at:nowISO()}; CHATS.push(c); AIDM.chats.add(id); }
+  return c; }
+/* the classifier + router: runs right before every save, on new messages created on this device only */
+function aiRoute(){
+  if(typeof SYNC==='undefined' || !SYNC.ready) return 0;
+  if(!AIDM.seeded){ MESSAGES.forEach(m=>AIDM.known.add(m.id)); CHATS.forEach(c=>AIDM.chats.add(c.id)); AIDM.seeded = true; return 0; }
+  let n = 0;
+  for(let i = MESSAGES.length - 1; i >= 0; i--){ const m = MESSAGES[i]; if(!m || AIDM.known.has(m.id)) continue; AIDM.known.add(m.id);
+    if(AIDM.remote.has(String(m.id)) || !aiIsAgent(m.by)) continue;
+    const c = CHATS.find(x=>x.id===m.chat); if(!c || c.kind!=='dm') continue;          /* group chats, client groups, portals: untouched */
+    if(aiThread(c)){                                                                  /* an answer inside an AI thread stays inline */
+      if(m.thread){ delete m.thread; const tag = '@' + (m.asker ? pname(m.asker) : '') + ' '; if(m.asker && String(m.text||'').startsWith(tag)) m.text = String(m.text).slice(tag.length); }
+      continue; }
+    if(m.thread || m.replyTo) continue;                                               /* @-answers inside people's own chats stay there */
+    const k = aiRecipient(m, c); if(!k) continue; const owner = (c.members||[]).find(x=>x!==k); if(!owner) continue;
+    const t = aiEnsureChat(m.by, owner, k); const old = m.chat; m.chat = t.id; m.routedFrom = old; n++;
+    (typeof NOTIFS2!=='undefined' ? NOTIFS2 : []).forEach(x=>{ if(x.link?.msg===m.id && x.link.arg===old) x.link = {...x.link, arg:t.id}; });
+    (typeof PALOG!=='undefined' ? PALOG : []).forEach(x=>{ if(x.msg===m.id && x.chat===old) x.chat = t.id; });
+    /* the private chat the agent code created only for this message (never saved, nothing else in it) is not kept */
+    if(!AIDM.chats.has(old) && !AIDM.remoteChats.has(old) && !MESSAGES.some(x=>x.chat===old)){ const j = CHATS.findIndex(x=>x.id===old); if(j>=0) CHATS.splice(j, 1); }
+    try{ if(typeof CHAT_OPEN!=='undefined' && CHAT_OPEN===old && CURRENT==='chat'){ CHAT_OPEN = t.id; } }catch(e){} }
+  CHATS.forEach(c=>AIDM.chats.add(c.id));
+  return n; }
+{ const _d = SYNC.diff; SYNC.diff = function(){ try{ if(aiRoute() && typeof mpRedrawList==='function') setTimeout(()=>{ try{ mpRedrawList(); }catch(e){} }, 0); }catch(e){ console.warn('ai routing', e); } return _d.apply(this, arguments); }; }
+{ const _ar = SYNC.applyRemote; SYNC.applyRemote = function(ups){ (ups||[]).forEach(r=>{ if(r.collection==='messages'){ AIDM.remote.add(String(r.id)); AIDM.known.add(String(r.id)); } if(r.collection==='chats'){ AIDM.remoteChats.add(String(r.id)); AIDM.chats.add(String(r.id)); } }); return _ar.apply(this, arguments); }; }
+
+/* ---------- how an AI thread looks ---------- */
+const aiPeer = c => (c.members||[]).find(k=>k!==c.owner) || (c.members||[]).find(k=>k!==PERSON);
+{ const _ct = chatTitle; chatTitle = function(c){ if(!aiThread(c)) return _ct.apply(this, arguments); const nm = (typeof pname==='function' && pname(c.agent)) || 'AI Assistant';
+    return PERSON===aiPeer(c) ? nm : `${nm} · ${pname(aiPeer(c))}`; }; }
+{ const _ca = chatAvatar; chatAvatar = function(c){ if(aiThread(c)) return av(P(c.agent)); return _ca.apply(this, arguments); }; }
+if(typeof mpItem==='function'){ const _mi = mpItem; mpItem = function(c){ const h = _mi.apply(this, arguments); if(!aiThread(c)) return h;
+    const t = document.createElement('template'); t.innerHTML = h.replace('<div class="pv">', '<div class="pv"><span class="mp-kind">🤖 Personal · AI</span>');
+    t.content.querySelectorAll('.nm > :not(.mp-nm):not(.mp-when)').forEach(x=>x.remove());   /* no online status of a person on an AI thread */
+    return t.innerHTML; }; }
+/* "Message" on someone's profile always opens the chat between the two people, never an AI thread */
+if(typeof pfFindDM==='function'){ pfFindDM = function(k){ const pair = [PERSON, k].sort().join('|');
+    const L = CHATS.filter(c=>c.kind==='dm' && !c.ai && !c.archived && (c.members||[]).length===2 && [...c.members].sort().join('|')===pair); if(!L.length) return null;
+    const last = c => (chatMsgs(c.id).map(m=>m.at).sort().pop() || c.at || '');
+    return L.sort((a,b)=>last(b).localeCompare(last(a)) || (a.id===dmId(PERSON,k) ? -1 : 1))[0]; }; }
+
+/* ---------- Messages list: "Personal Messages" section ---------- */
+if(typeof mxListHTML==='function'){ const _ml = mxListHTML; mxListHTML = function(){ const h = _ml.apply(this, arguments);
+  try{ const f = MP.filter; const mine = myChats(); const AI = mine.filter(c=>aiThread(c) && !c.archived); if(!AI.length) return h;
+    const pins = new Set(typeof myPins==='function' ? myPins() : []); const shown = AI.filter(c=>mpMatch(c, f));
+    const t = document.createElement('template'); t.innerHTML = h; const ids = new Set(AI.map(c=>c.id));
+    t.content.querySelectorAll('[data-chat]').forEach(b=>{ if(ids.has(b.getAttribute('data-chat'))) b.remove(); });
+    [['pin', shown.filter(c=>pins.has(c.id))], ['all', shown.filter(c=>!pins.has(c.id))]].forEach(([sec, L])=>{ if(!L.length) return;
+      const hd = t.content.querySelector(`.msx-sec[data-sec="${sec}"]`); if(!hd) return; const cnt = hd.querySelector('.msx-sec-c'); const left = Math.max(0, (+cnt?.textContent||0) - L.length);
+      if(!left){ hd.remove(); t.content.querySelector(`.msx-grp[data-sec="${sec}"]`)?.remove(); return; } if(cnt) cnt.textContent = left;
+      const u = hd.querySelector('.msx-sec-u'); if(u){ const nu = Math.max(0, (+u.textContent||0) - L.reduce((n,c)=>n+unreadIn(c.id), 0)); if(nu) u.textContent = nu; else u.remove(); } });
+    if(shown.length){ const lastMsg = {}; for(const m of MESSAGES){ if(m.thread || !ids.has(m.chat)) continue; const l = lastMsg[m.chat]; if(!l || (m.at||'') >= (l.at||'')) lastMsg[m.chat] = m; }
+      const at = c => lastMsg[c.id]?.at || c.at || ''; shown.sort((a,b)=>String(at(b)).localeCompare(String(at(a))));
+      const open = !mxUI().aiClosed; const un = shown.reduce((n,c)=>n+unreadIn(c.id), 0);
+      const sec = mxSecHead('ai', '🤖 Personal Messages', shown.length, un, open) + (open ? `<div class="msx-grp" data-sec="ai">${shown.map(c=>mxRow(c, lastMsg)).join('')}</div>` : '');
+      const box = document.createElement('template'); box.innerHTML = sec;
+      const before = t.content.querySelector('.msx-sec[data-sec="all"]') || t.content.querySelector('.msx-sec[data-sec="arch"]');
+      if(before) before.before(box.content); else t.content.appendChild(box.content);
+      t.content.querySelector('.mp-empty')?.remove(); }
+    return t.innerHTML; }catch(e){ console.warn('personal messages section', e); return h; } }; }
+
+/* ---------- replies in the COO AI Assistant thread are answered there, privately, without an @ ---------- */
+if(typeof joseWanted==='function' && typeof JOSE_KEY!=='undefined'){ const _jw = joseWanted; joseWanted = function(m){
+    try{ const c = m && CHATS.find(x=>x.id===m.chat); if(aiThread(c) && c.agent===JOSE_KEY && m.by===PERSON && PERSON!==c.owner && !m.sys && m.text && !aiIsAgent(m.by)) return typeof joseChatOk==='function' ? joseChatOk(c) : true; }catch(e){}
+    return _jw.apply(this, arguments); }; }
+
+window.OPS_RELEASE = (window.OPS_RELEASE||[]).concat([{build:'2026-11-19 · 1', id:'ai-personal-messages', type:'improvement', modules:['t45_aidm.js'],
+  title:'AI assistants: personal messages now have their own 1-on-1 threads',
+  text:'Follow-ups and reminders the AI assistants send to you personally now arrive in your own thread with that assistant, under “Personal Messages” in Messages — no longer mixed into other chats. Group chats work exactly as before.',
+  portals:['All portals'], depts:['All departments'], audience:{groups:['all']},
+  steps:['Open Messages — AI follow-ups are under “🤖 Personal Messages”.', 'Reply right there; the COO AI Assistant answers in the same thread.']}]);
 /* <<< OCT24 MODULES <<< */
 </script>
 </body>

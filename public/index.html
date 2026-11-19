@@ -20923,7 +20923,7 @@ async function cooPostFromModal(){ const ch = CHATS.find(c=>c.id===el('paPostC')
    The footer shows which build is running ("Build 2026-10-07 · 1"), and every open portal checks every few minutes
    (and whenever it comes back to the foreground) whether a newer build has been published. If so it shows
    "New version available — Update now" instead of quietly running old code. */
-const BUILD_ID = '2026-11-19 · 2';
+const BUILD_ID = '2026-11-20 · 1';
 function verStamp(){ const f = el('footNote'); if(f && !f.dataset.v){ f.dataset.v = 1; f.textContent = `Cross Core Ops Suite v8 · Build ${BUILD_ID}`; } }
 async function verCheck(){
   if(!/^https?:/.test(location.protocol)) return;
@@ -46143,7 +46143,7 @@ function aiRoute(){
 { const _ar = SYNC.applyRemote; SYNC.applyRemote = function(ups){ (ups||[]).forEach(r=>{ if(r.collection==='messages'){ AIDM.remote.add(String(r.id)); AIDM.known.add(String(r.id)); } if(r.collection==='chats'){ AIDM.remoteChats.add(String(r.id)); AIDM.chats.add(String(r.id)); } }); return _ar.apply(this, arguments); }; }
 
 /* ---------- how an AI thread looks ---------- */
-const aiPeer = c => (c.members||[]).find(k=>k!==c.owner) || (c.members||[]).find(k=>k!==PERSON);
+const aiPeer = c => c.self ? c.owner : (c.members||[]).find(k=>k!==c.owner) || (c.members||[]).find(k=>k!==PERSON);
 { const _ct = chatTitle; chatTitle = function(c){ if(!aiThread(c)) return _ct.apply(this, arguments); const nm = (typeof pname==='function' && pname(c.agent)) || 'AI Assistant';
     return PERSON===aiPeer(c) ? nm : `${nm} · ${pname(aiPeer(c))}`; }; }
 { const _ca = chatAvatar; chatAvatar = function(c){ if(aiThread(c)) return av(P(c.agent)); return _ca.apply(this, arguments); }; }
@@ -46206,14 +46206,747 @@ if(typeof mxListHTML==='function'){ const _ml = mxListHTML; mxListHTML = functio
 
 /* ---------- replies in the COO AI Assistant thread are answered there, privately, without an @ ---------- */
 if(typeof joseWanted==='function' && typeof JOSE_KEY!=='undefined'){ const _jw = joseWanted; joseWanted = function(m){
-    try{ const c = m && CHATS.find(x=>x.id===m.chat); if(aiThread(c) && c.agent===JOSE_KEY && m.by===PERSON && PERSON!==c.owner && !m.sys && m.text && !aiIsAgent(m.by)) return typeof joseChatOk==='function' ? joseChatOk(c) : true; }catch(e){}
+    try{ const c = m && CHATS.find(x=>x.id===m.chat); if(aiThread(c) && c.agent===JOSE_KEY && m.by===PERSON && (PERSON!==c.owner || c.self) && !m.sys && m.text && !aiIsAgent(m.by)) return typeof joseChatOk==='function' ? joseChatOk(c) : true; }catch(e){}
     return _jw.apply(this, arguments); }; }
 
-window.OPS_RELEASE = (window.OPS_RELEASE||[]).concat([{build:'2026-11-19 · 2', id:'ai-assistant-inbox', type:'improvement', modules:['t45_aidm.js'],
+window.OPS_RELEASE = (window.OPS_RELEASE||[]).concat([{build:'2026-11-19 · 2', id:'ai-assistant-inbox', type:'improvement', modules:['t45_aidm.js'], tour:'aiinbox',
   title:'AI Assistant Inbox: conversations with AI assistants are separate from Personal Messages',
   text:'Messages has three places now: Personal Messages (people only), the 🤖 AI Assistant Inbox (your own thread with each assistant — earlier follow-ups were moved there with their dates and files) and Group chats, which work exactly as before.',
   portals:['All portals'], depts:['All departments'], audience:{groups:['all']},
   steps:['Open Messages → “🤖 AI Assistants” (or the AI Assistant Inbox section).', 'Reply right there; the COO AI Assistant answers in the same thread.']}]);
+
+/* ---------- walkthrough (screenshots + video) for the AI Assistant Inbox, run in the demo studio ---------- */
+function aiStudioSeed(){ if(!(typeof CC_STUDIO!=='undefined' && CC_STUDIO)) return null; const k = PERSON, own = typeof cooKey==='function' ? cooKey() : 'ja';
+  if(!own || own===k || typeof JOSE_KEY==='undefined') return null; const id = aiChatIdFor(JOSE_KEY, k);
+  if(!CHATS.some(c=>c.id===id)) CHATS.push({id, kind:'dm', ai:true, agent:JOSE_KEY, owner:own, name:'', members:[own, k].sort(), at:nowISO(), from:[]});
+  const d = h => new Date(Date.now() - h*3600e3).toISOString();
+  [['st-ai-1', `Hi ${first(k)}! Friendly follow-up from the COO’s office: the October evaluation for your VA is still missing (due Oct 31). Please submit it in HR → Evaluations. Thank you!`, 26],
+   ['st-ai-2', `Hi ${first(k)}! Quick reminder: please update the client tracker before Friday’s operations meeting. 🙂`, 2]].forEach(([mid, text, h])=>{
+    if(!MESSAGES.some(m=>m.id===mid)) MESSAGES.push({id:mid, chat:id, by:JOSE_KEY, kind:'assistant', text, at:d(h), files:[]}); });
+  if(!MESSAGES.some(m=>m.id==='st-ai-3')) MESSAGES.push({id:'st-ai-3', chat:id, by:k, text:'Submitted it just now — thanks!', at:d(1), files:[]});
+  return id; }
+window.OPS_TOURS = Object.assign(window.OPS_TOURS||{}, {aiinbox:{steps:[
+  {id:'ai-inbox', as:'luane', setup:"aiStudioSeed()", run:"go('chat'); chatFilter('all')", wait:1200, focus:'.msx-sec[data-sec="ai"]', title:'Your AI Assistant Inbox',
+   say:'Messages now has its own AI Assistant Inbox. Every follow-up from an AI assistant arrives here, in your own thread with that assistant.'},
+  {id:'ai-filter', run:"go('chat'); chatFilter('ai')", focus:'.mp-chip[onclick="chatFilter(\'ai\')"]', title:'Filter: AI Assistants',
+   say:'Tap AI Assistants to see only your assistant conversations. Personal Messages keeps your chats with people.'},
+  {id:'ai-thread', run:"CHAT_OPEN=aiStudioSeed(); RENDER.chat(true)", wait:1200, focus:'#v-chat .sub', title:'One thread per assistant',
+   say:'Open the thread to read the history and reply right there. The COO AI Assistant answers in the same thread, no tag needed.'},
+  {id:'ai-groups', run:"chatFilter('all'); CHAT_OPEN=null; mpRedrawList()", focus:'.msx-sec[data-sec="imp"], .msx-sec[data-sec="all"]', title:'Group chats stay the same',
+   say:'Group chats work exactly as before, including the assistants that take part in them.'}]}});
+/* a draft saved before its note had a walkthrough still finds it (by the release note id) */
+if(typeof relTourOf==='function'){ const _rt = relTourOf; relTourOf = function(r){
+    const notes = window.OPS_RELEASE||[]; const fill = i => i.tour || notes.find(n=>n.id && n.id===i.id && n.tour)?.tour || null;
+    return _rt.call(this, {...r, items:(r.items||[]).map(i=>({...i, tour:fill(i)}))}); }; }
+/* ===== t46_recboard.js — Recruitment: Jira-style applicant board, rejection with reason, training → assessment hand-off (Nov 19 2026) =====
+   1. BOARD (Recruitment → Applicants → In progress): ten columns — New Applicants · Initial Screening · For Interview ·
+      For Training · Training in Progress · For Assessment · Assessment Completed · Final Evaluation · Hired · Rejected.
+      The existing stages are kept and mapped onto the columns (nothing is renamed in the data): Application → New,
+      Initial Interview → Initial Screening, Final Interview → For Interview, Orientation → For Training, Training →
+      Training in Progress (For Training until the applicant starts), Assessment → For Assessment / Assessment Completed
+      (once something is submitted), waiting for the CEO / COO decision, Awaiting Client and Onboarding → Final Evaluation,
+      approved / VA account → Hired, rejected → Rejected. Tickets are dragged between columns (desktop) or moved with
+      "Move to…" (phones, keyboard). A move saves at once through the same record update as before (history, who / when,
+      notifications, real-time sync to HR and the department heads); moving back a stage is allowed. Moving to For
+      Assessment makes sure an assessment exists; moving to Training offers the training assignment; Hired opens the
+      CEO / COO final decision (the step that creates the VA account); Rejected asks for the reason and runs the existing
+      rejection (letter, access ends 24 h after delivery, every record and file kept). Department heads move the
+      applicants of their categories; rejecting and hiring stay with HR and the company heads.
+      Filters: search, job category, application date, column, department head. Click a ticket for the full profile.
+   2. Categories: "Web design" is shown as Website Designer (same category, nothing duplicated) and AI Video Editor has its
+      own assessment brief.
+   3. Training: the training video cannot be skipped ahead (only watched parts count; seeking forward past what was
+      watched jumps back), it resumes where the applicant stopped, and a load error offers Retry. YouTube training links
+      play inside the portal and count only when 95% is actually watched. When everything is complete the applicant sees
+      the completion announcement with "Proceed to Assessment"; the assessment is made ready first (database function
+      cc_rec_training_finish) so the applicant never lands on an empty Assessment page. */
+
+/* ---------- 2. categories ---------- */
+if(typeof REC_TRACKS!=='undefined'){ REC_TRACKS.web = 'Website Designer'; if(!REC_TRACKS.aivideo) REC_TRACKS.aivideo = 'AI Video Editor'; }
+if(typeof REC_ASSESS!=='undefined' && !REC_ASSESS.aivideo) REC_ASSESS.aivideo = {title:'AI Video Editor — short-form video edit',
+  brief:'Brief: A skincare brand needs a 30–45 second vertical video (9:16) for Instagram Reels and TikTok announcing its new sunscreen.\n\nTask: Using AI video tools of your choice (e.g. CapCut, Runway, Descript, Pika) and the brand notes below, produce the edit: hook in the first 3 seconds, captions, background music, product close-ups and a clear call to action. Upload the MP4 (or share a Google Drive link) and list the AI tools you used and why.\n\nBrand notes: friendly, clean, science-backed; colours white and soft blue; no medical claims.'};
+if(typeof REC_ASSESS!=='undefined' && REC_ASSESS.web && !/Website/.test(REC_ASSESS.web.title)) REC_ASSESS.web.title = REC_ASSESS.web.title.replace(/^Web design/, 'Website Designer');
+
+/* ---------- 1. the board ---------- */
+const RB_COLS = [['new','New Applicants','application'],['screen','Initial Screening','initial'],['interview','For Interview','final'],['fortrain','For Training','orientation'],
+  ['training','Training in Progress','training'],['forassess','For Assessment','assessment'],['assessed','Assessment Completed','assessment'],['finaleval','Final Evaluation','assessment'],
+  ['hired','Hired',null],['rejected','Rejected',null]];
+const RB = {drag:null, from:'', to:'', col:'all', head:'all', limit:{hired:12, rejected:12}};
+const rbLabel = k => (RB_COLS.find(c=>c[0]===k)||[])[1] || k;
+function rbStarted(a){ try{ return recTrainMats(a).some(x=>{ const p = tmProg(x.id, a.id); return p && (p.opened || p.done || (p.video?.pct||0) > 0); }); }catch(e){ return false; } }
+function rbSubmitted(a){ try{ const x = recAssessCur(a.id); if(x && recSub(x.id)) return true; }catch(e){}
+  try{ const s = typeof qaStatus==='function' ? qaStatus(a.id) : null; if(s && ((s.attempts||[]).length || s.final)) return true; }catch(e){} return false; }
+function rbCol(a){
+  if(a.status==='rejected') return 'rejected';
+  if(a.stage==='employee' || a.final?.decision==='approved') return 'hired';
+  if(a.boardCol && a.boardColStage===a.stage && RB_COLS.some(c=>c[0]===a.boardCol)) return a.boardCol;
+  if(typeof qaAwaitingDecision==='function' && qaAwaitingDecision(a)) return 'finaleval';
+  switch(a.stage){
+    case 'application': return 'new'; case 'initial': return 'screen'; case 'final': return 'interview'; case 'orientation': return 'fortrain';
+    case 'training': return rbStarted(a) ? 'training' : 'fortrain';
+    case 'assessment': return a.assessment?.finalized || recAssessCur(a.id)?.finalized ? 'finaleval' : rbSubmitted(a) ? 'assessed' : 'forassess';
+    case 'awaiting': case 'onboarding': return 'finaleval';
+  } return 'new'; }
+function rbApps(){ const q = (RCV.q||'').trim().toLowerCase();
+  let L = APPLICANTS.filter(a=>recVisible(a) && a.status!=='withdrawn');
+  if(q) L = L.filter(a=>(a.name+' '+a.position+' '+(a.account?.username||'')+' '+(REC_TRACKS[a.track]||'')).toLowerCase().includes(q));
+  if(RCV.cat && RCV.cat!=='all') L = L.filter(a=>a.track===RCV.cat);
+  if(RB.from) L = L.filter(a=>String(a.at||'').slice(0,10) >= RB.from); if(RB.to) L = L.filter(a=>String(a.at||'').slice(0,10) <= RB.to);
+  if(RB.head!=='all') L = L.filter(a=>(a.deptHeads||[]).includes(RB.head) || (typeof rmHeadsFor==='function' && rmHeadsFor(a.track).includes(RB.head)));
+  if(typeof rmFull==='function' && !rmFull() && typeof rmMyCats==='function') L = L.filter(a=>rmMyCats().includes(a.track));   /* department heads: their categories */
+  return L; }
+const rbCanMove = a => typeof rmCanEdit==='function' ? rmCanEdit(a) : recCan();
+const rbCanClose = () => typeof rmCanClose==='function' ? rmCanClose() : recCan();
+function rbCard(a, col){
+  const nx = recNext(a), tp = a.stage==='training' ? recTrainState(a) : null, can = rbCanMove(a) || (['hired','rejected'].includes(col) && rbCanClose());
+  const stageChip = (col==='finaleval' && ['awaiting','onboarding'].includes(a.stage)) || (col==='fortrain' && a.stage==='training') ? `<span class="rb-chip">${esc(REC_STAGE[a.stage]||a.stage)}</span>` : '';
+  const why = col==='rejected' ? (a.rejectReason || (a.history||[]).slice().reverse().find(h=>h.status==='rejected')?.note || '') : '';
+  const days = typeof rmDays==='function' ? rmDays(a) : 0;
+  return `<div class="rb-card ${can?'':'ro'}" draggable="${can}" data-app="${a.id}" tabindex="0" role="button" aria-label="${esc(a.name)} — ${esc(rbLabel(col))}"
+      ondragstart="rbDragStart(event,'${a.id}')" ondragend="rbDragEnd(event)" onclick="if(!event.target.closest('.rb-move'))recView('${a.id}')" onkeydown="if(event.key==='Enter')recView('${a.id}')">
+    <div class="rb-top"><b>${esc(a.name)}</b>${can?`<button type="button" class="rb-move" title="Move to…" aria-label="Move ${esc(a.name)} to another column" onclick="event.stopPropagation();rbMoveMenu('${a.id}', this)">⇄</button>`:''}</div>
+    <div class="hint">${esc(a.position||'')}</div>
+    <div class="rb-tags"><span class="rb-cat">${esc(REC_TRACKS[a.track]||'Other')}</span>${stageChip}${a.status==='pending'?'<span class="badge b-pending">Pending</span>':a.status==='reassessment'?'<span class="badge b-progress">Reassessment</span>':''}${(a.files||[]).some(recIsCv)?'<span class="rb-chip">📄 CV</span>':'<span class="rb-chip dim">No CV</span>'}${a.account?'':'<span class="rb-chip dim">No portal</span>'}</div>
+    ${rbQaBadges(a)}
+    ${tp && tp.mats.length?`<div class="rb-prog" title="Training ${tp.done.length}/${tp.mats.length}"><i style="width:${tp.pct}%"></i></div>`:''}
+    ${why?`<div class="rb-why">✕ ${esc(String(why).slice(0,110))}</div>`:''}
+    ${col!=='hired' && col!=='rejected' && nx?`<div class="rb-next">→ ${esc(nx)}</div>`:''}
+    <div class="rb-foot"><span>${esc(a.owner ? recOwnerName(a.owner) : '')}</span><span>${days?days+'d':'today'}</span></div></div>`; }
+function rbQaBadges(a){ try{ const s = typeof qaStatus==='function' ? qaStatus(a.id) : null, iv = a.interview?.initial; const out = [];
+    if(iv && typeof QA_IV!=='undefined') out.push(`<span class="badge ${QA_IV_CLS[iv.result]||'b-draft'}">1st interview: ${esc(QA_IV[iv.result]||iv.result)}</span>`);
+    if(s && typeof qaBadge==='function') out.push(qaBadge(s));
+    if(a.final) out.push(`<span class="badge ${a.final.decision==='approved'?'b-approved':'b-missed'}">${a.final.decision==='approved'?'Approved for hiring':'Not approved'}</span>`); else if(typeof qaAwaitingDecision==='function' && qaAwaitingDecision(a)) out.push('<span class="badge b-new">⚖️ CEO/COO decision</span>');
+    return out.length ? `<div class="rb-tags">${out.join('')}</div>` : ''; }catch(e){ return ''; } }
+function rbBoardHTML(){
+  const L = rbApps(); const by = Object.fromEntries(RB_COLS.map(c=>[c[0], []])); L.forEach(a=>{ const c = rbCol(a); (by[c]||by.new).push(a); });
+  const sortK = a => a.updatedAt || a.at || ''; Object.values(by).forEach(C=>C.sort((x,y)=>String(sortK(y)).localeCompare(String(sortK(x)))));
+  const heads = uniq(APPLICANTS.flatMap(a=>a.deptHeads||[])).filter(k=>PEOPLE[k]);
+  const cols = RB.col==='all' ? RB_COLS : RB_COLS.filter(c=>c[0]===RB.col);
+  return `<div class="rb-filters">
+      <label>Applied from <input type="date" value="${esc(RB.from)}" onchange="RB.from=this.value;RENDER[CURRENT]()"></label><label>to <input type="date" value="${esc(RB.to)}" onchange="RB.to=this.value;RENDER[CURRENT]()"></label>
+      <select onchange="RB.col=this.value;RENDER[CURRENT]()" aria-label="Recruitment stage"><option value="all">All stages</option>${RB_COLS.map(([k,l])=>`<option value="${k}" ${RB.col===k?'selected':''}>${l}</option>`).join('')}</select>
+      ${heads.length?`<select onchange="RB.head=this.value;RENDER[CURRENT]()" aria-label="Department"><option value="all">All departments</option>${heads.map(k=>`<option value="${k}" ${RB.head===k?'selected':''}>Dept. head: ${esc(pname(k))}</option>`).join('')}</select>`:''}
+      ${RB.from||RB.to||RB.col!=='all'||RB.head!=='all'?`<button class="btn ghost" onclick="Object.assign(RB,{from:'',to:'',col:'all',head:'all'});RENDER[CURRENT]()">Clear</button>`:''}
+      <span class="hint" style="margin-left:auto">${L.length} applicant${L.length===1?'':'s'} · drag a ticket, or use ⇄</span></div>
+    <div class="rb-board" role="list">${cols.map(([k,l])=>{ const C = by[k]; const lim = RB.limit[k]; const shown = lim && !RB['all_'+k] ? C.slice(0, lim) : C;
+      return `<section class="rb-col rb-${k}" data-col="${k}" role="listitem" aria-label="${l}, ${C.length}" ondragover="rbOver(event)" ondragleave="rbLeave(event)" ondrop="rbDrop(event,'${k}')">
+        <div class="rb-col-h"><span>${l}</span><b>${C.length}</b></div>
+        <div class="rb-list">${shown.map(a=>rbCard(a, k)).join('') || '<div class="rb-empty">Drop here</div>'}
+        ${shown.length < C.length?`<button class="btn ghost rb-more" onclick="RB['all_${k}']=1;RENDER[CURRENT]()">Show all ${C.length}</button>`:''}</div></section>`; }).join('')}</div>`; }
+/* drag & drop */
+function rbDragStart(e, id){ RB.drag = id; try{ e.dataTransfer.setData('text/plain', id); e.dataTransfer.effectAllowed = 'move'; }catch(_){} setTimeout(()=>e.target.classList.add('dragging'), 0); document.body.classList.add('rb-dragging'); }
+function rbDragEnd(e){ e.target.classList?.remove('dragging'); document.body.classList.remove('rb-dragging'); document.querySelectorAll('.rb-col.over').forEach(x=>x.classList.remove('over')); }
+function rbOver(e){ if(!RB.drag) return; e.preventDefault(); e.currentTarget.classList.add('over'); }
+function rbLeave(e){ if(!e.currentTarget.contains(e.relatedTarget)) e.currentTarget.classList.remove('over'); }
+function rbDrop(e, col){ e.preventDefault(); e.currentTarget.classList.remove('over'); const id = RB.drag || e.dataTransfer?.getData('text/plain'); RB.drag = null; document.body.classList.remove('rb-dragging'); if(id) rbMove(id, col); }
+function rbMoveMenu(id, btn){ const a = recApp(id); if(!a) return; const cur = rbCol(a);
+  openModal(`Move ${a.name}`, `<div class="hint" style="margin-bottom:10px">Now in <b>${esc(rbLabel(cur))}</b>. Choose where to move the ticket.</div>
+    <div class="rb-pick">${RB_COLS.map(([k,l])=>`<button class="btn ${k===cur?'primary':''}" ${k===cur?'disabled':''} onclick="closeModal();rbMove('${id}','${k}')">${l}</button>`).join('')}</div>`); }
+/* the move itself */
+async function rbMove(id, col){
+  const a = recApp(id); if(!a) return; const cur = rbCol(a); if(cur===col) return;
+  if(col==='rejected') return rbRejectModal(id);
+  if(col==='hired'){ if(typeof qaIsExec==='function' && qaIsExec() && typeof qaDecideModal==='function') return qaDecideModal(id);
+    return toast('Hiring is approved by the CEO or the COO in Final Hiring Decision — that step creates the VA account'); }
+  if(!rbCanMove(a)) return toast('You can’t move this applicant');
+  if(a.final) return toast('The CEO / COO final decision has been made — use Move stage in the applicant record if a correction is needed');
+  if(cur==='rejected' || cur==='hired'){ if(!rbCanClose()) return toast('Only HR and the company heads can reopen this applicant');
+    if(cur==='hired') return toast('This applicant is already hired — open the record to make changes');
+    if(!confirm(`Reopen ${a.name}'s application and move it to “${rbLabel(col)}”? Portal access is not restored automatically.`)) return; }
+  const stage = (RB_COLS.find(c=>c[0]===col)||[])[2];
+  const keep = ['assessed','finaleval'].includes(col) && recStageIx(a.stage) >= recStageIx('assessment') && a.stage!=='employee';
+  const target = keep ? a.stage : stage;
+  const status = ['rejected','withdrawn'].includes(a.status) ? 'active' : a.status==='completed' ? 'active' : a.status;
+  recTouch(a, `Moved to ${rbLabel(col)} on the recruitment board by ${first(PERSON)}`, {stage:target, status, boardCol:col, boardColStage:target});
+  a.history[a.history.length-1].board = col;
+  recordChange(); RENDER[CURRENT]?.(); toast(`${a.name} → ${rbLabel(col)}`);
+  /* never an empty next step */
+  if(col==='forassess' && !recAssessCur(a.id) && !(typeof qaStatus==='function' && qaStatus(a.id))) recAssign(a.id);
+  if(['fortrain','training'].includes(col) && !recTrainMats(a).length && typeof recTrainAssignModal==='function') setTimeout(()=>recTrainAssignModal([a.id]), 120);
+}
+function rbRejectModal(id){ const a = recApp(id); if(!a) return;
+  if(!rbCanClose()) return toast('Only HR and the company heads can reject an applicant');
+  if(a.status==='rejected') return toast('Already rejected');
+  openModal(`Reject ${a.name}`, `<div class="hint" style="margin-bottom:10px">The polite rejection letter is delivered to the applicant’s portal and access ends 24 hours after delivery. The application, files, notes, assessments and history are kept for future reference — nothing is deleted.</div>
+    <div class="field"><label>Reason for rejection <span class="hint">(required · HR and company heads only, never shown to the applicant)</span></label><textarea id="rbWhy" rows="3" placeholder="e.g. Did not meet the assessment pass mark; schedule not compatible…"></textarea></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end"><button class="btn" onclick="closeModal()">Cancel</button><button class="btn primary" style="background:var(--bad);border-color:var(--bad)" onclick="rbRejectGo('${id}')">Reject applicant</button></div>`); }
+async function rbRejectGo(id){ const a = recApp(id); const why = el('rbWhy')?.value.trim(); if(!why) return toast('Please write the reason'); if(!a) return;
+  a.rejectReason = why; a.rejectedBy = PERSON; a.rejectedAt = nowISO(); closeModal();
+  await recReject(id, a.stage, why); RENDER[CURRENT]?.(); }
+/* the "In progress" view of Applicants is the board (the table views and filters stay as they were) */
+{ const _rp = recPipelineHTML; recPipelineHTML = function(){ const h = _rp.apply(this, arguments); if(RCV.f!=='open' || RCV.classic) return h;
+    const i = h.indexOf('<div class="rec-board">'); if(i<0) return h;
+    return h.slice(0, i) + `<div class="rb-switch"><button class="btn ghost" onclick="RCV.classic=1;RENDER[CURRENT]()">Classic stage view</button></div>` + rbBoardHTML(); }; }
+{ const _rp2 = recPipelineHTML; recPipelineHTML = function(){ const h = _rp2.apply(this, arguments); if(RCV.f!=='open' || !RCV.classic) return h;
+    return h.replace('<div class="rec-board">', `<div class="rb-switch"><button class="btn ghost" onclick="RCV.classic=0;RENDER[CURRENT]()">Board view (drag &amp; drop)</button></div><div class="rec-board">`); }; }
+/* department heads (not HR / company heads): the board for their own categories */
+{ const at = NAV.findIndex(n=>n.id==='recruit'); if(!NAV.some(n=>n.id==='recboard')) NAV.splice(at>=0 ? at+1 : NAV.length, 0, {id:'recboard', name:'Applicant Board', roles:['manager','creative','employee','ceo','coo','hr'], ico:'M3 3h7v7H3zM14 3h7v4h-7zM14 11h7v10h-7zM3 14h7v7H3z'}); }
+{ const _na = navAllowed; navAllowed = function(n){ if(n?.id==='recboard') return !recCan() && !isApplicant() && typeof rmCan==='function' && rmCan(); return _na.apply(this, arguments); }; }
+if(!el('v-recboard')){ const v = document.createElement('div'); v.id = 'v-recboard'; v.className = 'view'; (el('v-dashboard')||document.querySelector('.content .view'))?.after(v); }
+RENDER.recboard = () => { const v = el('v-recboard'); if(!v) return; if(!(typeof rmCan==='function' && rmCan())){ v.innerHTML = '<div class="empty">The applicant board is for HR and department heads.</div>'; return; }
+  const cats = typeof rmMyCats==='function' ? rmMyCats() : Object.keys(REC_TRACKS);
+  v.innerHTML = `<div class="page-head"><div><h2>Applicant Board</h2><p>Applicants in your categories (${cats.map(k=>esc(REC_TRACKS[k]||k)).join(', ')}). Drag a ticket to move it; HR and the company heads handle rejections and hiring.</p></div></div>
+    <div class="rec-filter"><input placeholder="Search name or position" value="${esc(RCV.q)}" oninput="RCV.q=this.value;clearTimeout(RCV.t);RCV.t=setTimeout(()=>{RENDER.recboard();const i=document.querySelector('#v-recboard .rec-filter input');i&&(i.focus(),i.setSelectionRange(i.value.length,i.value.length))},250)">
+      ${cats.length>1?`<select onchange="RCV.cat=this.value;RENDER.recboard()"><option value="all">All my categories</option>${cats.map(k=>`<option value="${k}" ${RCV.cat===k?'selected':''}>${esc(REC_TRACKS[k]||k)}</option>`).join('')}</select>`:''}</div>${rbBoardHTML()}`; };
+/* real time: a change made elsewhere redraws the board (never while dragging) */
+{ const _ore = onRemoteEvent; onRemoteEvent = function(ev){ _ore.apply(this, arguments);
+    if(['applicants','recprog','recsubs','recassess','qastatus'].includes(ev?.coll) && (CURRENT==='recruit' && RCV.tab==='pipeline' || CURRENT==='recboard') && !RB.drag && !el('modal')?.classList.contains('open')){ clearTimeout(RB.rt); RB.rt = setTimeout(()=>{ if(!RB.drag) RENDER[CURRENT]?.(); }, 400); } }; }
+(function rbCss(){ if(el('rbCss')) return; const s = document.createElement('style'); s.id = 'rbCss'; s.textContent = `
+.rb-filters{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:10px 0}.rb-filters label{display:flex;gap:6px;align-items:center;font-size:12.5px;color:var(--muted)}.rb-filters input,.rb-filters select{width:auto}
+.rb-switch{display:flex;justify-content:flex-end;margin-top:6px}
+.rb-board{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(232px,300px);gap:12px;overflow-x:auto;padding:4px 2px 12px;scroll-snap-type:x proximity}
+.rb-col{background:color-mix(in srgb,var(--panel-2) 82%,transparent);border:1px solid var(--line);border-radius:14px;display:flex;flex-direction:column;min-height:220px;max-height:72vh;scroll-snap-align:start;transition:background .15s,border-color .15s,box-shadow .15s}
+.rb-col.over{border-color:var(--accent,#e9a133);background:color-mix(in srgb,var(--accent,#e9a133) 10%,var(--panel-2));box-shadow:inset 0 0 0 2px color-mix(in srgb,var(--accent,#e9a133) 45%,transparent)}
+.rb-col-h{display:flex;justify-content:space-between;align-items:center;padding:10px 12px 8px;font-weight:700;font-size:13px;position:sticky;top:0}.rb-col-h b{font-size:12px;background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:1px 8px;color:var(--muted)}
+.rb-rejected .rb-col-h{color:var(--bad)}.rb-hired .rb-col-h{color:var(--ok,#1d8a52)}
+.rb-list{overflow-y:auto;padding:0 8px 8px;display:grid;gap:8px;align-content:start}
+.rb-card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 11px;display:grid;gap:5px;cursor:grab;box-shadow:0 1px 2px rgba(0,0,0,.04);transition:transform .15s,box-shadow .15s,opacity .15s}
+.rb-card:hover{transform:translateY(-1px);box-shadow:0 8px 20px rgba(0,0,0,.08)}.rb-card.ro{cursor:pointer}.rb-card.dragging{opacity:.4;transform:rotate(1.5deg)}.rb-card:focus-visible{outline:2px solid var(--accent,#e9a133);outline-offset:2px}
+.rb-top{display:flex;gap:6px;align-items:flex-start;justify-content:space-between}.rb-top b{font-size:13.5px;line-height:1.25}
+.rb-move{border:1px solid var(--line);background:var(--panel-2);border-radius:8px;padding:1px 7px;cursor:pointer;font-size:13px;color:var(--muted);flex:none}
+.rb-tags{display:flex;gap:4px;flex-wrap:wrap}.rb-cat,.rb-chip{font-size:11px;border-radius:999px;padding:1px 8px;background:var(--panel-2);border:1px solid var(--line)}.rb-cat{background:color-mix(in srgb,var(--accent,#e9a133) 14%,var(--panel));border-color:transparent;font-weight:600}.rb-chip.dim{color:var(--muted)}
+.rb-prog{height:4px;border-radius:4px;background:var(--line);overflow:hidden}.rb-prog i{display:block;height:100%;background:var(--accent,#e9a133)}
+.rb-next{font-size:12px;color:var(--text)}.rb-why{font-size:12px;color:var(--bad)}.rb-foot{display:flex;justify-content:space-between;font-size:11px;color:var(--muted)}
+.rb-empty{border:1.5px dashed var(--line);border-radius:10px;padding:14px;text-align:center;color:var(--muted);font-size:12px}
+.rb-pick{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px}
+body.rb-dragging .rb-col{min-height:260px}
+@media(max-width:700px){.rb-board{grid-auto-columns:82vw}.rb-col{max-height:none}}`; document.head.appendChild(s); })();
+
+/* ---------- 3. training: no skipping ahead, resume, retry; YouTube links tracked ---------- */
+const tvMaxOk = st => { let e = 0; (st.ranges||[]).slice().sort((x,y)=>x[0]-y[0]).forEach(r=>{ if(r[0] <= e + 1.2) e = Math.max(e, r[1]); }); return e; };
+if(typeof tvBind==='function'){ const _tb = tvBind; tvBind = async function(vid){ await _tb.apply(this, arguments); const mid = vid.dataset.mid, st = TV[mid]; if(!st){ rbTvRetry(vid); return; }
+    const p = tmProg(mid)?.video || {}; let warned = 0;
+    vid.addEventListener('loadedmetadata', ()=>{ const at = Math.min(p.pos != null ? p.pos : tvMaxOk(st), Math.max(0, (vid.duration||0) - 2)); if(at > 2) vid.currentTime = at; });
+    vid.addEventListener('seeking', ()=>{ const ok = tvMaxOk(st) + 1.5; if(vid.currentTime > ok){ vid.currentTime = Math.max(0, ok - 1.5); st.last = vid.currentTime; if(Date.now() - warned > 4000){ warned = Date.now(); toast('Skipping ahead is turned off — the parts you have watched can be replayed'); } } });
+    const savePos = () => { if(isFinite(vid.currentTime)) tmTouch(mid, {video:{pos:Math.floor(vid.currentTime)}}); };
+    vid.addEventListener('pause', savePos); let t0 = 0; vid.addEventListener('timeupdate', ()=>{ if(Date.now() - t0 > 15000){ t0 = Date.now(); savePos(); } });
+    vid.addEventListener('error', ()=>rbTvRetry(vid)); }; }
+function rbTvRetry(vid){ if(vid.nextElementSibling?.classList?.contains('tm-retry')) return;
+  vid.insertAdjacentHTML('afterend', `<div class="tm-retry hint" style="margin-top:6px">⚠ The training video could not be loaded. Your progress is saved. <button class="btn" onclick="this.parentElement.remove();tvBind(document.querySelector('video.tm-video[data-mid=&quot;${vid.dataset.mid}&quot;]'))">Retry</button></div>`); }
+/* YouTube links: played inside the portal, completed only when 95% is actually watched */
+const rbYtId = u => { const m = /(?:youtube\.com\/(?:watch\?(?:.*&)?v=|embed\/|shorts\/|live\/)|youtu\.be\/)([\w-]{11})/i.exec(String(u||'')); return m ? m[1] : null; };
+if(typeof tmState==='function'){ const _ts = tmState; tmState = function(x, k=PERSON){ const s = _ts.apply(this, arguments); const yt = (x.links||[]).filter(rbYtId); if(!yt.length || s.done) return s;
+    const pyt = s.p.yt||{}; const notWatched = yt.filter(u=>(pyt[u]?.pct||0) < TM_WATCH).length; if(!notWatched) return s;
+    const lOpen = (x.links||[]).filter(u=>rbYtId(u) ? (pyt[u]?.pct||0) >= TM_WATCH : s.p.links?.[u]).length;
+    return {...s, lOpen, met:false}; }; }
+const RBYT = {api:null, players:{}};
+function rbYtApi(){ if(RBYT.api) return RBYT.api; RBYT.api = new Promise((res, rej)=>{ if(window.YT?.Player) return res(window.YT); const prev = window.onYouTubeIframeAPIReady;
+    window.onYouTubeIframeAPIReady = () => { try{ prev?.(); }catch(e){} res(window.YT); }; const s = document.createElement('script'); s.src = 'https://www.youtube.com/iframe_api'; s.onerror = () => { RBYT.api = null; rej(new Error('YouTube could not be loaded')); }; document.head.appendChild(s); setTimeout(()=>rej(new Error('YouTube did not load')), 20000); }); return RBYT.api; }
+{ const _ra = RENDER.apptrain; RENDER.apptrain = function(){ const v = el('v-apptrain'); if(v && Object.values(RBYT.players).some(p=>{ try{ return p.getPlayerState?.()===1; }catch(e){ return false; } })) return;
+    const r = _ra.apply(this, arguments); try{ rbYtMount(); rbTrainDoneCheck(); }catch(e){ console.warn('training', e); } return r; }; }
+function rbYtMount(){ const v = el('v-apptrain'); if(!v) return;
+  tmMine().forEach(x=>(x.links||[]).forEach((u, i)=>{ const id = rbYtId(u); if(!id) return; const row = [...v.querySelectorAll(`#tm-${x.id} .tm-row`)].find(r=>r.textContent.includes(u)); if(!row || row.dataset.yt) return; row.dataset.yt = 1;
+    const p = tmProg(x.id)?.yt?.[u] || {}; const key = x.id+'|'+i;
+    row.outerHTML = `<div class="tm-yt" data-key="${esc(key)}"><div class="tm-yt-box"><div id="yt-${esc(key.replace(/[^\w]/g,'_'))}"></div></div><div class="hint tm-ytp" data-key="${esc(key)}">Watched ${Math.round(p.pct||0)}% · ${TM_WATCH}% needed${(p.pct||0)>=TM_WATCH?' ✓':''}</div></div>`;
+    rbYtPlay(x, u, key, id).catch(e=>{ const b = v.querySelector(`.tm-yt[data-key="${CSS.escape(key)}"] .tm-yt-box`); if(b) b.innerHTML = `<div class="hint" style="padding:14px">⚠ ${esc(e.message)}. <button class="btn" onclick="RENDER.apptrain()">Retry</button></div>`; }); })); }
+async function rbYtPlay(x, u, key, vid){ const YT = await rbYtApi(); const p0 = tmProg(x.id)?.yt?.[u] || {}; const st = {ranges:(p0.ranges||[]).map(r=>[...r]), last:null, dur:p0.dur||0};
+  const pl = RBYT.players[key] = new YT.Player('yt-'+key.replace(/[^\w]/g,'_'), {videoId:vid, playerVars:{rel:0, modestbranding:1, playsinline:1, start:Math.floor(p0.pos||0)},
+    events:{onReady:()=>{ st.dur = pl.getDuration(); tmTouch(x.id, {opened:true}); },
+      onStateChange:e=>{ if(e.data===2 || e.data===0) rbYtSave(x, u, st, pl); },
+      onError:()=>{ const b = document.querySelector(`.tm-ytp[data-key="${CSS.escape(key)}"]`); if(b) b.textContent = '⚠ This video could not be played. Press Retry or ask HR for another link.'; }}});
+  const iv = setInterval(()=>{ if(!document.body.contains(pl.getIframe?.())){ clearInterval(iv); return; } let t; try{ if(pl.getPlayerState()!==1) return; t = pl.getCurrentTime(); st.dur = pl.getDuration() || st.dur; }catch(e){ return; }
+    const ok = tvMaxOk(st) + 2; if(t > ok && st.last!=null && t - st.last > 2.5){ pl.seekTo(Math.max(0, ok - 2), true); toast('Skipping ahead is turned off — the parts you have watched can be replayed'); st.last = ok - 2; return; }
+    if(st.last!=null && t >= st.last && t - st.last < 2.5) tvAdd(st, st.last, t); st.last = t;
+    const pct = tvPct(st); const b = document.querySelector(`.tm-ytp[data-key="${CSS.escape(key)}"]`); if(b) b.textContent = `Watched ${Math.round(pct)}% · ${TM_WATCH}% needed${pct>=TM_WATCH?' ✓':''}`;
+    if(Date.now() - (st.saved||0) > 10000 || pct >= TM_WATCH && !st.doneSaved) rbYtSave(x, u, st, pl); }, 1000); }
+function rbYtSave(x, u, st, pl){ st.saved = Date.now(); const pct = Math.round(tvPct(st)*10)/10; let pos = 0; try{ pos = Math.floor(pl.getCurrentTime()); }catch(e){}
+  const id = `${x.id}|${PERSON}`; let r = RECPROG.find(z=>z.id===id); if(!r){ r = {id, mat:x.id, person:PERSON, at:nowISO()}; RECPROG.push(r); }
+  r.yt = {...(r.yt||{}), [u]:{ranges:st.ranges.map(q=>[Math.round(q[0]*2)/2, Math.round(q[1]*2)/2]), pct:Math.max(pct, r.yt?.[u]?.pct||0), dur:Math.round(st.dur||0), pos, at:nowISO()}};
+  if(pct >= TM_WATCH){ st.doneSaved = true; tmTouch(x.id, {opened:true, link:u}); } else { r.updatedAt = nowISO(); recordChange(); } }
+/* an open link to YouTube plays inside the portal instead of a new tab */
+if(typeof tmOpenLink==='function'){ const _ol = tmOpenLink; tmOpenLink = function(mid, u){ if(rbYtId(u)){ document.querySelector(`#tm-${mid} .tm-yt`)?.scrollIntoView({behavior:'smooth', block:'center'}); return; } return _ol.apply(this, arguments); }; }
+
+/* ---------- 3b. completion announcement → Proceed to Assessment ---------- */
+const RBT = {shown:false, busy:false};
+const rbAssessReady = () => !!(recAssessCur(PERSON) || (typeof qaStatus==='function' && qaStatus(PERSON) && !qaStatus(PERSON).final));
+function rbTrainDoneCheck(){ if(!isApplicant() || RBT.shown) return; const a = myApp(); if(!a || a.status==='rejected') return; const tp = recTrainState(a); if(!tp.all) return;
+  let seen = false; try{ seen = localStorage.getItem('cc-trdone-'+PERSON)==='1'; }catch(e){} if(seen && (rbAssessReady() || a.stage!=='training')) return;
+  RBT.shown = true; rbTrainDonePop(); }
+function rbTrainDonePop(){
+  openModal('🎓 Training complete', `<div class="rb-done">
+      <div class="rb-done-ic">🎉</div>
+      <p><b>Thank you for attending and completing your training!</b></p>
+      <p>You have successfully finished the required training session. You may now proceed to the next stage of your application — the Assessment.</p>
+      <p>Please read each question carefully and complete all required assessment activities.</p>
+      <p><b>Best of luck!</b></p>
+      <div id="rbDoneMsg" class="hint" style="min-height:18px"></div>
+      <button class="btn primary rb-done-go" id="rbDoneGo" onclick="rbProceed()">Proceed to Assessment →</button></div>`);
+  try{ localStorage.setItem('cc-trdone-'+PERSON, '1'); }catch(e){} }
+async function rbProceed(){ if(RBT.busy) return; RBT.busy = true; const b = el('rbDoneGo'), m = el('rbDoneMsg'); if(b){ b.disabled = true; b.textContent = 'Preparing your assessment…'; }
+  try{
+    if(!rbAssessReady()){ const a = myApp(); const tpl = recAssessTpl(a?.track);
+      if(BACKEND?.mode==='live'){ const {data, error} = await BACKEND.sb.rpc('cc_rec_training_finish', {p_title:tpl.title, p_brief:tpl.brief}); if(error) throw new Error(error.message); if(data && data.ok===false) throw new Error(data.error||'not ready');
+        for(let i=0; i<40 && !rbAssessReady(); i++){ await sleep(300); if(i===10 && SYNC.resync) SYNC.resync(); } }
+      else { /* demo portal: the same steps the database function does */
+        if(a){ (a.att = a.att||{}).training = {done:true, at:nowISO(), by:PERSON, via:'self-paced (all materials completed)'}; recTouch(a, 'Self-paced training completed (all materials)', {stage:'assessment', status:'active'}); if(!recAssessOf(a.id).length) recAssign(a.id); recordChange(); } } }
+    if(!rbAssessReady()) throw new Error('Your assessment is being prepared');
+    closeModal(); go('appassess'); toast('Your assessment is ready — good luck!');
+  }catch(e){ if(m) m.innerHTML = `⚠ ${esc(e.message||e)}. HR has been notified — please try again in a moment.`; if(b){ b.disabled = false; b.textContent = 'Try again'; }
+    try{ notify(uniq([...(myApp()?.hrKeys||[]), ...HR_KEYS()]), 'hr', `⚠ <b>${esc(pname(PERSON))}</b> finished the training but the assessment could not be opened (${esc(String(e.message||e))}). Please assign it.`, {view:'recruit', app:PERSON}); recordChange(); }catch(_){} }
+  finally{ RBT.busy = false; } }
+{ const _tt = tmTouch; tmTouch = function(){ const r = _tt.apply(this, arguments); setTimeout(()=>{ try{ rbTrainDoneCheck(); }catch(e){} }, 400); return r; }; }
+{ const _sp = setPerson; setPerson = function(){ const r = _sp.apply(this, arguments); RBT.shown = false; setTimeout(()=>{ try{ rbTrainDoneCheck(); }catch(e){} }, 3500); return r; }; }
+/* the assessment page never shows "nothing" to someone who finished training: it prepares it */
+{ const _aa = RENDER.appassess; RENDER.appassess = function(){ const r = _aa.apply(this, arguments); try{ const a = myApp();
+      if(a && !rbAssessReady() && recTrainState(a).all && !RBT.busy){ const v = el('v-appassess'); v?.insertAdjacentHTML('afterbegin', `<div class="card" style="margin-bottom:12px"><div class="card-b"><b>You completed your training.</b> <span class="hint">Your assessment is being prepared…</span> <button class="btn primary" onclick="rbTrainDonePop()">Open it</button></div></div>`); } }catch(e){} return r; }; }
+/* the assessment submission also reaches the department heads of the category */
+if(typeof appSubSave==='function'){ const _ss = appSubSave; appSubSave = async function(submit){ const r = await _ss.apply(this, arguments);
+    try{ if(submit){ const a = myApp(), x = recAssessCur(PERSON); const heads = (a?.deptHeads||[]).filter(k=>PEOPLE[k] && !HEADS.includes(k)); if(heads.length && x) notify(heads, 'submission', `📝 <b>${esc(pname(PERSON))}</b> submitted the assessment “${esc(x.title)}” — Assessment Completed`, {view:'recruit', app:PERSON}); recordChange(); } }catch(e){}
+    return r; }; }
+(function rbCss2(){ if(el('rbCss2')) return; const s = document.createElement('style'); s.id = 'rbCss2'; s.textContent = `
+.tm-yt-box{position:relative;width:100%;max-width:820px;aspect-ratio:16/9;border-radius:12px;overflow:hidden;background:#000}.tm-yt-box iframe,.tm-yt-box>div{position:absolute;inset:0;width:100%;height:100%}
+.rb-done{text-align:center;display:grid;gap:8px;padding:6px 4px}.rb-done p{margin:0;line-height:1.55}.rb-done-ic{font-size:44px;line-height:1;animation:rbPop .6s cubic-bezier(.2,1.6,.4,1)}
+.rb-done-go{justify-self:center;padding:11px 22px;font-size:15px;margin-top:6px}@keyframes rbPop{from{transform:scale(.3);opacity:0}to{transform:none;opacity:1}}`; document.head.appendChild(s); })();
+
+/* ---------- walkthroughs for the release notes (run in the demo studio only) ---------- */
+function rbStudioSeed(){ if(!(typeof CC_STUDIO!=='undefined' && CC_STUDIO)) return; const d = k => new Date(Date.now() - k*864e5).toISOString();
+  const mk = (id, name, track, stage, status, k, extra={}) => { if(APPLICANTS.some(a=>a.id===id)) return; APPLICANTS.unshift({id, name, position:REC_TRACKS[track], track, stage, status, at:d(k), updatedAt:d(k), history:[{at:d(k), by:'luane', stage, status, act:'Added'}], files:[], account:{username:'cc-'+id}, ...extra}); };
+  mk('ap-st-1','Sample Applicant A','web','application','active',1); mk('ap-st-2','Sample Applicant B','aivideo','initial','active',2); mk('ap-st-3','Sample Applicant C','leadgen','final','pending',3);
+  mk('ap-st-t','Sample Applicant D','aivideo','training','active',4,{training:{mats:['M-st-1']}}); mk('ap-st-5','Sample Applicant E','content','assessment','active',5); mk('ap-st-6','Sample Applicant F','web','application','rejected',9,{rejectReason:'Schedule not compatible'});
+  if(!RECMAT.some(x=>x.id==='M-st-1')) RECMAT.push({id:'M-st-1', title:'Welcome to Cross Core', tracks:['aivideo'], apps:['ap-st-t'], at:nowISO()});
+  if(!RECPROG.some(r=>r.id==='M-st-1|ap-st-t')) RECPROG.push({id:'M-st-1|ap-st-t', mat:'M-st-1', person:'ap-st-t', opened:d(1), done:true, doneAt:d(0)});
+  try{ addApplicantPeople(); }catch(e){} }
+window.OPS_TOURS = Object.assign(window.OPS_TOURS||{}, {
+  recboard:{steps:[
+    {id:'rb-board', as:'luane', setup:"rbStudioSeed()", run:"RCV.tab='pipeline'; RCV.f='open'; RCV.classic=0; go('recruit')", wait:1200, focus:'.rb-board', title:'The recruitment board',
+     say:'Every applicant is a ticket on the recruitment board, from New Applicants to Hired and Rejected.'},
+    {id:'rb-drag', run:"RENDER.recruit()", focus:'.rb-card[data-app="ap-st-1"]', title:'Drag a ticket to move it',
+     say:'Drag a ticket to the next column. The change is saved at once and HR and the department heads see it right away.'},
+    {id:'rb-move', run:"RENDER.recruit()", focus:'.rb-card[data-app="ap-st-2"] .rb-move', title:'Move without dragging',
+     say:'On a phone, tap the arrows on a ticket and choose the column.'},
+    {id:'rb-reject', run:"RB.col='rejected'; RENDER.recruit()", focus:'.rb-col[data-col="rejected"] .rb-card', title:'Rejected, with the reason',
+     say:'Moving a ticket to Rejected asks for the reason. The record and files are kept for future reference.'}]},
+  rectrain:{steps:[
+    {id:'rt-done', as:'luane', setup:"rbStudioSeed()", run:"go('dashboard')", wait:600, focus:'.nav-item[onclick="go(\'recruit\')"], #nav', title:'Training to assessment',
+     say:'When an applicant finishes the training, the next step opens by itself.'},
+    {id:'rt-pop', as:'ap-st-t', run:"RBT.shown=false; rbTrainDonePop()", wait:900, focus:'#rbDoneGo', title:'Proceed to Assessment',
+     say:'The applicant sees a thank-you message and goes straight to a ready assessment. Videos cannot be skipped ahead, and they resume where the applicant stopped.'}]}});
+(window.OPS_RELEASE||[]).forEach(n=>{ if(n.id==='rec-board') n.tour = 'recboard'; if(n.id==='rec-train') n.tour = 'rectrain'; });
+/* the studio: a step that hits a harmless error while switching person (e.g. a page element an applicant portal doesn't have) still gets its screenshot */
+if(typeof relStep==='function'){ relStep = async function(fr, st){ const w = fr.contentWindow; const run = js => { try{ w.eval(`(function(){ try{ ${js} }catch(e){ console.warn('studio step', e); } })()`); }catch(e){ console.warn('studio step', e); } };
+    if(st.as){ run(`const l=document.getElementById('login'); if(l) l.style.display='none'; setPerson(${JSON.stringify(st.as)});`); run('buildNav()'); await relSleep(350); }
+    run(`document.getElementById('annGate')?.remove(); document.querySelectorAll('.ann-gate,.urgent-gate,#pushInvite,.live-toast,#toast').forEach(x=>x.remove()); closeModal();`);
+    if(st.setup) run(st.setup); if(st.run) run(st.run);
+    await relSleep(st.wait || 900);
+    run(`document.querySelectorAll('#pushInvite,.live-toast,#toast,.ann-gate,.urgent-gate,#recPopStack,#msgToasts,#jpPop,#activePop,#cbToast,#hcPopStack').forEach(x=>x.remove());`);
+    const els = (st.focus ? [].concat(st.focus) : []).map(sel=>w.document.querySelector(sel)).filter(Boolean);
+    const rects = els.map(e=>{ const b = e.getBoundingClientRect(); return {x:b.left, y:b.top, w:b.width, h:b.height}; }).filter(b=>b.w>2 && b.h>2 && b.x < 1600 && b.y < 900);
+    const fc = await relCapture(w), canvas = document.createElement('canvas'); canvas.width = fc.width; canvas.height = fc.height; canvas.getContext('2d').drawImage(fc, 0, 0);
+    return {canvas, rects, missing:(st.focus ? [].concat(st.focus).length : 0) - rects.length}; }; }
+/* ===== t47_hrconcern.js — HR Concerns & COO Escalations, COO meetings (Google Meet), COO AI Assistant alerts (Nov 19 2026) =====
+   • HR portal: "HR Concerns & COO Escalations". HR files a concern (title, category, description, related person /
+     applicant / department, priority, requested action, preferred meeting time) with attachments: documents, PDFs,
+     images and screenshots (pasted too), videos, website / Google Drive links. Attachments are previewed before sending
+     and more can be added later in the conversation. Files are stored under hrcon/<concern>/ and only the people on
+     the concern (the requester, HR and the COO) can open them (database rule).
+   • Priorities: Urgent (COO notified at once, pop-up, 24-hour INITIAL-response countdown, reminders before it expires,
+     escalation when overdue — stops as soon as the COO acknowledges or replies), Normal (standard queue), Low (non-urgent
+     record). The target hours, calendar vs business hours, reminder points and who is escalated to are set in
+     ⚙ Response settings. The first response (Acknowledge / reply) is tracked separately from the final resolution.
+   • COO portal: "HR Concerns" — filters (urgency, category, status, date, requester), attachments, reply, request more
+     information, internal notes (COO only), statuses (New · Acknowledged · Under Review · Awaiting Information ·
+     Meeting Scheduled · In Progress · Resolved · Closed), follow-up actions with owner and due date, resolve / reopen.
+   • Meetings: HR requests a meeting (purpose, message, preferred times, duration, agenda files) from a concern or with
+     "Request COO meeting"; the COO sets availability (days, hours, blocked periods, duration, buffer). Free times exclude
+     the COO's portal calendar and, when Google Calendar is connected with calendar permission, the Google calendar.
+     Approving creates the meeting in both portal calendars and, when Google is connected, a Google Calendar event with a
+     Google Meet link; otherwise a Google Meet link from the existing Meet connection. If no link can be created, the
+     meeting says so — no placeholder links. Proposed times, approval, reschedule, cancel and the approaching meeting
+     notify both sides; the whole meeting history stays on the concern.
+   • Callbacks: HR can ask the COO to call back (number, best time); the COO gets it through the COO AI Assistant and
+     can mark it done or open the chat with HR — the portal never claims a call was placed.
+   • COO AI Assistant: urgent concerns, overdue reminders, meeting requests and callbacks arrive from the assistant —
+     as notifications, as a pop-up with Open / Acknowledge / Reply / Schedule, and in JA's own "COO AI Assistant" thread
+     in the AI Assistant Inbox. Reminders run from any open HR / COO / head portal with fixed ids (never twice). */
+
+let HRCON = [], HRCMSG = [], HRCCFG = [];
+const hcCoo = () => (typeof cooKey==='function' && cooKey()) || 'ja';
+const hcAudOf = c => uniq([c?.by, hcCoo(), ...HR_KEYS()].filter(Boolean));
+COLL.hrcon  = {get:()=>HRCON,  set:v=>HRCON=v,  aud:c=>hcAudOf(c)};
+COLL.hrcmsg = {get:()=>HRCMSG, set:v=>HRCMSG=v, aud:m=>m.internal ? uniq([m.by, hcCoo()]) : hcAudOf(HRCON.find(c=>c.id===m.con))};
+COLL.hrccfg = {get:()=>HRCCFG, set:v=>HRCCFG=v, aud:()=>uniq([hcCoo(), ...HR_KEYS(), ...HEADS])};
+const HC_PRI = {urgent:['Urgent','b-missed','🔴'], normal:['Normal','b-scheduled','🔵'], low:['Low priority','b-draft','⚪']};
+const HC_ST = {new:'New', ack:'Acknowledged', review:'Under Review', info:'Awaiting Information', meeting:'Meeting Scheduled', progress:'In Progress', resolved:'Resolved', closed:'Closed'};
+const HC_ST_CLS = {new:'b-missed', ack:'b-pending', review:'b-pending', info:'b-progress', meeting:'b-scheduled', progress:'b-scheduled', resolved:'b-approved', closed:'b-draft'};
+const HC_CATS = ['Employee relations','Recruitment & applicants','Attendance & leave','Payroll & benefits','Policy & compliance','Performance & discipline','Client concern','Systems & tools','Meeting request','Other'];
+const HC_DEF = {slaHours:24, slaMode:'calendar', biz:{days:[1,2,3,4,5], start:9, end:18}, remind:[6,1], escalateTo:[], escalateEvery:6,
+  avail:{days:[1,2,3,4,5], start:'13:00', end:'18:00', dur:30, buffer:15, blocks:[]}};
+const hcCfg = () => { const r = HRCCFG.find(x=>x.id==='main') || {}; return {...HC_DEF, ...r, biz:{...HC_DEF.biz, ...(r.biz||{})}, avail:{...HC_DEF.avail, ...(r.avail||{})}}; };
+const hcIsCoo = () => PERSON===hcCoo();
+const hcIsHR = () => ROLE==='hr' || HR_KEYS().includes(PERSON);
+const hcCan = () => !!PEOPLE[PERSON] && !isApplicant() && ROLE!=='client' && (hcIsCoo() || hcIsHR());
+const hcOf = id => HRCON.find(c=>c.id===id);
+const hcWhen = iso => iso ? new Date(iso).toLocaleString('en-US', {month:'short', day:'numeric', year:'numeric', hour:'numeric', minute:'2-digit', timeZone:'Asia/Manila'}) + ' PHT' : '—';
+const hcAgent = () => 'asst:' + (typeof COO_ASST!=='undefined' ? COO_ASST : 'pa-coo');
+const HCV = {q:'', pri:'all', cat:'all', st:'open', from:'', to:'', by:'all', draft:null, busy:false};
+
+/* ---------- response targets (calendar or business hours, Manila time) ---------- */
+const hcPH = t => { const d = new Date(t + 8*3600e3); return {wd:d.getUTCDay(), h:d.getUTCHours() + d.getUTCMinutes()/60}; };
+function hcAddHours(fromISO, hours, cfg=hcCfg()){
+  let t = new Date(fromISO).getTime(); if(cfg.slaMode!=='business') return new Date(t + hours*3600e3).toISOString();
+  let left = hours*60; const b = cfg.biz; let guard = 0;
+  while(left > 0 && guard++ < 60*24*30){ const p = hcPH(t); const open = b.days.includes(p.wd) && p.h >= b.start && p.h < b.end;
+    if(open){ const room = Math.min(left, Math.round((b.end - p.h)*60)); t += room*60e3; left -= room; } else t += 15*60e3; }
+  return new Date(t).toISOString(); }
+const hcDue = c => c.priority==='urgent' ? (c.dueAt || hcAddHours(c.at, hcCfg().slaHours)) : null;
+function hcLeft(c){ const d = hcDue(c); if(!d || c.ackAt) return null; return new Date(d).getTime() - Date.now(); }
+function hcLeftTxt(ms){ const neg = ms < 0, a = Math.abs(ms), h = Math.floor(a/3600e3), m = Math.floor(a%3600e3/60e3); return (neg ? 'Overdue by ' : '') + (h ? `${h}h ${m}m` : `${m}m`) + (neg ? '' : ' left'); }
+function hcSlaHTML(c, big){ if(c.priority!=='urgent') return '';
+  if(c.ackAt){ const mins = Math.round((new Date(c.ackAt) - new Date(c.at))/60e3); return `<span class="hc-sla ok">✓ Initial response ${mins<60?mins+' min':Math.round(mins/6)/10+' h'} after submission${big?` · ${esc(pname(c.ackBy))}`:''}</span>`; }
+  const ms = hcLeft(c); const cls = ms < 0 ? 'over' : ms < 2*3600e3 ? 'soon' : '';
+  const tail = big ? ` · initial response due ${hcWhen(hcDue(c))} (${hcCfg().slaMode==='business'?'business hours':'calendar hours'})` : '';
+  return `<span class="hc-sla ${cls}" data-due="${esc(hcDue(c))}" data-tail="${esc(tail)}">⏱ ${esc(hcLeftTxt(ms) + tail)}</span>`; }
+setInterval(()=>{ document.querySelectorAll('.hc-sla[data-due]').forEach(s=>{ const ms = new Date(s.dataset.due) - Date.now(); s.textContent = '⏱ ' + hcLeftTxt(ms) + (s.dataset.tail||''); s.classList.toggle('over', ms<0); s.classList.toggle('soon', ms>=0 && ms<2*3600e3); }); }, 30000);
+
+/* ---------- menu ---------- */
+{ const at = NAV.findIndex(n=>n.id==='finaldec'||n.id==='recruit'); if(!NAV.some(n=>n.id==='hrcon')) NAV.splice(at>=0 ? at+1 : NAV.length, 0, {id:'hrcon', name:'HR Concerns & COO Escalations', roles:['hr','coo','ceo','creative','manager','employee'], ico:'M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z'}); }
+{ const _na = navAllowed; navAllowed = function(n){ if(n?.id==='hrcon') return hcCan(); return _na.apply(this, arguments); }; }
+{ const _bn = buildNav; buildNav = function(){ const r = _bn.apply(this, arguments); try{ const n = hcBadge(); const b = document.querySelector(`#nav .nav-item[onclick="go('hrcon')"]`); if(b && n && !b.querySelector('.pill')) b.insertAdjacentHTML('beforeend', `<span class="pill">${n}</span>`); }catch(e){} return r; }; }
+const hcBadge = () => !hcCan() ? 0 : hcIsCoo() ? HRCON.filter(c=>!['resolved','closed'].includes(c.status) && (!c.ackAt || hcUnread(c))).length : HRCON.filter(c=>hcUnread(c)).length;
+const hcUnread = c => { const seen = (c.seen||{})[PERSON] || ''; return HRCMSG.some(m=>m.con===c.id && m.by!==PERSON && !m.internal && (m.at||'') > seen); };
+if(!el('v-hrcon')){ const v = document.createElement('div'); v.id = 'v-hrcon'; v.className = 'view'; (el('v-dashboard')||document.querySelector('.content .view'))?.after(v); }
+
+RENDER.hrcon = () => { const v = el('v-hrcon'); if(!v) return; if(!hcCan()){ v.innerHTML = '<div class="empty">HR Concerns are for HR and the COO.</div>'; return; }
+  const coo = hcIsCoo(); const q = HCV.q.trim().toLowerCase();
+  let L = HRCON.slice().sort((a,b)=>(+(b.priority==='urgent' && !b.ackAt) - +(a.priority==='urgent' && !a.ackAt)) || String(b.lastAt||b.at).localeCompare(String(a.lastAt||a.at)));
+  if(HCV.pri!=='all') L = L.filter(c=>c.priority===HCV.pri); if(HCV.cat!=='all') L = L.filter(c=>c.cat===HCV.cat);
+  if(HCV.st==='open') L = L.filter(c=>!['resolved','closed'].includes(c.status)); else if(HCV.st!=='all') L = L.filter(c=>c.status===HCV.st);
+  if(HCV.from) L = L.filter(c=>c.at.slice(0,10) >= HCV.from); if(HCV.to) L = L.filter(c=>c.at.slice(0,10) <= HCV.to); if(HCV.by!=='all') L = L.filter(c=>c.by===HCV.by);
+  if(q) L = L.filter(c=>[c.title, c.desc, c.cat, pname(c.by), c.relatedTxt].join(' ').toLowerCase().includes(q));
+  const reqs = uniq(HRCON.map(c=>c.by)).filter(k=>PEOPLE[k]);
+  const urgentOpen = HRCON.filter(c=>c.priority==='urgent' && !c.ackAt && !['resolved','closed'].includes(c.status));
+  v.innerHTML = `<div class="page-head"><div><h2>${coo?'HR Concerns':'HR Concerns & COO Escalations'}</h2><p>${coo?'Concerns HR raised to you — reply, schedule a meeting with HR, and track each to resolution.':'Raise a concern to the COO with attachments and a priority, request a meeting or a callback, and follow it to resolution.'}</p></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">${hcIsHR()?`<button class="btn primary" onclick="hcNew()">+ New concern</button><button class="btn" onclick="hcNew('meeting')">📅 Request COO meeting</button>`:''}${coo?`<button class="btn" onclick="hcAvailModal()">🗓 My availability</button>`:''}${coo||isHead(PERSON)?`<button class="btn ghost" onclick="hcCfgModal()">⚙ Response settings</button>`:''}</div></div>
+    ${urgentOpen.length?`<div class="hc-alert">🔴 <b>${urgentOpen.length} urgent concern${urgentOpen.length>1?'s':''}</b> waiting for the COO’s initial response — ${urgentOpen.map(c=>`<a href="#" onclick="event.preventDefault();hcOpen('${c.id}')">${esc(c.title)}</a> ${hcSlaHTML(c)}`).join(' · ')}</div>`:''}
+    <div class="hc-filters"><input placeholder="Search concerns…" value="${esc(HCV.q)}" oninput="HCV.q=this.value;clearTimeout(HCV.t);HCV.t=setTimeout(()=>{RENDER.hrcon();const i=document.querySelector('.hc-filters input');i&&(i.focus(),i.setSelectionRange(i.value.length,i.value.length))},250)">
+      <select onchange="HCV.pri=this.value;RENDER.hrcon()"><option value="all">All priorities</option>${Object.entries(HC_PRI).map(([k,[l]])=>`<option value="${k}" ${HCV.pri===k?'selected':''}>${l}</option>`).join('')}</select>
+      <select onchange="HCV.cat=this.value;RENDER.hrcon()"><option value="all">All categories</option>${HC_CATS.map(k=>`<option ${HCV.cat===k?'selected':''}>${esc(k)}</option>`).join('')}</select>
+      <select onchange="HCV.st=this.value;RENDER.hrcon()"><option value="open" ${HCV.st==='open'?'selected':''}>Open</option><option value="all" ${HCV.st==='all'?'selected':''}>All statuses</option>${Object.entries(HC_ST).map(([k,l])=>`<option value="${k}" ${HCV.st===k?'selected':''}>${l}</option>`).join('')}</select>
+      <label>From <input type="date" value="${esc(HCV.from)}" onchange="HCV.from=this.value;RENDER.hrcon()"></label><label>to <input type="date" value="${esc(HCV.to)}" onchange="HCV.to=this.value;RENDER.hrcon()"></label>
+      ${reqs.length>1?`<select onchange="HCV.by=this.value;RENDER.hrcon()"><option value="all">All requesters</option>${reqs.map(k=>`<option value="${k}" ${HCV.by===k?'selected':''}>${esc(pname(k))}</option>`).join('')}</select>`:''}</div>
+    <div class="hc-list">${L.map(hcRow).join('') || `<div class="card"><div class="card-b empty">${HRCON.length?'Nothing matches these filters.':'No concerns yet.'}</div></div>`}</div>`; };
+function hcRow(c){ const [pl, pc, pi] = HC_PRI[c.priority]||HC_PRI.normal; const last = HRCMSG.filter(m=>m.con===c.id && (!m.internal || m.by===PERSON)).sort((a,b)=>String(b.at).localeCompare(String(a.at)))[0];
+  const nf = (c.files||[]).length + (c.links||[]).length;
+  return `<button class="hc-row ${c.priority} ${hcUnread(c)?'unread':''}" onclick="hcOpen('${c.id}')">
+    <div class="hc-row-t"><span class="badge ${pc}">${pi} ${pl}</span><b>${esc(c.title)}</b>${hcUnread(c)?'<span class="hc-dot" aria-label="new reply"></span>':''}<span style="flex:1"></span><span class="badge ${HC_ST_CLS[c.status]||'b-draft'}">${esc(HC_ST[c.status]||c.status)}</span></div>
+    <div class="hc-row-m"><span>${esc(c.cat||'')}</span><span>${esc(pname(c.by))} · ${esc(hcWhen(c.at))}</span>${nf?`<span>📎 ${nf}</span>`:''}${c.meet?`<span>📅 ${esc(c.meet.status==='approved'?'Meeting '+hcWhen(c.meet.start):'Meeting '+c.meet.status)}</span>`:''}${c.callback && c.callback.status!=='done'?'<span>📞 Callback requested</span>':''}${hcSlaHTML(c)}</div>
+    ${last?`<div class="hc-row-l">${esc(first(last.by))}: ${esc(String(last.text||'📎 attachment').replace(/\s+/g,' ').slice(0,140))}</div>`:''}</button>`; }
+
+/* ---------- attachments (upload while composing, preview before sending) ---------- */
+const HC_UP = {list:[], con:null};
+async function hcUpload(files, con){ for(const f of [...(files||[])]){ const tmp = {name:f.name || 'Pasted image.png', type:f.type, size:f.size, uploading:true, _local:(isImg(f)||isVid(f)) ? URL.createObjectURL(f) : null, _id:uid('U')};
+    HC_UP.list.push(tmp); hcUpPaint();
+    if(f.size > (BACKEND?.mode==='live' ? 50 : 1.5)*1048576){ HC_UP.list = HC_UP.list.filter(x=>x._id!==tmp._id); hcUpPaint(); toast(`${f.name} is larger than ${BACKEND?.mode==='live'?50:1.5} MB — share it as a Google Drive link instead`); continue; }
+    try{ const ref = await BACKEND.upload(f, 'hrcon/' + con); Object.assign(tmp, ref, {uploading:false}); }catch(e){ HC_UP.list = HC_UP.list.filter(x=>x._id!==tmp._id); toast('Upload failed: ' + (e.message||e)); }
+    hcUpPaint(); } }
+function hcUpPaint(){ const b = el('hcUp'); if(!b) return; b.innerHTML = HC_UP.list.map((f,i)=>`<div class="hc-att ${f.uploading?'up':''}" title="${esc(f.name)}">${f._local && isImg(f) ? `<img src="${f._local}" alt="">` : f._local && isVid(f) ? `<video src="${f._local}" muted></video>` : `<span class="hc-att-i">${esc((f.name.split('.').pop()||'FILE').toUpperCase().slice(0,4))}</span>`}<span class="hc-att-n">${f.uploading?'Uploading…':esc(f.name)}</span><button type="button" onclick="HC_UP.list.splice(${i},1);hcUpPaint()" aria-label="Remove ${esc(f.name)}">✕</button></div>`).join(''); }
+function hcPaste(e, con){ const items = [...(e.clipboardData?.items||[])].filter(it=>it.kind==='file'); if(!items.length) return; e.preventDefault();
+  const stamp = new Date().toLocaleString('en-CA', {timeZone:'Asia/Manila', hour12:false}).replace(/[/:]/g, '.').replace(', ', ' at ');
+  hcUpload(items.map((it, i)=>{ const f = it.getAsFile(); const ext = (f.type.split('/')[1]||'png').replace('jpeg','jpg'); return /^image\//.test(f.type) ? new File([f], `Screenshot ${stamp}${items.length>1?' ('+(i+1)+')':''}.${ext}`, {type:f.type}) : f; }), con); }
+const hcFilesOut = () => HC_UP.list.filter(f=>!f.uploading).map(({_local, _id, uploading, ...f})=>f);
+const hcLinksIn = s => uniq(String(s||'').split(/[\s,]+/).map(x=>x.trim()).filter(x=>/^https?:\/\//i.test(x)));
+function hcAttHTML(files, links){ return `${(files||[]).length?`<div class="hc-gal">${files.map(f=>`<button class="hc-att big" onclick="openFileRef(this)" data-f='${esc(JSON.stringify(f))}' title="Open ${esc(f.name)}">${isImg(f)||isVid(f)?`<span class="hc-thumb" data-th='${esc(JSON.stringify(f))}'>${isVid(f)?'▶':'🖼'}</span>`:`<span class="hc-att-i">${esc((f.name.split('.').pop()||'FILE').toUpperCase().slice(0,4))}</span>`}<span class="hc-att-n">${esc(f.name)}</span></button>`).join('')}</div>`:''}
+  ${(links||[]).length?`<div class="hc-links">${links.map(u=>`<a href="${esc(u)}" target="_blank" rel="noopener">🔗 ${esc(/drive\.google|docs\.google/.test(u)?'Google Drive · ':'')}${esc(u.replace(/^https?:\/\//,'').slice(0,70))}</a>`).join('')}</div>`:''}`; }
+async function hcThumbs(root){ for(const s of [...(root||document).querySelectorAll('.hc-thumb[data-th]')]){ const f = JSON.parse(s.dataset.th); s.removeAttribute('data-th');
+    try{ const u = await BACKEND.fileUrl(f); s.innerHTML = isVid(f) ? `<video src="${u}" muted preload="metadata"></video><b>▶</b>` : `<img src="${u}" alt="">`; }catch(e){} } }
+
+/* ---------- new concern / meeting request ---------- */
+function hcNew(kind){ if(!hcIsHR()) return toast('HR files concerns'); const id = 'HC-' + Date.now().toString(36) + Math.random().toString(36).slice(2,6); HC_UP.list = []; HC_UP.con = id;
+  const meet = kind==='meeting'; const rel = hcRelatedOpts();
+  openModal(meet ? 'Request a meeting with the COO' : 'New concern for the COO', `<div class="hc-form">
+    <div class="field"><label>${meet?'Meeting purpose':'Concern title'} *</label><input id="hcT" maxlength="140" placeholder="${meet?'e.g. Discuss the Q4 hiring plan':'Short summary of the concern'}"></div>
+    <div class="hc-2"><div class="field"><label>Category</label><select id="hcC">${HC_CATS.map(k=>`<option ${meet&&k==='Meeting request'?'selected':''}>${esc(k)}</option>`).join('')}</select></div>
+      <div class="field"><label>Priority</label><div class="hc-pri">${Object.entries(HC_PRI).map(([k,[l,,i]])=>`<label class="${k}"><input type="radio" name="hcP" value="${k}" ${k==='normal'?'checked':''}> ${i} ${l}</label>`).join('')}</div>
+        <div class="hint" id="hcPH">Normal: the COO is notified and it joins the standard review queue.</div></div></div>
+    <div class="field"><label>${meet?'Message to the COO':'Detailed description'} *</label><textarea id="hcD" rows="6" placeholder="Describe the concern. You can paste screenshots or text here (Ctrl/Cmd+V)." onpaste="hcPaste(event,'${id}')"></textarea></div>
+    <div class="hc-2"><div class="field"><label>Related to (optional)</label><select id="hcR"><option value="">—</option>${rel}</select></div>
+      <div class="field"><label>${meet?'Expected duration':'Requested resolution / action'}</label>${meet?`<select id="hcDur">${[15,30,45,60,90].map(m=>`<option value="${m}" ${m===hcCfg().avail.dur?'selected':''}>${m} minutes</option>`).join('')}</select>`:`<input id="hcA" placeholder="What would you like the COO to do?">`}</div></div>
+    <div class="field"><label>${meet?'Preferred dates & times':'Preferred meeting date & time, if a meeting is needed'} <span class="hint">(Philippine time)</span></label><div class="hc-prefs" id="hcPrefs">${[0,1,2].map(i=>`<input type="datetime-local" class="hcPref" ${i===0&&meet?'required':''}>`).join('')}</div>
+      <div class="hint">${hcSlotsHint()}</div></div>
+    <div class="field"><label>Attachments <span class="hint">— documents, PDFs, images, screenshots, videos (up to 50 MB each); larger videos as a Drive link</span></label>
+      <div id="hcUp" class="hc-up"></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn" onclick="const i=document.createElement('input');i.type='file';i.multiple=true;i.onchange=()=>hcUpload(i.files,'${id}');i.click()">📎 Add files</button><span class="hint" style="align-self:center">or paste screenshots into the description</span></div></div>
+    <div class="field"><label>Links <span class="hint">(websites, Google Drive — one per line)</span></label><textarea id="hcL" rows="2" placeholder="https://drive.google.com/…"></textarea></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end"><button class="btn" onclick="closeModal()">Cancel</button><button class="btn primary" id="hcSend" onclick="hcSubmit('${id}', ${meet})">${meet?'Send meeting request':'Submit concern'}</button></div></div>`);
+  document.querySelectorAll('input[name=hcP]').forEach(r=>r.addEventListener('change', ()=>{ const k = document.querySelector('input[name=hcP]:checked').value;
+    el('hcPH').textContent = k==='urgent' ? `Urgent: the COO is notified at once and an initial response is due within ${hcCfg().slaHours} ${hcCfg().slaMode==='business'?'business':'calendar'} hours.` : k==='low' ? 'Low priority: recorded for non-urgent review and follow-up.' : 'Normal: the COO is notified and it joins the standard review queue.'; })); }
+function hcRelatedOpts(){ const emp = (typeof EMPLOYEES!=='undefined' ? EMPLOYEES : []).filter(e=>PEOPLE[e.id]).map(e=>[`p:${e.id}`, `👤 ${pname(e.id)}`]);
+  const apps = (typeof APPLICANTS!=='undefined' ? APPLICANTS : []).filter(a=>recVisible?.(a)).slice(0, 80).map(a=>[`a:${a.id}`, `🧑‍💼 ${a.name} (applicant)`]);
+  const depts = (typeof relDepts==='function' ? relDepts() : []).map(d=>[`d:${d}`, `🏢 ${d}`]);
+  return [['Departments', depts], ['Team', emp], ['Applicants', apps]].filter(([,L])=>L.length).map(([g, L])=>`<optgroup label="${g}">${L.map(([v,l])=>`<option value="${esc(v)}">${esc(l)}</option>`).join('')}</optgroup>`).join(''); }
+const hcRelTxt = r => !r ? '' : r.startsWith('p:') ? pname(r.slice(2)) : r.startsWith('a:') ? (recApp?.(r.slice(2))?.name||'Applicant') + ' (applicant)' : r.startsWith('d:') ? r.slice(2) + ' department' : r;
+async function hcSubmit(id, meet){ if(HCV.busy) return; const title = el('hcT').value.trim(), desc = el('hcD').value.trim();
+  if(!title) return toast(meet?'Write the meeting purpose':'Write a title'); if(!desc) return toast('Write the description');
+  if(HC_UP.list.some(f=>f.uploading)) return toast('Waiting for the uploads to finish…');
+  const prefs = [...document.querySelectorAll('.hcPref')].map(i=>i.value).filter(Boolean).map(v=>new Date(v + ':00+08:00').toISOString());
+  if(meet && !prefs.length) return toast('Choose at least one preferred time');
+  const pri = document.querySelector('input[name=hcP]:checked')?.value || 'normal'; const t = nowISO(); const rel = el('hcR').value;
+  const c = {id, title, cat:el('hcC').value, desc, priority:pri, related:rel||null, relatedTxt:hcRelTxt(rel), action:el('hcA')?.value.trim()||'', files:hcFilesOut(), links:hcLinksIn(el('hcL').value),
+    prefMeet:prefs, by:PERSON, at:t, lastAt:t, status:'new', to:hcCoo(), seen:{[PERSON]:t}, history:[{at:t, by:PERSON, act:`Submitted (${HC_PRI[pri][0]})`}]};
+  if(pri==='urgent'){ c.dueAt = hcAddHours(t, hcCfg().slaHours); c.slaHours = hcCfg().slaHours; c.slaMode = hcCfg().slaMode; }
+  if(meet || prefs.length && meet) c.meet = {status:'requested', purpose:title, msg:desc, prefs, dur:+(el('hcDur')?.value||hcCfg().avail.dur), at:t, by:PERSON, history:[{at:t, by:PERSON, act:'Meeting requested'}]};
+  HCV.busy = true; HRCON.unshift(c); recordChange(); closeModal(); HCV.busy = false;
+  hcAlertNew(c); RENDER.hrcon?.(); hcOpen(id); toast(pri==='urgent' ? 'Urgent concern sent — the COO was notified' : 'Sent to the COO'); }
+function hcSlotsHint(){ const S = hcSlots(6); return S.length ? 'The COO is usually free: ' + S.slice(0,4).map(s=>hcWhen(s.start).replace(/, \d{4}/,'')).join(' · ') : 'The COO has not set availability yet — any time can be proposed.'; }
+
+/* ---------- the COO AI Assistant: alerts, pop-up, his own thread ---------- */
+function hcAsstThread(){ const k = hcCoo(); if(typeof JOSE_KEY==='undefined' || typeof aiChatIdFor!=='function') return null; const id = aiChatIdFor(JOSE_KEY, k);
+  let c = CHATS.find(x=>x.id===id); if(!c){ c = {id, kind:'dm', ai:true, self:true, agent:JOSE_KEY, owner:k, name:'', members:[k], at:nowISO(), from:[]}; CHATS.push(c); } return c; }
+function hcAsstSay(key, text){ try{ const ch = hcAsstThread(); if(!ch) return; const id = 'M-hc-' + String(key).replace(/[^A-Za-z0-9-]/g, ''); if(MESSAGES.some(m=>m.id===id)) return;
+    MESSAGES.push({id, chat:ch.id, by:JOSE_KEY, kind:'assistant', text, at:nowISO(), files:[]}); }catch(e){ console.warn('assistant thread', e); } }
+function hcAlertNew(c){ const coo = hcCoo(); const urgent = c.priority==='urgent'; const files = (c.files||[]).length + (c.links||[]).length;
+  const text = urgent ? `🔴 An urgent HR concern requires your attention: <b>${esc(c.title)}</b>. ${esc(pname(c.by))} submitted it${files?' with supporting attachments':''}. The initial response is due within ${c.slaHours||24} hours (${esc(hcWhen(c.dueAt))}). Review it, reply, or schedule a meeting.`
+    : c.meet ? `📅 ${esc(pname(c.by))} requested a meeting: <b>${esc(c.title)}</b> (${c.meet.dur} min).` : `📨 New HR concern (${HC_PRI[c.priority][0].toLowerCase()}): <b>${esc(c.title)}</b> from ${esc(pname(c.by))}.`;
+  notifyAs(hcAgent(), [coo], urgent ? 'approval' : 'reminder', text, {view:'hrcon', con:c.id, ...(urgent?{pop:true}:{})}, 'hc-new-' + c.id);
+  hcAsstSay('new-' + c.id, urgent ? `An urgent HR concern requires your attention.\n\n“${c.title}” — from ${pname(c.by)} (${c.cat}).${files?` It has ${files} supporting attachment${files>1?'s':''}.`:''}\nThe initial response is due within ${c.slaHours||24} hours — by ${hcWhen(c.dueAt)}.\n\nWould you like to review the concern, send a response, or schedule a meeting? Open: HR Concerns → “${c.title}”.`
+    : `${c.meet?'📅 New meeting request':'📨 New HR concern'} from ${pname(c.by)}: “${c.title}” (${HC_PRI[c.priority][0]}). Open it in HR Concerns.`);
+  recordChange(); }
+/* the urgent pop-up in the COO's portal */
+const HCP = {shown:new Set()};
+function hcPop(c){ if(!hcIsCoo() || HCP.shown.has(c.id) || c.ackAt) return; let seen = []; try{ seen = JSON.parse(localStorage.getItem('cc-hcpop-'+PERSON)||'[]'); }catch(e){} if(seen.includes(c.id)) return;
+  HCP.shown.add(c.id); try{ localStorage.setItem('cc-hcpop-'+PERSON, JSON.stringify([...seen, c.id].slice(-200))); }catch(e){}
+  let st = el('hcPopStack'); if(!st){ st = document.createElement('div'); st.id = 'hcPopStack'; document.body.append(st); }
+  const d = document.createElement('div'); d.className = 'hc-pop'; d.dataset.id = c.id; d.setAttribute('role', 'alertdialog'); d.setAttribute('aria-label', 'Urgent HR concern');
+  d.innerHTML = `<div class="hc-pop-h"><span class="hc-pop-av">${av(P(hcAgent()))}</span><div><b>COO AI Assistant</b><div class="hint">Urgent HR concern · ${esc(pname(c.by))}</div></div><button class="hc-pop-x" aria-label="Dismiss" onclick="this.closest('.hc-pop').remove()">✕</button></div>
+    <div class="hc-pop-t"><b>${esc(c.title)}</b><div>${esc(String(c.desc||'').slice(0,180))}${(c.desc||'').length>180?'…':''}</div><div style="margin-top:6px">${hcSlaHTML(c, true)}</div></div>
+    <div class="hc-pop-a"><button class="btn primary" onclick="this.closest('.hc-pop').remove();hcOpen('${c.id}')">Review</button><button class="btn" onclick="this.closest('.hc-pop').remove();hcAck('${c.id}')">Acknowledge</button><button class="btn" onclick="this.closest('.hc-pop').remove();hcOpen('${c.id}',{reply:1})">Reply</button><button class="btn" onclick="this.closest('.hc-pop').remove();hcSchedule('${c.id}')">Schedule meeting</button></div>`;
+  st.prepend(d); try{ playSound?.('notify'); }catch(e){} }
+{ const _ore = onRemoteEvent; onRemoteEvent = function(ev){ _ore.apply(this, arguments);
+    if(['hrcon','hrcmsg','hrccfg'].includes(ev?.coll)){ clearTimeout(HCV.rt); HCV.rt = setTimeout(()=>{ if(CURRENT==='hrcon') RENDER.hrcon(); if(el('hcView') && HCV.open) hcOpen(HCV.open, {keep:1}); try{ buildNav(); }catch(e){} }, 300);
+      if(ev.coll==='hrcon' && ev.obj?.priority==='urgent' && !ev.obj.ackAt) hcPop(ev.obj); } }; }
+{ const _sp = setPerson; setPerson = function(){ const r = _sp.apply(this, arguments); setTimeout(()=>{ try{ if(hcIsCoo()) HRCON.filter(c=>c.priority==='urgent' && !c.ackAt && !['resolved','closed'].includes(c.status)).slice(0,3).forEach(hcPop); }catch(e){} }, 5000); return r; }; }
+{ const _fl = followLink; followLink = function(link){ if(link?.view==='hrcon'){ closeOverlays?.(); go('hrcon'); if(link.con) setTimeout(()=>hcOpen(link.con), 120); return; } return _fl.apply(this, arguments); }; }
+
+/* ---------- one concern ---------- */
+function hcOpen(id, o={}){ const c = hcOf(id); if(!c) return toast('This concern is not available'); HCV.open = id; const coo = hcIsCoo(), hr = hcIsHR();
+  const keepTxt = o.keep ? el('hcMsg')?.value : null; if(!o.keep){ HC_UP.list = []; HC_UP.con = id; }
+  const M = HRCMSG.filter(m=>m.con===id && (!m.internal || m.by===PERSON)).sort((a,b)=>String(a.at).localeCompare(String(b.at)));
+  const [pl, pc, pi] = HC_PRI[c.priority]||HC_PRI.normal; const closed = ['resolved','closed'].includes(c.status);
+  const fu = c.followups||[]; const mt = c.meet;
+  const body = `<div id="hcView" class="hc-view">
+    <div class="hc-head"><span class="badge ${pc}">${pi} ${pl}</span><span class="badge ${HC_ST_CLS[c.status]||'b-draft'}">${esc(HC_ST[c.status]||c.status)}</span>${hcSlaHTML(c, true)}</div>
+    <div class="hc-meta"><div><span>Category</span><b>${esc(c.cat||'—')}</b></div><div><span>From</span><b>${esc(pname(c.by))}</b><i>${esc(hcWhen(c.at))}</i></div>${c.relatedTxt?`<div><span>Related to</span><b>${esc(c.relatedTxt)}</b></div>`:''}${c.action?`<div><span>Requested action</span><b>${esc(c.action)}</b></div>`:''}${c.resolvedAt?`<div><span>Resolved</span><b>${esc(hcWhen(c.resolvedAt))}</b><i>${esc(pname(c.resolvedBy))}</i></div>`:''}</div>
+    <div class="doc-paper hc-desc">${linkify(esc(c.desc||''))}</div>${hcAttHTML(c.files, c.links)}
+    ${coo?`<div class="hc-acts">${!c.ackAt?`<button class="btn primary" onclick="hcAck('${id}')">✓ Acknowledge</button>`:''}
+      <label class="hc-stl">Status <select onchange="hcSetStatus('${id}', this.value)">${Object.entries(HC_ST).map(([k,l])=>`<option value="${k}" ${c.status===k?'selected':''}>${l}</option>`).join('')}</select></label>
+      <button class="btn" onclick="hcSchedule('${id}')">📅 ${mt?.status==='approved'?'Reschedule':'Schedule meeting'}</button>${closed?`<button class="btn" onclick="hcSetStatus('${id}','review','Reopened')">↺ Reopen</button>`:`<button class="btn" onclick="hcSetStatus('${id}','resolved')">✓ Mark resolved</button>`}</div>`
+     : hr?`<div class="hc-acts">${!mt || ['cancelled','declined'].includes(mt.status)?`<button class="btn" onclick="hcMeetReq('${id}')">📅 Request meeting</button>`:''}${!c.callback || c.callback.status==='done'?`<button class="btn" onclick="hcCallbackReq('${id}')">📞 Request a callback</button>`:''}${c.status==='resolved'?`<button class="btn" onclick="hcSetStatus('${id}','closed')">Close</button><button class="btn ghost" onclick="hcSetStatus('${id}','review','Reopened by HR')">↺ Not resolved</button>`:''}</div>`:''}
+    ${mt?hcMeetHTML(c):''}${c.callback?hcCallbackHTML(c):''}
+    ${fu.length || coo?`<div class="hc-box"><div class="hc-box-h"><b>Follow-up actions</b>${coo?`<button class="btn ghost" onclick="hcFollowAdd('${id}')">+ Add</button>`:''}</div>${fu.map((f,i)=>`<label class="hc-fu ${f.done?'done':''}"><input type="checkbox" ${f.done?'checked':''} ${(coo||f.owner===PERSON)?'':'disabled'} onchange="hcFollowDone('${id}',${i},this.checked)"> <span>${esc(f.text)}</span><i>${esc(pname(f.owner))}${f.due?' · due '+esc(dstr(f.due)):''}</i></label>`).join('') || '<div class="hint">None yet.</div>'}</div>`:''}
+    <div class="hc-thread">${M.map(m=>`<div class="hc-msg ${m.by===PERSON?'me':''} ${m.internal?'internal':''} ${m.kind||''}"><div class="hc-msg-h"><b>${esc(m.by.startsWith('asst:')?'COO AI Assistant':pname(m.by))}</b>${m.internal?'<span class="badge b-draft">Internal note · only you</span>':m.kind==='info'?'<span class="badge b-progress">Information requested</span>':m.kind==='status'?'<span class="badge b-draft">Update</span>':''}<span class="hint">${esc(hcWhen(m.at))}</span></div><div class="hc-msg-t">${linkify(esc(m.text||''))}</div>${hcAttHTML(m.files, m.links)}</div>`).join('') || '<div class="hint" style="text-align:center;padding:8px">No replies yet.</div>'}</div>
+    ${c.status!=='closed'?`<div class="hc-compose"><textarea id="hcMsg" rows="3" placeholder="${coo?'Reply to HR… (paste screenshots with Ctrl/Cmd+V)':'Add information or reply… (paste screenshots with Ctrl/Cmd+V)'}" onpaste="hcPaste(event,'${id}')"></textarea><div id="hcUp" class="hc-up"></div>
+      <div class="hc-compose-a"><button type="button" class="btn ghost" onclick="const i=document.createElement('input');i.type='file';i.multiple=true;i.onchange=()=>hcUpload(i.files,'${id}');i.click()">📎 Attach</button><input id="hcMsgL" placeholder="Links (optional)" style="flex:1;min-width:140px">
+        ${coo?`<label class="hint" style="display:flex;gap:4px;align-items:center"><input type="checkbox" id="hcInt" style="width:auto"> Internal note</label><button class="btn" onclick="hcSend('${id}','info')">Request info</button>`:''}<button class="btn primary" onclick="hcSend('${id}')">Send</button></div></div>`:''}
+    <details class="hc-hist"><summary>History</summary>${(c.history||[]).slice().reverse().map(h=>`<div class="hint">${esc(hcWhen(h.at))} · ${esc(h.by?.startsWith?.('asst:')?'COO AI Assistant':pname(h.by))} — ${esc(h.act)}</div>`).join('')}</details></div>`;
+  openModal(`${c.title}`, body); el('modal')?.classList.add('hc-wide');
+  if(keepTxt!=null && el('hcMsg')) el('hcMsg').value = keepTxt; hcUpPaint(); hcThumbs(el('hcView'));
+  c.seen = {...(c.seen||{}), [PERSON]:nowISO()}; recordChange(); try{ buildNav(); }catch(e){}
+  if(o.reply) setTimeout(()=>el('hcMsg')?.focus(), 80); }
+function hcLog(c, act){ c.history = [...(c.history||[]), {at:nowISO(), by:PERSON, act}].slice(-200); c.lastAt = nowISO(); }
+function hcInitial(c){ if(!c.ackAt && hcIsCoo()){ c.ackAt = nowISO(); c.ackBy = PERSON; hcLog(c, 'Initial response recorded'); if(c.status==='new') c.status = 'ack'; } }
+function hcAck(id){ const c = hcOf(id); if(!c || !hcIsCoo()) return; hcInitial(c); if(c.status==='new') c.status = 'ack';
+  notify([c.by], 'reminder', `✓ The COO acknowledged your concern <b>${esc(c.title)}</b>.`, {view:'hrcon', con:id}); recordChange(); hcOpen(id); RENDER.hrcon?.(); toast('Acknowledged — HR was notified'); }
+function hcSetStatus(id, st, why){ const c = hcOf(id); if(!c) return; if(!hcIsCoo() && !(hcIsHR() && ['closed','review'].includes(st))) return toast('Only the COO changes the status');
+  const was = c.status; if(was===st) return; c.status = st; if(st==='resolved'){ c.resolvedAt = nowISO(); c.resolvedBy = PERSON; } if(st==='review' && ['resolved','closed'].includes(was)){ delete c.resolvedAt; }
+  if(hcIsCoo() && st!=='new') hcInitial(c);
+  hcLog(c, why || `Status: ${HC_ST[was]} → ${HC_ST[st]}`);
+  HRCMSG.push({id:uid('HM'), con:id, by:PERSON, at:nowISO(), kind:'status', text:`${why||'Status changed'}: ${HC_ST[st]}`});
+  const to = hcAudOf(c).filter(k=>k!==PERSON); notify(to, 'reminder', `${st==='resolved'?'✅':'🔄'} HR concern <b>${esc(c.title)}</b> — ${esc(HC_ST[st])}`, {view:'hrcon', con:id});
+  recordChange(); hcOpen(id, {keep:1}); RENDER.hrcon?.(); }
+function hcSend(id, kind){ const c = hcOf(id); if(!c) return; const t = el('hcMsg').value.trim(), links = hcLinksIn(el('hcMsgL')?.value), files = hcFilesOut();
+  if(!t && !files.length && !links.length) return toast('Write a message or attach something'); if(HC_UP.list.some(f=>f.uploading)) return toast('Waiting for the uploads to finish…');
+  const internal = !!el('hcInt')?.checked && hcIsCoo(); const m = {id:uid('HM'), con:id, by:PERSON, at:nowISO(), text:t, files, links, ...(internal?{internal:true}:{}), ...(kind==='info'?{kind:'info'}:{})};
+  HRCMSG.push(m); HC_UP.list = [];
+  if(!internal){ if(hcIsCoo()) hcInitial(c); if(kind==='info'){ c.status = 'info'; hcLog(c, 'More information requested'); } else if(c.status==='info' && !hcIsCoo()){ c.status = 'review'; hcLog(c, 'Information added by HR'); } else hcLog(c, hcIsCoo() ? 'COO replied' : 'HR added information');
+    notify(hcAudOf(c).filter(k=>k!==PERSON), 'message', `💬 ${esc(first(PERSON))} ${kind==='info'?'asked for more information on':'replied on'} <b>${esc(c.title)}</b>: ${esc(t.slice(0,100))}`, {view:'hrcon', con:id}); }
+  c.seen = {...(c.seen||{}), [PERSON]:nowISO()}; recordChange(); el('hcMsg').value = ''; hcOpen(id); RENDER.hrcon?.(); }
+function hcFollowAdd(id){ const c = hcOf(id); if(!c) return; const who = uniq([hcCoo(), ...HR_KEYS()]).filter(k=>PEOPLE[k]);
+  openModal('Follow-up action', `<div class="field"><label>Action</label><input id="hfT" placeholder="e.g. Prepare the updated attendance policy"></div><div class="hc-2"><div class="field"><label>Owner</label><select id="hfO">${who.map(k=>`<option value="${k}">${esc(pname(k))}</option>`).join('')}</select></div><div class="field"><label>Due</label><input id="hfD" type="date"></div></div>
+    <div style="display:flex;justify-content:flex-end;gap:8px"><button class="btn" onclick="hcOpen('${id}')">Back</button><button class="btn primary" onclick="hcFollowSave('${id}')">Add</button></div>`); }
+function hcFollowSave(id){ const c = hcOf(id); const t = el('hfT').value.trim(); if(!t) return toast('Describe the action'); const f = {text:t, owner:el('hfO').value, due:el('hfD').value||'', at:nowISO(), by:PERSON};
+  c.followups = [...(c.followups||[]), f]; hcLog(c, `Follow-up assigned to ${pname(f.owner)}: ${t}`); if(c.status==='new'||c.status==='ack') c.status = 'progress'; hcInitial(c);
+  if(f.owner!==PERSON) notify([f.owner], 'assignment', `📌 Follow-up from the COO on <b>${esc(c.title)}</b>: ${esc(t)}${f.due?' — due '+esc(dstr(f.due)):''}`, {view:'hrcon', con:id}); recordChange(); hcOpen(id); }
+function hcFollowDone(id, i, on){ const c = hcOf(id); const f = c?.followups?.[i]; if(!f) return; f.done = on ? nowISO() : null; hcLog(c, `Follow-up ${on?'done':'reopened'}: ${f.text}`); recordChange(); hcOpen(id, {keep:1}); }
+
+/* ---------- meetings ---------- */
+function hcMeetHTML(c){ const m = c.meet; const coo = hcIsCoo(), hr = hcIsHR();
+  const label = {requested:'Requested', proposed:'New times proposed by the COO', approved:'Confirmed', cancelled:'Cancelled', declined:'Declined'}[m.status] || m.status;
+  return `<div class="hc-box hc-meet"><div class="hc-box-h"><b>📅 Meeting with the COO</b><span class="badge ${m.status==='approved'?'b-approved':m.status==='cancelled'?'b-draft':'b-pending'}">${esc(label)}</span></div>
+    ${m.purpose&&m.purpose!==c.title?`<div><b>${esc(m.purpose)}</b></div>`:''}<div class="hint">${m.dur||30} minutes${m.msg&&m.msg!==c.desc?' · '+esc(m.msg.slice(0,160)):''}</div>
+    ${m.status==='approved'?`<div class="hc-meet-ok"><b>${esc(hcWhen(m.start))}</b> (${m.dur||30} min)${m.link?` · <a href="${esc(m.link)}" target="_blank" rel="noopener">Join Google Meet</a>`:` · <span class="hint">no video link: ${esc(m.linkNote||'not created')}</span>`}${m.gcal?.link?` · <a href="${esc(m.gcal.link)}" target="_blank" rel="noopener">Google Calendar event</a>`:''}</div>`:''}
+    ${m.status==='requested' && (m.prefs||[]).length?`<div class="hint">HR’s preferred times: ${m.prefs.map(p=>esc(hcWhen(p))).join(' · ')}</div>`:''}
+    ${m.status==='proposed'?`<div class="hc-slots">${(m.proposed||[]).map(p=>hr?`<button class="btn" onclick="hcAcceptTime('${c.id}','${p}')">✓ ${esc(hcWhen(p))}</button>`:`<span class="badge b-pending">${esc(hcWhen(p))}</span>`).join('')}</div>`:''}
+    <div class="hc-acts">${coo && ['requested','proposed'].includes(m.status)?`<button class="btn primary" onclick="hcSchedule('${c.id}')">Approve / choose time</button>`:''}${coo && m.status==='requested'?`<button class="btn" onclick="hcPropose('${c.id}')">Propose other times</button>`:''}
+      ${coo && m.status==='approved'?`<button class="btn" onclick="hcSchedule('${c.id}')">Reschedule</button>`:''}${(coo||hr) && !['cancelled','declined'].includes(m.status)?`<button class="btn ghost" onclick="hcMeetCancel('${c.id}')">Cancel meeting</button>`:''}</div>
+    <details><summary class="hint">Meeting history</summary>${(m.history||[]).slice().reverse().map(h=>`<div class="hint">${esc(hcWhen(h.at))} · ${esc(pname(h.by))} — ${esc(h.act)}</div>`).join('')}</details></div>`; }
+function hcMeetReq(id){ const c = hcOf(id); if(!c) return;
+  openModal('Request a meeting with the COO', `<div class="field"><label>Purpose</label><input id="hmP" value="${esc(c.title)}"></div><div class="field"><label>Message</label><textarea id="hmM" rows="3"></textarea></div>
+    <div class="field"><label>Preferred times (Philippine time)</label><div class="hc-prefs">${[0,1,2].map(()=>`<input type="datetime-local" class="hcPref">`).join('')}</div><div class="hint">${hcSlotsHint()}</div></div>
+    <div class="field"><label>Duration</label><select id="hmD">${[15,30,45,60,90].map(m=>`<option value="${m}" ${m===hcCfg().avail.dur?'selected':''}>${m} minutes</option>`).join('')}</select></div>
+    <div style="display:flex;justify-content:flex-end;gap:8px"><button class="btn" onclick="hcOpen('${id}')">Back</button><button class="btn primary" onclick="hcMeetReqSave('${id}')">Send request</button></div>`); }
+function hcMeetReqSave(id){ const c = hcOf(id); const prefs = [...document.querySelectorAll('.hcPref')].map(i=>i.value).filter(Boolean).map(v=>new Date(v+':00+08:00').toISOString()); if(!prefs.length) return toast('Choose at least one preferred time');
+  const t = nowISO(); c.meet = {status:'requested', purpose:el('hmP').value.trim()||c.title, msg:el('hmM').value.trim(), prefs, dur:+el('hmD').value, at:t, by:PERSON, history:[{at:t, by:PERSON, act:'Meeting requested'}]}; hcLog(c, 'Meeting requested');
+  notifyAs(hcAgent(), [hcCoo()], 'reminder', `📅 ${esc(pname(PERSON))} requested a meeting about <b>${esc(c.title)}</b> (${c.meet.dur} min).`, {view:'hrcon', con:id}, 'hc-mreq-' + id + '-' + Date.now().toString(36));
+  hcAsstSay('mreq-' + id + '-' + Date.now().toString(36), `📅 ${pname(PERSON)} requested a ${c.meet.dur}-minute meeting about “${c.title}”. Preferred: ${prefs.map(hcWhen).join(' · ')}. Open HR Concerns to approve or propose another time.`);
+  recordChange(); hcOpen(id); }
+/* free times of the COO (availability settings − portal calendar − Google busy − blocked periods) */
+const HCB = {busy:[], at:0};
+function hcSlots(days=10, dur){ const A = hcCfg().avail; dur = dur || A.dur || 30; const step = dur + (A.buffer||0); const out = []; const now = Date.now() + 2*3600e3; const coo = hcCoo();
+  const busy = [...MEETINGS.filter(m=>m.status!=='cancelled' && (m.organizer===coo || (m.participants||[]).includes(coo))).map(m=>[new Date(m.start).getTime(), new Date(m.end||m.start).getTime()]),
+    ...(A.blocks||[]).map(b=>[new Date(b.from).getTime(), new Date(b.to).getTime()]), ...HCB.busy.map(b=>[new Date(b.start).getTime(), new Date(b.end).getTime()])];
+  const [sh, sm] = String(A.start||'13:00').split(':').map(Number), [eh, em] = String(A.end||'18:00').split(':').map(Number);
+  for(let d=0; d<days && out.length<24; d++){ const base = new Date(Date.now() + 8*3600e3 + d*864e5); const y = base.getUTCFullYear(), mo = base.getUTCMonth(), da = base.getUTCDate(); if(!(A.days||[]).includes(base.getUTCDay())) continue;
+    for(let t = Date.UTC(y, mo, da, sh-8, sm); t + dur*60e3 <= Date.UTC(y, mo, da, eh-8, em); t += step*60e3){ if(t < now) continue; const e = t + dur*60e3, buf = (A.buffer||0)*60e3;
+      if(busy.some(([s, f])=>t < f + buf && e > s - buf)) continue; out.push({start:new Date(t).toISOString(), end:new Date(e).toISOString()}); } }
+  return out; }
+async function hcBusyRefresh(){ if(BACKEND?.mode!=='live' || Date.now() - HCB.at < 5*60e3) return; HCB.at = Date.now();
+  try{ const r = await leadFn('gcal_busy', {from:new Date().toISOString(), to:new Date(Date.now()+14*864e5).toISOString()}); HCB.busy = r?.busy||[]; HCB.gcal = true; }catch(e){ HCB.gcal = false; HCB.why = e.message; } }
+async function hcSchedule(id){ const c = hcOf(id); if(!c || !hcIsCoo()) return; await hcBusyRefresh(); const m = c.meet || {dur:hcCfg().avail.dur, prefs:c.prefMeet||[]}; const dur = m.dur || 30;
+  const S = hcSlots(10, dur); const prefOk = p => S.some(s=>s.start===p) ? '' : ' <span class="hint">(outside your free times)</span>';
+  openModal(`${m.status==='approved'?'Reschedule':'Schedule'} meeting — ${c.title}`, `<div class="hint" style="margin-bottom:8px">Free times come from your availability${HCB.gcal?', your portal calendar and your Google Calendar':' and your portal calendar'}${HCB.gcal===false?` (Google Calendar not checked: ${esc(HCB.why||'not connected')})`:''}.</div>
+    ${(m.prefs||[]).filter(p=>new Date(p) > new Date()).length?`<div class="nav-label" style="padding:0 0 4px">HR’s preferred times</div>${m.prefs.filter(p=>new Date(p) > new Date()).map(p=>`<label class="hc-slot"><input type="radio" name="hsT" value="${p}"> ${esc(hcWhen(p))}${prefOk(p)}</label>`).join('')}`:''}
+    <div class="nav-label" style="padding:8px 0 4px">Your free times</div><div class="hc-slotgrid">${S.slice(0,18).map(s=>`<label class="hc-slot"><input type="radio" name="hsT" value="${s.start}"> ${esc(hcWhen(s.start).replace(/, \d{4}/,''))}</label>`).join('') || '<div class="hint">No free times in the next 10 days — set your availability or pick a time below.</div>'}</div>
+    <div class="hc-2" style="margin-top:8px"><div class="field"><label>Or another time (PH)</label><input type="datetime-local" id="hsC"></div><div class="field"><label>Duration</label><select id="hsD">${[15,30,45,60,90].map(x=>`<option value="${x}" ${x===dur?'selected':''}>${x} minutes</option>`).join('')}</select></div></div>
+    <div id="hsMsg" class="hint"></div><div style="display:flex;justify-content:flex-end;gap:8px"><button class="btn" onclick="hcOpen('${id}')">Back</button><button class="btn primary" id="hsGo" onclick="hcBookGo('${id}')">Confirm meeting</button></div>`); }
+async function hcBookGo(id){ const pick = document.querySelector('input[name=hsT]:checked')?.value || (el('hsC').value ? new Date(el('hsC').value+':00+08:00').toISOString() : '');
+  if(!pick) return toast('Choose a time'); if(new Date(pick) < new Date()) return toast('That time has passed'); const b = el('hsGo'); b.disabled = true; b.textContent = 'Creating the meeting…';
+  const r = await hcBook(id, pick, +el('hsD').value); if(!r.ok){ b.disabled = false; b.textContent = 'Confirm meeting'; el('hsMsg').textContent = '⚠ ' + r.why; return; } hcOpen(id); toast(r.link ? 'Meeting confirmed with a Google Meet link' : 'Meeting confirmed — no video link: ' + r.linkNote); }
+async function hcBook(id, start, dur){ const c = hcOf(id); if(!c) return {ok:false, why:'Concern not found'}; const coo = hcCoo(); const end = new Date(new Date(start).getTime() + dur*60e3).toISOString();
+  const m0 = c.meet || {purpose:c.title, dur, at:nowISO(), by:c.by, history:[]}; const title = `HR × COO: ${m0.purpose||c.title}`; const people = uniq([c.by, m0.by].filter(k=>k && k!==coo));
+  let link = '', linkNote = '', gcal = null;
+  if(BACKEND?.mode==='live'){ try{ const r = await leadFn('gcal_event', {title, start, end, description:`HR concern: ${c.title}\n${String(m0.msg||c.desc||'').slice(0,800)}`, attendees:people.map(k=>PEOPLE[k]?.email).filter(Boolean), eventId:m0.gcal?.id||null});
+      if(r?.ok){ gcal = {id:r.eventId, link:r.htmlLink}; link = r.meet || ''; } }catch(e){ linkNote = e.message; }
+    if(!link){ const l = await calLink(title, start, dur); link = l.url || ''; if(!link) linkNote = l.why || linkNote || 'no Google Meet connection'; } }
+  else linkNote = 'meeting links are created on the live portal';
+  let mt = m0.meetingId ? MEETINGS.find(x=>x.id===m0.meetingId) : null; const was = mt?.start;
+  if(!mt){ mt = {id:'mt'+Math.random().toString(36).slice(2,12), title, kind:'Meeting', start, end, tz:typeof MT_TZ!=='undefined'?MT_TZ:'Asia/Manila', organizer:coo, participants:people, link, linkNote:link?'':linkNote, notes:`HR concern: ${c.title}${m0.msg?'\n'+m0.msg:''}`, status:'scheduled', createdAt:nowISO(), createdBy:PERSON, hrcon:id, history:[{at:nowISO(), by:PERSON, act:'Scheduled from HR Concerns'}]}; MEETINGS.push(mt); }
+  else Object.assign(mt, {start, end, status:'scheduled', ...(link?{link, linkNote:''}:{}), history:[...(mt.history||[]), {at:nowISO(), by:PERSON, act:`Rescheduled from ${hcWhen(was)}`}]});
+  const act = was ? `Meeting rescheduled to ${hcWhen(start)}` : `Meeting confirmed for ${hcWhen(start)}`;
+  c.meet = {...m0, status:'approved', start, end, dur, link:link||m0.link||'', linkNote:link?'':linkNote, gcal:gcal||m0.gcal||null, meetingId:mt.id, history:[...(m0.history||[]), {at:nowISO(), by:PERSON, act:act + (link?' · Google Meet link created':' · no video link')}]};
+  if(c.status!=='resolved' && c.status!=='closed') c.status = 'meeting'; hcInitial(c); hcLog(c, act);
+  HRCMSG.push({id:uid('HM'), con:id, by:PERSON, at:nowISO(), kind:'status', text:`📅 ${act}${link?`\nGoogle Meet: ${link}`:''}`});
+  notify(uniq([...people, coo]).filter(k=>k!==PERSON), 'reminder', `📅 ${esc(act)} — <b>${esc(c.title)}</b>${link?' · Google Meet link ready':''}`, {view:'hrcon', con:id});
+  recordChange(); return {ok:true, link, linkNote}; }
+function hcPropose(id){ const c = hcOf(id); const S = hcSlots(10, c.meet?.dur);
+  openModal('Propose other times', `<div class="hint" style="margin-bottom:8px">Choose up to three times. HR picks one and the meeting is created.</div><div class="hc-slotgrid">${S.slice(0,18).map(s=>`<label class="hc-slot"><input type="checkbox" class="hpT" value="${s.start}"> ${esc(hcWhen(s.start).replace(/, \d{4}/,''))}</label>`).join('') || '<div class="hint">No free times — set your availability.</div>'}</div>
+    <div class="field" style="margin-top:8px"><label>Note to HR</label><input id="hpN"></div><div style="display:flex;justify-content:flex-end;gap:8px"><button class="btn" onclick="hcOpen('${id}')">Back</button><button class="btn primary" onclick="hcProposeSave('${id}')">Send</button></div>`); }
+function hcProposeSave(id){ const c = hcOf(id); const L = [...document.querySelectorAll('.hpT:checked')].map(x=>x.value).slice(0,3); if(!L.length) return toast('Choose at least one time');
+  c.meet = {...c.meet, status:'proposed', proposed:L, history:[...(c.meet.history||[]), {at:nowISO(), by:PERSON, act:`Proposed ${L.map(hcWhen).join(' / ')}`}]}; hcInitial(c); hcLog(c, 'COO proposed new meeting times');
+  const n = el('hpN').value.trim(); HRCMSG.push({id:uid('HM'), con:id, by:PERSON, at:nowISO(), kind:'status', text:`📅 The COO proposed: ${L.map(hcWhen).join(' · ')}${n?'\n'+n:''}`});
+  notify([c.meet.by||c.by], 'reminder', `📅 The COO proposed new times for <b>${esc(c.title)}</b> — choose one`, {view:'hrcon', con:id}); recordChange(); hcOpen(id); }
+async function hcAcceptTime(id, t){ const c = hcOf(id); if(!c) return; const r = await hcBook(id, t, c.meet?.dur||30); if(!r.ok) return toast(r.why); hcOpen(id); toast('Meeting confirmed'); }
+function hcMeetCancel(id){ const c = hcOf(id); if(!c?.meet || !confirm('Cancel this meeting?')) return; const mt = c.meet.meetingId ? MEETINGS.find(x=>x.id===c.meet.meetingId) : null;
+  if(mt){ mt.status = 'cancelled'; mt.history = [...(mt.history||[]), {at:nowISO(), by:PERSON, act:'Cancelled from HR Concerns'}]; }
+  c.meet = {...c.meet, status:'cancelled', history:[...(c.meet.history||[]), {at:nowISO(), by:PERSON, act:'Meeting cancelled'}]}; if(c.status==='meeting') c.status = 'progress'; hcLog(c, 'Meeting cancelled');
+  notify(hcAudOf(c).filter(k=>k!==PERSON), 'reminder', `📅 Meeting cancelled — <b>${esc(c.title)}</b>${c.meet.gcal?.link?' (remove it from Google Calendar if it is still there)':''}`, {view:'hrcon', con:id}); recordChange(); hcOpen(id); }
+/* COO availability */
+function hcAvailModal(){ if(!hcIsCoo()) return; const A = hcCfg().avail; const D = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  openModal('My availability for HR meetings', `<div class="field"><label>Available days</label><div class="hc-days">${D.map((d,i)=>`<label><input type="checkbox" class="haD" value="${i}" ${A.days.includes(i)?'checked':''}> ${d}</label>`).join('')}</div></div>
+    <div class="hc-2"><div class="field"><label>From (PH time)</label><input type="time" id="haS" value="${esc(A.start)}"></div><div class="field"><label>To</label><input type="time" id="haE" value="${esc(A.end)}"></div></div>
+    <div class="hc-2"><div class="field"><label>Usual meeting length</label><select id="haL">${[15,30,45,60].map(x=>`<option value="${x}" ${x===A.dur?'selected':''}>${x} minutes</option>`).join('')}</select></div><div class="field"><label>Buffer between meetings</label><select id="haB">${[0,5,10,15,30].map(x=>`<option value="${x}" ${x===A.buffer?'selected':''}>${x} minutes</option>`).join('')}</select></div></div>
+    <div class="field"><label>Blocked / unavailable periods</label><div id="haBl">${(A.blocks||[]).map(b=>`<div class="hc-bl"><input type="datetime-local" class="haF" value="${esc(hcLocal(b.from))}"> → <input type="datetime-local" class="haT" value="${esc(hcLocal(b.to))}"><input class="haW" placeholder="Reason" value="${esc(b.why||'')}"><button class="btn ghost" onclick="this.parentElement.remove()">✕</button></div>`).join('')}</div>
+      <button class="btn ghost" onclick="el('haBl').insertAdjacentHTML('beforeend','<div class=&quot;hc-bl&quot;><input type=&quot;datetime-local&quot; class=&quot;haF&quot;> → <input type=&quot;datetime-local&quot; class=&quot;haT&quot;><input class=&quot;haW&quot; placeholder=&quot;Reason&quot;><button class=&quot;btn ghost&quot; onclick=&quot;this.parentElement.remove()&quot;>✕</button></div>')">+ Block a period</button></div>
+    <div class="hint" style="margin-bottom:8px">${BACKEND?.mode==='live'?'When Google Calendar is connected with calendar permission, busy times there are left out as well.':''}</div>
+    <div style="display:flex;justify-content:flex-end;gap:8px"><button class="btn" onclick="closeModal()">Cancel</button><button class="btn primary" onclick="hcAvailSave()">Save</button></div>`); }
+const hcLocal = iso => iso ? new Date(new Date(iso).getTime() + 8*3600e3).toISOString().slice(0,16) : '';
+function hcAvailSave(){ const days = [...document.querySelectorAll('.haD:checked')].map(x=>+x.value); if(!days.length) return toast('Choose at least one day');
+  const blocks = [...document.querySelectorAll('#haBl .hc-bl')].map(r=>({from:r.querySelector('.haF').value, to:r.querySelector('.haT').value, why:r.querySelector('.haW').value.trim()})).filter(b=>b.from && b.to).map(b=>({...b, from:new Date(b.from+':00+08:00').toISOString(), to:new Date(b.to+':00+08:00').toISOString()}));
+  hcCfgPatch({avail:{days, start:el('haS').value||'13:00', end:el('haE').value||'18:00', dur:+el('haL').value, buffer:+el('haB').value, blocks}}); closeModal(); toast('Availability saved'); }
+function hcCfgPatch(p){ let r = HRCCFG.find(x=>x.id==='main'); if(!r){ r = {id:'main'}; HRCCFG.push(r); } Object.assign(r, p, {updatedAt:nowISO(), updatedBy:PERSON}); recordChange(); }
+function hcCfgModal(){ const C = hcCfg(); const D = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']; const heads = uniq([...HEADS, ...HR_KEYS()]).filter(k=>PEOPLE[k] && k!==hcCoo());
+  openModal('Response settings for urgent concerns', `<div class="hc-2"><div class="field"><label>Initial response target (hours)</label><input type="number" min="1" max="168" id="hsH" value="${C.slaHours}"></div>
+      <div class="field"><label>Counted in</label><select id="hsM"><option value="calendar" ${C.slaMode==='calendar'?'selected':''}>Calendar hours (24/7)</option><option value="business" ${C.slaMode==='business'?'selected':''}>Business hours only</option></select></div></div>
+    <div class="field"><label>Business hours (used for "business hours")</label><div class="hc-days">${D.map((d,i)=>`<label><input type="checkbox" class="hsBD" value="${i}" ${C.biz.days.includes(i)?'checked':''}> ${d}</label>`).join('')}</div>
+      <div class="hc-2"><input type="number" id="hsBS" min="0" max="23" value="${C.biz.start}" aria-label="Start hour"><input type="number" id="hsBE" min="1" max="24" value="${C.biz.end}" aria-label="End hour"></div></div>
+    <div class="field"><label>Remind the COO when this many hours are left</label><input id="hsR" value="${C.remind.join(', ')}"></div>
+    <div class="field"><label>When overdue, also notify</label><div class="hc-days">${heads.map(k=>`<label><input type="checkbox" class="hsE" value="${k}" ${C.escalateTo.includes(k)?'checked':''}> ${esc(pname(k))}</label>`).join('') || '<span class="hint">—</span>'}</div><div class="hint">Overdue reminders repeat every <input type="number" id="hsEv" min="1" max="48" value="${C.escalateEvery}" style="width:60px"> hours until the COO responds.</div></div>
+    <div style="display:flex;justify-content:flex-end;gap:8px"><button class="btn" onclick="closeModal()">Cancel</button><button class="btn primary" onclick="hcCfgSave()">Save</button></div>`); }
+function hcCfgSave(){ hcCfgPatch({slaHours:Math.max(1, +el('hsH').value||24), slaMode:el('hsM').value, biz:{days:[...document.querySelectorAll('.hsBD:checked')].map(x=>+x.value), start:+el('hsBS').value||9, end:+el('hsBE').value||18},
+    remind:String(el('hsR').value).split(/[,\s]+/).map(Number).filter(x=>x>0).sort((a,b)=>b-a).slice(0,4), escalateTo:[...document.querySelectorAll('.hsE:checked')].map(x=>x.value), escalateEvery:Math.max(1, +el('hsEv').value||6)});
+  closeModal(); toast('Saved — applies to new urgent concerns'); RENDER.hrcon?.(); }
+/* callbacks */
+function hcCallbackReq(id){ openModal('Request a callback from the COO', `<div class="field"><label>Number or how to reach you</label><input id="hbP" placeholder="+63 …"></div><div class="field"><label>Best time</label><input id="hbW" placeholder="e.g. today after 3 PM"></div><div class="field"><label>Note</label><input id="hbN"></div>
+    <div style="display:flex;justify-content:flex-end;gap:8px"><button class="btn" onclick="hcOpen('${id}')">Back</button><button class="btn primary" onclick="hcCallbackSave('${id}')">Send request</button></div>`); }
+function hcCallbackSave(id){ const c = hcOf(id); const p = el('hbP').value.trim(); if(!p) return toast('Add a number or how to reach you');
+  c.callback = {status:'requested', phone:p, when:el('hbW').value.trim(), note:el('hbN').value.trim(), at:nowISO(), by:PERSON}; hcLog(c, 'Callback requested');
+  notifyAs(hcAgent(), [hcCoo()], 'reminder', `📞 ${esc(pname(PERSON))} asked for a callback about <b>${esc(c.title)}</b> — ${esc(p)}${c.callback.when?' · '+esc(c.callback.when):''}`, {view:'hrcon', con:id}, 'hc-cb-' + id + '-' + Date.now().toString(36));
+  hcAsstSay('cb-' + id + '-' + Date.now().toString(36), `📞 Callback requested by ${pname(PERSON)} about “${c.title}”. Reach them at ${p}${c.callback.when?' — best time: '+c.callback.when:''}. I have not placed a call; mark it done in HR Concerns after you call.`);
+  recordChange(); hcOpen(id); toast('Callback requested — the COO was notified'); }
+function hcCallbackHTML(c){ const b = c.callback; return `<div class="hc-box"><div class="hc-box-h"><b>📞 Callback</b><span class="badge ${b.status==='done'?'b-approved':'b-pending'}">${b.status==='done'?'Done':'Requested'}</span></div>
+  <div>${esc(pname(b.by))} · <b>${esc(b.phone)}</b>${b.when?' · best time: '+esc(b.when):''}${b.note?' · '+esc(b.note):''}</div><div class="hint">Requested ${esc(hcWhen(b.at))}${b.doneAt?' · done '+esc(hcWhen(b.doneAt)):''}</div>
+  ${hcIsCoo() && b.status!=='done'?`<div class="hc-acts"><button class="btn primary" onclick="hcCallbackDone('${c.id}')">Mark called back</button><button class="btn" onclick="closeModal();(typeof pfMessage==='function'?pfMessage('${b.by}'):startDM('${b.by}'))">Open chat with ${esc(first(b.by))}</button></div>`:''}</div>`; }
+function hcCallbackDone(id){ const c = hcOf(id); c.callback = {...c.callback, status:'done', doneAt:nowISO(), doneBy:PERSON}; hcInitial(c); hcLog(c, 'Callback done'); notify([c.callback.by], 'reminder', `📞 The COO marked your callback about <b>${esc(c.title)}</b> as done.`, {view:'hrcon', con:id}); recordChange(); hcOpen(id); }
+
+/* ---------- reminders & escalation (any open HR / COO / head portal; fixed ids → never twice) ---------- */
+function hcTick(){ if(typeof SYNC==='undefined' || !SYNC.ready || !PEOPLE[PERSON] || !(hcCan() || isHead(PERSON))) return; const C = hcCfg(); const coo = hcCoo(); let ch = false; const now = Date.now();
+  HRCON.filter(c=>c.priority==='urgent' && !c.ackAt && !['resolved','closed'].includes(c.status)).forEach(c=>{ const ms = new Date(hcDue(c)).getTime() - now;
+    C.remind.forEach(h=>{ if(ms > 0 && ms <= h*3600e3){ const id = `hc-rem-${c.id}-${h}`; if(!NOTIFS2.some(n=>n.id===`N-${id}-${coo}`)){ notifyAs(hcAgent(), [coo], 'reminder', `⏰ ${h} hour${h>1?'s':''} left to respond to the urgent HR concern <b>${esc(c.title)}</b> (due ${esc(hcWhen(hcDue(c)))}).`, {view:'hrcon', con:c.id, pop:true}, id); hcAsstSay(id, `⏰ Reminder: ${hcLeftTxt(ms)} to send the initial response to “${c.title}” from ${pname(c.by)}.`); ch = true; } } });
+    if(ms <= 0){ const slot = Math.floor(-ms / (C.escalateEvery*3600e3)); const id = `hc-over-${c.id}-${slot}`; const to = uniq([coo, ...C.escalateTo, c.by]);
+      if(!NOTIFS2.some(n=>n.id===`N-${id}-${coo}`)){ notifyAs(hcAgent(), to, 'approval', `🚨 Overdue: the urgent HR concern <b>${esc(c.title)}</b> has had no initial response from the COO for ${esc(hcLeftTxt(ms).replace('Overdue by ',''))} past the target.`, {view:'hrcon', con:c.id, pop:true}, id);
+        hcAsstSay(id, `🚨 “${c.title}” is overdue for an initial response (${hcLeftTxt(ms)}). Acknowledge or reply in HR Concerns.`); c.escalations = [...(c.escalations||[]), {at:nowISO(), to}]; ch = true; } } });
+  HRCON.filter(c=>c.meet?.status==='approved' && c.meet.start).forEach(c=>{ const ms = new Date(c.meet.start).getTime() - now; if(ms > 0 && ms <= 60*60e3){ const id = `hc-msoon-${c.id}-${c.meet.start.slice(0,16)}`;
+      const to = uniq([coo, c.by, c.meet.by].filter(Boolean)); if(!NOTIFS2.some(n=>n.id===`N-${id}-${to[0]}`)){ notifyAs(hcAgent(), to, 'reminder', `📅 Meeting in ${Math.round(ms/60e3)} minutes: <b>${esc(c.meet.purpose||c.title)}</b>${c.meet.link?' — Google Meet link in the concern':''}`, {view:'hrcon', con:c.id}, id); ch = true; } } });
+  HRCON.filter(c=>!['resolved','closed'].includes(c.status)).forEach(c=>(c.followups||[]).forEach((f,i)=>{ if(f.done || !f.due || f.due >= manilaDate()) return; const id = `hc-fu-${c.id}-${i}-${manilaDate()}`;
+    if(!NOTIFS2.some(n=>n.id===`N-${id}-${f.owner}`)){ notifyAs(hcAgent(), [f.owner], 'reminder', `📌 Follow-up overdue on <b>${esc(c.title)}</b>: ${esc(f.text)}`, {view:'hrcon', con:c.id}, id); ch = true; } }));
+  if(ch) recordChange(); }
+setInterval(()=>{ try{ hcTick(); }catch(e){ console.warn('hr concerns', e); } }, 60000);
+
+(function hcCss(){ if(el('hcCss')) return; const s = document.createElement('style'); s.id = 'hcCss'; s.textContent = `
+.hc-filters{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:4px 0 12px}.hc-filters input:not([type=date]){flex:1;min-width:200px}.hc-filters select,.hc-filters input[type=date]{width:auto}.hc-filters label{display:flex;gap:6px;align-items:center;font-size:12.5px;color:var(--muted)}
+.hc-alert{border:1px solid color-mix(in srgb,var(--bad) 40%,transparent);background:color-mix(in srgb,var(--bad) 8%,var(--panel));border-radius:12px;padding:10px 14px;margin-bottom:12px;line-height:1.7}
+.hc-list{display:grid;gap:8px}.hc-row{all:unset;box-sizing:border-box;display:grid;gap:5px;padding:12px 14px;border:1px solid var(--line);border-radius:14px;background:var(--panel);cursor:pointer;transition:box-shadow .15s,transform .15s}
+.hc-row:hover{box-shadow:0 8px 20px rgba(0,0,0,.07);transform:translateY(-1px)}.hc-row:focus-visible{outline:2px solid var(--accent,#e9a133)}.hc-row.urgent{border-left:4px solid var(--bad)}.hc-row.unread b{font-weight:800}
+.hc-row-t{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.hc-row-m{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--muted);align-items:center}.hc-row-l{font-size:12.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hc-dot{width:8px;height:8px;border-radius:50%;background:var(--accent,#e9a133)}
+.hc-sla{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600;border-radius:999px;padding:2px 9px;background:color-mix(in srgb,var(--accent,#e9a133) 14%,var(--panel));color:var(--text)}.hc-sla.soon{background:color-mix(in srgb,var(--bad) 14%,var(--panel));color:var(--bad)}.hc-sla.over{background:var(--bad);color:#fff}.hc-sla.ok{background:color-mix(in srgb,var(--ok,#1d8a52) 14%,var(--panel));color:var(--ok,#1d8a52)}
+#modal.hc-wide .modal,#modal.hc-wide .modal-box{max-width:min(860px,96vw)!important;width:min(860px,96vw)!important}
+.hc-view{display:grid;gap:12px}.hc-head{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.hc-meta{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px}.hc-meta>div{display:grid;gap:1px;background:var(--panel-2);border-radius:10px;padding:8px 10px}.hc-meta span{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}.hc-meta i{font-size:11.5px;color:var(--muted);font-style:normal}
+.hc-desc{white-space:pre-wrap}.hc-acts{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.hc-stl{display:flex;gap:6px;align-items:center;font-size:12.5px}.hc-stl select{width:auto}
+.hc-box{border:1px solid var(--line);border-radius:12px;padding:10px 12px;display:grid;gap:6px;background:var(--panel)}.hc-box-h{display:flex;justify-content:space-between;align-items:center;gap:8px}.hc-meet-ok{font-size:14px}
+.hc-fu{display:flex;gap:8px;align-items:baseline}.hc-fu i{font-size:11.5px;color:var(--muted);font-style:normal;margin-left:auto}.hc-fu.done span{text-decoration:line-through;color:var(--muted)}
+.hc-thread{display:grid;gap:8px;max-height:46vh;overflow:auto;padding:2px}.hc-msg{border:1px solid var(--line);border-radius:12px;padding:8px 10px;background:var(--panel-2);max-width:92%}.hc-msg.me{justify-self:end;background:color-mix(in srgb,var(--accent,#e9a133) 9%,var(--panel))}.hc-msg.internal{border-style:dashed}.hc-msg.status{justify-self:center;background:transparent;font-size:12.5px;color:var(--muted)}
+.hc-msg-h{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:12.5px;margin-bottom:3px}.hc-msg-t{white-space:pre-wrap;font-size:13.5px}
+.hc-compose{display:grid;gap:6px;border-top:1px solid var(--line);padding-top:10px}.hc-compose-a{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.hc-up,.hc-gal{display:flex;gap:8px;flex-wrap:wrap}.hc-att{display:flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:10px;padding:4px 8px;background:var(--panel);font-size:12px;max-width:240px}.hc-att.up{opacity:.6}.hc-att img,.hc-att video{width:42px;height:42px;object-fit:cover;border-radius:6px}
+.hc-att.big{cursor:pointer;flex-direction:column;align-items:flex-start;width:150px}.hc-thumb{width:134px;height:84px;border-radius:8px;background:var(--panel-2);display:grid;place-items:center;overflow:hidden;position:relative}.hc-thumb img,.hc-thumb video{width:100%;height:100%;object-fit:cover}.hc-thumb b{position:absolute;color:#fff;text-shadow:0 1px 6px rgba(0,0,0,.6);font-size:22px}
+.hc-att-i{font-size:10px;font-weight:800;background:var(--panel-2);border-radius:6px;padding:6px 7px}.hc-att-n{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:140px}.hc-att button{border:0;background:none;cursor:pointer;color:var(--muted)}
+.hc-links{display:grid;gap:4px}.hc-links a{font-size:13px;word-break:break-all}
+.hc-form{display:grid;gap:4px}.hc-2{display:grid;grid-template-columns:1fr 1fr;gap:10px}.hc-pri{display:flex;gap:6px;flex-wrap:wrap}.hc-pri label{display:flex;gap:5px;align-items:center;border:1px solid var(--line);border-radius:999px;padding:5px 11px;cursor:pointer;font-size:13px}.hc-pri input{width:auto}.hc-pri label:has(input:checked){border-color:var(--accent,#e9a133);background:color-mix(in srgb,var(--accent,#e9a133) 12%,var(--panel))}.hc-pri label.urgent:has(input:checked){border-color:var(--bad);background:color-mix(in srgb,var(--bad) 12%,var(--panel))}
+.hc-prefs{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:6px}.hc-days{display:flex;gap:10px;flex-wrap:wrap}.hc-days label{display:flex;gap:4px;align-items:center;font-size:13px}.hc-days input{width:auto}
+.hc-slotgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:6px}.hc-slot{display:flex;gap:6px;align-items:center;border:1px solid var(--line);border-radius:10px;padding:6px 9px;font-size:13px;cursor:pointer}.hc-slot input{width:auto}.hc-slot:has(input:checked){border-color:var(--accent,#e9a133);background:color-mix(in srgb,var(--accent,#e9a133) 10%,var(--panel))}.hc-slots{display:flex;gap:6px;flex-wrap:wrap}
+.hc-bl{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:6px}.hc-bl input{width:auto}
+#hcPopStack{position:fixed;right:18px;top:84px;z-index:69;display:grid;gap:10px;width:min(380px,calc(100vw - 32px))}
+.hc-pop{background:var(--panel);border:1px solid color-mix(in srgb,var(--bad) 45%,var(--line));border-radius:16px;box-shadow:0 18px 50px rgba(0,0,0,.22);padding:12px 14px;display:grid;gap:8px;animation:hcIn .35s cubic-bezier(.2,1.2,.4,1)}
+.hc-pop-h{display:flex;gap:10px;align-items:center}.hc-pop-h>div{flex:1}.hc-pop-av .av,.hc-pop-av img{width:34px;height:34px}.hc-pop-x{border:0;background:none;cursor:pointer;color:var(--muted);font-size:15px}.hc-pop-t{font-size:13px;display:grid;gap:3px}.hc-pop-a{display:flex;gap:6px;flex-wrap:wrap}.hc-pop-a .btn{padding:6px 10px;font-size:12.5px}
+@keyframes hcIn{from{transform:translateY(-10px) scale(.97);opacity:0}to{transform:none;opacity:1}}
+@media(max-width:640px){.hc-2{grid-template-columns:1fr}.hc-msg{max-width:100%}}`; document.head.appendChild(s); })();
+
+window.OPS_RELEASE = (window.OPS_RELEASE||[]).concat([
+  {build:'2026-11-20 · 1', headline:'Recruitment board, training hand-off and HR Concerns for the COO', summary:'A drag-and-drop recruitment board with a Rejected column, a guided step from training to the assessment, and a new HR Concerns & COO Escalations module with meetings and urgent alerts.',
+   actions:['HR: raise concerns for the COO in HR Concerns & COO Escalations instead of chat.', 'COO: set your meeting availability in HR Concerns → My availability.']},
+  {build:'2026-11-20 · 1', id:'rec-board', type:'feature', modules:['t46_recboard.js'], tour:'recboard', title:'Recruitment board: drag applicant tickets between stages', audience:{groups:['hr','deptheads','execs']},
+   text:'Applicants appear as tickets in ten columns, from New Applicants to Hired and Rejected. Drag a ticket (or use ⇄ on phones) to move it — the change saves and syncs at once. Rejecting asks for the reason and keeps every record.', portals:['HR portal','Department heads'], depts:['HR'],
+   steps:['Open Recruitment → Applicants → In progress.', 'Drag a ticket to another column, or tap ⇄ and choose the column.', 'Click a ticket for the full profile.']},
+  {build:'2026-11-20 · 1', id:'rec-train', type:'improvement', modules:['t46_recboard.js'], tour:'rectrain', title:'Training → assessment: no skipping, resume, and a clear next step', audience:{groups:['hr','deptheads']},
+   text:'Training videos can no longer be skipped ahead and resume where the applicant stopped; YouTube training links are tracked too. When training is complete the applicant sees a completion message and goes straight to a ready assessment.', portals:['Applicant portal','HR portal'], depts:['HR']},
+  {build:'2026-11-20 · 1', id:'hr-concerns', type:'feature', modules:['t47_hrconcern.js'], tour:'hrconcerns', title:'HR Concerns & COO Escalations', audience:{groups:['hr'], people:['ja']},
+   text:'HR raises concerns to the COO with attachments and a priority. Urgent concerns notify the COO at once with a 24-hour initial-response countdown, reminders and escalation. The COO replies, requests information, schedules a meeting (with a Google Meet link when Google is connected) and tracks each concern to resolution.', portals:['HR portal','COO portal'], depts:['HR','Executive'],
+   steps:['HR: open HR Concerns & COO Escalations → New concern.', 'COO: open HR Concerns, review, reply or schedule a meeting.']}]);
+
+/* ---------- walkthrough for the release notes (demo studio only) ---------- */
+function hcStudioSeed(){ if(!(typeof CC_STUDIO!=='undefined' && CC_STUDIO)) return null; const id = 'HC-studio1'; if(hcOf(id)) return id; const t = new Date(Date.now() - 2*3600e3).toISOString();
+  HRCON.unshift({id, title:'Payroll correction for two VAs', cat:'Payroll & benefits', desc:'Two VAs were underpaid in the last cut-off. Please confirm the correction before Friday.', priority:'urgent', related:null, relatedTxt:'', action:'Approve the correction', files:[], links:['https://drive.google.com/'], prefMeet:[],
+    by:'luane', at:t, lastAt:t, status:'new', to:hcCoo(), dueAt:hcAddHours(t, 24), slaHours:24, slaMode:'calendar', seen:{}, history:[{at:t, by:'luane', act:'Submitted (Urgent)'}]});
+  return id; }
+window.OPS_TOURS = Object.assign(window.OPS_TOURS||{}, {hrconcerns:{steps:[
+  {id:'hc-list', as:'luane', setup:"hcStudioSeed()", run:"go('hrcon')", wait:900, focus:'#v-hrcon .hc-row', title:'HR Concerns & COO Escalations',
+   say:'HR raises concerns to the COO here and follows each one to resolution.'},
+  {id:'hc-new', run:"hcNew()", wait:700, focus:'#modal .hc-pri', title:'Priority and attachments',
+   say:'Choose Urgent, Normal or Low, add files, screenshots or Drive links, and preview them before sending.'},
+  {id:'hc-coo', as:'ja', setup:"hcStudioSeed()", run:"go('hrcon'); hcOpen('HC-studio1')", wait:900, focus:'#hcView .hc-head', title:'The 24-hour countdown',
+   say:'Urgent concerns reach the COO at once, with a countdown to the initial response, reminders, and escalation if it is overdue.'},
+  {id:'hc-acts', run:"hcOpen('HC-studio1')", wait:700, focus:'#hcView .hc-acts', title:'Reply, schedule, resolve',
+   say:'The COO acknowledges, replies, schedules a meeting with a Google Meet link, and marks it resolved.'}]}});
+(window.OPS_RELEASE||[]).forEach(n=>{ if(n.id==='hr-concerns') n.tour = 'hrconcerns'; });
 /* <<< OCT24 MODULES <<< */
 </script>
 </body>

@@ -20923,7 +20923,7 @@ async function cooPostFromModal(){ const ch = CHATS.find(c=>c.id===el('paPostC')
    The footer shows which build is running ("Build 2026-10-07 · 1"), and every open portal checks every few minutes
    (and whenever it comes back to the foreground) whether a newer build has been published. If so it shows
    "New version available — Update now" instead of quietly running old code. */
-const BUILD_ID = '2026-11-20 · 1';
+const BUILD_ID = '2026-11-20 · 2';
 function verStamp(){ const f = el('footNote'); if(f && !f.dataset.v){ f.dataset.v = 1; f.textContent = `Cross Core Ops Suite v8 · Build ${BUILD_ID}`; } }
 async function verCheck(){
   if(!/^https?:/.test(location.protocol)) return;
@@ -46240,7 +46240,7 @@ if(typeof relTourOf==='function'){ const _rt = relTourOf; relTourOf = function(r
     return _rt.call(this, {...r, items:(r.items||[]).map(i=>({...i, tour:fill(i)}))}); }; }
 /* ===== t46_recboard.js — Recruitment: Jira-style applicant board, rejection with reason, training → assessment hand-off (Nov 19 2026) =====
    1. BOARD (Recruitment → Applicants → In progress): ten columns — New Applicants · Initial Screening · For Interview ·
-      For Training · Training in Progress · For Assessment · Assessment Completed · Final Evaluation · Hired · Rejected.
+      For Training · Training in Progress · For Assessment · Assessment Completed · Final Evaluation · Floating (approved / passed, no client yet — the line-up for hire) · Hired (first client assigned) · Rejected.
       The existing stages are kept and mapped onto the columns (nothing is renamed in the data): Application → New,
       Initial Interview → Initial Screening, Final Interview → For Interview, Orientation → For Training, Training →
       Training in Progress (For Training until the applicant starts), Assessment → For Assessment / Assessment Completed
@@ -46270,7 +46270,7 @@ if(typeof REC_ASSESS!=='undefined' && REC_ASSESS.web && !/Website/.test(REC_ASSE
 /* ---------- 1. the board ---------- */
 const RB_COLS = [['new','New Applicants','application'],['screen','Initial Screening','initial'],['interview','For Interview','final'],['fortrain','For Training','orientation'],
   ['training','Training in Progress','training'],['forassess','For Assessment','assessment'],['assessed','Assessment Completed','assessment'],['finaleval','Final Evaluation','assessment'],
-  ['hired','Hired',null],['rejected','Rejected',null]];
+  ['floating','Floating · for client line-up','awaiting'],['hired','Hired',null],['rejected','Rejected',null]];
 const RB = {drag:null, from:'', to:'', col:'all', head:'all', limit:{hired:12, rejected:12}};
 const rbLabel = k => (RB_COLS.find(c=>c[0]===k)||[])[1] || k;
 function rbStarted(a){ try{ return recTrainMats(a).some(x=>{ const p = tmProg(x.id, a.id); return p && (p.opened || p.done || (p.video?.pct||0) > 0); }); }catch(e){ return false; } }
@@ -46278,15 +46278,18 @@ function rbSubmitted(a){ try{ const x = recAssessCur(a.id); if(x && recSub(x.id)
   try{ const s = typeof qaStatus==='function' ? qaStatus(a.id) : null; if(s && ((s.attempts||[]).length || s.final)) return true; }catch(e){} return false; }
 function rbCol(a){
   if(a.status==='rejected') return 'rejected';
-  if(a.stage==='employee' || a.final?.decision==='approved') return 'hired';
+  if(a.stage==='employee' || a.stage==='onboarding' || rbHasClient(a)) return 'hired';          /* hired = has a first client (or already a VA) */
+  if(a.stage==='awaiting' || a.final?.decision==='approved') return 'floating';                     /* approved / passed, no client yet: on the bench */
   if(a.boardCol && a.boardColStage===a.stage && RB_COLS.some(c=>c[0]===a.boardCol)) return a.boardCol;
   if(typeof qaAwaitingDecision==='function' && qaAwaitingDecision(a)) return 'finaleval';
   switch(a.stage){
     case 'application': return 'new'; case 'initial': return 'screen'; case 'final': return 'interview'; case 'orientation': return 'fortrain';
     case 'training': return rbStarted(a) ? 'training' : 'fortrain';
     case 'assessment': return a.assessment?.finalized || recAssessCur(a.id)?.finalized ? 'finaleval' : rbSubmitted(a) ? 'assessed' : 'forassess';
-    case 'awaiting': case 'onboarding': return 'finaleval';
+    case 'awaiting': return 'floating'; case 'onboarding': return 'hired';
   } return 'new'; }
+const rbHasClient = a => { try{ return !!(typeof recOb==='function' && recOb(a.id)?.client); }catch(e){ return false; } };
+const rbBenchDays = a => { const h = (a.history||[]).filter(x=>x.stage==='awaiting' || /approved|passed the assessment/i.test(x.act||'')); const t = a.final?.at || h[0]?.at || a.updatedAt; const d = t ? Math.floor((Date.now() - new Date(t))/864e5) : 0; return isNaN(d) ? 0 : d; };
 function rbApps(){ const q = (RCV.q||'').trim().toLowerCase();
   let L = APPLICANTS.filter(a=>recVisible(a) && a.status!=='withdrawn');
   if(q) L = L.filter(a=>(a.name+' '+a.position+' '+(a.account?.username||'')+' '+(REC_TRACKS[a.track]||'')).toLowerCase().includes(q));
@@ -46309,6 +46312,8 @@ function rbCard(a, col){
     <div class="rb-tags"><span class="rb-cat">${esc(REC_TRACKS[a.track]||'Other')}</span>${stageChip}${a.status==='pending'?'<span class="badge b-pending">Pending</span>':a.status==='reassessment'?'<span class="badge b-progress">Reassessment</span>':''}${(a.files||[]).some(recIsCv)?'<span class="rb-chip">📄 CV</span>':'<span class="rb-chip dim">No CV</span>'}${a.account?'':'<span class="rb-chip dim">No portal</span>'}</div>
     ${rbQaBadges(a)}
     ${tp && tp.mats.length?`<div class="rb-prog" title="Training ${tp.done.length}/${tp.mats.length}"><i style="width:${tp.pct}%"></i></div>`:''}
+    ${col==='floating'?`<div class="rb-bench">🪑 On the bench ${rbBenchDays(a)} day${rbBenchDays(a)===1?'':'s'} · waiting for a client${a.hire?.state?` · VA account: ${esc(a.hire.state==='active'?'active':'awaiting activation')}`:''}</div>${rbCanClose()?`<button type="button" class="btn primary rb-assign" onclick="event.stopPropagation();obAssignModal('${a.id}')">Assign first client</button>`:''}`:''}
+    ${col==='hired' && rbHasClient(a)?`<div class="rb-bench">🤝 ${esc(recOb(a.id).clientName||'Client')}${a.stage==='onboarding'?' · onboarding':''}</div>`:''}
     ${why?`<div class="rb-why">✕ ${esc(String(why).slice(0,110))}</div>`:''}
     ${col!=='hired' && col!=='rejected' && nx?`<div class="rb-next">→ ${esc(nx)}</div>`:''}
     <div class="rb-foot"><span>${esc(a.owner ? recOwnerName(a.owner) : '')}</span><span>${days?days+'d':'today'}</span></div></div>`; }
@@ -46346,8 +46351,16 @@ function rbMoveMenu(id, btn){ const a = recApp(id); if(!a) return; const cur = r
 async function rbMove(id, col){
   const a = recApp(id); if(!a) return; const cur = rbCol(a); if(cur===col) return;
   if(col==='rejected') return rbRejectModal(id);
-  if(col==='hired'){ if(typeof qaIsExec==='function' && qaIsExec() && typeof qaDecideModal==='function') return qaDecideModal(id);
-    return toast('Hiring is approved by the CEO or the COO in Final Hiring Decision — that step creates the VA account'); }
+  if(col==='floating'){ if(cur==='hired') return toast('This applicant already has a client — open the record to make changes');
+    const needsExec = typeof qaStatus==='function' && qaStatus(a.id) && !a.final;
+    if(needsExec){ if(typeof qaIsExec==='function' && qaIsExec() && typeof qaDecideModal==='function') return qaDecideModal(id); return toast('The CEO or the COO approves the applicant first (Final Hiring Decision) — then the ticket moves to Floating'); }
+    if(a.final && a.final.decision!=='approved') return toast('This applicant was not approved for hiring');
+    if(!rbCanClose()) return toast('HR and the company heads move applicants to the line-up');
+    recTouch(a, `Moved to the floating line-up (waiting for a client) by ${first(PERSON)}`, {stage:'awaiting', status:'active', boardCol:'floating', boardColStage:'awaiting'}); recordChange(); RENDER[CURRENT]?.(); return toast(`${a.name} → Floating · waiting for a client`); }
+  if(col==='hired'){
+    if(cur==='floating'){ if(!rbCanClose()) return toast('HR and the company heads assign the first client'); return obAssignModal(id); }
+    if(typeof qaIsExec==='function' && qaIsExec() && typeof qaDecideModal==='function' && !a.final) return qaDecideModal(id);
+    return toast('An applicant is hired when a first client is assigned — move them to Floating first (approved, waiting for a client)'); }
   if(!rbCanMove(a)) return toast('You can’t move this applicant');
   if(a.final) return toast('The CEO / COO final decision has been made — use Move stage in the applicant record if a correction is needed');
   if(cur==='rejected' || cur==='hired'){ if(!rbCanClose()) return toast('Only HR and the company heads can reopen this applicant');
@@ -46406,7 +46419,7 @@ RENDER.recboard = () => { const v = el('v-recboard'); if(!v) return; if(!(typeof
 .rb-move{border:1px solid var(--line);background:var(--panel-2);border-radius:8px;padding:1px 7px;cursor:pointer;font-size:13px;color:var(--muted);flex:none}
 .rb-tags{display:flex;gap:4px;flex-wrap:wrap}.rb-cat,.rb-chip{font-size:11px;border-radius:999px;padding:1px 8px;background:var(--panel-2);border:1px solid var(--line)}.rb-cat{background:color-mix(in srgb,var(--accent,#e9a133) 14%,var(--panel));border-color:transparent;font-weight:600}.rb-chip.dim{color:var(--muted)}
 .rb-prog{height:4px;border-radius:4px;background:var(--line);overflow:hidden}.rb-prog i{display:block;height:100%;background:var(--accent,#e9a133)}
-.rb-next{font-size:12px;color:var(--text)}.rb-why{font-size:12px;color:var(--bad)}.rb-foot{display:flex;justify-content:space-between;font-size:11px;color:var(--muted)}
+.rb-next{font-size:12px;color:var(--text)}.rb-bench{font-size:12px;color:var(--text);background:color-mix(in srgb,#3b82f6 9%,var(--panel));border-radius:8px;padding:4px 7px}.rb-assign{padding:5px 10px;font-size:12px;justify-self:start}.rb-floating .rb-col-h{color:#2563eb}.rb-why{font-size:12px;color:var(--bad)}.rb-foot{display:flex;justify-content:space-between;font-size:11px;color:var(--muted)}
 .rb-empty{border:1.5px dashed var(--line);border-radius:10px;padding:14px;text-align:center;color:var(--muted);font-size:12px}
 .rb-pick{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px}
 body.rb-dragging .rb-col{min-height:260px}
@@ -46921,14 +46934,14 @@ setInterval(()=>{ try{ hcTick(); }catch(e){ console.warn('hr concerns', e); } },
 @media(max-width:640px){.hc-2{grid-template-columns:1fr}.hc-msg{max-width:100%}}`; document.head.appendChild(s); })();
 
 window.OPS_RELEASE = (window.OPS_RELEASE||[]).concat([
-  {build:'2026-11-20 · 1', headline:'Recruitment board, training hand-off and HR Concerns for the COO', summary:'A drag-and-drop recruitment board with a Rejected column, a guided step from training to the assessment, and a new HR Concerns & COO Escalations module with meetings and urgent alerts.',
+  {build:'2026-11-20 · 2', headline:'Recruitment board, training hand-off and HR Concerns for the COO', summary:'A drag-and-drop recruitment board with a Rejected column, a guided step from training to the assessment, and a new HR Concerns & COO Escalations module with meetings and urgent alerts.',
    actions:['HR: raise concerns for the COO in HR Concerns & COO Escalations instead of chat.', 'COO: set your meeting availability in HR Concerns → My availability.']},
-  {build:'2026-11-20 · 1', id:'rec-board', type:'feature', modules:['t46_recboard.js'], tour:'recboard', title:'Recruitment board: drag applicant tickets between stages', audience:{groups:['hr','deptheads','execs']},
-   text:'Applicants appear as tickets in ten columns, from New Applicants to Hired and Rejected. Drag a ticket (or use ⇄ on phones) to move it — the change saves and syncs at once. Rejecting asks for the reason and keeps every record.', portals:['HR portal','Department heads'], depts:['HR'],
+  {build:'2026-11-20 · 2', id:'rec-board', type:'feature', modules:['t46_recboard.js'], tour:'recboard', title:'Recruitment board: drag applicant tickets between stages', audience:{groups:['hr','deptheads','execs']},
+   text:'Applicants appear as tickets in columns from New Applicants to Hired and Rejected — approved applicants without a client wait in the Floating line-up until a first client is assigned. Drag a ticket (or use ⇄ on phones) to move it — the change saves and syncs at once. Rejecting asks for the reason and keeps every record.', portals:['HR portal','Department heads'], depts:['HR'],
    steps:['Open Recruitment → Applicants → In progress.', 'Drag a ticket to another column, or tap ⇄ and choose the column.', 'Click a ticket for the full profile.']},
-  {build:'2026-11-20 · 1', id:'rec-train', type:'improvement', modules:['t46_recboard.js'], tour:'rectrain', title:'Training → assessment: no skipping, resume, and a clear next step', audience:{groups:['hr','deptheads']},
+  {build:'2026-11-20 · 2', id:'rec-train', type:'improvement', modules:['t46_recboard.js'], tour:'rectrain', title:'Training → assessment: no skipping, resume, and a clear next step', audience:{groups:['hr','deptheads']},
    text:'Training videos can no longer be skipped ahead and resume where the applicant stopped; YouTube training links are tracked too. When training is complete the applicant sees a completion message and goes straight to a ready assessment.', portals:['Applicant portal','HR portal'], depts:['HR']},
-  {build:'2026-11-20 · 1', id:'hr-concerns', type:'feature', modules:['t47_hrconcern.js'], tour:'hrconcerns', title:'HR Concerns & COO Escalations', audience:{groups:['hr'], people:['ja']},
+  {build:'2026-11-20 · 2', id:'hr-concerns', type:'feature', modules:['t47_hrconcern.js'], tour:'hrconcerns', title:'HR Concerns & COO Escalations', audience:{groups:['hr'], people:['ja']},
    text:'HR raises concerns to the COO with attachments and a priority. Urgent concerns notify the COO at once with a 24-hour initial-response countdown, reminders and escalation. The COO replies, requests information, schedules a meeting (with a Google Meet link when Google is connected) and tracks each concern to resolution.', portals:['HR portal','COO portal'], depts:['HR','Executive'],
    steps:['HR: open HR Concerns & COO Escalations → New concern.', 'COO: open HR Concerns, review, reply or schedule a meeting.']}]);
 

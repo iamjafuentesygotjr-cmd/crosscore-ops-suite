@@ -20923,7 +20923,7 @@ async function cooPostFromModal(){ const ch = CHATS.find(c=>c.id===el('paPostC')
    The footer shows which build is running ("Build 2026-10-07 · 1"), and every open portal checks every few minutes
    (and whenever it comes back to the foreground) whether a newer build has been published. If so it shows
    "New version available — Update now" instead of quietly running old code. */
-const BUILD_ID = '2026-11-20 · 3';
+const BUILD_ID = '2026-11-20 · 4';
 function verStamp(){ const f = el('footNote'); if(f && !f.dataset.v){ f.dataset.v = 1; f.textContent = `Cross Core Ops Suite v8 · Build ${BUILD_ID}`; } }
 async function verCheck(){
   if(!/^https?:/.test(location.protocol)) return;
@@ -46268,11 +46268,14 @@ if(typeof REC_ASSESS!=='undefined' && !REC_ASSESS.aivideo) REC_ASSESS.aivideo = 
 if(typeof REC_ASSESS!=='undefined' && REC_ASSESS.web && !/Website/.test(REC_ASSESS.web.title)) REC_ASSESS.web.title = REC_ASSESS.web.title.replace(/^Web design/, 'Website Designer');
 
 /* ---------- 1. the board ---------- */
-const RB_COLS = [['new','New Applicants','application'],['screen','Initial Screening','initial'],['interview','For Interview','final'],['fortrain','For Training','orientation'],
+const RB_COLS = [['new','New Applicants','application'],['screen','Initial Screening','initial'],['pool1','For Pooling','initial'],['interview','For Interview','final'],['pool2','For Pooling','final'],['fortrain','For Training','orientation'],
   ['training','Training in Progress','training'],['forassess','For Assessment','assessment'],['assessed','Assessment Completed','assessment'],['finaleval','Final Evaluation','assessment'],
   ['floating','Floating · for client line-up','awaiting'],['hired','Hired',null],['rejected','Rejected',null]];
 const RB = {drag:null, from:'', to:'', col:'all', head:'all', limit:{hired:12, rejected:12}};
-const rbLabel = k => (RB_COLS.find(c=>c[0]===k)||[])[1] || k;
+/* two “For Pooling” columns (Nov 20 · 4): applicants kept in the pool after screening, or after the interview */
+const RB_SUB = {pool1:'after screening · before interview', pool2:'after interview · before training'};
+const rbLabel = k => ((RB_COLS.find(c=>c[0]===k)||[])[1] || k) + (RB_SUB[k] ? ` (${RB_SUB[k].split(' · ')[0]})` : '');
+const rbPoolDays = a => { const h = (a.history||[]).filter(x=>x.board===a.boardCol).slice(-1)[0]; const d = h?.at ? Math.floor((Date.now() - new Date(h.at))/864e5) : 0; return isNaN(d) ? 0 : d; };
 function rbStarted(a){ try{ return recTrainMats(a).some(x=>{ const p = tmProg(x.id, a.id); return p && (p.opened || p.done || (p.video?.pct||0) > 0); }); }catch(e){ return false; } }
 function rbSubmitted(a){ try{ const x = recAssessCur(a.id); if(x && recSub(x.id)) return true; }catch(e){}
   try{ const s = typeof qaStatus==='function' ? qaStatus(a.id) : null; if(s && ((s.attempts||[]).length || s.final)) return true; }catch(e){} return false; }
@@ -46313,6 +46316,7 @@ function rbCard(a, col){
     ${rbQaBadges(a)}
     ${tp && tp.mats.length?`<div class="rb-prog" title="Training ${tp.done.length}/${tp.mats.length}"><i style="width:${tp.pct}%"></i></div>`:''}
     ${col==='floating'?`<div class="rb-bench">🪑 On the bench ${rbBenchDays(a)} day${rbBenchDays(a)===1?'':'s'} · waiting for a client${a.hire?.state?` · VA account: ${esc(a.hire.state==='active'?'active':'awaiting activation')}`:''}</div>${rbCanClose()?`<button type="button" class="btn primary rb-assign" onclick="event.stopPropagation();obAssignModal('${a.id}')">Assign first client</button>`:''}`:''}
+    ${/^pool/.test(col)?`<div class="rb-bench rb-pooled">🗂 In the pool ${rbPoolDays(a)} day${rbPoolDays(a)===1?'':'s'} · ${col==='pool1'?'screened, waiting for an interview slot':'interviewed, waiting for a training batch'}</div>`:''}
     ${col==='hired' && rbHasClient(a)?`<div class="rb-bench">🤝 ${esc(recOb(a.id).clientName||'Client')}${a.stage==='onboarding'?' · onboarding':''}</div>`:''}
     ${why?`<div class="rb-why">✕ ${esc(String(why).slice(0,110))}</div>`:''}
     ${col!=='hired' && col!=='rejected' && nx?`<div class="rb-next">→ ${esc(nx)}</div>`:''}
@@ -46329,13 +46333,13 @@ function rbBoardHTML(){
   const cols = RB.col==='all' ? RB_COLS : RB_COLS.filter(c=>c[0]===RB.col);
   return `<div class="rb-filters">
       <label>Applied from <input type="date" value="${esc(RB.from)}" onchange="RB.from=this.value;RENDER[CURRENT]()"></label><label>to <input type="date" value="${esc(RB.to)}" onchange="RB.to=this.value;RENDER[CURRENT]()"></label>
-      <select onchange="RB.col=this.value;RENDER[CURRENT]()" aria-label="Recruitment stage"><option value="all">All stages</option>${RB_COLS.map(([k,l])=>`<option value="${k}" ${RB.col===k?'selected':''}>${l}</option>`).join('')}</select>
+      <select onchange="RB.col=this.value;RENDER[CURRENT]()" aria-label="Recruitment stage"><option value="all">All stages</option>${RB_COLS.map(([k,l])=>`<option value="${k}" ${RB.col===k?'selected':''}>${rbLabel(k)}</option>`).join('')}</select>
       ${heads.length?`<select onchange="RB.head=this.value;RENDER[CURRENT]()" aria-label="Department"><option value="all">All departments</option>${heads.map(k=>`<option value="${k}" ${RB.head===k?'selected':''}>Dept. head: ${esc(pname(k))}</option>`).join('')}</select>`:''}
       ${RB.from||RB.to||RB.col!=='all'||RB.head!=='all'?`<button class="btn ghost" onclick="Object.assign(RB,{from:'',to:'',col:'all',head:'all'});RENDER[CURRENT]()">Clear</button>`:''}
       <span class="hint" style="margin-left:auto">${L.length} applicant${L.length===1?'':'s'} · drag a ticket, or use ⇄</span></div>
     <div class="rb-board" role="list">${cols.map(([k,l])=>{ const C = by[k]; const lim = RB.limit[k]; const shown = lim && !RB['all_'+k] ? C.slice(0, lim) : C;
       return `<section class="rb-col rb-${k}" data-col="${k}" role="listitem" aria-label="${l}, ${C.length}" ondragover="rbOver(event)" ondragleave="rbLeave(event)" ondrop="rbDrop(event,'${k}')">
-        <div class="rb-col-h"><span>${l}</span><b>${C.length}</b></div>
+        <div class="rb-col-h"><span>${l}${RB_SUB[k]?`<small class="rb-sub">${RB_SUB[k]}</small>`:''}</span><b>${C.length}</b></div>
         <div class="rb-list">${shown.map(a=>rbCard(a, k)).join('') || '<div class="rb-empty">Drop here</div>'}
         ${shown.length < C.length?`<button class="btn ghost rb-more" onclick="RB['all_${k}']=1;RENDER[CURRENT]()">Show all ${C.length}</button>`:''}</div></section>`; }).join('')}</div>`; }
 /* drag & drop */
@@ -46346,7 +46350,7 @@ function rbLeave(e){ if(!e.currentTarget.contains(e.relatedTarget)) e.currentTar
 function rbDrop(e, col){ e.preventDefault(); e.currentTarget.classList.remove('over'); const id = RB.drag || e.dataTransfer?.getData('text/plain'); RB.drag = null; document.body.classList.remove('rb-dragging'); if(id) rbMove(id, col); }
 function rbMoveMenu(id, btn){ const a = recApp(id); if(!a) return; const cur = rbCol(a);
   openModal(`Move ${a.name}`, `<div class="hint" style="margin-bottom:10px">Now in <b>${esc(rbLabel(cur))}</b>. Choose where to move the ticket.</div>
-    <div class="rb-pick">${RB_COLS.map(([k,l])=>`<button class="btn ${k===cur?'primary':''}" ${k===cur?'disabled':''} onclick="closeModal();rbMove('${id}','${k}')">${l}</button>`).join('')}</div>`); }
+    <div class="rb-pick">${RB_COLS.map(([k,l])=>`<button class="btn ${k===cur?'primary':''}" ${k===cur?'disabled':''} onclick="closeModal();rbMove('${id}','${k}')">${rbLabel(k)}</button>`).join('')}</div>`); }
 /* the move itself */
 async function rbMove(id, col){
   const a = recApp(id); if(!a) return; const cur = rbCol(a); if(cur===col) return;
@@ -46411,7 +46415,7 @@ RENDER.recboard = () => { const v = el('v-recboard'); if(!v) return; if(!(typeof
 .rb-col{background:color-mix(in srgb,var(--panel-2) 82%,transparent);border:1px solid var(--line);border-radius:14px;display:flex;flex-direction:column;min-height:220px;max-height:72vh;scroll-snap-align:start;transition:background .15s,border-color .15s,box-shadow .15s}
 .rb-col.over{border-color:var(--accent,#e9a133);background:color-mix(in srgb,var(--accent,#e9a133) 10%,var(--panel-2));box-shadow:inset 0 0 0 2px color-mix(in srgb,var(--accent,#e9a133) 45%,transparent)}
 .rb-col-h{display:flex;justify-content:space-between;align-items:center;padding:10px 12px 8px;font-weight:700;font-size:13px;position:sticky;top:0}.rb-col-h b{font-size:12px;background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:1px 8px;color:var(--muted)}
-.rb-rejected .rb-col-h{color:var(--bad)}.rb-hired .rb-col-h{color:var(--ok,#1d8a52)}
+.rb-rejected .rb-col-h{color:var(--bad)}.rb-pool1 .rb-col-h,.rb-pool2 .rb-col-h{color:#7c3aed}.rb-col-h small.rb-sub{display:block;font-weight:500;font-size:11px;color:var(--muted);margin-top:1px}.rb-pooled{background:color-mix(in srgb,#7c3aed 9%,var(--panel))}.rb-hired .rb-col-h{color:var(--ok,#1d8a52)}
 .rb-list{overflow-y:auto;padding:0 8px 8px;display:grid;gap:8px;align-content:start}
 .rb-card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 11px;display:grid;gap:5px;cursor:grab;box-shadow:0 1px 2px rgba(0,0,0,.04);transition:transform .15s,box-shadow .15s,opacity .15s}
 .rb-card:hover{transform:translateY(-1px);box-shadow:0 8px 20px rgba(0,0,0,.08)}.rb-card.ro{cursor:pointer}.rb-card.dragging{opacity:.4;transform:rotate(1.5deg)}.rb-card:focus-visible{outline:2px solid var(--accent,#e9a133);outline-offset:2px}
@@ -47091,6 +47095,111 @@ window.OPS_TOURS = Object.assign(window.OPS_TOURS||{}, {vaassign:{steps:[
   {id:'va-page', as:'tricia', run:"go('vatrack')", wait:900, focus:'#v-vatrack .va-add', title:'Assign a VA', say:'PMs, the Marketing Head and Sam can now assign VAs from VA Assignments.'},
   {id:'va-modal', run:"vaAssignModal()", wait:700, focus:'#modal #vaV', title:'Pick the VA and the client', say:'Choose the VA, see their current clients and target, then the client, role and responsibilities.'},
   {id:'va-manage', run:"closeModal(); go('vatrack')", wait:700, focus:'#v-vatrack .va-mng', title:'Update, reassign or remove', say:'Manage shows each VA’s clients — update the role, reassign or remove, with the full history.'}]}});
+/* ===== t49_attsync.js ===== */
+/* Build 2026-11-20 · 4 — Time In / Break / Time Out: phone ↔ desktop
+   A day's time record is one record (person|date). A device that had not received the other device's latest copy used
+   to replace it when it saved (the phone's Time In disappeared once the desktop timed in). Now the two copies are
+   MERGED — on the server (supabase/update-nov20c-attendance-sync.sql) and the same way here:
+   • every punch from every device is kept with its original time; duplicates are removed;
+   • a second Time In while already timed in (a device that hadn't seen the first) folds into the first session — the
+     earliest Time In is kept and hours are never counted twice;
+   • a stale copy can't re-open an ended break or a timed-out day; a real Time In after Time Out is a new session;
+   • an HR / COO correction replaces the record as written; afterwards only newer punches are added.
+   The phone's outbox (a punch saved while the connection was poor) is merged in instead of being dropped when the
+   server already had a later punch, and an open Time log window refreshes the moment another device punches. */
+const attIsoOk = v => /^\d{4}-/.test(v||'');
+function attNorm(d){
+  if(!d || typeof d!=='object') return d;
+  const ev = [], seenE = new Set();
+  (Array.isArray(d.events) ? d.events : []).slice().sort((a,b)=>String(a.t).localeCompare(String(b.t)) || String(a.kind).localeCompare(String(b.kind)))
+    .forEach(e=>{ const k = e.t+'|'+e.kind; if(!seenE.has(k)){ seenE.add(k); ev.push(e); } });
+  const bm = new Map();
+  (Array.isArray(d.breaks) ? d.breaks : []).filter(b=>b && b.s).forEach(b=>{ const x = bm.get(b.s); if(!x || (!x.e && b.e)) bm.set(b.s, b); });
+  const br = [...bm.values()].sort((a,b)=>String(a.s).localeCompare(String(b.s)));
+  const out = {...d, events:ev, breaks:br};
+  const legacy = d.in && !attIsoOk(d.in);
+  if(Array.isArray(d.sessions) && d.sessions.length && !legacy){
+    const sm = new Map(); d.sessions.filter(s=>s && s.in).forEach(s=>{ const x = sm.get(s.in); if(!x || (!x.out && s.out)) sm.set(s.in, s); });
+    const ss = []; let prev = null;
+    [...sm.values()].sort((a,b)=>String(a.in).localeCompare(String(b.in))).forEach(s=>{
+      if(!prev){ prev = {...s}; return; }
+      if(!prev.out || String(s.in) <= String(prev.out)){ if(s.out && (!prev.out || String(s.out) > String(prev.out))) prev.out = s.out; return; }
+      ss.push(prev); prev = {...s}; });
+    if(prev) ss.push(prev);
+    if(ss.length){ out.sessions = ss; out.in = ss[0].in; out.out = ss[ss.length-1].out || null; }
+  }
+  return out;
+}
+/* o = what the server has, n = what this device has (same rules as the server) */
+function attMerge(o, n){
+  if(!o || typeof o!=='object') return attNorm(n);
+  if(!n || typeof n!=='object') return o;
+  const oc = o.corrected?.at || '', nc = n.corrected?.at || '';
+  if(nc > oc) return {...o, ...n};
+  const u = {};
+  ['events','breaks','sessions'].forEach(a=>{ u[a] = [...(Array.isArray(o[a]) ? o[a] : []),
+    ...(Array.isArray(n[a]) ? n[a] : []).filter(x=>!oc || a==='events' || String(x.in || x.s || '') > oc)]; });
+  if(!u.sessions.length && attIsoOk(o.in || n.in)) u.sessions = [{in:o.in || n.in, out:n.out ?? o.out ?? null}];
+  const lastT = r => (Array.isArray(r.events) ? r.events : []).reduce((m, e)=>String(e.t) > m ? String(e.t) : m, '');
+  if(lastT(o) > lastT(n)){ u.client = o.client; u.project = o.project; }
+  return attNorm({...o, ...n, ...u});
+}
+const attEvKeys = r => new Set((r?.events||[]).map(e=>e.t+'|'+e.kind));
+const attHasNew = (base, mine) => { const k = attEvKeys(base); return (mine?.events||[]).some(e=>!k.has(e.t+'|'+e.kind)); };
+
+/* demo mode mirrors the server: a save merges with the stored copy instead of replacing it */
+{ const _w = DemoBackend.write; DemoBackend.write = async function(ups, dels){
+    let merged = [];
+    try{ const db = this.read() || {};
+      (ups||[]).forEach(r=>{ if(r.collection!=='attendance') return; const cur = db.attendance?.[r.id]; if(!cur) return;
+        const m = attMerge(cur, r.data); if(canonJSON(m)!==canonJSON(r.data)){ r.data = m; merged.push(r); } }); }catch(e){ console.warn('att merge (demo)', e); merged = []; }
+    const res = await _w.apply(this, arguments);
+    if(merged.length && BACKEND===DemoBackend) setTimeout(()=>{ try{ SYNC.applyRemote(merged.map(r=>({collection:r.collection, id:r.id, data:JSON.parse(JSON.stringify(r.data))})), []); }catch(e){} }, 0);
+    return res; }; }
+
+/* a copy arriving from another device: my punches that it doesn't have yet are merged in and sent back */
+{ const _ar = SYNC.applyRemote; SYNC.applyRemote = function(ups, dels){
+    const back = [];
+    try{ (ups||[]).forEach(r=>{ if(r.collection!=='attendance' || !r.data || SYNC.pending?.has?.(SYNC.key('attendance', r.id))) return;
+        const loc = ATTLOG.find(x=>x.id===String(r.id)); if(!loc || loc.person!==PERSON || !attHasNew(r.data, loc)) return;
+        if((r.data.corrected?.at||'') > (loc.corrected?.at||'')) return;   /* HR / COO correction: as written */
+        r.data = attMerge(r.data, JSON.parse(JSON.stringify(loc))); back.push(String(r.id)); }); }catch(e){ console.warn('att merge', e); }
+    const res = _ar.apply(this, arguments);
+    if(back.length) setTimeout(()=>{ back.forEach(id=>SYNC.pending.set(SYNC.key('attendance', id), {op:'up', c:'attendance', id})); SYNC.schedule?.(); }, 0);
+    return res; }; }
+
+/* the phone's outbox: merged in whenever it holds a punch the server doesn't have (it used to be dropped when the
+   server's copy had a later punch — e.g. the desktop timed in after the phone) */
+attQRestore = function(){
+  if(!PEOPLE[PERSON] || !SYNC?.ready || (typeof LIVE_BG!=='undefined' && LIVE_BG.on)) return false; const q = attQRead(); if(!q?.rec || q.rec.person!==PERSON) return false;
+  if(Date.now() - q.at > 3*864e5){ attQClear(); return false; }
+  const cur = ATTLOG.find(r=>r.id===q.id);
+  if(cur && !attHasNew(cur, q.rec)){ attQClear(q.id); return false; }
+  const m = cur ? attMerge(JSON.parse(JSON.stringify(cur)), q.rec) : attNorm(JSON.parse(JSON.stringify(q.rec)));
+  if(cur){ Object.keys(cur).forEach(k=>{ if(!(k in m)) delete cur[k]; }); Object.assign(cur, m); } else ATTLOG.push(m);
+  recordChange(); try{ SYNC.flush?.(); }catch(e){} attConfirmSave(cur || m); try{ attRefresh(); }catch(e){}
+  toast('Your time record from this device was added (it had not reached the server yet)'); return true; };
+
+/* after my save is confirmed, show the server's copy (it may hold the other device's punches too) */
+{ const _cs = attConfirmSave; attConfirmSave = async function(r){ const res = await _cs.apply(this, arguments);
+    try{ if(BACKEND?.mode==='live' && ATT_SAVE.state==='saved' && r?.id){
+        const {data, error} = await BACKEND.sb.from('cc_records').select('collection,id,data,updated_at').eq('collection', 'attendance').eq('id', r.id).maybeSingle();
+        if(!error && data && !SYNC.pending.has(SYNC.key('attendance', r.id))) SYNC.applyRemote([data], []); } }catch(e){}
+    return res; }; }
+
+/* an open Time log window follows the record live */
+let ATT_LOGOPEN = null;
+{ const _lm = attLogModal; attLogModal = function(k, date){ ATT_LOGOPEN = {k, date}; return _lm.apply(this, arguments); }; }
+{ const _ore = onRemoteEvent; onRemoteEvent = function(ev){ const r = _ore.apply(this, arguments);
+    try{ if(ev?.coll==='attendance' && ATT_LOGOPEN && el('modal')?.classList.contains('open') && /^Time log —/.test(el('modalTitle')?.textContent||'')
+          && (ev.obj?.id===attId(ATT_LOGOPEN.k, ATT_LOGOPEN.date))){ const {k, date} = ATT_LOGOPEN; setTimeout(()=>{ try{ attLogModal(k, date); }catch(e){} }, 50); } }catch(e){}
+    try{ if(ev?.coll==='attendance' && ev.obj?.person===PERSON){ attRefresh?.(); } }catch(e){}
+    return r; }; }
+
+/* restored punches (from the server's check) are labelled in the timeline */
+{ const _lm2 = attLogModal; attLogModal = function(k, date){ const res = _lm2.apply(this, arguments);
+    try{ const r = attRec(k, date); if((r?.events||[]).some(e=>e.restored)){ el('modalBody')?.insertAdjacentHTML('beforeend', '<div class="hint" style="margin-top:10px">↺ A Time In marked “restored” was recovered with its original time after a phone / desktop sync issue.</div>'); } }catch(e){}
+    return res; }; }
 /* <<< OCT24 MODULES <<< */
 </script>
 </body>

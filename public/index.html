@@ -20923,7 +20923,7 @@ async function cooPostFromModal(){ const ch = CHATS.find(c=>c.id===el('paPostC')
    The footer shows which build is running ("Build 2026-10-07 · 1"), and every open portal checks every few minutes
    (and whenever it comes back to the foreground) whether a newer build has been published. If so it shows
    "New version available — Update now" instead of quietly running old code. */
-const BUILD_ID = '2026-11-23 · 1';
+const BUILD_ID = '2026-11-23 · 2';
 function verStamp(){ const f = el('footNote'); if(f && !f.dataset.v){ f.dataset.v = 1; f.textContent = `Cross Core Ops Suite v8 · Build ${BUILD_ID}`; } }
 async function verCheck(){
   if(!/^https?:/.test(location.protocol)) return;
@@ -46122,24 +46122,24 @@ window.OPS_TOURS = Object.assign(window.OPS_TOURS||{}, {
 });
 
 
-/* ---------- build 2026-11-23 · 1 (v1.0.14) ---------- */
+/* ---------- build 2026-11-23 · 2 (v1.0.14) ---------- */
 window.OPS_RELEASE = (window.OPS_RELEASE||[]).concat([
-  {build:'2026-11-23 · 1', headline:'Phone-friendly portal, calmer notifications and a new Announcements page', summary:'The portal now works properly on phones and tablets, notifications are grouped so the important ones stand out, announcements look like a news page, and false “Absent” alerts are fixed.',
+  {build:'2026-11-23 · 2', headline:'Phone-friendly portal, calmer notifications and a new Announcements page', summary:'The portal now works properly on phones and tablets, notifications are grouped so the important ones stand out, announcements look like a news page, and false “Absent” alerts are fixed.',
    actions:['On your phone, use the tabs at the bottom: Home, Messages, Activity, Work and More.', 'Open the bell (or Activity on your phone) — items that need you are at the top.']},
-  {build:'2026-11-23 · 1', id:'att-guard', type:'fix', title:'No more false “Absent” alerts', modules:['t50_attguard.js'],
+  {build:'2026-11-23 · 2', id:'att-guard', type:'fix', title:'No more false “Absent” alerts', modules:['t50_attguard.js'],
    text:'Some people got “Absent — No time in” alerts for days they worked. The check now waits until all time logs have loaded and confirms with the database before marking anyone absent. Each day is reported once, a correction replaces the earlier alert, and rest days (like Saturdays) never get a deduction. Alerts that were sent by mistake have been corrected.',
    portals:['All portals'], depts:['All departments'], audience:{groups:['all']},
    steps:['Nothing to do — your time logs were always correct.', 'If an attendance alert ever looks wrong, open Time log and talk to HR.']},
-  {build:'2026-11-23 · 1', id:'mobile', type:'feature', title:'The portal on your phone and tablet', modules:['t51_mobile.js','t43_shell.js'],
+  {build:'2026-11-23 · 2', id:'mobile', type:'feature', title:'The portal on your phone and tablet', modules:['t51_mobile.js','t43_shell.js'],
    text:'On phones: a slim top bar with the logo, tabs at the bottom (Home, Messages, Activity, Work, More), and every page re-laid out for a small screen — tables become cards, boards swipe, the calendar lists your days. Ask Cora, Applicants, Report a problem, your profile and Sign out are in More. On tablets the laptop menu stays, with finger-sized buttons.',
    portals:['All portals'], depts:['All departments'], audience:{groups:['all']},
    steps:['Open the portal on your phone and use the tabs at the bottom.', 'Tap More for Leave, Time log, Ask Cora, your profile and Sign out.']},
-  {build:'2026-11-23 · 1', id:'notify', type:'improvement', title:'Calmer notifications', modules:['t52_notify.js'], tour:'ncenter114',
+  {build:'2026-11-23 · 2', id:'notify', type:'improvement', title:'Calmer notifications', modules:['t52_notify.js'], tour:'ncenter114',
    text:'The notification centre now shows what needs you first, then Today, Yesterday and This week, with five simple filters. At most two pop-ups appear at a time; the rest wait in one “+ more” button. Other people’s clock-ins are off unless you turn them on. Announcements you must acknowledge open one at a time with a clear tick box.',
    portals:['All portals'], depts:['All departments'], audience:{groups:['all']},
    steps:['Click the bell — “Needs action” is at the top.', 'Use the filters: Mentions, Approvals, Attendance, Updates.', 'Use the settings icon to choose what you get.']},
-  {build:'2026-11-23 · 1', id:'announce', type:'feature', title:'A new Announcements page', modules:['t53_ann.js'], tour:'annpage114',
-   text:'Announcements now look like a news page: a featured story on top, cards with pictures and categories, and the full announcement in a side panel. Fixes and system updates move to Archived after 20 days, so the page stays current.',
+  {build:'2026-11-23 · 2', id:'announce', type:'feature', title:'A new Announcements page', modules:['t53_ann.js'], tour:'annpage114',
+   text:'Announcements now look like a news page: a featured story on top, cards with pictures and categories, and the full announcement in a side panel. An attached photo becomes the cover; an attached video or a YouTube, Loom or Google Drive video link shows a preview with a play button and plays right in the announcement. Fixes and system updates move to Archived after 20 days, so the page stays current.',
    portals:['All portals'], depts:['All departments'], audience:{groups:['all']},
    steps:['Open Announcements and read the featured story.', 'Filter by category, or open Archived for older updates.']}
 ]);
@@ -47445,9 +47445,16 @@ function mbTop(){
   const t = el('mTop'); if(!t) return; const inner = !MB.pane && !MB_ROOT.includes(CURRENT);
   t.innerHTML = `${inner ? `<button type="button" class="mb-ib mb-back" onclick="mbBack()" aria-label="Back"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg></button>` : ''}${mbLogo()}
     <h1 class="mb-title">${esc(mbTitle())}</h1>
-    <button type="button" class="mb-ib" onclick="mbSheet(true, true)" aria-label="Search every page">${mbIco('search', 20, 2)}</button>
+    <button type="button" class="mb-ib" onclick="mbSearchBtn()" aria-label="${MB_ROOT.includes(CURRENT) || MB.pane ? 'Search every page' : 'Search this page'}">${mbIco('search', 20, 2)}</button>
     <button type="button" class="mb-me" onclick="mbSheet(true)" aria-label="You and more">${av(P(PERSON))}</button>`;
 }
+/* search: on an inner page it filters that page (like the laptop's top search); on Home it searches every page */
+function mbSearchBtn(){ if(MB.pane || MB_ROOT.includes(CURRENT)){ mbSheet(true, true); return; } MB.find = !MB.find; mbFindBar(); if(MB.find) setTimeout(()=>el('mbFindQ')?.focus(), 30); else mbFindClear(); }
+function mbFindBar(){ let b = el('mFind'); if(!MB.find || !document.body.classList.contains('m-phone')){ b?.remove(); document.body.classList.remove('mb-find-on'); return; }
+  if(!b){ b = document.createElement('div'); b.id = 'mFind'; b.className = 'mb-find'; b.innerHTML = `<label>${mbIco('search', 17, 2)}<input id="mbFindQ" type="search" placeholder="Search this page" aria-label="Search this page" oninput="mbFindRun(this.value)" autocomplete="off"></label><button type="button" onclick="MB.find=false;mbFindClear();mbFindBar()" aria-label="Close search">Cancel</button><button type="button" class="mb-find-all" onclick="MB.find=false;mbFindClear();mbFindBar();mbSheet(true,true)">All pages</button>`; document.body.appendChild(b); }
+  document.body.classList.add('mb-find-on'); }
+function mbFindRun(q){ MB.findQ = q; try{ globalFilter(q); }catch(e){} }
+function mbFindClear(){ if(MB.findQ){ MB.findQ = ''; try{ globalFilter(''); }catch(e){} } }
 function mbBack(){ if(MB.pane){ mbPane(null); return; } const b = el('navBack'); if(b && !b.disabled && getComputedStyle(b).display!=='none'){ try{ b.click(); return; }catch(e){} } go('dashboard'); }
 function mbChips(){
   const c = el('mChips'); if(!c) return; const w = !MB.pane && typeof xWsOf==='function' ? xWsOf(CURRENT) : null;
@@ -47469,7 +47476,8 @@ function mbApply(){
     if(!on){ return; }
     if(!mbMount()) return;
     document.body.classList.remove('nav-open'); el('drawer')?.classList.remove('open'); el('scrim')?.classList.remove('on');
-    mbTop(); mbChips(); mbTabs(); mbPaneDraw(); mbSheetDraw();
+    const typing = document.activeElement && document.activeElement.id==='mbQ';
+    mbTop(); mbChips(); mbTabs(); mbPaneDraw(); if(!typing) mbSheetDraw();
     document.body.classList.toggle('mb-pane-on', !!MB.pane); document.body.classList.toggle('mb-sheet-on', !!MB.sheet);
     mbPage();
   }catch(e){ console.warn('[phone]', e); }
@@ -47507,11 +47515,13 @@ function mbPaneDraw(){
 }
 
 /* ---------- More sheet ---------- */
-function mbSheet(open, focus){ MB.sheet = open; if(open){ MB.q = ''; } mbApply(); if(open && focus) setTimeout(()=>el('mbQ')?.focus(), 60); }
+function mbSheet(open, focus){ MB.sheet = open; if(open){ MB.q = ''; } mbApply(); const box = document.querySelector('#mSheet .mb-sheet');
+  if(box){ box.style.height = ''; if(open) requestAnimationFrame(()=>{ box.style.height = box.offsetHeight + 'px'; }); }   /* fixed while open: typing never moves the search box */
+  if(open && focus) setTimeout(()=>el('mbQ')?.focus(), 60); }
 function mbFind(q){ const ql = q.trim().toLowerCase(); if(!ql) return [];
   return xWorkspaces().map(w=>{ if(w.n.toLowerCase().includes(ql)) return [w, null]; const t = w.ok.find(t=>t[1].toLowerCase().includes(ql)); return t ? [w, t] : null; }).filter(Boolean).slice(0, 12); }
 function mbSheetDraw(){
-  const box = document.querySelector('#mSheet .mb-sheet'); if(!box) return; if(!MB.sheet){ box.innerHTML = ''; return; }
+  const box = document.querySelector('#mSheet .mb-sheet'); if(!box) return; if(!MB.sheet){ box.innerHTML = ''; box.style.height = ''; return; }
   const me = P(PERSON) || {}; const tag = el('portalTag')?.textContent?.trim() || '';
   const myday = xWorkspaces().find(w=>w.k==='myday'); const has = id => myday?.ok.some(t=>t[0]===id) || xAllowed(id);
   const payTab = myday?.ok.find(t=>/payslip/i.test(t[1]));
@@ -47525,20 +47535,21 @@ function mbSheetDraw(){
   if(xWorkspaces().some(w=>w.rail==='people')) tiles.push(['People', 'people', "mbPane('people')", '']);
   const help = xWorkspaces().find(w=>w.rail==='more' && /help/i.test(w.n)); if(help) tiles.push(['Help', 'book', `mbOpenWs('${help.k}')`, '']);
   tiles.push(['All pages', 'grid', "mbPane('all')", '']);
-  const hits = mbFind(MB.q);
   box.innerHTML = `<div class="mb-grab"></div>
     <div class="mb-who">${av(me)}<span><b>${esc(pname(PERSON))}</b>${tag?`<small>${esc(tag)}</small>`:''}</span></div>
-    <label class="mb-search">${mbIco('search', 17, 2)}<input id="mbQ" value="${esc(MB.q)}" placeholder="Search every page" aria-label="Search every page" oninput="MB.q=this.value;mbSheetDraw();const i=el('mbQ');i.focus();i.setSelectionRange(i.value.length,i.value.length)"></label>
-    ${MB.q ? `<div class="mb-card">${hits.length ? hits.map(([w, t])=>mbRow(w, t)).join('') : `<p class="mb-empty">Nothing matches “${esc(MB.q)}”.</p>`}</div>` :
-    `<div class="mb-tiles">${tiles.map(([l, ic, fn, cls, n])=>`<button type="button" class="mb-tile ${cls}" onclick="${fn}"><span>${mbIco(ic, 20)}</span>${esc(l)}${mbBadge(n)}</button>`).join('')}</div>
+    <label class="mb-search">${mbIco('search', 17, 2)}<input id="mbQ" value="${esc(MB.q)}" placeholder="Search every page" aria-label="Search every page" oninput="MB.q=this.value;mbSheetResults()"></label>
+    <div id="mbRes" class="mb-card" ${MB.q?'':'hidden'}>${mbResHTML()}</div>
+    <div id="mbHome" ${MB.q?'hidden':''}><div class="mb-tiles">${tiles.map(([l, ic, fn, cls, n])=>`<button type="button" class="mb-tile ${cls}" onclick="${fn}"><span>${mbIco(ic, 20)}</span>${esc(l)}${mbBadge(n)}</button>`).join('')}</div>
     <div class="mb-list">
       <button type="button" onclick="mbSheet(false);typeof xProfile==='function'?xProfile():accountModal()">${mbIco('people', 18)}My profile &amp; settings</button>
       ${typeof wsPrefsModal==='function' ? `<button type="button" onclick="mbSheet(false);wsPrefsModal()">${mbIco('sliders', 18)}Customize menu &amp; Home</button>` : ''}
       ${el('capFab') ? `<button type="button" onclick="mbSheet(false);el('capFab').click()">${mbIco('shield', 18)}Report a problem<small>screenshot</small></button>` : ''}
       <button type="button" onclick="toggleTheme();mbSheetDraw()">${mbIco('moon', 18)}Dark mode<small>${document.documentElement.dataset.theme==='dark'?'On':'Off'}</small></button>
       <button type="button" class="mb-out" onclick="signOut()">${mbIco('out', 18)}Sign out</button>
-    </div>`}`;
+    </div></div>`;
 }
+function mbResHTML(){ const hits = mbFind(MB.q); return hits.length ? hits.map(([w, t])=>mbRow(w, t)).join('') : `<p class="mb-empty">Nothing matches “${esc(MB.q)}”.</p>`; }
+function mbSheetResults(){ const r = el('mbRes'), h = el('mbHome'); if(!r || !h) return; const on = !!MB.q.trim(); r.hidden = !on; h.hidden = on; if(on) r.innerHTML = mbResHTML(); }
 
 /* ---------- page layouts on phones ---------- */
 function mbPage(){
@@ -47579,12 +47590,12 @@ const MB_HUB_CSS = `
 }`;
 
 /* re-apply after anything that redraws the screen */
-{ const _go = go; go = function(){ MB.pane = null; MB.sheet = false; const r = _go.apply(this, arguments); try{ mbApply(); if(document.body.classList.contains('m-phone')){ scrollTo(0, 0); const m = document.querySelector('.app > .main'); if(m) m.scrollTop = 0; } }catch(e){} return r; }; }
+{ const _go = go; go = function(){ MB.pane = null; MB.sheet = false; if(MB.find){ MB.find = false; MB.findQ = ''; mbFindBar(); } const r = _go.apply(this, arguments); try{ mbApply(); if(document.body.classList.contains('m-phone')){ scrollTo(0, 0); const m = document.querySelector('.app > .main'); if(m) m.scrollTop = 0; } }catch(e){} return r; }; }
 { const _bn = buildNav; buildNav = function(){ const r = _bn.apply(this, arguments); try{ clearTimeout(MB.t); MB.t = setTimeout(mbApply, 0); }catch(e){} return r; }; }
 if(typeof updateBadges==='function'){ const _ub = updateBadges; updateBadges = function(){ const r = _ub.apply(this, arguments); try{ if(document.body.classList.contains('m-phone')){ mbTabs(); if(MB.pane==='activity') mbPaneDraw(); } }catch(e){} return r; }; }
 { const _sp = setPerson; setPerson = function(){ MB.pane = null; MB.sheet = false; const r = _sp.apply(this, arguments); setTimeout(mbApply, 0); return r; }; }
 if(typeof toggleDrawer==='function'){ const _td = toggleDrawer; toggleDrawer = function(){ if(mbOn()){ mbPane('activity'); return; } return _td.apply(this, arguments); }; }
-if(typeof scheduleRender==='function'){ const _sr = scheduleRender; scheduleRender = function(){ const r = _sr.apply(this, arguments); try{ if(document.body.classList.contains('m-phone')){ clearTimeout(MB.r); MB.r = setTimeout(()=>{ mbPage(); mbTabs(); }, 300); } }catch(e){} return r; }; }
+if(typeof scheduleRender==='function'){ const _sr = scheduleRender; scheduleRender = function(){ const r = _sr.apply(this, arguments); try{ if(document.body.classList.contains('m-phone')){ clearTimeout(MB.r); MB.r = setTimeout(()=>{ mbPage(); mbTabs(); if(MB.findQ) try{ globalFilter(MB.findQ); }catch(e){} }, 300); } }catch(e){} return r; }; }
 try{ matchMedia('(max-width: 767.98px)').addEventListener('change', ()=>mbApply()); }catch(e){}
 try{ new MutationObserver(()=>{ if(!document.body.classList.contains('m-phone')) return; clearTimeout(MB.m); MB.m = setTimeout(mbPage, 250); }).observe(document.querySelector('.app > .main main.content') || document.body, {childList:true, subtree:true}); }catch(e){}
 document.addEventListener('keydown', e=>{ if(e.key==='Escape' && MB.sheet){ mbSheet(false); } });
@@ -47597,8 +47608,11 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape' && MB.sheet){ mbSh
 body.m-phone{--mb-top:56px;--mb-tabs:64px;padding-bottom:0}
 body.m-phone .topbar,body.m-phone .app > .sidebar,body.m-phone .nav-backdrop,body.m-phone #capFab,body.m-phone #coraFab,body.m-phone #rmLaunch,
 body.m-phone #dkHandle,body.m-phone #ccDock,body.m-phone .cap-fab,body.m-phone .cora-fab,body.m-phone .menu-btn,body.m-phone #xRail,body.m-phone #xTabs{display:none!important}
-body.m-phone .app{display:block!important}
-body.m-phone .app > .main{margin:0!important;min-width:0;width:100%}
+html:has(body.m-phone){overflow-y:auto!important;overflow-x:hidden!important;height:auto!important;overscroll-behavior-y:none}
+body.m-phone{overflow:visible!important;height:auto!important;min-height:100dvh}   /* only the page itself scrolls — a second scroll box on <body> swallowed swipes */
+body.m-phone .app{display:block!important;height:auto!important;min-height:100dvh;overflow:visible!important}
+body.m-phone .app > .main{margin:0!important;min-width:0;width:100%;height:auto!important;max-height:none!important;overflow:visible!important}
+body.m-phone .app > .main > main.content{height:auto!important;max-height:none!important;overflow:visible!important}
 body.m-phone #mTop{display:flex;align-items:center;gap:8px;position:fixed;left:0;right:0;top:0;z-index:40;height:var(--mb-top);padding:0 8px 0 12px;box-sizing:border-box;background:var(--x-ivory,#F7F6F2);border-bottom:1px solid var(--x-line,#E3DED4);font-family:Inter,system-ui,sans-serif}
 .mb-logo{width:30px;height:30px;border-radius:8px;object-fit:cover;flex-shrink:0}.mb-cc{display:inline-flex;align-items:center;justify-content:center;background:#E39312;color:#1A1206;font-size:11px;font-weight:800}
 .mb-title{flex:1;min-width:0;margin:0;font-size:17px;font-weight:700;color:var(--x-ink,#1A1206);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:0}
@@ -47613,6 +47627,7 @@ body.m-phone #mChips[hidden]{display:none}
 #mChips button{flex-shrink:0;height:34px;padding:0 13px;border-radius:999px;border:1px solid var(--x-line,#E3DED4);background:var(--x-panel,#fff);color:var(--x-body,#2A2620);font:500 13px/1 Inter,system-ui,sans-serif;display:inline-flex;align-items:center;gap:6px;cursor:pointer}
 #mChips button.on{background:#1A1206;border-color:#1A1206;color:#F7F6F2}
 body.m-phone #mTabs{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:50;background:var(--x-panel,#fff);border-top:1px solid var(--x-line,#E3DED4);padding:4px 4px calc(6px + env(safe-area-inset-bottom));font-family:Inter,system-ui,sans-serif}
+body.m-phone.mb-typing #mTabs{display:none}
 #mTabs button{flex:1;border:0;background:transparent;display:flex;flex-direction:column;align-items:center;gap:2px;padding:4px 0;min-height:52px;color:var(--x-help,#746D62);font-size:10.5px;font-weight:500;position:relative;cursor:pointer}
 #mTabs button span{width:46px;height:28px;border-radius:14px;display:flex;align-items:center;justify-content:center}
 #mTabs button.on{color:var(--x-ink,#1A1206);font-weight:700}#mTabs button.on span{background:var(--x-chip,#FDF3E2);color:var(--x-chipInk,#9A5B00)}
@@ -47669,6 +47684,8 @@ body.m-phone table.mb-cards,body.m-phone table.mb-cards tbody{display:block;widt
 body.m-phone table.mb-cards thead{display:none}
 body.m-phone table.mb-cards tr{display:block;background:var(--x-panel,#fff);border:1px solid var(--x-line,#E3DED4);border-radius:12px;padding:6px 12px;margin:0 0 10px}
 body.m-phone table.mb-cards td{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:7px 0!important;border:0!important;border-top:1px solid var(--x-line,#EFEBE3)!important;text-align:right;white-space:normal!important;min-width:0!important;width:auto!important;position:static!important}
+body.m-phone table.mb-cards td{flex-wrap:wrap;row-gap:6px}
+body.m-phone table.mb-cards td > *{min-width:0;max-width:100%;flex-shrink:1}
 body.m-phone table.mb-cards td:first-child{border-top:0!important;text-align:left;font-weight:600}
 body.m-phone table.mb-cards td::before{content:attr(data-label);flex-shrink:0;max-width:42%;text-align:left;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--x-help,#746D62);padding-top:2px}
 body.m-phone table.mb-cards td:first-child::before,body.m-phone table.mb-cards td.mb-nolab::before{display:none}
@@ -47711,6 +47728,25 @@ body.m-phone .xh-crit{margin:0 0 10px}
 body.m-phone #toast{bottom:calc(var(--mb-tabs) + 16px + env(safe-area-inset-bottom))!important}
 body.m-phone #drawer{display:none!important}
 [data-theme="dark"] .xh-crit{background:#33291A;border-color:#5A4522;color:#F3EEE4}[data-theme="dark"] .xh-crit-d{color:#F2B440}[data-theme="dark"] .xh-crit.xh-crit-urg{background:#3A1E1E;border-color:#6B2C2C}
+
+/* an open conversation is a full-screen view between the top bar and the keyboard / bottom edge (like Slack) */
+html:has(body.m-phone.chat-in-pane){overflow:hidden!important}
+body.m-phone.chat-in-pane #mTabs,body.m-phone.chat-in-pane #mChips{display:none!important}
+body.m-phone.chat-in-pane #v-chat .card:has(> .chat-wrap){position:fixed!important;left:0;right:0;top:calc(var(--mb-top) + var(--vvt,0px));height:calc(var(--vvh,100dvh) - var(--mb-top));margin:0!important;border-radius:0!important;border:0!important;z-index:30;box-shadow:none!important}
+body.m-phone.chat-in-pane #v-chat .chat-wrap{height:100%!important;min-height:0!important}
+body.m-phone.chat-in-pane #v-chat .chat-pane{height:100%;min-height:0}
+body.m-phone.chat-in-pane #v-chat .chat-input{padding-bottom:max(8px, env(safe-area-inset-bottom))}
+body.m-phone #v-chat .chat-wrap:not(.mob-pane){height:auto!important}
+/* search this page */
+.mb-find{display:none}
+body.m-phone .mb-find{display:flex;align-items:center;gap:6px;position:fixed;left:0;right:0;top:var(--mb-top);z-index:41;padding:8px 10px;background:var(--x-ivory,#F7F6F2);border-bottom:1px solid var(--x-line,#E3DED4);font-family:Inter,system-ui,sans-serif}
+.mb-find label{flex:1;display:flex;align-items:center;gap:8px;height:40px;border:1px solid var(--x-line,#E3DED4);border-radius:11px;background:var(--x-panel,#fff);padding:0 10px;color:var(--x-help,#746D62)}
+.mb-find input{flex:1;min-width:0;border:0;background:transparent;font:16px Inter,system-ui,sans-serif;color:var(--x-ink,#1A1206);outline:none}
+.mb-find button{border:0;background:transparent;font:600 13px Inter,system-ui,sans-serif;color:#9A5B00;height:40px;padding:0 6px;cursor:pointer}
+body.m-phone.mb-find-on .app > .main{padding-top:calc(var(--mb-top) + 57px)!important}
+body.m-phone.mb-find-on #mChips{display:none!important}
+.mb-sheet{overflow-y:auto}
+#mbRes{max-height:none}
 @media (prefers-reduced-motion:reduce){.mb-sheet,#mPane,.mb-scrim{transition:none}}
 /* touch screens (tablets, touch laptops): finger-sized controls everywhere */
 @media (pointer:coarse){
@@ -47724,7 +47760,12 @@ body.x-shell.x-ovl #rmLaunch{display:none!important}
 `;
   const s = document.createElement('style'); s.id = 'mbCss'; s.textContent = css; document.head.appendChild(s);
 })();
-setTimeout(mbApply, 0); addEventListener('resize', ()=>{ clearTimeout(MB.rz); MB.rz = setTimeout(mbApply, 120); });
+setTimeout(mbApply, 0); MB.w = innerWidth; addEventListener('resize', ()=>{ if(Math.abs(innerWidth - MB.w) < 2) return; MB.w = innerWidth; clearTimeout(MB.rz); MB.rz = setTimeout(mbApply, 120); });
+/* the keyboard: keep full-screen views (an open conversation) above it */
+if(window.visualViewport){ const vv = window.visualViewport; const upd = ()=>{ const r = document.documentElement.style; r.setProperty('--vvh', Math.round(vv.height) + 'px'); r.setProperty('--vvt', Math.round(vv.offsetTop) + 'px'); }; vv.addEventListener('resize', upd); vv.addEventListener('scroll', upd); upd(); }
+/* while typing on a phone: hide the tab bar (it would ride on the keyboard) and never redraw around the input */
+document.addEventListener('focusin', e=>{ if(document.body.classList.contains('m-phone') && e.target.matches?.('input:not([type=checkbox]):not([type=radio]):not([type=button]),textarea,select,[contenteditable=true]')) document.body.classList.add('mb-typing'); });
+document.addEventListener('focusout', ()=>{ setTimeout(()=>{ const a = document.activeElement; if(!a || !a.matches?.('input,textarea,select,[contenteditable=true]')) document.body.classList.remove('mb-typing'); }, 80); });
 /* ===== t52_notify.js — Notification centre, pop-ups and the acknowledgement window (Nov 23 2026) =====
    • Notification centre (the bell's side panel on laptops and tablets; the Activity tab on phones):
      "Needs action" first (approvals, submissions, revisions, finance concerns, call invites you haven't opened), then
@@ -47901,7 +47942,10 @@ setInterval(()=>{ try{ if(ncSnoozed().length < Object.keys(JSON.parse(localStora
      the announcement, otherwise an illustration for the category.
    • Filters: For you · Unread · Acknowledge · the categories · Archived. "Posted" counts and the internal ID move into
      Tracking; Tracking, Pin as Featured, Archive and Delete sit behind "⋯" (only for people who post).
-   • Reading: the announcement opens as a side panel with its cover (a bottom sheet on phones); acknowledging is as before.
+   • Media: the card shows the attached photo, the first frame of an attached video (with a play button), or the
+     thumbnail of a YouTube / Loom / Google Drive video link, with "▶ Video" / "🖼 3 photos" chips. In the reading
+     panel the video plays right there, a video link is embedded, and all photos show as a gallery.
+   • Reading: the announcement opens as a side panel (full screen on phones); acknowledging is as before.
    • Auto-archive (display rule, nothing is deleted): Fixes and System updates move to Archived 20 days after they were
      posted, and an older System update moves as soon as a newer one is posted — unless it is pinned or you still need
      to acknowledge it. HR & Policy, Training, news and events stay until someone archives them. */
@@ -47942,10 +47986,32 @@ function annCat(a){ if(a && ANN_CATS.includes(a.cat)) return a.cat; const t = `$
 const annCatTag = cat => { const [bg, fg] = ANN_STYLE[cat] || ANN_STYLE['Company news']; return `<span class="an-tag" style="background:${bg};color:${fg}">${esc(cat)}</span>`; };
 const annAt = a => { const t = Date.parse(a?.at || '') || Date.parse(a?.date || ''); return isNaN(t) ? 0 : t; };
 const annSeed = a => String(a?.id||'').split('').reduce((s, ch)=>s + ch.charCodeAt(0), 0) % 9;
-const annImgFile = a => (a?.files||[]).find(f=>/^image\//.test(f.type||f.mime||'') || /\.(png|jpe?g|gif|webp|avif)$/i.test(f.name||''));
-function annCoverCss(a){ const f = annImgFile(a); const u = f && ANX.img[a.id];
-  if(f && !u && !ANX.img['_'+a.id]){ ANX.img['_'+a.id] = 1; (f.url && !f.path ? Promise.resolve(f.url) : BACKEND.fileUrl(f)).then(url=>{ if(url){ ANX.img[a.id] = url; if(CURRENT==='announce') RENDER.announce(); } }).catch(()=>{}); }
-  return u ? `url("${String(u).replace(/"/g,'%22')}") center / cover no-repeat` : annCoverSvg(annCat(a), annSeed(a)); }
+const annIsImg = f => /^image\//.test(f?.type||f?.mime||'') || /\.(png|jpe?g|gif|webp|avif|heic)$/i.test(f?.name||'');
+const annIsVid = f => /^video\//.test(f?.type||f?.mime||'') || /\.(mp4|mov|webm|m4v)$/i.test(f?.name||'');
+const annImgFile = a => (a?.files||[]).find(annIsImg);
+/* media attached to an announcement: video files, photos, or a YouTube / Loom / Google Drive link in the link field or text */
+function annMedia(a){ const files = a?.files||[]; const imgs = files.filter(annIsImg), vids = files.filter(annIsVid);
+  const txt = `${a?.link||''} ${a?.body||''}`; let m;
+  const out = {imgs, vids, ext:null};
+  if((m = txt.match(/(?:youtube\.com\/watch\?[^\s]*v=|youtu\.be\/|youtube\.com\/(?:shorts|embed)\/)([\w-]{11})/i))) out.ext = {kind:'YouTube', id:m[1], thumb:`https://img.youtube.com/vi/${m[1]}/hqdefault.jpg`, embed:`https://www.youtube-nocookie.com/embed/${m[1]}?rel=0`};
+  else if((m = txt.match(/loom\.com\/(?:share|embed)\/([0-9a-f]{32})/i))) out.ext = {kind:'Loom', id:m[1], thumb:`https://cdn.loom.com/sessions/thumbnails/${m[1]}-00001.jpg`, embed:`https://www.loom.com/embed/${m[1]}`};
+  else if((m = txt.match(/drive\.google\.com\/(?:file\/d\/|open\?id=)([\w-]{20,})/i))) out.ext = {kind:'Drive', id:m[1], thumb:`https://drive.google.com/thumbnail?id=${m[1]}&sz=w1000`, embed:`https://drive.google.com/file/d/${m[1]}/preview`};
+  out.video = vids.length > 0 || (out.ext && out.ext.kind!=='Drive') || (out.ext?.kind==='Drive' && /video|walkthrough|tutorial|recording|\.mp4/i.test(txt));
+  return out; }
+function annFileUrl(key, f, rerender){ if(ANX.img[key]) return ANX.img[key]; if(!f || ANX.img['_'+key]) return null; ANX.img['_'+key] = 1;
+  (f.url && !f.path && !f.data ? Promise.resolve(f.url) : f.data && /^data:/.test(f.data) ? Promise.resolve(f.data) : BACKEND.fileUrl(f)).then(u=>{ if(u){ ANX.img[key] = u; rerender && rerender(); } }).catch(()=>{});
+  return null; }
+const annRerender = () => { clearTimeout(ANX.rt); ANX.rt = setTimeout(()=>{ if(CURRENT==='announce') RENDER.announce(); }, 60); };
+/* the picture area of a card: the attached photo, the video's first frame, a video link's thumbnail, else the illustration */
+function annCoverHTML(a){ const M = annMedia(a); let inner = '', bg = '';
+  if(M.vids.length){ const u = annFileUrl(a.id+':v0', M.vids[0], annRerender); if(u) inner = `<video class="an-vid" src="${esc(u)}#t=0.5" preload="metadata" muted playsinline tabindex="-1" aria-hidden="true"></video>`; }
+  const q = u => `url('${String(u).replace(/'/g,'%27').replace(/"/g,'%22')}')`;   /* single quotes: this sits inside a style="…" attribute */
+  if(!inner && M.imgs.length){ const u = annFileUrl(a.id+':i0', M.imgs[0], annRerender); if(u) bg = `${q(u)} center / cover no-repeat`; }
+  if(!inner && !bg && M.ext) bg = `${q(M.ext.thumb)} center / cover no-repeat, ${annCoverSvg(annCat(a), annSeed(a))}`;
+  if(!inner && !bg) bg = annCoverSvg(annCat(a), annSeed(a));
+  const chips = [M.video ? `<span class="an-mchip">▶ ${M.ext && !M.vids.length ? esc(M.ext.kind)+' video' : 'Video'}</span>` : '', M.imgs.length > 1 ? `<span class="an-mchip">🖼 ${M.imgs.length} photos</span>` : ''].join('');
+  return {bg: bg || '#1A1206', inner: inner + (M.video ? '<span class="an-play" aria-hidden="true"></span>' : '') + (chips ? `<span class="an-mchips">${chips}</span>` : '')}; }
+function annCoverCss(a){ return annCoverHTML(a).bg; }
 /* auto-archive (display rule) */
 function annAuto(a){ if(!a || a.archived || a.pinned) return false; const cat = annCat(a); if(!['Fix','System update'].includes(cat)) return false;
   try{ const req = typeof xhAckReq==='function' ? xhAckReq(a) : isImportant(a); if(req && PEOPLE[PERSON] && annAudience(a).includes(PERSON) && !annRead(a.id)?.ackAt) return false; }catch(e){}
@@ -47959,7 +48025,7 @@ function annCard(a, feat){
   const cat = annCat(a), r = annRead(a.id), unread = !r?.readAt && !a.archived && !annAuto(a);
   const need = (typeof xhAckReq==='function' ? xhAckReq(a) : isImportant(a)) && !r?.ackAt && !a.archived && !annAuto(a);
   const admin = annCanPost(); const aud = admin ? annAudience(a) : []; const nRead = admin ? aud.filter(k=>annRead(a.id, k)?.readAt).length : 0;
-  const sum = String(a.body||'').replace(/\s+/g,' ').trim();
+  const sum = String(a.body||'').replace(/https?:\/\/\S+/g,'').replace(/\s+/g,' ').replace(/[:\-–—]\s*$/,'').trim();   /* links show as the preview, not as text */
   const bd = a.birthday && typeof bdReacts==='function' ? ` · 🎂 ${bdReacts(a.id).length} · 💬 ${typeof bdComments==='function' ? bdComments(a.id).filter(c=>!c.removed).length : 0}` : '';
   const menu = admin ? `<button type="button" class="an-dots" onclick="event.stopPropagation();ANX.menu=ANX.menu==='${a.id}'?null:'${a.id}';RENDER.announce()" aria-label="More actions for ${esc(a.title)}">⋯</button>${ANX.menu===a.id ? `<div class="an-menu" onclick="event.stopPropagation()">
       <button type="button" onclick="ANX.menu=null;annTrackModal('${a.id}')">Tracking · who read it</button>
@@ -47968,7 +48034,7 @@ function annCard(a, feat){
       <button type="button" class="an-del" onclick="ANX.menu=null;delAnn('${a.id}')">Delete</button></div>` : ''}` : '';
   const btn = need ? '<span class="btn primary an-go">Read &amp; acknowledge</span>' : '<span class="btn an-go">Read</span>';
   return `<article class="an-card ${feat?'an-feat':''} ${a.archived||annAuto(a)?'an-arch':''}" role="button" tabindex="0" onclick="annOpen('${a.id}')" onkeydown="if(event.key==='Enter')annOpen('${a.id}')">
-    <div class="an-cov" style="background:${annCoverCss(a)}">${a.priority==='Urgent' && !a.archived ? '<span class="an-rib">URGENT</span>' : ''}${feat ? '<span class="an-featl">FEATURED</span>' : ''}</div>
+    ${(()=>{ const c = annCoverHTML(a); return `<div class="an-cov" style="background:${c.bg}">${c.inner}${a.priority==='Urgent' && !a.archived ? '<span class="an-rib">URGENT</span>' : ''}${feat ? '<span class="an-featl">FEATURED</span>' : ''}</div>`; })()}
     <div class="an-bd">
       <div class="an-top">${annCatTag(cat)}${unread?'<i class="an-ud" aria-label="Unread"></i>':''}${need?'<span class="an-tag an-ack">Acknowledge</span>':''}${a.pinned?'<span class="an-pin">Pinned</span>':''}</div>
       <h3>${esc(a.title)}</h3>
@@ -48007,11 +48073,27 @@ document.addEventListener('click', ()=>{ if(ANX.menu && CURRENT==='announce'){ A
 { const _oa = openAnn; openAnn = function(id){ const r = _oa.apply(this, arguments);
     try{ const a = ANNOUNCEMENTS.find(x=>x.id===id); const m = el('modal'), b = el('modalBody'); if(!a || !m || !b) return r;
       m.classList.add('x-drawer', 'an-read');
-      b.insertAdjacentHTML('afterbegin', `<div class="an-rcov" style="background:${annCoverCss(a)}"></div><div class="an-rtag">${annCatTag(annCat(a))}${a.pinned?'<span class="an-pin">Pinned</span>':''}</div>`);
+      b.insertAdjacentHTML('afterbegin', `${annReadMedia(a)}<div class="an-rtag">${annCatTag(annCat(a))}${a.pinned?'<span class="an-pin">Pinned</span>':''}</div>`);
+      annReadFill(a);
       b.querySelectorAll('.badge.prio-normal, .badge.prio-high').forEach(x=>x.remove());
       const hint = b.querySelector('.hint'); if(hint && annCanPost()===false) hint.textContent = hint.textContent.replace(/AN-[\w-]+ · /, '');
     }catch(e){ console.warn('[announcements]', e); }
     return r; }; }
+/* reading panel: the video plays right there, a video link is embedded, photos show as a gallery */
+function annReadMedia(a){ const M = annMedia(a);
+  if(M.vids.length) return `<div class="an-rmedia"><video id="anRV" controls playsinline preload="metadata" poster=""></video></div>`;
+  if(M.ext) return `<div class="an-rmedia an-embed"><iframe src="${esc(M.ext.embed)}" title="${esc(M.ext.kind)} video" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen loading="lazy"></iframe></div>`;
+  if(M.imgs.length) return `<div class="an-rcov" id="anRC" style="background:${annCoverSvg(annCat(a), annSeed(a))}"></div>`;
+  return `<div class="an-rcov" style="background:${annCoverSvg(annCat(a), annSeed(a))}"></div>`; }
+function annReadFill(a){ const M = annMedia(a);
+  if(M.vids.length){ const f = M.vids[0]; const done = u=>{ const v = el('anRV'); if(v && u) v.src = u; }; const u = annFileUrl(a.id+':v0', f, ()=>done(ANX.img[a.id+':v0'])); if(u) done(u); }
+  if(M.imgs.length){ const set = ()=>{ const c = el('anRC'); const u0 = ANX.img[a.id+':i0']; if(c && u0) c.style.background = `url("${String(u0).replace(/"/g,'%22')}") center / cover no-repeat`;
+      const g = el('anRG'); if(g) M.imgs.forEach((f, i)=>{ const u = ANX.img[a.id+':i'+i]; const t = g.children[i]; if(t && u) t.style.background = `url("${String(u).replace(/"/g,'%22')}") center / cover no-repeat`; }); };
+    M.imgs.forEach((f, i)=>annFileUrl(a.id+':i'+i, f, set)); set();
+    const b0 = el('modalBody'); const hasPrev = b0 && [...b0.querySelectorAll('img, [style*="background"]')].some(x=>x.id!=='anRC' && !x.closest('.an-rtag'));   /* the portal already previews attached photos */
+    if(!hasPrev && (M.imgs.length > 1 || M.vids.length || M.ext)){ const b = el('modalBody'); const chips = b?.querySelector('.file-chip')?.parentElement;
+      const html = `<div class="an-gal" id="anRG">${M.imgs.map((f, i)=>`<button type="button" class="an-gi" onclick="openFileRef(this)" data-f='${esc(JSON.stringify(f))}' aria-label="Open ${esc(f.name)}"></button>`).join('')}</div>`;
+      if(chips) chips.insertAdjacentHTML('beforebegin', html); else b?.insertAdjacentHTML('beforeend', html); set(); } } }
 if(typeof closeModal==='function'){ const _cm = closeModal; closeModal = function(){ el('modal')?.classList.remove('an-read'); return _cm.apply(this, arguments); }; }
 
 /* ---------- posting form: category ---------- */
@@ -48057,6 +48139,16 @@ if(typeof closeModal==='function'){ const _cm = closeModal; closeModal = functio
 .an-empty{padding:40px 10px;text-align:center;color:var(--x-help,#746D62)}
 .an-note{text-align:center;font-size:12px;color:var(--x-help,#746D62);margin:18px 0 4px}
 #modal.an-read .an-rcov{height:200px;margin:-16px -20px 14px;border-radius:0}
+#modal.an-read .an-rmedia{margin:-16px -20px 14px;background:#0F0E0C;aspect-ratio:16/9}
+#modal.an-read .an-rmedia video,#modal.an-read .an-rmedia iframe{display:block;width:100%;height:100%;border:0}
+.an-gal{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px;margin:4px 0 14px}
+.an-gi{height:96px;border:1px solid var(--x-line,#E3DED4);border-radius:10px;background:var(--x-band,#F7F6F2);cursor:zoom-in}
+.an-vid{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;pointer-events:none}
+.an-play{position:absolute;left:50%;top:50%;width:54px;height:54px;margin:-27px 0 0 -27px;border-radius:50%;background:rgba(26,18,6,.72);box-shadow:0 8px 20px -8px rgba(0,0,0,.6)}
+.an-play::after{content:'';position:absolute;left:21px;top:16px;border-left:18px solid #F7F6F2;border-top:11px solid transparent;border-bottom:11px solid transparent}
+.an-mchips{position:absolute;right:10px;bottom:10px;display:flex;gap:6px}
+.an-mchip{background:rgba(26,18,6,.78);color:#F7F6F2;font-size:11px;font-weight:700;border-radius:999px;padding:4px 9px}
+.an-feat .an-mchips{right:14px;bottom:12px}
 #modal.an-read .an-rtag{display:flex;gap:8px;align-items:center;margin-bottom:8px}
 @media (max-width:1279px){ .an-grid{grid-template-columns:repeat(2,minmax(0,1fr))} }
 @media (max-width:900px){ .an-feat{grid-template-columns:1fr} .an-feat .an-cov{min-height:170px} .an-feat .an-bd{padding:16px} .an-feat h3{font-size:20px} }
@@ -48065,6 +48157,8 @@ if(typeof closeModal==='function'){ const _cm = closeModal; closeModal = functio
   .an-grid{grid-template-columns:1fr;gap:10px}
   .an-grid .an-card{flex-direction:row;min-height:116px}.an-grid .an-cov{width:104px;height:auto;min-height:100%}
   .an-grid .an-bd{padding:12px}.an-grid .an-card h3{font-size:14.5px}
+  .an-grid .an-play{width:36px;height:36px;margin:-18px 0 0 -18px}.an-grid .an-play::after{left:14px;top:10px;border-left-width:12px;border-top-width:8px;border-bottom-width:8px}
+  .an-grid .an-mchips{right:6px;bottom:6px}.an-grid .an-mchip{font-size:10px;padding:3px 7px}
   #modal.an-read .an-rcov{height:150px}
 }
 `;

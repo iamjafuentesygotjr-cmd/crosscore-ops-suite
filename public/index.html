@@ -20923,7 +20923,7 @@ async function cooPostFromModal(){ const ch = CHATS.find(c=>c.id===el('paPostC')
    The footer shows which build is running ("Build 2026-10-07 · 1"), and every open portal checks every few minutes
    (and whenever it comes back to the foreground) whether a newer build has been published. If so it shows
    "New version available — Update now" instead of quietly running old code. */
-const BUILD_ID = '2026-11-23 · 2';
+const BUILD_ID = '2026-11-24 · 1';
 function verStamp(){ const f = el('footNote'); if(f && !f.dataset.v){ f.dataset.v = 1; f.textContent = `Cross Core Ops Suite v8 · Build ${BUILD_ID}`; } }
 async function verCheck(){
   if(!/^https?:/.test(location.protocol)) return;
@@ -48164,6 +48164,259 @@ if(typeof closeModal==='function'){ const _cm = closeModal; closeModal = functio
 `;
   const s = document.createElement('style'); s.id = 'annCss'; s.textContent = css; document.head.appendChild(s);
 })();
+/* ===== t54_christmas.js ===== */
+/* v1.0.15 · build 2026-11-24 · 1 — Christmas season look for every portal (staff, HR, heads, client portal, applicant
+   portal, sign-in page; desktop, tablet and phone; light and dark).
+   • Evergreen side rail with a gold-trimmed Santa hat on the logo, a pine garland with softly twinkling lights along the
+     top bar, cranberry-and-gold primary buttons, warm ivory (light) or midnight-pine (dark) background with faint
+     snowflakes, and gentle snowfall.
+   • A seasonal greeting on the home page of every portal: a countdown to Christmas, "Merry Christmas" on Dec 24–25,
+     then "Happy New Year" until Jan 6.
+   • Automatic: on from Nov 15 to Jan 6 (Philippine date) — off the rest of the year, nothing to remove later.
+   • ❄ button in the top bar: anyone can turn the snowfall or the whole look off for themselves; company heads can set it
+     company-wide (Automatic / On / Off).
+   • Snow stops when the tab is hidden and never runs for people who ask their device to reduce motion.
+   • Everything is scoped under html.xmas — when it is off, the portal looks exactly as before. */
+const XM = {snowOn:false, raf:0, cv:null, flakes:[], last:0};
+const xmLS = (k, v) => { try{ if(v===undefined) return localStorage.getItem(k); if(v===null) localStorage.removeItem(k); else localStorage.setItem(k, v); }catch(e){ return null; } };
+const xmToday = () => { try{ return manilaDate(); }catch(e){ return new Date(Date.now()+8*3600e3).toISOString().slice(0,10); } };
+function xmCompany(){ let v = ''; try{ v = (typeof S==='function' && S()?.xmas) || ''; }catch(e){}
+  if(v){ xmLS('cc-xmas-co', v); return v; } return xmLS('cc-xmas-co') || 'auto'; }   /* remembered for the sign-in page */
+function xmInSeason(d = xmToday()){ const md = d.slice(5); return md >= '11-15' || md <= '01-06'; }
+function xmActive(){ const co = xmCompany(); if(co==='off') return false; if(xmLS('cc-xmas-me')==='off') return false; return co==='on' || xmInSeason(); }
+const xmReduce = () => { try{ return matchMedia('(prefers-reduced-motion: reduce)').matches; }catch(e){ return false; } };
+function xmSnowWanted(){ return xmActive() && xmLS('cc-xmas-snow')!=='off' && !xmReduce(); }
+
+/* ---------- artwork (inline SVG, no downloads) ---------- */
+let XM_N = 0;
+const XM_HAT_T = `<svg class="xm-hat" viewBox="0 0 64 52" aria-hidden="true"><defs><linearGradient id="xmHatR§" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#E0283F"/><stop offset="1" stop-color="#8E0E22"/></linearGradient></defs>
+  <path d="M8 40 C14 22 26 8 44 6 C52 5 58 10 57 18 C56 24 52 22 50 18 C47 13 42 14 40 20 L36 40 Z" fill="url(#xmHatR§)"/>
+  <path d="M44 6 C52 5 58 10 57 18" fill="none" stroke="rgba(255,255,255,.25)" stroke-width="2"/>
+  <rect x="3" y="36" width="40" height="11" rx="5.5" fill="#FBF7EE" stroke="#E8DDC6"/><circle cx="54" cy="21" r="6.5" fill="#FBF7EE" stroke="#E8DDC6"/></svg>`;
+const xmHatSVG = () => XM_HAT_T.replaceAll('§', '-' + (++XM_N));
+const XM_ORN = (c1, c2, x, len, r) => `<g transform="translate(${x} 0)"><line x1="0" y1="0" x2="0" y2="${len}" stroke="#C9A24E" stroke-width="1.2"/>
+  <rect x="-4" y="${len-2}" width="8" height="6" rx="1.5" fill="#D8B25E"/><circle cx="0" cy="${len+4+r}" r="${r}" fill="url(#${c1}§)"/>
+  <ellipse cx="${-r*.35}" cy="${len+4+r*.6}" rx="${r*.28}" ry="${r*.42}" fill="rgba(255,255,255,.45)"/>
+  <path d="M${-r*.95} ${len+4+r} q${r*.95} ${r*.35} ${r*1.9} 0" stroke="${c2}" stroke-width="1.4" fill="none" opacity=".8"/></g>`;
+const XM_ORNAMENTS = `<svg class="xm-orns" viewBox="0 0 190 120" aria-hidden="true"><defs>
+  <radialGradient id="xmO1§" cx=".35" cy=".3"><stop offset="0" stop-color="#F2DA9A"/><stop offset=".55" stop-color="#D4A64A"/><stop offset="1" stop-color="#8F6A1E"/></radialGradient>
+  <radialGradient id="xmO2§" cx=".35" cy=".3"><stop offset="0" stop-color="#FF8A98"/><stop offset=".5" stop-color="#C8102E"/><stop offset="1" stop-color="#6E0919"/></radialGradient>
+  <radialGradient id="xmO3§" cx=".35" cy=".3"><stop offset="0" stop-color="#7FD3A8"/><stop offset=".5" stop-color="#1D6B4B"/><stop offset="1" stop-color="#0A2F21"/></radialGradient></defs>
+  ${XM_ORN('xmO2', '#F2DA9A', 40, 34, 17)}${XM_ORN('xmO1', '#8E0E22', 95, 12, 22)}${XM_ORN('xmO3', '#F2DA9A', 150, 46, 15)}</svg>`;
+const xmOrnSVG = () => XM_ORNAMENTS.replaceAll('§', '-' + (++XM_N));
+const XM_STAR = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 1.5l2.6 6.9 7.4.3-5.8 4.6 2 7.1L12 16.3 5.8 20.4l2-7.1L2 8.7l7.4-.3z" fill="currentColor"/></svg>`;
+const XM_FLAKE_BTN = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M12 2v20M3.3 7l17.4 10M3.3 17L20.7 7M9 4l3 2 3-2M9 20l3-2 3 2M4 10.5l3.6-.2L6 7M20 10.5l-3.6-.2L18 7M4 13.5l3.6.2L6 17M20 13.5l-3.6.2L18 17"/></svg>`;
+/* garland: pine swag drawn once, repeated across the bar; the lights are separate so they can twinkle */
+const XM_SWAG = 'data:image/svg+xml,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="120" height="26" viewBox="0 0 120 26">
+  <path d="M0 4 Q60 22 120 4" fill="none" stroke="#0B3426" stroke-width="9" stroke-linecap="round"/>
+  <path d="M0 4 Q60 22 120 4" fill="none" stroke="#1E6A4B" stroke-width="5" stroke-linecap="round" stroke-dasharray="2 3"/>
+  <path d="M0 4 Q60 22 120 4" fill="none" stroke="#2F8A62" stroke-width="2" stroke-linecap="round" stroke-dasharray="1 5"/>
+  <path d="M0 6 Q60 24 120 6" fill="none" stroke="#C9A24E" stroke-width="1" opacity=".9"/></svg>`);
+const XM_PATTERN = c => 'data:image/svg+xml,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="240" height="240" viewBox="0 0 240 240"><g fill="none" stroke="${c}" stroke-width="1.1" stroke-linecap="round">
+  <g transform="translate(40 46)"><path d="M0-9V9M-7.8-4.5L7.8 4.5M-7.8 4.5L7.8-4.5M-3-7L0-5 3-7M-3 7L0 5 3 7"/></g>
+  <g transform="translate(176 118) scale(.7)"><path d="M0-9V9M-7.8-4.5L7.8 4.5M-7.8 4.5L7.8-4.5M-3-7L0-5 3-7M-3 7L0 5 3 7"/></g>
+  <g transform="translate(92 196) scale(.55)"><path d="M0-9V9M-7.8-4.5L7.8 4.5M-7.8 4.5L7.8-4.5"/></g></g>
+  <g fill="${c}"><circle cx="128" cy="34" r="1.3"/><circle cx="212" cy="214" r="1.1"/><circle cx="18" cy="150" r="1"/><circle cx="150" cy="176" r="1.4"/>
+  <path d="M206 50l1.6 3.6 3.9.3-3 2.5 1 3.8-3.5-2.1-3.5 2.1 1-3.8-3-2.5 3.9-.3z"/></g></svg>`);
+
+/* ---------- styles ---------- */
+(function xmCSS(){
+  if(document.getElementById('xmCSS')) return;
+  const st = document.createElement('style'); st.id = 'xmCSS';
+  st.textContent = `
+:root.xmas.xmas{--xm-red:#B3122E;--xm-red2:#7E0C20;--xm-pine:#0E3B2C;--xm-pine2:#072519;--xm-gold:#D4A64A;--xm-gold2:#A9802B;--xm-goldl:#F2DA9A;--xm-snow:#FFFDF8;
+  --x-rail:#0B2F23;--bg:#F8F4EC;--line:#E8E1D2;--x-ivory:#F8F4EC;--x-band:#F8F4EC}
+:root.xmas.xmas[data-theme="dark"]{--bg:#07130E;--panel:#0E1C16;--panel-2:#12241D;--line:#1D3329;--line-2:#17291F;--x-rail:#04100B;--x-panel:#0C1913;--x-ivory:#07130E;--x-band:#0F1F18;--x-hover:#14281F;--x-line:#1D3329}
+html.xmas body{background-color:var(--bg);background-image:radial-gradient(1100px 520px at 100% -8%, rgba(179,18,46,.085), transparent 62%),radial-gradient(900px 520px at -6% 108%, rgba(14,59,44,.10), transparent 62%),url("${XM_PATTERN('rgba(169,128,43,.16)')}");background-attachment:fixed}
+html.xmas[data-theme="dark"] body{background-image:radial-gradient(1100px 520px at 100% -8%, rgba(179,18,46,.16), transparent 62%),radial-gradient(900px 560px at -6% 108%, rgba(30,106,75,.22), transparent 62%),url("${XM_PATTERN('rgba(242,218,154,.10)')}")}
+/* side rail: evergreen with gold */
+html.xmas .x-rail{background:linear-gradient(180deg,#0F4632 0%,#0B2F23 46%,#061C14 100%)!important;box-shadow:inset -1px 0 0 rgba(212,166,74,.28)}
+html.xmas .x-rail .xr-b.on{background:linear-gradient(180deg,rgba(212,166,74,.26),rgba(212,166,74,.14));color:var(--xm-goldl);box-shadow:inset 0 0 0 1px rgba(242,218,154,.28)}
+html.xmas .xr-logo{position:relative;overflow:visible;background:linear-gradient(135deg,#F2C766,#D4A64A 55%,#A9802B);box-shadow:0 0 0 1px rgba(242,218,154,.5),0 6px 16px -6px rgba(212,166,74,.7)}
+html.xmas .xm-hat{position:absolute;width:24px;height:19px;top:-8px;right:-9px;transform:rotate(18deg);filter:drop-shadow(0 2px 2px rgba(0,0,0,.35));pointer-events:none;z-index:2}
+/* classic sidebar (client and applicant portals) */
+:root.xmas{--pm-smoke:linear-gradient(180deg,#0F4632 0%,#0B2F23 48%,#061C14 100%);--pm-smoke-solid:linear-gradient(180deg,#0F4632 0%,#0B2F23 48%,#061C14 100%)}
+:root.xmas.xmas.xmas .app .sidebar,:root.xmas.xmas .sidebar{background:linear-gradient(180deg,#0F4632 0%,#0B2F23 48%,#061C14 100%)!important;box-shadow:inset 0 0 0 1px rgba(212,166,74,.32),var(--shadow-lg)!important}
+:root.xmas.xmas .sidebar .nav-item.active{background:linear-gradient(135deg,#B3122E,#7E0C20)!important;color:#FFF8EC!important;box-shadow:inset 3px 0 0 var(--xm-gold),0 8px 18px -10px rgba(126,12,32,.8)!important}
+:root.xmas.xmas .sidebar .nav-item:not(.active):hover{background:rgba(242,218,154,.10)!important}
+:root.xmas.xmas .sidebar .nav-label{color:rgba(242,218,154,.7)!important}
+html.xmas .xm-hat-sb{position:absolute;width:24px;height:19px;top:-9px;right:-10px;transform:rotate(18deg);filter:drop-shadow(0 2px 2px rgba(0,0,0,.35));pointer-events:none;z-index:2}
+/* primary actions: cranberry and gold */
+html.xmas .btn.primary,:root.xmas.xmas .btn.primary,:root.xmas.xmas[data-theme="dark"] .btn.primary{background:linear-gradient(135deg,#D11F3D 0%,#B3122E 48%,#7E0C20 100%)!important;color:#FFF8EC!important;box-shadow:0 0 0 1px rgba(242,218,154,.35) inset,0 8px 20px -8px rgba(179,18,46,.7)!important}
+html.xmas .btn.primary:hover,:root.xmas.xmas .btn.primary:hover{filter:brightness(1.07);background:linear-gradient(135deg,#D11F3D 0%,#B3122E 48%,#7E0C20 100%)!important}
+html.xmas .nav-item.active{background:linear-gradient(135deg,#B3122E,#7E0C20);color:#FFF8EC;box-shadow:0 6px 16px -6px rgba(179,18,46,.6)}
+html.xmas .xp-r.on{background:linear-gradient(135deg,#9A1028 0%,#7E0C20 60%,#5E0817 100%);box-shadow:inset 3px 0 0 var(--xm-gold),0 8px 18px -10px rgba(126,12,32,.7)}
+html.xmas .xp-r.on .xp-ch{background:linear-gradient(135deg,#F2C766,#D4A64A);color:#3A1006}
+html.xmas .xp-r.on .xp-t b{color:#FFF8EC}html.xmas .xp-r.on .xp-t small{color:#F2D9B0}
+html.xmas input:focus,html.xmas select:focus,html.xmas textarea:focus{border-color:var(--xm-gold);box-shadow:0 0 0 3px rgba(212,166,74,.22)}
+/* top bar garland */
+html.xmas .topbar{position:relative;overflow:visible}
+.xm-garland{display:none}
+html.xmas .xm-garland{display:block;position:absolute;left:14px;right:14px;top:-6px;height:30px;overflow:hidden;pointer-events:none;z-index:3;background:url("${XM_SWAG}") repeat-x 0 0/120px 26px;filter:drop-shadow(0 2px 2px rgba(0,0,0,.18))}
+html.xmas .xm-garland i{position:absolute;width:7px;height:10px;border-radius:50% 50% 45% 45%;transform:translateX(-50%);box-shadow:0 0 8px 2px currentColor;background:currentColor;animation:xmTw 3.2s ease-in-out infinite}
+html.xmas .xm-garland i::before{content:"";position:absolute;left:1.5px;top:-3px;width:4px;height:4px;border-radius:1px;background:#3C3423}
+@keyframes xmTw{0%,100%{opacity:1;filter:none}50%{opacity:.45;filter:saturate(.6)}}
+@media (prefers-reduced-motion:reduce){html.xmas .xm-garland i{animation:none}}
+/* the ❄ button */
+.xm-btn{display:none}
+html.xmas .xm-btn,.xm-btn.show{display:inline-grid}
+html.xmas .xm-btn svg{width:18px;height:18px;color:var(--xm-red)}
+html.xmas[data-theme="dark"] .xm-btn svg{color:var(--xm-goldl)}
+/* seasonal greeting */
+.xm-hero{display:none}
+html.xmas .xm-hero{display:flex;position:relative;overflow:hidden;align-items:center;gap:18px;margin:0 0 18px;padding:18px 210px 18px 22px;min-height:104px;border-radius:var(--r,14px);color:#FFF8EC;
+  background:radial-gradient(420px 160px at 88% 10%, rgba(242,218,154,.20), transparent 70%),radial-gradient(500px 220px at 0% 120%, rgba(179,18,46,.42), transparent 70%),linear-gradient(120deg,#0F4632 0%,#0B2F23 55%,#061C14 100%);
+  box-shadow:0 0 0 1px rgba(212,166,74,.45) inset,0 18px 40px -22px rgba(7,37,25,.8)}
+html.xmas .xm-hero::before{content:"";position:absolute;inset:0;background:url("${XM_PATTERN('rgba(242,218,154,.22)')}") 0 0/200px;opacity:.7;pointer-events:none}
+html.xmas .xm-hero::after{content:"";position:absolute;left:0;right:0;bottom:0;height:3px;background:linear-gradient(90deg,transparent,var(--xm-gold) 20%,var(--xm-goldl) 50%,var(--xm-gold) 80%,transparent)}
+.xm-hero .xm-t{position:relative;z-index:1;min-width:0}
+.xm-hero .xm-k{display:flex;align-items:center;gap:7px;font:600 11px/1.2 Inter,system-ui,sans-serif;letter-spacing:.16em;text-transform:uppercase;color:var(--xm-goldl)}
+.xm-hero .xm-k svg{width:12px;height:12px;color:var(--xm-gold)}
+.xm-hero h2{margin:6px 0 4px;font:italic 600 clamp(22px,2.6vw,30px)/1.12 'Playfair Display',Georgia,'Times New Roman',serif;color:#FFF8EC;text-wrap:balance;letter-spacing:.005em}
+.xm-hero h2 b{font-weight:700;color:var(--xm-goldl)}
+.xm-hero p{margin:0;font-size:13px;color:rgba(255,248,236,.78);max-width:60ch}
+.xm-hero .xm-cd{position:relative;z-index:1;flex-shrink:0;display:grid;place-items:center;width:78px;height:78px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#E0283F,#8E0E22 70%);box-shadow:0 0 0 2px rgba(242,218,154,.65),0 0 0 6px rgba(242,218,154,.12),0 10px 22px -8px rgba(0,0,0,.6);text-align:center}
+.xm-hero .xm-cd b{display:block;font:700 28px/1 Sora,Inter,sans-serif;font-variant-numeric:tabular-nums;color:#FFF8EC}
+.xm-hero .xm-cd small{display:block;font:600 9px/1.2 Inter,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:var(--xm-goldl);margin-top:3px}
+.xm-hero .xm-orns{position:absolute;right:14px;top:0;width:190px;height:120px;z-index:1;pointer-events:none;transform-origin:50% 0}
+@media (prefers-reduced-motion:no-preference){.xm-hero .xm-orns{animation:xmSway 6s ease-in-out infinite}}
+@keyframes xmSway{0%,100%{transform:rotate(-1.2deg)}50%{transform:rotate(1.2deg)}}
+.xm-hero .xm-x{position:absolute;top:8px;right:10px;z-index:2;width:26px;height:26px;border-radius:50%;color:rgba(255,248,236,.7);display:grid;place-items:center;font-size:16px;line-height:1}
+.xm-hero .xm-x:hover{background:rgba(255,255,255,.12);color:#fff}
+@media (max-width:760px){html.xmas .xm-hero{padding:16px 16px 16px 16px;gap:14px;min-height:0}.xm-hero .xm-orns{opacity:.35;width:150px;right:-20px}.xm-hero .xm-cd{width:62px;height:62px}.xm-hero .xm-cd b{font-size:22px}}
+/* snow */
+#xmSnow{position:fixed;inset:0;width:100vw;height:100vh;pointer-events:none;z-index:40;display:none}
+html.xmas #xmSnow.on{display:block}
+/* modal: a gold hairline on top */
+html.xmas #modal .box{border-top:3px solid var(--xm-gold)}
+/* sign-in page */
+html.xmas .login{background:radial-gradient(ellipse 60% 40% at 50% 46%, rgba(212,166,74,.30), transparent 70%),radial-gradient(ellipse 70% 50% at 92% 96%, rgba(179,18,46,.55), transparent 70%),radial-gradient(ellipse 60% 46% at 6% 8%, rgba(30,106,75,.55), transparent 70%),linear-gradient(160deg,#04110C 0%,#0B2F23 45%,#2A0710 100%)!important}
+html.xmas .login::before{content:"";position:absolute;inset:0;background:url("${XM_PATTERN('rgba(242,218,154,.22)')}") 0 0/240px;pointer-events:none;z-index:1}
+html.xmas .login .login-center{position:relative;z-index:2}
+html.xmas .xm-login-greet{display:block;margin:0 0 6px;text-align:center;font:italic 600 20px/1.2 'Playfair Display',Georgia,serif;color:var(--xm-goldl);letter-spacing:.01em;text-shadow:0 2px 12px rgba(0,0,0,.5)}
+.xm-login-greet{display:none}
+html.xmas .login .card{border-top:3px solid var(--xm-gold)!important;background:rgba(255,252,245,.97)!important;backdrop-filter:none!important}
+html.xmas .login .btn.primary,html.xmas .login button.primary{background:linear-gradient(135deg,#D11F3D,#8E0E22)!important;color:#FFF8EC!important}
+html.xmas .xm-hat-lg{position:absolute;width:58px;height:46px;top:-26px;right:-24px;transform:rotate(16deg);filter:drop-shadow(0 4px 6px rgba(0,0,0,.45));pointer-events:none;z-index:3}
+`;
+  document.head.appendChild(st);
+  if(!document.getElementById('xmFont')){ const l = document.createElement('link'); l.id = 'xmFont'; l.rel = 'stylesheet'; l.href = 'https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@1,600;1,700&display=swap'; document.head.appendChild(l); }
+})();
+
+/* ---------- pieces placed into the page ---------- */
+const XM_LIGHTS = ['#FF4D5E','#F2C766','#5BD69A','#FFF3D6','#FF4D5E','#F2C766','#7FC8FF','#FFF3D6'];
+function xmGarland(){
+  document.querySelectorAll('.topbar').forEach(tb=>{ if(tb.querySelector(':scope > .xm-garland')) return;
+    const g = document.createElement('div'); g.className = 'xm-garland'; g.setAttribute('aria-hidden', 'true');
+    /* one bulb every 40px, sitting on the swag's curve (the swag repeats every 120px: dips 9 / 13 / 9px) */
+    const Y = [9, 13, 9]; g.innerHTML = Array.from({length:72}, (_, i)=>`<i style="left:${20 + i*40}px;top:${Y[i%3] + 1}px;color:${XM_LIGHTS[i % XM_LIGHTS.length]};animation-delay:${(i*0.37 % 3.2).toFixed(2)}s"></i>`).join('');
+    tb.prepend(g); });
+}
+function xmHat(){
+  document.querySelectorAll('.xr-logo').forEach(l=>{ if(!l.querySelector('.xm-hat')) l.insertAdjacentHTML('beforeend', xmHatSVG()); });
+  const lh = document.querySelector('.login .login-head'); const img = lh && (lh.querySelector('img, .logo, .logo-mark'));
+  if(img && !lh.querySelector('.xm-hat-lg')){ const w = document.createElement('span'); w.style.cssText = 'position:relative;display:inline-block'; img.parentNode.insertBefore(w, img); w.appendChild(img); w.insertAdjacentHTML('beforeend', xmHatSVG().replace('class="xm-hat"', 'class="xm-hat-lg"')); }
+  const sbi = document.querySelector('.sidebar img'); if(sbi && !sbi.parentNode.querySelector('.xm-hat-sb')){ const w = document.createElement('span'); w.style.cssText = 'position:relative;display:inline-block;flex-shrink:0;line-height:0'; sbi.parentNode.insertBefore(w, sbi); w.appendChild(sbi); w.insertAdjacentHTML('beforeend', xmHatSVG().replace('class="xm-hat"', 'class="xm-hat-sb"')); }
+  const lc = document.querySelector('.login .login-center'); const card = lc && lc.querySelector('.card');
+  if(card && !lc.querySelector('.xm-login-greet')){ card.insertAdjacentHTML('beforebegin', `<span class="xm-login-greet">${esc(xmGreetShort())}</span>`); }
+}
+function xmButton(){
+  const th = document.querySelector('.topbar .icon-btn[onclick*="toggleTheme"]'); if(!th || th.parentNode.querySelector('.xm-btn')) return;
+  const b = document.createElement('button'); b.className = 'icon-btn xm-btn'; b.type = 'button'; b.title = 'Christmas look'; b.setAttribute('aria-label', 'Christmas look and snowfall settings');
+  b.innerHTML = XM_FLAKE_BTN; b.onclick = xmMenu; th.parentNode.insertBefore(b, th); }
+function xmDaysTo(target){ const a = new Date(xmToday()+'T00:00:00Z'), b = new Date(target+'T00:00:00Z'); return Math.round((b - a)/864e5); }
+function xmPhase(){ const d = xmToday(), y = +d.slice(0,4), md = d.slice(5);
+  if(md >= '12-26' || md <= '01-06') return {kind:'ny', year: md >= '12-26' ? y+1 : y};
+  if(md === '12-24' || md === '12-25') return {kind:'xmas', day: md==='12-24' ? 'eve' : 'day'};
+  return {kind:'countdown', days:xmDaysTo(`${y}-12-25`)}; }
+function xmGreetShort(){ const p = xmPhase(); return p.kind==='ny' ? `Happy New Year ${p.year}` : p.kind==='xmas' ? (p.day==='eve' ? 'Merry Christmas Eve' : 'Merry Christmas') : 'Season’s Greetings'; }
+function xmFirst(){ try{ return PEOPLE[PERSON] ? first(PERSON) : ''; }catch(e){ return ''; } }
+function xmHeroHTML(){
+  const p = xmPhase(), nm = xmFirst(), co = 'The Cross Core', who = typeof ROLE!=='undefined' ? ROLE : '';
+  let k, h, t, cd;
+  if(p.kind==='countdown'){ k = 'Season’s greetings'; h = `${p.days===1 ? 'One more day' : `<b>${p.days}</b> days`} until Christmas${nm ? `, ${esc(nm)}` : ''}`;
+    t = who==='client' ? `Thank you for growing with ${co} this year. Wishing you and your team a joyful, restful season.`
+      : who==='applicant' ? `We’re glad you’re on this journey with ${co}. Wishing you a joyful, restful season with the people you love.`
+      : `Thank you for everything you bring to ${co} this year. Wishing you a joyful, restful season with the people you love.`; cd = `<b>${p.days}</b><small>${p.days===1?'day':'days'}</small>`; }
+  else if(p.kind==='xmas'){ k = p.day==='eve' ? 'Christmas Eve' : 'December 25'; h = `Merry Christmas${nm ? `, <b>${esc(nm)}</b>` : ''}!`;
+    t = `From all of us at ${co}: peace, joy and good rest to you and your family.`; cd = `<b>25</b><small>Dec</small>`; }
+  else { k = 'A fresh start'; h = `Happy New Year${nm ? `, <b>${esc(nm)}</b>` : ''}!`; t = `Here’s to a bright, healthy and successful ${p.year} together at ${co}.`; cd = `<b>${String(p.year).slice(2)}</b><small>${p.year}</small>`; }
+  return `<section class="xm-hero" role="note" aria-label="Season’s greetings"><div class="xm-cd" aria-hidden="true">${cd}</div>
+    <div class="xm-t"><div class="xm-k">${XM_STAR}${k}${XM_STAR}</div><h2>${h}</h2><p>${t}</p></div>${xmOrnSVG()}
+    <button type="button" class="xm-x" title="Hide for today" aria-label="Hide the greeting for today" onclick="xmHideHero()">×</button></section>`; }
+function xmHomeIds(){ const ids = ['dashboard', 'cportal', 'apphome']; try{ if(typeof APPLICANT_NAV!=='undefined' && APPLICANT_NAV[0]) ids.push(APPLICANT_NAV[0].id); }catch(e){} return ids; }
+function xmHero(){
+  document.querySelectorAll('.view:not(.active) .xm-hero').forEach(x=>x.remove());
+  const v = document.querySelector('.view.active'); if(!v) return;
+  const id = (v.id||'').replace(/^v-/, ''), want = xmActive() && xmHomeIds().includes(id) && xmLS('cc-xmas-hide')!==xmToday();
+  const cur = v.querySelector(':scope .xm-hero');
+  if(!want){ cur?.remove(); return; }
+  if(cur) return;
+  const html = xmHeroHTML();
+  /* staff home (t44): inside the built home, right under "Good morning" — never as a direct child of the page, which
+     the home builder reads to find its sections and buttons */
+  if(id==='dashboard'){ const xh = v.querySelector('#xHome > .xh-head'); if(xh) xh.insertAdjacentHTML('afterend', html); return; }
+  const head = v.querySelector(':scope > .page-head');
+  if(head) head.insertAdjacentHTML('afterend', html); else v.insertAdjacentHTML('afterbegin', html); }
+function xmHideHero(){ xmLS('cc-xmas-hide', xmToday()); document.querySelectorAll('.xm-hero').forEach(x=>x.remove()); }
+
+/* ---------- snowfall ---------- */
+function xmSnowInit(){ if(XM.cv) return XM.cv; const c = document.createElement('canvas'); c.id = 'xmSnow'; c.setAttribute('aria-hidden', 'true'); document.body.appendChild(c); XM.cv = c;
+  const fit = () => { const r = Math.min(window.devicePixelRatio||1, 2); c.width = innerWidth * r; c.height = innerHeight * r; c.getContext('2d').setTransform(r, 0, 0, r, 0, 0); };
+  fit(); addEventListener('resize', fit); return c; }
+function xmFlake(top){ const s = Math.random(); return {x:Math.random()*innerWidth, y: top ? -10 : Math.random()*innerHeight, r: .8 + s*2.4, vy: .25 + s*.75, vx: (Math.random()-.5)*.25, ph: Math.random()*6.28, a: .35 + s*.5}; }
+function xmSnowStart(){
+  if(!xmSnowWanted()){ xmSnowStop(); return; }
+  const c = xmSnowInit(); c.classList.add('on'); if(XM.raf) return;
+  const n = innerWidth < 700 ? 18 : innerWidth < 1100 ? 30 : 42; XM.flakes = Array.from({length:n}, ()=>xmFlake(false));
+  const ctx = c.getContext('2d'); XM.last = 0;
+  const step = t => { XM.raf = requestAnimationFrame(step); if(document.hidden) return; if(t - XM.last < 32) return; XM.last = t;   /* ~30 fps */
+    ctx.clearRect(0, 0, innerWidth, innerHeight); const dark = document.documentElement.dataset.theme==='dark' || !!document.querySelector('.login:not([style*="none"])');
+    XM.flakes.forEach(f=>{ f.ph += .012; f.y += f.vy; f.x += f.vx + Math.sin(f.ph)*.35; if(f.y > innerHeight + 6){ Object.assign(f, xmFlake(true)); } if(f.x < -6) f.x = innerWidth + 6; if(f.x > innerWidth + 6) f.x = -6;
+      ctx.beginPath(); ctx.arc(f.x, f.y, f.r, 0, 6.283);
+      if(dark){ ctx.fillStyle = `rgba(255,253,248,${f.a})`; ctx.shadowBlur = 0; }
+      else { ctx.fillStyle = `rgba(255,255,255,${Math.min(1, f.a + .35)})`; ctx.shadowColor = 'rgba(120,140,165,.55)'; ctx.shadowBlur = 3; }
+      ctx.fill(); }); ctx.shadowBlur = 0; };
+  XM.raf = requestAnimationFrame(step); }
+function xmSnowStop(){ if(XM.raf) cancelAnimationFrame(XM.raf); XM.raf = 0; if(XM.cv){ XM.cv.classList.remove('on'); XM.cv.getContext('2d').clearRect(0, 0, XM.cv.width, XM.cv.height); } }
+
+/* ---------- settings ---------- */
+const xmCanCompany = () => { try{ return !!PEOPLE[PERSON] && (isHead(PERSON) || PERSON==='ja' || (typeof isSysAdmin==='function' && isSysAdmin(PERSON))); }catch(e){ return false; } };
+function xmMenu(){
+  const me = xmLS('cc-xmas-me')!=='off', snow = xmLS('cc-xmas-snow')!=='off', co = xmCompany();
+  const row = (label, hint, on, fn) => `<label class="xm-row" style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--line)"><span><b style="display:block">${label}</b><span class="hint">${hint}</span></span><input type="checkbox" ${on?'checked':''} onchange="${fn}(this.checked)" style="width:20px;height:20px;accent-color:#B3122E"></label>`;
+  openModal('Christmas look', `
+    ${row('Christmas look', 'Garland, colours and the home greeting — just for you', me, 'xmSetMe')}
+    ${row('Snowfall', xmReduce() ? 'Off: your device asks for reduced motion' : 'Gentle falling snow — just for you', snow && !xmReduce(), 'xmSetSnow')}
+    ${xmCanCompany() ? `<div style="padding-top:12px"><b>For everyone</b><div class="hint" style="margin-bottom:8px">Automatic shows it from Nov 15 to Jan 6.</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">${[['auto','Automatic'],['on','On'],['off','Off']].map(([v,l])=>`<button type="button" class="btn ${co===v?'primary':''}" onclick="xmSetCompany('${v}')">${l}</button>`).join('')}</div></div>` : ''}`); }
+function xmSetMe(on){ xmLS('cc-xmas-me', on ? null : 'off'); xmApply(); }
+function xmSetSnow(on){ xmLS('cc-xmas-snow', on ? null : 'off'); xmApply(); }
+function xmSetCompany(v){ if(!xmCanCompany()) return toast('Only company heads change this for everyone');
+  let g = SETTINGS.find(x=>x.id==='global'); if(!g){ g = {...DEFAULT_SETTINGS, id:'global'}; SETTINGS.push(g); }
+  g.xmas = v; xmLS('cc-xmas-co', v); recordChange(); xmApply(); closeModal(); toast(v==='off' ? 'Christmas look turned off for everyone' : v==='on' ? 'Christmas look on for everyone' : 'Christmas look: automatic (Nov 15 – Jan 6)'); }
+
+/* ---------- apply ---------- */
+function xmApply(){
+  const on = xmActive(); document.documentElement.classList.toggle('xmas', on);
+  try{ document.querySelectorAll('.xm-btn').forEach(b=>b.classList.toggle('show', xmCompany()!=='off' && (xmInSeason() || xmCompany()==='on'))); }catch(e){}
+  if(on){ xmGarland(); xmHat(); } xmButton(); xmHero(); on ? xmSnowStart() : xmSnowStop(); }
+{ const _go = go; go = function(){ const r = _go.apply(this, arguments); try{ xmApply(); }catch(e){ console.warn('xmas', e); } return r; }; }
+{ const _sr = scheduleRender; scheduleRender = function(){ const r = _sr.apply(this, arguments); clearTimeout(XM.t); XM.t = setTimeout(()=>{ try{ xmApply(); }catch(e){} }, 260); return r; }; }
+{ const _sp = setPerson; setPerson = function(){ const r = _sp.apply(this, arguments); setTimeout(()=>{ try{ xmApply(); }catch(e){} }, 300); return r; }; }
+if(typeof xhBuild==='function'){ const _xb = xhBuild; xhBuild = function(){ const r = _xb.apply(this, arguments); try{ xmHero(); }catch(e){} return r; }; }
+/* the rail is rebuilt often (badges, navigation): the hat is part of its HTML while the season is on */
+if(typeof xRailHTML==='function'){ const _xr = xRailHTML; xRailHTML = function(){ const h = _xr.apply(this, arguments); try{ if(xmActive()) return h.replace('<div class="xr-logo" aria-hidden="true">CC</div>', '<div class="xr-logo" aria-hidden="true">CC' + xmHatSVG() + '</div>'); }catch(e){} return h; }; }
+if(typeof buildNav==='function'){ const _bn = buildNav; buildNav = function(){ const r = _bn.apply(this, arguments); try{ if(xmActive()) xmHat(); }catch(e){} return r; }; }
+{ const _ore = onRemoteEvent; onRemoteEvent = function(ev){ const r = _ore.apply(this, arguments); if(ev?.coll==='settings') setTimeout(()=>{ try{ xmApply(); }catch(e){} }, 100); return r; }; }
+document.addEventListener('visibilitychange', ()=>{ if(!document.hidden && xmSnowWanted()) xmSnowStart(); });
+setInterval(()=>{ try{ xmApply(); }catch(e){} }, 60e3);   /* the date changes at midnight; the greeting follows */
+if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', ()=>{ try{ xmApply(); }catch(e){} }); else setTimeout(()=>{ try{ xmApply(); }catch(e){} }, 0);
+
+window.OPS_RELEASE = (window.OPS_RELEASE||[]).concat([{build:'2026-11-24 · 1', id:'christmas-2026', type:'improvement', modules:['t54_christmas.js'],
+  title:'Christmas look for every portal', audience:{groups:['all']},
+  text:'Every portal gets a premium Christmas look until Jan 6: an evergreen side rail with a Santa hat on the logo, a garland with twinkling lights, cranberry-and-gold buttons, gentle snowfall and a greeting with a Christmas countdown on your home page. The ❄ button in the top bar turns the snow or the whole look off just for you.',
+  portals:['All portals'], depts:[]}]);
 /* <<< OCT24 MODULES <<< */
 </script>
 </body>

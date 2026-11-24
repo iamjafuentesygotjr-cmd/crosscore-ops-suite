@@ -20923,7 +20923,7 @@ async function cooPostFromModal(){ const ch = CHATS.find(c=>c.id===el('paPostC')
    The footer shows which build is running ("Build 2026-10-07 · 1"), and every open portal checks every few minutes
    (and whenever it comes back to the foreground) whether a newer build has been published. If so it shows
    "New version available — Update now" instead of quietly running old code. */
-const BUILD_ID = '2026-11-24 · 2';
+const BUILD_ID = '2026-11-24 · 3';
 function verStamp(){ const f = el('footNote'); if(f && !f.dataset.v){ f.dataset.v = 1; f.textContent = `Cross Core Ops Suite v8 · Build ${BUILD_ID}`; } }
 async function verCheck(){
   if(!/^https?:/.test(location.protocol)) return;
@@ -48423,6 +48423,70 @@ window.OPS_TOURS = Object.assign(window.OPS_TOURS||{}, {christmas:{steps:[
   {id:'xm-garland', run:"closeModal(); xmApply()", wait:700, focus:'.topbar', title:'Garland, lights and a Santa hat', say:'A pine garland with twinkling lights runs along the top bar, the logo wears a Santa hat, and the buttons are cranberry and gold.'},
   {id:'xm-button', run:"closeModal()", wait:500, focus:'.topbar .xm-btn', title:'The snowflake button', say:'Tap the snowflake in the top bar to change the Christmas look for yourself.'},
   {id:'xm-menu', run:"xmMenu()", wait:700, focus:'#modal .box', title:'Snow on or off — just for you', say:'Turn the snowfall or the whole Christmas look off just for you. It all switches off by itself after January 6.'}]}});
+/* ===== t55_typefix_bug.js ===== */
+/* v1.0.15 · build 2026-11-24 · 3
+   1. TYPING IN THE SIDE-PANEL SEARCH (reported by Kiara, Nov 24): the "Search" box at the top of the side panel lost
+      the cursor while you typed, so letters went nowhere. Cause: every background refresh (badge counts, new messages,
+      another person's change) rebuilt the whole panel — including the box you were typing in. Now a background refresh
+      waits while you type in that box (it runs as soon as you leave it), and the search's own filtering keeps the
+      cursor and selection exactly where they were.
+   2. REPORT A BUG FROM ANYWHERE: a 🐞 button in the top bar of every staff portal (and on phones) opens "Report a
+      problem" at once — the page you are on is filled in, with the screenshot tool, files and the "affects everyone"
+      tick. Keyboard: Alt + Shift + R (Option + Shift + R on a Mac). Clients and applicants keep using Messages. */
+
+/* ---------- 1. panel search keeps the cursor ---------- */
+if(typeof xPanel==='function'){
+  const _xp = xPanel; let XPF_PEND = false;
+  xPanel = function(keepFocus){
+    const a = document.activeElement, typing = !!a && a.id==='xQ';
+    if(typing && !keepFocus){ XPF_PEND = true; return; }   /* a background refresh while someone types: later */
+    let s = 0, e = 0, v = null;
+    if(typing){ v = a.value; s = a.selectionStart; e = a.selectionEnd; if(typeof XS!=='undefined') XS.q = v; }
+    const r = _xp.apply(this, arguments);
+    if(typing){ const i = el('xQ'); if(i){ if(i.value!==v) i.value = v; if(document.activeElement!==i) i.focus(); try{ i.setSelectionRange(s, e); }catch(_){} } }
+    return r; };
+  document.addEventListener('focusout', ev=>{ if(ev.target?.id!=='xQ' || !XPF_PEND) return;
+    setTimeout(()=>{ if(document.activeElement?.id!=='xQ' && XPF_PEND){ XPF_PEND = false; try{ xPanel(); }catch(e){} } }, 120); }, true);
+}
+
+/* ---------- 2. 🐞 Report a bug — one click (or Alt + Shift + R) from any page ---------- */
+const bgCan = () => { try{ return typeof ticketModal==='function' && !!PEOPLE[PERSON] && !['client','applicant'].includes(ROLE); }catch(e){ return false; } };
+const BG_ICO = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 7a4 4 0 0 1 8 0"/><rect x="7" y="7" width="10" height="13" rx="5"/><path d="M12 11v9M4 13h3M17 13h3M5 8l2.5 1.5M19 8l-2.5 1.5M5 19l2.5-2M19 19l-2.5-2"/></svg>`;
+function bgReport(){ if(!bgCan()) return; try{ closeModal(); }catch(e){} ticketModal(); setTimeout(()=>{ try{ el('tkTitle')?.focus(); }catch(e){} }, 80); }
+function bgButton(){
+  const can = bgCan();
+  document.querySelectorAll('.topbar').forEach(tb=>{
+    let b = tb.querySelector('.bg-btn');
+    if(!can){ b?.remove(); return; } if(b) return;
+    const th = tb.querySelector('.icon-btn[onclick*="toggleTheme"]');
+    b = document.createElement('button'); b.type = 'button'; b.className = 'icon-btn bg-btn'; b.innerHTML = BG_ICO;
+    b.title = 'Report a bug (Alt+Shift+R)'; b.setAttribute('aria-label', 'Report a bug or problem'); b.setAttribute('aria-keyshortcuts', 'Alt+Shift+R'); b.onclick = bgReport;
+    if(th) th.parentNode.insertBefore(b, th); else (tb.querySelector('.topbar-actions, .tb-actions') || tb).appendChild(b); });
+}
+(function bgCSS(){ if(document.getElementById('bgCSS')) return; const st = document.createElement('style'); st.id = 'bgCSS';
+  st.textContent = `.bg-btn svg{width:18px;height:18px;color:var(--bad,#C93B3B)}.bg-btn:hover svg{transform:rotate(-8deg)}
+  #mTop .bg-mb svg{width:20px;height:20px;color:var(--bad,#C93B3B)}`; document.head.appendChild(st); })();
+/* phones: the slim top bar (t51) gets the same button, next to Search */
+if(typeof mbTop==='function'){ const _mt = mbTop; mbTop = function(){ const r = _mt.apply(this, arguments);
+    try{ const t = el('mTop'); if(t && bgCan() && !t.querySelector('.bg-mb')){ const me = t.querySelector('.mb-me'); const b = document.createElement('button'); b.type = 'button'; b.className = 'mb-ib bg-mb'; b.setAttribute('aria-label', 'Report a bug or problem'); b.title = 'Report a bug'; b.innerHTML = BG_ICO; b.onclick = bgReport; me ? t.insertBefore(b, me) : t.appendChild(b); } }catch(e){}
+    return r; }; }
+document.addEventListener('keydown', ev=>{ if(ev.altKey && ev.shiftKey && !ev.ctrlKey && !ev.metaKey && ev.code==='KeyR' && bgCan()){ ev.preventDefault(); bgReport(); } });
+{ const _go = go; go = function(){ const r = _go.apply(this, arguments); try{ bgButton(); }catch(e){} return r; }; }
+{ const _sp = setPerson; setPerson = function(){ const r = _sp.apply(this, arguments); setTimeout(()=>{ try{ bgButton(); }catch(e){} }, 250); return r; }; }
+if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', ()=>{ try{ bgButton(); }catch(e){} }); else setTimeout(()=>{ try{ bgButton(); }catch(e){} }, 0);
+
+window.OPS_RELEASE = (window.OPS_RELEASE||[]).concat([
+  {build:'2026-11-24 · 3', id:'panel-search-typing', type:'fix', modules:['t55_typefix_bug.js'],
+   title:'Typing in the side-panel search works again', audience:{groups:['all']},
+   text:'The Search box at the top of the side panel lost the cursor while you typed, so letters disappeared. It now keeps the cursor while you type, even when new messages and updates arrive.',
+   portals:['All portals'], depts:[]},
+  {build:'2026-11-24 · 3', id:'report-bug-button', type:'feature', modules:['t55_typefix_bug.js'], tour:'reportbug',
+   title:'Report a bug from any page — 🐞 in the top bar', audience:{groups:['all']},
+   text:'Found something wrong? Click the 🐞 bug button in the top bar (or press Alt + Shift + R) on any page. "Report a problem" opens with the page filled in — add a screenshot and send. System Ops Support gets it as a ticket right away.',
+   portals:['All portals'], depts:[]}]);
+window.OPS_TOURS = Object.assign(window.OPS_TOURS||{}, {reportbug:{steps:[
+  {id:'bg-button', as:'kiara', run:"closeModal(); go('dashboard'); bgButton()", wait:900, focus:'.topbar .bg-btn', title:'The bug button', say:'Spotted a problem? Click the bug button in the top bar — on any page.'},
+  {id:'bg-form', run:"bgReport()", wait:800, focus:'#modal .box', title:'Report it in seconds', say:'The page you were on is filled in. Add a title, what happened and a screenshot, then send.'}]}});
 /* <<< OCT24 MODULES <<< */
 </script>
 </body>

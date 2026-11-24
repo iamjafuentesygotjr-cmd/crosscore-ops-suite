@@ -20923,7 +20923,7 @@ async function cooPostFromModal(){ const ch = CHATS.find(c=>c.id===el('paPostC')
    The footer shows which build is running ("Build 2026-10-07 · 1"), and every open portal checks every few minutes
    (and whenever it comes back to the foreground) whether a newer build has been published. If so it shows
    "New version available — Update now" instead of quietly running old code. */
-const BUILD_ID = '2026-11-24 · 3';
+const BUILD_ID = '2026-11-24 · 4';
 function verStamp(){ const f = el('footNote'); if(f && !f.dataset.v){ f.dataset.v = 1; f.textContent = `Cross Core Ops Suite v8 · Build ${BUILD_ID}`; } }
 async function verCheck(){
   if(!/^https?:/.test(location.protocol)) return;
@@ -48487,6 +48487,106 @@ window.OPS_RELEASE = (window.OPS_RELEASE||[]).concat([
 window.OPS_TOURS = Object.assign(window.OPS_TOURS||{}, {reportbug:{steps:[
   {id:'bg-button', as:'kiara', run:"closeModal(); go('dashboard'); bgButton()", wait:900, focus:'.topbar .bg-btn', title:'The bug button', say:'Spotted a problem? Click the bug button in the top bar — on any page.'},
   {id:'bg-form', run:"bgReport()", wait:800, focus:'#modal .box', title:'Report it in seconds', say:'The page you were on is filled in. Add a title, what happened and a screenshot, then send.'}]}});
+/* ===== t56_boardnav.js ===== */
+/* v1.0.15 · build 2026-11-24 · 4 — boards you can always move across (reported Nov 24: "can't scroll to see Approved
+   content" on the Content Board).
+   Cause: wide boards (Content Board, Applicant Board, planners) scroll sideways, but the sideways scrollbar sits at the
+   very bottom of a tall board — off screen — and a mouse wheel only goes up and down, so the columns on the right
+   (Pending Client Approval, Approved, Published…) were out of reach without a trackpad swipe.
+   Now every board that is wider than the screen gets a bar right above it that stays in view while you scroll down:
+   • a chip for every column with its count — click "Approved" and the board slides there;
+   • ‹ › buttons, and a visible sideways scrollbar under the chips;
+   • the mouse wheel over that bar moves the board sideways;
+   • drag the board's empty space with the mouse to pan (cards still drag between columns as before);
+   • ← → keys while the bar has focus.
+   Phones and tablets: the same bar, and swiping the board works as before. When a board fits, nothing is shown. */
+const BN_SEL = ['.kanban', '.rb-board', '.jp-board', '.mk-board', '.pl-board', '.rec-board'];
+const bnFits = b => b.scrollWidth <= b.clientWidth + 8;
+function bnCols(b){ return [...b.children].filter(c=>c.offsetWidth > 60).map(c=>{
+  const head = c.querySelector(':scope > [class*="-h"], :scope > header, :scope > .kcol-head, :scope > div') || c;
+  const lines = String(head.innerText||'').split('\n').map(s=>s.trim()).filter(Boolean);
+  const label = (lines.find(s=>!/^\d+$/.test(s)) || c.getAttribute('aria-label') || '').replace(/^[•·●\s]+/, '').slice(0, 34);
+  const n = lines.slice(0, 4).find(s=>/^\d+$/.test(s));
+  return {el:c, label, n}; }).filter(x=>x.label); }
+function bnGo(b, i){ const cols = bnCols(b), c = cols[Math.max(0, Math.min(cols.length-1, i))]; if(!c) return;
+  const left = c.el.getBoundingClientRect().left - b.getBoundingClientRect().left + b.scrollLeft - 8;
+  b.scrollTo({left:Math.max(0, left), behavior:'smooth'});
+  /* a column on a second row (e.g. Completed under Draft): bring it into view vertically too */
+  const r = c.el.getBoundingClientRect(), bar = b.__bnBar, top = bar ? bar.getBoundingClientRect().bottom + 8 : 0;
+  if(r.top > innerHeight - 120 || r.top < top){ const sc = b.closest('main.content') || document.scrollingElement; sc.scrollBy({top:r.top - top, behavior:'smooth'}); } }
+function bnActive(b){ const cols = bnCols(b), x0 = b.getBoundingClientRect().left; let best = 0, bd = 1e9;
+  cols.forEach((c, i)=>{ const d = Math.abs(c.el.getBoundingClientRect().left - x0); if(d < bd){ bd = d; best = i; } }); return best; }
+function bnSync(bar){ const b = bar.__board; if(!b || !b.isConnected) return;
+  const tr = bar.querySelector('.bn-track'), inn = tr.firstElementChild; inn.style.width = b.scrollWidth + 'px';
+  if(!bar.__drag && Math.abs(tr.scrollLeft - b.scrollLeft) > 1){ bar.__mute = true; tr.scrollLeft = b.scrollLeft; }
+  /* chips of the columns in view are lit; the one you clicked stays marked while it is in view */
+  const r0 = b.getBoundingClientRect(), cols = bnCols(b);
+  const vis = cols.map(c=>{ const r = c.el.getBoundingClientRect(); const w = Math.min(r.right, r0.right) - Math.max(r.left, r0.left); return w >= r.width * .6; });
+  if(bar.__want!=null && !vis[bar.__want] && Date.now() - (bar.__wantAt||0) > 900) bar.__want = null;   /* not while it is still sliding there */
+  bar.querySelectorAll('.bn-chip').forEach((ch, i)=>{ ch.classList.toggle('vis', !!vis[i]); ch.classList.toggle('on', i===bar.__want); });
+  const on = bar.querySelector('.bn-chip.on') || bar.querySelector('.bn-chip.vis'); const cr = bar.querySelector('.bn-chips');
+  if(on && cr){ const a1 = on.offsetLeft - cr.offsetLeft, a2 = a1 + on.offsetWidth; if(a1 < cr.scrollLeft || a2 > cr.scrollLeft + cr.clientWidth) cr.scrollLeft = Math.max(0, a1 - 12); }
+  bar.querySelector('.bn-l').disabled = b.scrollLeft <= 2; bar.querySelector('.bn-r').disabled = b.scrollLeft >= b.scrollWidth - b.clientWidth - 2; }
+function bnChips(bar){ const b = bar.__board, cols = bnCols(b), sig = cols.map(c=>c.label + c.n).join('|'); if(bar.__sig===sig) return; bar.__sig = sig;
+  bar.querySelector('.bn-chips').innerHTML = cols.map((c, i)=>`<button type="button" class="bn-chip" data-i="${i}">${esc(c.label)}${c.n!=null?` <b>${esc(c.n)}</b>`:''}</button>`).join(''); }
+function bnAttach(b){
+  let bar = b.previousElementSibling?.classList?.contains('bn-bar') ? b.previousElementSibling : null;
+  if(bnFits(b)){ if(bar) bar.hidden = true; return; }
+  if(!bar){ bar = document.createElement('div'); bar.className = 'bn-bar'; bar.setAttribute('role', 'toolbar'); bar.setAttribute('aria-label', 'Move across the board'); bar.tabIndex = 0;
+    bar.innerHTML = `<button type="button" class="bn-l" aria-label="Scroll left">‹</button><div class="bn-mid"><div class="bn-chips"></div><div class="bn-track" aria-hidden="true"><div></div></div></div><button type="button" class="bn-r" aria-label="Scroll right">›</button>`;
+    b.parentNode.insertBefore(bar, b);
+    bar.querySelector('.bn-l').onclick = ()=>bar.__board.scrollBy({left:-bar.__board.clientWidth*.8, behavior:'smooth'});
+    bar.querySelector('.bn-r').onclick = ()=>bar.__board.scrollBy({left:bar.__board.clientWidth*.8, behavior:'smooth'});
+    bar.querySelector('.bn-chips').addEventListener('click', e=>{ const c = e.target.closest('.bn-chip'); if(c){ bar.__want = +c.dataset.i; bar.__wantAt = Date.now(); bnGo(bar.__board, +c.dataset.i); setTimeout(()=>bnSync(bar), 450); } });
+    const tr = bar.querySelector('.bn-track');
+    tr.addEventListener('scroll', ()=>{ if(bar.__mute){ bar.__mute = false; return; } bar.__drag = true; bar.__board.scrollLeft = tr.scrollLeft; clearTimeout(bar.__dt); bar.__dt = setTimeout(()=>bar.__drag = false, 150); });
+    bar.addEventListener('wheel', e=>{ const d = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY; if(!d) return; e.preventDefault(); bar.__board.scrollLeft += d; }, {passive:false});
+    bar.addEventListener('keydown', e=>{ if(e.key==='ArrowRight' || e.key==='ArrowLeft'){ e.preventDefault(); const i = bnActive(bar.__board) + (e.key==='ArrowRight' ? 1 : -1); bnGo(bar.__board, i); } }); }
+  bar.hidden = false;
+  if(bar.__board!==b){ bar.__board = b; b.__bnBar = bar; b.addEventListener('scroll', ()=>bnSync(bar), {passive:true}); bnPan(b); }
+  bnChips(bar); bnSync(bar);
+}
+/* drag the board's empty space with the mouse to pan (not on cards, buttons or fields) */
+function bnPan(b){ if(b.__bnPan) return; b.__bnPan = true;
+  b.addEventListener('pointerdown', e=>{ if(e.pointerType!=='mouse' || e.button!==0) return;
+    if(e.target.closest('button,a,input,select,textarea,label,[draggable="true"],[onclick],[contenteditable],.kcard,.card,.rb-card,.task')) return;
+    const x0 = e.clientX, s0 = b.scrollLeft; let moved = false;
+    const mv = ev=>{ const dx = ev.clientX - x0; if(!moved && Math.abs(dx) < 4) return; moved = true; b.classList.add('bn-panning'); b.scrollLeft = s0 - dx; };
+    const up = ()=>{ removeEventListener('pointermove', mv); removeEventListener('pointerup', up); b.classList.remove('bn-panning'); };
+    addEventListener('pointermove', mv); addEventListener('pointerup', up); }); }
+function bnScan(){ try{ document.querySelectorAll(BN_SEL.join(',')).forEach(b=>{ if(b.offsetParent!==null) bnAttach(b); });
+    document.querySelectorAll('.bn-bar').forEach(bar=>{ if(!bar.__board || !bar.__board.isConnected || bar.nextElementSibling!==bar.__board) bar.remove(); }); }catch(e){ console.warn('boardnav', e); } }
+(function bnCSS(){ if(document.getElementById('bnCSS')) return; const st = document.createElement('style'); st.id = 'bnCSS';
+  st.textContent = `.bn-bar{position:sticky;top:0;z-index:6;display:flex;align-items:stretch;gap:8px;margin:0 0 10px;padding:8px;border:1px solid var(--line);border-radius:12px;background:color-mix(in srgb,var(--panel) 92%,transparent);backdrop-filter:blur(10px);box-shadow:var(--shadow)}
+.bn-bar[hidden]{display:none}.bn-bar:focus-visible{outline:2px solid var(--brand-2);outline-offset:2px}
+.bn-l,.bn-r{flex-shrink:0;width:38px;border-radius:9px;border:1px solid var(--line);background:var(--panel);font-size:22px;line-height:1;color:var(--ink)}
+.bn-l:disabled,.bn-r:disabled{opacity:.35;cursor:default}.bn-l:not(:disabled):hover,.bn-r:not(:disabled):hover{background:var(--panel-2)}
+.bn-mid{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px}
+.bn-chips{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none}.bn-chips::-webkit-scrollbar{display:none}
+.bn-chip{flex-shrink:0;padding:5px 11px;border-radius:999px;border:1px solid var(--line);background:var(--panel);font-size:12.5px;font-weight:600;color:var(--ink-2);white-space:nowrap}
+.bn-chip b{margin-left:3px;font-weight:700;color:var(--ink-3);font-variant-numeric:tabular-nums}
+.bn-chip.vis{border-color:color-mix(in srgb,var(--ink) 35%,var(--line));color:var(--ink)}
+.bn-chip.on{background:var(--ink);border-color:var(--ink);color:var(--panel)}.bn-chip.on b{color:inherit;opacity:.75}
+.bn-track{height:12px;overflow-x:auto;overflow-y:hidden;border-radius:99px;background:var(--panel-2)}.bn-track > div{height:1px}
+.bn-track::-webkit-scrollbar{height:10px}.bn-track::-webkit-scrollbar-thumb{background:color-mix(in srgb,var(--ink) 30%,transparent);border-radius:99px;border:2px solid var(--panel-2)}
+.bn-track::-webkit-scrollbar-track{background:transparent}
+.bn-panning{cursor:grabbing!important;user-select:none}
+@media (pointer:coarse){.bn-l,.bn-r{width:44px}.bn-chip{padding:8px 12px}.bn-track{display:none}}`;
+  document.head.appendChild(st); })();
+let BN_T = 0; const bnSoon = () => { clearTimeout(BN_T); BN_T = setTimeout(bnScan, 160); };
+{ const _go = go; go = function(){ const r = _go.apply(this, arguments); bnSoon(); return r; }; }
+{ const _sr = scheduleRender; scheduleRender = function(){ const r = _sr.apply(this, arguments); bnSoon(); return r; }; }
+addEventListener('resize', bnSoon);
+try{ new MutationObserver(ms=>{ if(ms.some(m=>[...m.addedNodes].some(n=>n.nodeType===1 && (n.matches?.(BN_SEL.join(',')) || n.querySelector?.(BN_SEL.join(',')))))) bnSoon(); }).observe(document.body, {childList:true, subtree:true}); }catch(e){}
+setTimeout(bnScan, 600);
+
+window.OPS_RELEASE = (window.OPS_RELEASE||[]).concat([{build:'2026-11-24 · 4', id:'board-scroll', type:'fix', modules:['t56_boardnav.js'], tour:'boardnav',
+  title:'Every column of a board is one click away', audience:{groups:['all']},
+  text:'Wide boards (Content Board, Applicant Board, planners) now have a bar above them that stays in view: click a column — like Approved — to jump there, use ‹ ›, the scrollbar or your mouse wheel on the bar, or drag the board. Works on laptops, tablets and phones.',
+  portals:['All portals'], depts:[]}]);
+window.OPS_TOURS = Object.assign(window.OPS_TOURS||{}, {boardnav:{steps:[
+  {id:'bn-bar', as:'kiara', run:"closeModal(); go('tasks'); setTimeout(bnScan, 50)", wait:1200, focus:'.view.active .bn-bar', title:'Jump to any column', say:'Click a column name — like Approved — and the board slides straight to it.'},
+  {id:'bn-moved', run:"(()=>{ const b=document.querySelector('.view.active .kanban'); const i=bnCols(b).findIndex(c=>/Approved/.test(c.label) && !/Pending/.test(c.label)); const bar=b.__bnBar; if(bar){ bar.__want=i; bar.__wantAt=Date.now(); } bnGo(b, i<0?99:i); setTimeout(()=>bar&&bnSync(bar), 500); })()", wait:1100, focus:'.view.active .bn-bar', title:'There it is', say:'Use the arrows, the scrollbar or your mouse wheel on this bar to move across.'}]}});
 /* <<< OCT24 MODULES <<< */
 </script>
 </body>

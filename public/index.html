@@ -20923,7 +20923,7 @@ async function cooPostFromModal(){ const ch = CHATS.find(c=>c.id===el('paPostC')
    The footer shows which build is running ("Build 2026-10-07 · 1"), and every open portal checks every few minutes
    (and whenever it comes back to the foreground) whether a newer build has been published. If so it shows
    "New version available — Update now" instead of quietly running old code. */
-const BUILD_ID = '2026-11-24 · 1';
+const BUILD_ID = '2026-11-24 · 2';
 function verStamp(){ const f = el('footNote'); if(f && !f.dataset.v){ f.dataset.v = 1; f.textContent = `Cross Core Ops Suite v8 · Build ${BUILD_ID}`; } }
 async function verCheck(){
   if(!/^https?:/.test(location.protocol)) return;
@@ -48413,10 +48413,16 @@ document.addEventListener('visibilitychange', ()=>{ if(!document.hidden && xmSno
 setInterval(()=>{ try{ xmApply(); }catch(e){} }, 60e3);   /* the date changes at midnight; the greeting follows */
 if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', ()=>{ try{ xmApply(); }catch(e){} }); else setTimeout(()=>{ try{ xmApply(); }catch(e){} }, 0);
 
-window.OPS_RELEASE = (window.OPS_RELEASE||[]).concat([{build:'2026-11-24 · 1', id:'christmas-2026', type:'improvement', modules:['t54_christmas.js'],
+window.OPS_RELEASE = (window.OPS_RELEASE||[]).concat([{build:'2026-11-24 · 1', id:'christmas-2026', type:'improvement', modules:['t54_christmas.js'], tour:'christmas',
   title:'Christmas look for every portal', audience:{groups:['all']},
   text:'Every portal gets a premium Christmas look until Jan 6: an evergreen side rail with a Santa hat on the logo, a garland with twinkling lights, cranberry-and-gold buttons, gentle snowfall and a greeting with a Christmas countdown on your home page. The ❄ button in the top bar turns the snow or the whole look off just for you.',
   portals:['All portals'], depts:[]}]);
+/* walkthrough for What's New → screenshots and the AI walkthrough video (Release Studio) */
+window.OPS_TOURS = Object.assign(window.OPS_TOURS||{}, {christmas:{steps:[
+  {id:'xm-home', as:'kiara', run:"try{ localStorage.removeItem(xmMy('cc-xmas-hide')); }catch(e){} closeModal(); go('dashboard'); xmApply()", wait:1200, focus:'#xHome .xm-hero', title:'A Christmas greeting on your home page', say:'Every portal now has a Christmas look, with a countdown to Christmas on your home page.'},
+  {id:'xm-garland', run:"closeModal(); xmApply()", wait:700, focus:'.topbar', title:'Garland, lights and a Santa hat', say:'A pine garland with twinkling lights runs along the top bar, the logo wears a Santa hat, and the buttons are cranberry and gold.'},
+  {id:'xm-button', run:"closeModal()", wait:500, focus:'.topbar .xm-btn', title:'The snowflake button', say:'Tap the snowflake in the top bar to change the Christmas look for yourself.'},
+  {id:'xm-menu', run:"xmMenu()", wait:700, focus:'#modal .box', title:'Snow on or off — just for you', say:'Turn the snowfall or the whole Christmas look off just for you. It all switches off by itself after January 6.'}]}});
 /* <<< OCT24 MODULES <<< */
 </script>
 </body>
